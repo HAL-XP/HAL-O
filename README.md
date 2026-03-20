@@ -1,8 +1,12 @@
-# Claudeborn
+<p align="center">
+  <img src="resources/icon_256.png" alt="Claudeborn" width="120" />
+</p>
 
-Electron wizard for bootstrapping Claude Code projects with best practices.
+<h1 align="center">Claudeborn</h1>
 
-> *"FUS RO CLAUDE"* — shout a new project into existence.
+<p align="center">Electron wizard for bootstrapping Claude Code projects with best practices.</p>
+
+<p align="center"><em>"FUS RO CLAUDE"</em> — shout a new project into existence.</p>
 
 <p align="center">
   <img src="screenshots/stack.png" alt="LLM-powered stack analysis" width="700" />
