@@ -109,13 +109,14 @@ Smart defaults tailored for solo developers — hooks, rules, extras, and cloud 
 - PID tracking (`.claude/.pids`) for safe process management
 
 **UI**
-- Typing animation with blinking cursor
-- Staggered button entrance
-- Phase progress bar with glow animations
-- Confetti + JRPG victory fanfare on success
-- Dark/light theme toggle
-- Sound effects (Web Audio API, no files)
+- 30 color themes (sorted by hue — reds through purples + neutral)
+- 10 font families (7 sans/serif + 3 monospace including Terminal)
+- Dark/light mode toggle
 - 16 languages (EN, FR, ES, DE, PT, IT, NL, PL, RU, TR, AR, HI, JA, ZH, KO, VI)
+- Typing animation with blinking cursor
+- Staggered button entrance, phase progress bar with glow
+- Confetti + JRPG victory fanfare on success
+- Sound effects with mute toggle (Web Audio API, no files)
 - Custom Scroll/Blueprint logo
 
 ## Optional Extras
