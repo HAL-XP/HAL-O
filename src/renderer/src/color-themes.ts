@@ -124,6 +124,56 @@ export const COLOR_THEMES: ColorTheme[] = [
     dark: { bgBase: '#0a0e14', bgSurface: '#141e28', bgSurfaceHover: '#1e2e3a', bgInput: '#0f1820', primary: '#7dd3fc', primaryHover: '#bae6fd', primaryDim: '#38bdf8' },
     light: { bgBase: '#f0f9ff', bgSurface: '#ffffff', bgSurfaceHover: '#e0f2fe', bgInput: '#d4ecfa', primary: '#0284c7', primaryHover: '#0369a1', primaryDim: '#7dd3fc' },
   },
+  {
+    id: 'lavender', name: 'Lavender',
+    dark: { bgBase: '#100e16', bgSurface: '#201c2c', bgSurfaceHover: '#2e2a3e', bgInput: '#181422', primary: '#b4a0f0', primaryHover: '#cdbef5', primaryDim: '#9580e0' },
+    light: { bgBase: '#f8f5ff', bgSurface: '#ffffff', bgSurfaceHover: '#f0eaff', bgInput: '#e8e0fc', primary: '#8b6fd0', primaryHover: '#7558c0', primaryDim: '#cdbef5' },
+  },
+  {
+    id: 'cherry', name: 'Cherry Blossom',
+    dark: { bgBase: '#140c10', bgSurface: '#281820', bgSurfaceHover: '#3a2430', bgInput: '#1e1218', primary: '#f9a8d4', primaryHover: '#fbcfe8', primaryDim: '#ec4899' },
+    light: { bgBase: '#fff5f9', bgSurface: '#ffffff', bgSurfaceHover: '#ffe4ee', bgInput: '#ffd6e7', primary: '#db2777', primaryHover: '#be185d', primaryDim: '#f9a8d4' },
+  },
+  {
+    id: 'forest', name: 'Forest',
+    dark: { bgBase: '#080e08', bgSurface: '#121e14', bgSurfaceHover: '#1c2e1e', bgInput: '#0e180f', primary: '#4ade80', primaryHover: '#86efac', primaryDim: '#22c55e' },
+    light: { bgBase: '#f0faf2', bgSurface: '#ffffff', bgSurfaceHover: '#dcfce7', bgInput: '#d0f5dc', primary: '#16a34a', primaryHover: '#15803d', primaryDim: '#86efac' },
+  },
+  {
+    id: 'midnight', name: 'Midnight',
+    dark: { bgBase: '#06080e', bgSurface: '#0e1220', bgSurfaceHover: '#161e32', bgInput: '#0a0e18', primary: '#a5b4fc', primaryHover: '#c7d2fe', primaryDim: '#6366f1' },
+    light: { bgBase: '#eef0ff', bgSurface: '#ffffff', bgSurfaceHover: '#e0e4ff', bgInput: '#d4d8fc', primary: '#4f46e5', primaryHover: '#4338ca', primaryDim: '#c7d2fe' },
+  },
+  {
+    id: 'volcano', name: 'Volcano',
+    dark: { bgBase: '#140a06', bgSurface: '#28140c', bgSurfaceHover: '#3c1e14', bgInput: '#1e100a', primary: '#ff6b35', primaryHover: '#ff8c5a', primaryDim: '#e04d1a' },
+    light: { bgBase: '#fff6f0', bgSurface: '#ffffff', bgSurfaceHover: '#ffe8da', bgInput: '#ffdcc8', primary: '#e04d1a', primaryHover: '#c43d10', primaryDim: '#ff8c5a' },
+  },
+  {
+    id: 'arctic', name: 'Arctic',
+    dark: { bgBase: '#080c12', bgSurface: '#101820', bgSurfaceHover: '#182430', bgInput: '#0c1218', primary: '#7dcfff', primaryHover: '#a8e0ff', primaryDim: '#3aadea' },
+    light: { bgBase: '#f0f8ff', bgSurface: '#ffffff', bgSurfaceHover: '#dff0ff', bgInput: '#d0e8fa', primary: '#1a8fd0', primaryHover: '#1578b0', primaryDim: '#a8e0ff' },
+  },
+  {
+    id: 'wine', name: 'Wine',
+    dark: { bgBase: '#120a0c', bgSurface: '#241418', bgSurfaceHover: '#361e24', bgInput: '#1a0f12', primary: '#c0506a', primaryHover: '#d87088', primaryDim: '#a03050' },
+    light: { bgBase: '#fdf2f4', bgSurface: '#ffffff', bgSurfaceHover: '#fbe4e8', bgInput: '#f8d4dc', primary: '#a03050', primaryHover: '#882440', primaryDim: '#d87088' },
+  },
+  {
+    id: 'matrix', name: 'Matrix',
+    dark: { bgBase: '#000a00', bgSurface: '#001400', bgSurfaceHover: '#002000', bgInput: '#001000', primary: '#00ff41', primaryHover: '#40ff70', primaryDim: '#00cc33' },
+    light: { bgBase: '#f0fff2', bgSurface: '#ffffff', bgSurfaceHover: '#d8ffe0', bgInput: '#c8f8d0', primary: '#008822', primaryHover: '#006818', primaryDim: '#40ff70' },
+  },
+  {
+    id: 'peach', name: 'Peach',
+    dark: { bgBase: '#141010', bgSurface: '#28201c', bgSurfaceHover: '#3a2e28', bgInput: '#1e1814', primary: '#fba07a', primaryHover: '#fcbb9a', primaryDim: '#f07848' },
+    light: { bgBase: '#fff8f4', bgSurface: '#ffffff', bgSurfaceHover: '#ffede4', bgInput: '#ffe2d4', primary: '#e86030', primaryHover: '#d04820', primaryDim: '#fcbb9a' },
+  },
+  {
+    id: 'synthwave', name: 'Synthwave',
+    dark: { bgBase: '#0e0616', bgSurface: '#1a0c2a', bgSurfaceHover: '#28143e', bgInput: '#140a20', primary: '#ff2dce', primaryHover: '#ff6be0', primaryDim: '#cc00a8' },
+    light: { bgBase: '#fff0fc', bgSurface: '#ffffff', bgSurfaceHover: '#ffe0f8', bgInput: '#ffd0f4', primary: '#cc00a8', primaryHover: '#a80090', primaryDim: '#ff6be0' },
+  },
 ]
 
 export function getThemeById(id: string): ColorTheme | undefined {
