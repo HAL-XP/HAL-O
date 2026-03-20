@@ -63,22 +63,45 @@ Everything generated in seconds — CLAUDE.md, hooks, rules, agents, devlog, scr
 
 ### Full Feature List
 
+**25 Curated Stack Profiles**
+
+Smart defaults tailored for solo developers — hooks, rules, extras, and cloud suggestions all adjust based on your stack:
+
+| Category | Stacks |
+|----------|--------|
+| Web / Frontend | React, Next.js, SvelteKit, Astro, Nuxt, Remix |
+| Full-Stack | React + Node, React + FastAPI, Python + HTMX |
+| Backend | FastAPI, Express/NestJS, Go, Rust (Axum/Actix) |
+| Desktop | Electron, Tauri |
+| Mobile | React Native / Expo |
+| Games | Pygame, Godot |
+| CLI / Scripts | Node CLI, Python CLI, automation/scraping |
+| Data / ML | Jupyter + pandas, ML training pipeline |
+| Other | Static HTML/CSS/JS |
+
+**Smart Context-Aware Defaults**
+- Playwright MCP only suggested for frontend stacks (not for CLI, games, backends)
+- Agent templates only for projects complex enough to need them
+- Cloud integrations suggested per stack: Vercel, Cloudflare, GCP, AWS, Supabase, Docker, Railway, Fly.io
+- Stack-specific rules: go-api, rust-api, game-loop, data-pipeline, mobile (alongside frontend, ux, python-api, node-api, banned-techniques)
+
 **Project Setup**
-- LLM-powered stack analysis (Sonnet) with folder scanning
+- LLM-powered stack analysis (Sonnet + web search) with folder scanning
 - GitHub repo creation via `gh` CLI (personal or org, public or private)
 - Local `git init` fallback
 
 **Claude Code Configuration**
 - CLAUDE.md generation from [claude-cli-setup-tips](https://github.com/HAL-XP/claude-cli-setup-tips) best practices
-- Stack-aware hooks (SessionStart health check, PostToolUse tsc/pycache)
-- Rules directory (frontend, ux, python-api, node-api, banned-techniques)
-- Agent templates (QA verifier, frontend, backend)
-- Playwright MCP (`.mcp.json`)
+- Stack-aware hooks (SessionStart, PostToolUse tsc/pycache/fmt)
+- 10 rule templates: frontend, ux, python-api, node-api, go-api, rust-api, game-loop, data-pipeline, mobile, banned-techniques
+- Agent templates (QA verifier, frontend, backend, gamedev, data-analyst)
+- Playwright MCP (`.mcp.json`) for frontend stacks
 
 **Project Structure**
 - `_devlog/` — summaries, hours tracking, architecture decisions, experiments
 - Launch scripts — `.bat` (Windows) and `.sh` (macOS/Linux)
-- .gitignore, README.md, MEMORY.md seed
+- Stack-aware .gitignore (Python, Rust, Go, Tauri, games, data science, Playwright)
+- README.md, MEMORY.md seed
 - PID tracking (`.claude/.pids`) for safe process management
 
 **UI**
@@ -110,7 +133,7 @@ Set your key in any of these (checked in order):
 ## Stack
 
 - **Electron** + **React 19** + **TypeScript**
-- **Anthropic SDK** (Sonnet for stack analysis with web search)
+- **Anthropic SDK** (Sonnet + web search, 25 curated stack profiles)
 - **electron-vite** for build tooling
 - **Web Audio API** for sound effects (no audio files)
 - **Canvas API** for confetti animation (no libraries)
