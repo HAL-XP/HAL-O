@@ -1,6 +1,6 @@
 {
   "name": "claudeborn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Claudeborn — Electron wizard for bootstrapping Claude Code projects with best practices",
   "main": "./out/main/index.js",
