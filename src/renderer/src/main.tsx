@@ -167,7 +167,7 @@ function Root() {
   const [colorTheme, setColorTheme] = useState(() =>
     localStorage.getItem('claudeborn-color') || 'lime')
   const [fontTheme, setFontTheme] = useState(() =>
-    localStorage.getItem('claudeborn-font') || 'system')
+    localStorage.getItem('claudeborn-font') || 'terminal')
 
   useEffect(() => { localStorage.setItem('claudeborn-lang', lang) }, [lang])
   useEffect(() => {
