@@ -1,4 +1,5 @@
 import { StepDef, Phase, Answers } from './types'
+import { STACK_PROFILES, getSmartDefaults, getProfile } from './stack-profiles'
 
 export const PHASES: Phase[] = [
   { id: 'basics', label: 'Basics', icon: '1' },
@@ -87,15 +88,12 @@ export const STEPS: StepDef[] = [
     question: "What's the primary tech stack?",
     type: 'choice',
     condition: (a) => a['stack-analysis']?.value === '__manual__',
-    choices: [
-      { id: 'web-react', label: 'Web App (React + Vite)', icon: 'R' },
-      { id: 'fullstack-node', label: 'Full Stack (React + Node)', icon: 'FN' },
-      { id: 'fullstack-python', label: 'Full Stack (React + Python)', icon: 'FP' },
-      { id: 'electron', label: 'Electron App', icon: 'E' },
-      { id: 'python-backend', label: 'Python Backend', icon: 'Py' },
-      { id: 'node-backend', label: 'Node.js Backend', icon: 'N' },
-      { id: 'cli-tool', label: 'CLI Tool', icon: 'CLI' },
-    ],
+    choices: STACK_PROFILES.map((p) => ({
+      id: p.id,
+      label: p.label,
+      icon: p.icon,
+      description: p.category,
+    })),
     allowOther: true,
   },
   {
@@ -227,10 +225,10 @@ export const STEPS: StepDef[] = [
       return choices
     },
     defaultValue: (answers) => {
-      const defaults = ['session-start']
-      if (hasTypeScript(answers)) defaults.push('post-tool-tsc')
-      if (hasPython(answers)) defaults.push('post-tool-pycache')
-      return defaults
+      const stack = answers['tech-stack']?.value as string || ''
+      const langs = answers['languages']?.value
+      const langArr = Array.isArray(langs) ? langs : []
+      return getSmartDefaults(stack, langArr).hooks
     },
     allowSkip: true,
   },
@@ -248,21 +246,33 @@ export const STEPS: StepDef[] = [
       if (hasPython(answers)) {
         choices.push({ id: 'python-api', label: 'python-api.md', description: 'FastAPI routes, restart protocol' })
       }
-      const stack = answers['tech-stack']?.value as string
-      if (['fullstack-node', 'node-backend'].includes(stack)) {
+      const stack = answers['tech-stack']?.value as string || ''
+      if (/node|express|nestjs/i.test(stack) || ['fullstack-node', 'node-backend'].includes(stack)) {
         choices.push({ id: 'node-api', label: 'node-api.md', description: 'Express/Node routes, conventions' })
+      }
+      if (/go/i.test(stack) || stack === 'go-backend') {
+        choices.push({ id: 'go-api', label: 'go-api.md', description: 'Go API conventions' })
+      }
+      if (/rust|axum|actix/i.test(stack) || stack === 'rust-backend') {
+        choices.push({ id: 'rust-api', label: 'rust-api.md', description: 'Rust API conventions' })
+      }
+      if (/game|pygame|godot/i.test(stack)) {
+        choices.push({ id: 'game-loop', label: 'game-loop.md', description: 'Game loop, sprites, assets' })
+      }
+      if (/data|ml|jupyter|pandas/i.test(stack)) {
+        choices.push({ id: 'data-pipeline', label: 'data-pipeline.md', description: 'Data pipeline conventions' })
+      }
+      if (/mobile|react-native|expo/i.test(stack)) {
+        choices.push({ id: 'mobile', label: 'mobile.md', description: 'Mobile app conventions' })
       }
       choices.push({ id: 'banned-techniques', label: 'banned-techniques.md', description: 'Dead ends log — never retry these' })
       return choices
     },
     defaultValue: (answers) => {
-      const defaults: string[] = []
-      if (hasFrontend(answers)) { defaults.push('frontend', 'ux') }
-      if (hasPython(answers)) defaults.push('python-api')
-      const stack = answers['tech-stack']?.value as string
-      if (['fullstack-node', 'node-backend'].includes(stack)) defaults.push('node-api')
-      defaults.push('banned-techniques')
-      return defaults
+      const stack = answers['tech-stack']?.value as string || ''
+      const langs = answers['languages']?.value
+      const langArr = Array.isArray(langs) ? langs : []
+      return getSmartDefaults(stack, langArr).rules
     },
     allowSkip: true,
   },
@@ -289,18 +299,48 @@ export const STEPS: StepDef[] = [
     question: 'Which extras should I set up?',
     type: 'multi-select',
     choices: (answers) => {
+      const stack = answers['tech-stack']?.value as string || ''
+      const profile = getProfile(stack)
       const choices = [
-        { id: 'playwright-mcp', label: 'Playwright MCP', description: '.mcp.json for browser testing' },
         { id: 'memory-seed', label: 'MEMORY.md seed', description: 'Initial memory template' },
         { id: 'readme', label: 'README.md', description: 'From project info' },
-        { id: 'skip-permissions', label: 'Skip permissions', description: 'Use --dangerously-skip-permissions in batch files (no confirmation prompts)' },
+        { id: 'skip-permissions', label: 'Skip permissions', description: '--dangerously-skip-permissions in launch scripts' },
       ]
-      if (hasFrontend(answers) || hasPython(answers)) {
-        choices.splice(2, 0, { id: 'agent-templates', label: 'Agent templates', description: 'Starter .claude/agents/ files' })
+      // Playwright only for frontend stacks
+      if (profile?.playwright || hasFrontend(answers)) {
+        choices.unshift({ id: 'playwright-mcp', label: 'Playwright MCP', description: '.mcp.json for browser testing' })
+      }
+      // Agent templates for complex stacks
+      if (profile?.agentTypes?.length || hasFrontend(answers) || hasPython(answers)) {
+        choices.splice(choices.length - 1, 0, { id: 'agent-templates', label: 'Agent templates', description: 'Starter .claude/agents/ files' })
+      }
+      // Cloud suggestions from profile
+      if (profile?.cloudSuggestions?.length) {
+        for (const cloud of profile.cloudSuggestions) {
+          const labels: Record<string, { label: string; desc: string }> = {
+            vercel: { label: 'Vercel deploy', desc: 'Deploy conventions for Vercel' },
+            cloudflare: { label: 'Cloudflare', desc: 'Workers, Pages, R2 conventions' },
+            gcp: { label: 'Google Cloud (GCP)', desc: 'GCP conventions + MCP server' },
+            aws: { label: 'AWS', desc: 'S3, Lambda conventions' },
+            supabase: { label: 'Supabase', desc: 'BaaS setup + conventions' },
+            docker: { label: 'Docker', desc: 'Dockerfile + .dockerignore template' },
+            railway: { label: 'Railway', desc: 'Deploy conventions' },
+            'fly-io': { label: 'Fly.io', desc: 'fly.toml + deploy conventions' },
+          }
+          const info = labels[cloud]
+          if (info) {
+            choices.push({ id: `cloud-${cloud}`, label: info.label, description: info.desc })
+          }
+        }
       }
       return choices
     },
-    defaultValue: ['playwright-mcp', 'agent-templates', 'memory-seed', 'readme', 'skip-permissions'],
+    defaultValue: (answers) => {
+      const stack = answers['tech-stack']?.value as string || ''
+      const langs = answers['languages']?.value
+      const langArr = Array.isArray(langs) ? langs : []
+      return getSmartDefaults(stack, langArr).extras
+    },
   },
 
   // Launch phase removed — agent name auto-derived from project name, session name always on

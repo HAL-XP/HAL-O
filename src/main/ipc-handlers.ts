@@ -294,7 +294,7 @@ Description: "${description}"${folderContext}
 
 After researching, respond with ONLY valid JSON (no markdown, no code fences):
 {
-  "techStack": "<a short identifier like: web-react, fullstack-node, fullstack-python, electron, python-backend, node-backend, nextjs, nuxt, sveltekit, astro, remix, tauri, or any fitting custom identifier>",
+  "techStack": "<one of these known IDs: web-react, nextjs, sveltekit, astro, nuxt, remix, fullstack-node, fullstack-python, fullstack-htmx, python-backend, node-backend, go-backend, rust-backend, electron, tauri, react-native, pygame, godot, cli-node, cli-python, automation, data-science, ml-pipeline, static-site — or a custom identifier if none fit>",
   "techStackLabel": "<human readable label like 'Next.js 15 + PostgreSQL' or 'SvelteKit + Supabase'>",
   "languages": ["<language1>", "<language2>"],
   "styling": "<tailwind|css-modules|styled-components|plain-css|none or other>",
