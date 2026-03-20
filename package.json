@@ -1,0 +1,28 @@
+{
+  "name": "claudeborn",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Claudeborn — Electron wizard for bootstrapping Claude Code projects with best practices",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^35.2.1",
+    "electron-vite": "^3.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+.env
+.env.local
+*credentials*
+.claude/settings.local.json
+.claude/agent-memory-local/
+.claude/.pids
+_devlog/
+.DS_Store
+Thumbs.db
