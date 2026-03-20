@@ -3,9 +3,9 @@
   --bg-surface: #1a1d2e;
   --bg-surface-hover: #252940;
   --bg-input: #141722;
-  --primary: #8b7cf7;
-  --primary-hover: #a097f7;
-  --primary-dim: #5b4fc7;
+  --primary: #84cc16;
+  --primary-hover: #a3e635;
+  --primary-dim: #65a30d;
   --text: #e2e4f0;
   --text-secondary: #8b8fa3;
   --text-dim: #5a5e73;
@@ -42,7 +42,7 @@ html, body, #root {
   height: 100%;
   background: var(--bg-base);
   color: var(--text);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-main, 'Segoe UI', system-ui, -apple-system, sans-serif);
   font-size: 14px;
   line-height: 1.5;
   overflow: hidden;
@@ -1072,6 +1072,67 @@ textarea.text-input {
 }
 
 .lang-name {
+  font-weight: 400;
+}
+
+/* ── Toolbar Separator ── */
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+  align-self: center;
+}
+
+/* ── Font Dropdown ── */
+.font-dropdown {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 100;
+  min-width: 180px;
+  padding: 4px 0;
+}
+
+.font-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.font-option:hover {
+  background: var(--bg-surface-hover);
+}
+
+.font-option.active {
+  color: var(--primary);
+}
+
+.font-preview {
+  font-size: 15px;
+  font-weight: 700;
+  min-width: 24px;
+  opacity: 0.7;
+}
+
+.font-option.active .font-preview {
+  opacity: 1;
+}
+
+.font-name {
   font-weight: 400;
 }
 
