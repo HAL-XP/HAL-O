@@ -27,14 +27,52 @@ interface ProjectConfig {
 function stackLabel(tech: string): string {
   const map: Record<string, string> = {
     'web-react': 'React + Vite',
+    'nextjs': 'Next.js',
+    'sveltekit': 'SvelteKit',
+    'astro': 'Astro',
+    'nuxt': 'Nuxt (Vue.js)',
+    'remix': 'Remix',
     'fullstack-node': 'React + Node.js',
     'fullstack-python': 'React + Python (FastAPI)',
-    'electron': 'Electron + React',
+    'fullstack-htmx': 'Python + HTMX',
     'python-backend': 'Python (FastAPI)',
     'node-backend': 'Node.js',
+    'go-backend': 'Go',
+    'rust-backend': 'Rust (Axum/Actix)',
+    'electron': 'Electron + React',
+    'tauri': 'Tauri (Rust + Web)',
+    'react-native': 'React Native / Expo',
+    'pygame': 'Pygame (2D Game)',
+    'godot': 'Godot (GDScript)',
+    'cli-node': 'Node.js CLI',
+    'cli-python': 'Python CLI',
     'cli-tool': 'CLI Tool',
+    'automation': 'Python Automation',
+    'data-science': 'Jupyter + pandas',
+    'ml-pipeline': 'Python ML Pipeline',
+    'static-site': 'HTML/CSS/JS',
   }
   return map[tech] || tech
+}
+
+function hasGo(config: ProjectConfig): boolean {
+  if (config.techStack === 'go-backend') return true
+  if (config.languages.some(l => /\bgo\b/i.test(l))) return true
+  return /\bgo\b/i.test(config.techStack)
+}
+
+function hasRust(config: ProjectConfig): boolean {
+  if (['rust-backend', 'tauri'].includes(config.techStack)) return true
+  if (config.languages.some(l => /rust/i.test(l))) return true
+  return /rust|actix|axum/i.test(config.techStack)
+}
+
+function isGame(config: ProjectConfig): boolean {
+  return ['pygame', 'godot'].includes(config.techStack) || /game|pygame|godot/i.test(config.techStack)
+}
+
+function isDataScience(config: ProjectConfig): boolean {
+  return ['data-science', 'ml-pipeline'].includes(config.techStack) || /jupyter|pandas|data.?science|ml/i.test(config.techStack)
 }
 
 function hasFrontend(config: ProjectConfig): boolean {
@@ -352,6 +390,100 @@ Include the date and context. This file is auto-loaded every session.
 `
   }
 
+  if (config.rulesSetup.includes('go-api')) {
+    files['go-api.md'] = `# Go API Rules
+
+## Conventions
+- Use standard library \`net/http\` where possible.
+- Check all returned errors. Never use \`_\` for error returns.
+- Run \`go fmt\` and \`go vet\` before every commit.
+
+## Project Structure
+- HTTP handlers in \`handlers/\`
+- Business logic in \`internal/\`
+- Models/types in \`models/\`
+
+## Error Handling
+- Always return errors to the caller, don't log and continue.
+- Wrap errors with context: \`fmt.Errorf("action: %w", err)\`
+`
+  }
+
+  if (config.rulesSetup.includes('rust-api')) {
+    files['rust-api.md'] = `# Rust API Rules
+
+## Conventions
+- Run \`cargo clippy\` before every commit. Fix all warnings.
+- Prefer \`Result<T, E>\` over \`.unwrap()\`. Reserve \`.unwrap()\` for tests only.
+- Use \`serde\` for all serialization/deserialization.
+
+## Error Handling
+- Define custom error types with \`thiserror\`.
+- Use \`?\` operator for propagation, never \`.unwrap()\` in production code.
+
+## Project Structure
+- Handlers in \`src/handlers/\`
+- Models in \`src/models/\`
+- Configuration in \`src/config.rs\`
+`
+  }
+
+  if (config.rulesSetup.includes('game-loop')) {
+    files['game-loop.md'] = `# Game Development Rules
+
+## Game Loop
+- Main loop: handle input -> update state -> render. Always in that order.
+- Target 60 FPS. Use \`clock.tick(60)\` (Pygame) or equivalent.
+- Separate game logic from rendering -- no draw calls in update functions.
+
+## Asset Management
+- All assets in \`assets/\` with subdirectories: \`sprites/\`, \`sounds/\`, \`fonts/\`
+- Load assets once at startup, store references. Never load per frame.
+- Use constants for asset paths.
+
+## State Management
+- Game state in a dedicated class (not scattered globals).
+- State transitions: menu -> playing -> paused -> game_over.
+`
+  }
+
+  if (config.rulesSetup.includes('data-pipeline')) {
+    files['data-pipeline.md'] = `# Data Science Rules
+
+## Notebook Conventions
+- Notebooks for exploration ONLY. Move proven code to \`src/\` as modules.
+- Clear all outputs before committing notebooks.
+
+## Data Handling
+- Raw data in \`data/raw/\` (never modified).
+- Processed data in \`data/processed/\`.
+- Large files (>10MB) go in \`.gitignore\`.
+
+## Reproducibility
+- Set random seeds everywhere (numpy, random, torch, sklearn).
+- Pin all dependency versions in \`requirements.txt\`.
+- Log experiment parameters and results to \`_devlog/experiments/\`.
+`
+  }
+
+  if (config.rulesSetup.includes('mobile')) {
+    files['mobile.md'] = `# Mobile App Rules
+
+## Conventions
+- Use Expo SDK APIs over bare React Native when possible.
+- StyleSheet.create for all styles -- no inline style objects.
+- Test on both iOS and Android before committing.
+
+## Navigation
+- React Navigation for all routing.
+- Deep linking configured from day one.
+
+## Performance
+- Use FlatList (not ScrollView) for lists.
+- Minimize re-renders with React.memo and useMemo.
+`
+  }
+
   return files
 }
 
@@ -425,10 +557,40 @@ export function generateGitignore(config: ProjectConfig): string {
     lines.push('*.egg-info/')
   }
 
-  if (config.techStack === 'electron') {
+  if (config.techStack === 'electron' || config.techStack === 'tauri') {
     lines.push('')
-    lines.push('# Electron')
+    lines.push('# Desktop')
     lines.push('release/')
+    if (config.techStack === 'tauri') lines.push('src-tauri/target/')
+  }
+
+  if (hasRust(config)) {
+    lines.push('')
+    lines.push('# Rust')
+    lines.push('target/')
+  }
+
+  if (hasGo(config)) {
+    lines.push('')
+    lines.push('# Go')
+    lines.push('bin/')
+  }
+
+  if (isGame(config)) {
+    lines.push('')
+    lines.push('# Game assets (large source files)')
+    lines.push('*.psd')
+    lines.push('*.xcf')
+    lines.push('*.blend')
+  }
+
+  if (isDataScience(config)) {
+    lines.push('')
+    lines.push('# Data')
+    lines.push('data/raw/')
+    lines.push('data/processed/')
+    lines.push('models/')
+    lines.push('.ipynb_checkpoints/')
   }
 
   if (config.playwrightMcp) {
