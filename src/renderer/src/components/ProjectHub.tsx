@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react'
 import type { ProjectInfo } from '../types'
 import { useI18n } from '../i18n'
-import { Logo } from './Logo'
+import { HalEye } from './HalEye'
 
 interface Props {
   onNewProject: () => void
   onConvertProject: (path: string) => void
+}
+
+function timeAgo(ms: number): string {
+  const diff = Date.now() - ms
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  return `${days}d`
 }
 
 export function ProjectHub({ onNewProject, onConvertProject }: Props) {
@@ -30,94 +40,106 @@ export function ProjectHub({ onNewProject, onConvertProject }: Props) {
     : projects
 
   const isFullySetup = (p: ProjectInfo) => p.hasClaude && p.hasBatchFiles && p.hasClaudeDir
+  const readyCount = projects.filter(isFullySetup).length
 
   return (
-    <div className="hub">
-      {/* Header */}
-      <div className="hub-header">
-        <div className="hub-title-row">
-          <Logo size={28} />
-          <h1 className="hub-title">Claudeborn</h1>
+    <div className="hal-room">
+      {/* Ambient grid */}
+      <div className="hal-grid-bg" />
+
+      {/* Top HUD bar */}
+      <div className="hal-topbar">
+        <div className="hal-topbar-left">
+          <span className="hal-sys-label">SYS://CLAUDEBORN</span>
+          <span className="hal-sys-ver">v1.0</span>
         </div>
-        <span className="hub-count">
-          {projects.length > 0 ? `${projects.length} projects` : ''}
-        </span>
+        <div className="hal-topbar-right">
+          <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
+          <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
+          <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{projects.length - readyCount}</span> PENDING</span>
+        </div>
+      </div>
+
+      {/* Center: HAL eye + status */}
+      <div className="hal-center">
+        <HalEye size={140} pulseSpeed={1} agentCount={projects.length} />
+        <div className="hal-center-label">
+          {loading ? 'SCANNING...' : projects.length === 0 ? 'AWAITING ORDERS' : 'OPERATIONAL'}
+        </div>
       </div>
 
       {/* Search */}
-      {projects.length > 3 && (
+      <div className="hal-search-wrap">
+        <span className="hal-prompt">&gt;</span>
         <input
-          className="hub-search"
-          placeholder={t('hub.search') !== 'hub.search' ? t('hub.search') : 'Search projects...'}
+          className="hal-search"
+          placeholder="SEARCH OPERATIONS..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="hub-empty">
-          <div className="analysis-spinner" />
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && projects.length === 0 && (
-        <div className="hub-empty">
-          <p className="hub-empty-text">
-            {t('hub.noProjects') !== 'hub.noProjects'
-              ? t('hub.noProjects')
-              : 'No projects found. Create your first one!'}
-          </p>
-        </div>
-      )}
-
-      {/* Project list */}
-      <div className="hub-grid">
-        {filtered.map((project) => (
-          <div key={project.path} className="hub-card">
-            <div className="hub-card-header">
-              <span className="hub-card-name">{project.name}</span>
-              {isFullySetup(project) ? (
-                <span className="hub-badge ok" title="Fully configured">&#10003;</span>
-              ) : (
-                <span className="hub-badge warn" title="Missing setup files">&#9888;</span>
-              )}
-            </div>
-            <span className="hub-card-path" title={project.path}>{project.path}</span>
-            {project.stack && (
-              <span className="hub-card-stack">{project.stack}</span>
-            )}
-            <div className="hub-card-actions">
-              <button className="hub-btn primary" onClick={() => window.api.launchProject(project.path, false)}>
-                &#9654; {t('hub.newSession') !== 'hub.newSession' ? t('hub.newSession') : 'New'}
-              </button>
-              <button className="hub-btn" onClick={() => window.api.launchProject(project.path, true)}>
-                &#8635; {t('hub.resume') !== 'hub.resume' ? t('hub.resume') : 'Resume'}
-              </button>
-              <button className="hub-btn" onClick={() => window.api.openFolder(project.path)}>
-                &#128193; {t('hub.openFolder') !== 'hub.openFolder' ? t('hub.openFolder') : 'Open'}
-              </button>
-              {!isFullySetup(project) && (
-                <button className="hub-btn convert" onClick={() => onConvertProject(project.path)}>
-                  {t('hub.convert') !== 'hub.convert' ? t('hub.convert') : 'Upgrade'}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
       </div>
 
-      {/* Bottom actions */}
-      <div className="hub-footer">
-        <button className="create-btn" onClick={onNewProject}>
-          + {t('hub.newProject') !== 'hub.newProject' ? t('hub.newProject') : 'New Project'}
+      {/* Project list */}
+      <div className="hal-ops-list">
+        {loading && (
+          <div className="hal-loading">SCANNING FIELD OPERATIONS...</div>
+        )}
+
+        {!loading && projects.length === 0 && (
+          <div className="hal-loading">NO OPERATIONS DETECTED — INITIATE FIRST DEPLOYMENT</div>
+        )}
+
+        {filtered.map((project) => {
+          const ready = isFullySetup(project)
+          return (
+            <div key={project.path} className={`hal-op ${ready ? 'ready' : 'pending'}`}>
+              <div className="hal-op-indicator">
+                <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
+              </div>
+              <div className="hal-op-info">
+                <div className="hal-op-top">
+                  <span className="hal-op-name">{project.name}</span>
+                  {project.stack && <span className="hal-op-stack">{project.stack}</span>}
+                  <span className="hal-op-time">{timeAgo(project.lastModified)}</span>
+                </div>
+                <div className="hal-op-path">{project.path}</div>
+                <div className="hal-op-tags">
+                  <span className={`hal-tag ${project.hasClaude ? 'on' : ''}`}>CLAUDE.md</span>
+                  <span className={`hal-tag ${project.hasClaudeDir ? 'on' : ''}`}>.claude</span>
+                  <span className={`hal-tag ${project.hasBatchFiles ? 'on' : ''}`}>SCRIPTS</span>
+                </div>
+              </div>
+              <div className="hal-op-actions">
+                <button className="hal-btn deploy" onClick={() => window.api.launchProject(project.path, false)}>
+                  DEPLOY
+                </button>
+                <button className="hal-btn" onClick={() => window.api.launchProject(project.path, true)}>
+                  RESUME
+                </button>
+                <button className="hal-btn" onClick={() => window.api.openFolder(project.path)}>
+                  FILES
+                </button>
+                {!ready && (
+                  <button className="hal-btn upgrade" onClick={() => onConvertProject(project.path)}>
+                    UPGRADE
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Command bar */}
+      <div className="hal-cmdbar">
+        <button className="hal-cmd deploy" onClick={onNewProject}>
+          + NEW OPERATION
         </button>
-        <button className="hub-btn" onClick={async () => {
+        <button className="hal-cmd" onClick={async () => {
           const folder = await window.api.selectFolder()
           if (folder) onConvertProject(folder)
         }}>
-          + {t('hub.addExisting') !== 'hub.addExisting' ? t('hub.addExisting') : 'Add Existing Folder'}
+          + RECRUIT EXISTING
         </button>
       </div>
     </div>
