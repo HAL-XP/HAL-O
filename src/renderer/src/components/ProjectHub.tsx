@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { ProjectInfo } from '../types'
 import { useI18n } from '../i18n'
 import { HalEye } from './HalEye'
+import { NetworkBg } from './NetworkBg'
 
 interface Props {
   onNewProject: () => void
@@ -44,6 +45,8 @@ export function ProjectHub({ onNewProject, onConvertProject }: Props) {
 
   return (
     <div className="hal-room">
+      {/* Animated network background */}
+      <NetworkBg nodeCount={35 + projects.length * 2} connectionDistance={110} />
       {/* Ambient grid */}
       <div className="hal-grid-bg" />
 
