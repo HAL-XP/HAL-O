@@ -48,6 +48,7 @@ function answersToConfig(answers: Answers): ProjectConfig {
     devlog: getArr('devlog'),
     gitignore: true,
     playwrightMcp: extras.includes('playwright-mcp'),
+    frontendDesignPlugin: extras.includes('plugin-frontend-design'),
     agentTemplates: extras.includes('agent-templates'),
     memorySeed: extras.includes('memory-seed'),
     readme: extras.includes('readme'),

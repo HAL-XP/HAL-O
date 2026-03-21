@@ -15,6 +15,7 @@ interface ProjectConfig {
   devlog: string[]
   gitignore: boolean
   playwrightMcp: boolean
+  frontendDesignPlugin: boolean
   agentTemplates: boolean
   memorySeed: boolean
   readme: boolean

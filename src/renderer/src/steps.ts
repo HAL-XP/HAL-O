@@ -314,6 +314,10 @@ export const STEPS: StepDef[] = [
       if (profile?.agentTypes?.length || hasFrontend(answers) || hasPython(answers)) {
         choices.splice(choices.length - 1, 0, { id: 'agent-templates', label: 'Agent templates', description: 'Starter .claude/agents/ files' })
       }
+      // Frontend design plugin for stacks with UI
+      if (profile?.playwright || hasFrontend(answers)) {
+        choices.push({ id: 'plugin-frontend-design', label: 'Frontend Design plugin', description: 'Anthropic plugin for distinctive, non-generic UI styling' })
+      }
       // Cloud suggestions from profile
       if (profile?.cloudSuggestions?.length) {
         for (const cloud of profile.cloudSuggestions) {

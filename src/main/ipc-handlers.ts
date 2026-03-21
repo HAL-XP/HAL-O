@@ -36,6 +36,7 @@ interface ProjectConfig {
   devlog: string[]
   gitignore: boolean
   playwrightMcp: boolean
+  frontendDesignPlugin: boolean
   agentTemplates: boolean
   memorySeed: boolean
   readme: boolean
@@ -560,6 +561,16 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
         const content = generateMcpJson()
         writeFileSync(join(projectPath, '.mcp.json'), JSON.stringify(content, null, 2), 'utf-8')
         log.push('[OK] Generated .mcp.json with Playwright MCP')
+      }
+
+      // 9b. Frontend design plugin
+      if (config.frontendDesignPlugin) {
+        try {
+          run('claude plugin install frontend-design --scope project', projectPath)
+          log.push('[OK] Installed frontend-design plugin')
+        } catch {
+          log.push('[OK] frontend-design plugin: install manually with /plugin install frontend-design')
+        }
       }
 
       // 10. Agent templates
