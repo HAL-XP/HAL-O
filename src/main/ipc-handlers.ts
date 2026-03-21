@@ -191,6 +191,127 @@ export function registerIpcHandlers(): void {
     return join(home, 'Projects')
   })
 
+  // ── Project Hub ──
+
+  ipcMain.handle('scan-projects', async () => {
+    const dirs = getCommonProjectDirs()
+    const projects: Array<{
+      name: string; path: string; stack: string
+      hasClaude: boolean; hasBatchFiles: boolean; hasClaudeDir: boolean; lastModified: number
+    }> = []
+    const seen = new Set<string>()
+
+    for (const parentDir of dirs) {
+      if (!existsSync(parentDir)) continue
+      let entries: string[] = []
+      try { entries = readdirSync(parentDir) } catch { continue }
+
+      for (const entry of entries) {
+        const fullPath = join(parentDir, entry)
+        if (seen.has(fullPath)) continue
+        seen.add(fullPath)
+
+        try {
+          const stat = require('fs').statSync(fullPath)
+          if (!stat.isDirectory()) continue
+
+          const files = readdirSync(fullPath)
+          const hasClaude = files.includes('CLAUDE.md')
+          const hasClaudeDir = files.includes('.claude')
+          const { newScript, resumeScript } = getLaunchScriptNames()
+          const hasBatchFiles = files.includes(newScript) || files.includes(resumeScript)
+            || files.includes('_CLAUDE_CLI_NEW.bat') || files.includes('_CLAUDE_CLI_NEW.sh')
+
+          // Only include if it looks like a Claude project
+          if (!hasClaude && !hasClaudeDir && !hasBatchFiles) continue
+
+          // Detect stack
+          let stack = ''
+          if (hasClaude) {
+            try {
+              const md = readFileSync(join(fullPath, 'CLAUDE.md'), 'utf-8')
+              const stackMatch = md.match(/\*\*Primary\*\*:\s*(.+)/i)
+                || md.match(/## Stack\n-\s*\*\*(.+?)\*\*/i)
+                || md.match(/## Stack\n-\s*(.+)/i)
+              if (stackMatch) stack = stackMatch[1].trim()
+            } catch { /* */ }
+          }
+          if (!stack) {
+            if (files.includes('package.json')) {
+              try {
+                const pkg = JSON.parse(readFileSync(join(fullPath, 'package.json'), 'utf-8'))
+                const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+                if (deps['next']) stack = 'Next.js'
+                else if (deps['react']) stack = 'React'
+                else if (deps['electron']) stack = 'Electron'
+                else if (deps['vue']) stack = 'Vue'
+                else if (deps['svelte']) stack = 'SvelteKit'
+                else stack = 'Node.js'
+              } catch { stack = 'Node.js' }
+            } else if (files.includes('requirements.txt') || files.includes('pyproject.toml')) {
+              stack = 'Python'
+            } else if (files.includes('Cargo.toml')) {
+              stack = 'Rust'
+            } else if (files.includes('go.mod')) {
+              stack = 'Go'
+            }
+          }
+
+          // Get agent name from batch file
+          let name = entry
+          const batPath = join(fullPath, '_CLAUDE_CLI_NEW.bat')
+          const shPath = join(fullPath, '_CLAUDE_CLI_NEW.sh')
+          try {
+            const batContent = existsSync(batPath)
+              ? readFileSync(batPath, 'utf-8')
+              : existsSync(shPath) ? readFileSync(shPath, 'utf-8') : ''
+            const nameMatch = batContent.match(/-n\s+"([^"]+)"/)
+            if (nameMatch) name = nameMatch[1]
+          } catch { /* */ }
+
+          projects.push({
+            name,
+            path: fullPath,
+            stack,
+            hasClaude,
+            hasBatchFiles,
+            hasClaudeDir,
+            lastModified: stat.mtimeMs,
+          })
+        } catch { continue }
+      }
+    }
+
+    // Sort by most recently modified
+    projects.sort((a, b) => b.lastModified - a.lastModified)
+    return projects
+  })
+
+  ipcMain.handle('launch-project', async (_event, path: string, resume: boolean) => {
+    const { newScript, resumeScript } = getLaunchScriptNames()
+    const scriptName = resume ? resumeScript : newScript
+    const scriptPath = join(path, scriptName)
+    if (existsSync(scriptPath)) {
+      runLaunchScript(path, scriptName)
+    } else {
+      const cmd = resume
+        ? 'claude --dangerously-skip-permissions --resume'
+        : 'claude --dangerously-skip-permissions'
+      openTerminalAt(path, cmd)
+    }
+  })
+
+  ipcMain.handle('get-launch-args', async () => {
+    // Check command line args for --new, --convert, --launch
+    const args = process.argv.slice(2)
+    if (args.includes('--new')) return { mode: 'wizard' }
+    const convertIdx = args.indexOf('--convert')
+    if (convertIdx >= 0 && args[convertIdx + 1]) return { mode: 'convert', path: args[convertIdx + 1] }
+    const launchIdx = args.indexOf('--launch')
+    if (launchIdx >= 0 && args[launchIdx + 1]) return { mode: 'launch', path: args[launchIdx + 1] }
+    return { mode: 'hub' }
+  })
+
   ipcMain.handle('select-folder', async (_event, defaultPath?: string) => {
     const home = process.env.HOME || process.env.USERPROFILE || ''
     const result = await dialog.showOpenDialog({

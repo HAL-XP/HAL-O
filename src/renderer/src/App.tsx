@@ -3,6 +3,7 @@ import { useI18n } from './i18n'
 import type { Answers, ProjectConfig, ProjectAnalysis } from './types'
 import { getActiveSteps } from './steps'
 import { SetupScreen } from './components/SetupScreen'
+import { ProjectHub } from './components/ProjectHub'
 import { Logo } from './components/Logo'
 import { StepProgress } from './components/StepProgress'
 import { CompletedStep } from './components/CompletedStep'
@@ -73,9 +74,11 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
 
 const FIRST_STEP_ID = 'project-name'
 
+type ViewMode = 'setup' | 'hub' | 'wizard' | 'creating'
+
 export function App() {
   const { t } = useI18n()
-  const [setupDone, setSetupDone] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('setup')
   const [state, setState] = useState<AppState>({
     currentStepId: FIRST_STEP_ID,
     answers: {},
@@ -94,11 +97,11 @@ export function App() {
   const currentStep = activeSteps[currentStepIndex]
   const currentPhase = currentStep?.phase || 'basics'
 
-  // ALL hooks must be above the conditional return — React requires stable hook order
+  // ALL hooks must be above any conditional return — React requires stable hook order
 
-  // Fetch dynamic defaults when setup is done
+  // Fetch dynamic defaults when entering wizard
   useEffect(() => {
-    if (!setupDone || !window.api) return
+    if (viewMode !== 'wizard' || !window.api) return
     Promise.all([
       window.api.getGitHubUser(),
       window.api.getGitHubOrgs(),
@@ -121,22 +124,61 @@ export function App() {
         },
       }))
     }).catch(() => {})
-  }, [setupDone])
+  }, [viewMode])
 
   // Auto-scroll to latest message
   useEffect(() => {
-    if (!setupDone) return
+    if (viewMode !== 'wizard') return
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [setupDone, state.currentStepId, state.showReview])
+  }, [viewMode, state.currentStepId, state.showReview])
 
-  // --- Conditional return AFTER all hooks ---
+  // --- Conditional returns AFTER all hooks ---
 
-  if (!setupDone) {
+  if (viewMode === 'setup') {
     return (
       <div className="app">
         <div className="chat-area">
-          <SetupScreen onReady={() => setSetupDone(true)} />
+          <SetupScreen onReady={() => setViewMode('hub')} />
         </div>
+      </div>
+    )
+  }
+
+  if (viewMode === 'hub') {
+    return (
+      <div className="app">
+        <ProjectHub
+          onNewProject={() => {
+            setState({
+              currentStepId: FIRST_STEP_ID,
+              answers: {},
+              showReview: false,
+              isCreating: false,
+              creationLog: [],
+              creationDone: false,
+              createdPath: null,
+            })
+            setViewMode('wizard')
+          }}
+          onConvertProject={(path) => {
+            // Pre-fill answers from the existing path
+            const folderName = path.split(/[/\\]/).pop() || ''
+            const parentDir = path.substring(0, path.length - folderName.length - 1)
+            setState({
+              currentStepId: 'project-description',
+              answers: {
+                'project-name': { value: folderName, label: folderName },
+                'project-location': { value: parentDir, label: parentDir },
+              },
+              showReview: false,
+              isCreating: false,
+              creationLog: [],
+              creationDone: false,
+              createdPath: null,
+            })
+            setViewMode('wizard')
+          }}
+        />
       </div>
     )
   }
@@ -272,6 +314,7 @@ export function App() {
             log={state.creationLog}
             done={state.creationDone}
             createdPath={state.createdPath}
+            onBackToHub={() => setViewMode('hub')}
           />
         </div>
       </div>

@@ -175,6 +175,16 @@ export const en: Translations = {
   'ui.noStepFound': 'Something went wrong — no step found (ID: {id}).',
   'ui.restartWizard': 'Restart wizard',
 
+  // ── Project Hub ──
+  'hub.search': 'Search projects...',
+  'hub.newProject': 'New Project',
+  'hub.addExisting': 'Add Existing Folder',
+  'hub.noProjects': 'No projects found. Create your first one!',
+  'hub.newSession': 'New',
+  'hub.resume': 'Resume',
+  'hub.openFolder': 'Open',
+  'hub.convert': 'Upgrade',
+
   // ── Toolbar ──
   'toolbar.lightMode': 'Light mode',
   'toolbar.darkMode': 'Dark mode',

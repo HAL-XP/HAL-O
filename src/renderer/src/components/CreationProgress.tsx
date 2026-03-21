@@ -7,12 +7,13 @@ interface Props {
   log: string[]
   done: boolean
   createdPath: string | null
+  onBackToHub?: () => void
 }
 
 // Estimate total steps based on typical creation (16 steps in ipc-handlers)
 const ESTIMATED_STEPS = 16
 
-export function CreationProgress({ log, done, createdPath }: Props) {
+export function CreationProgress({ log, done, createdPath, onBackToHub }: Props) {
   const { t } = useI18n()
   const hasError = log.some((line) => line.startsWith('[ERROR]'))
   const showConfetti = done && createdPath && !hasError
@@ -77,7 +78,7 @@ export function CreationProgress({ log, done, createdPath }: Props) {
           </button>
           <button
             className="done-btn secondary"
-            onClick={() => window.location.reload()}
+            onClick={() => onBackToHub ? onBackToHub() : window.location.reload()}
           >
             {t('creation.newProject')}
           </button>

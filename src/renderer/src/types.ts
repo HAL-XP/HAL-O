@@ -82,6 +82,16 @@ export interface ProjectAnalysis {
   folderDetected: boolean
 }
 
+export interface ProjectInfo {
+  name: string
+  path: string
+  stack: string
+  hasClaude: boolean
+  hasBatchFiles: boolean
+  hasClaudeDir: boolean
+  lastModified: number
+}
+
 export interface PrerequisiteStatus {
   nodeVersion: string
   ghInstalled: boolean
@@ -100,6 +110,10 @@ export interface ElectronAPI {
   saveApiKey: (key: string, location: string) => Promise<{ success: boolean; path?: string; error?: string }>
   installGhCli: () => Promise<{ success: boolean; error?: string }>
   authGhCli: () => Promise<{ success: boolean }>
+
+  // Hub
+  scanProjects: () => Promise<ProjectInfo[]>
+  launchProject: (path: string, resume: boolean) => Promise<void>
 
   // Wizard
   getDefaultProjectPath: () => Promise<string>

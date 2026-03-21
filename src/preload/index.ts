@@ -9,6 +9,11 @@ const api = {
   installGhCli: () => ipcRenderer.invoke('install-gh-cli'),
   authGhCli: () => ipcRenderer.invoke('auth-gh-cli'),
 
+  // Hub
+  scanProjects: () => ipcRenderer.invoke('scan-projects'),
+  launchProject: (path: string, resume: boolean) => ipcRenderer.invoke('launch-project', path, resume),
+  getLaunchArgs: () => ipcRenderer.invoke('get-launch-args'),
+
   // Wizard
   getDefaultProjectPath: () => ipcRenderer.invoke('get-default-project-path'),
   selectFolder: (defaultPath?: string) => ipcRenderer.invoke('select-folder', defaultPath),
