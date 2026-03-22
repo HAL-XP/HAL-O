@@ -123,6 +123,11 @@ export interface ElectronAPI {
   selectFolder: (defaultPath?: string) => Promise<string | null>
   getGitHubUser: () => Promise<string>
   getGitHubOrgs: () => Promise<string[]>
+  scanExistingProject: (projectPath: string) => Promise<{
+    name: string; path: string; hasGit: boolean; gitRemote: string; gitBranch: string
+    hasClaude: boolean; hasClaudeDir: boolean; hasBatchFiles: boolean
+    stack: string; description: string; files: string[]; readme: string
+  }>
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => Promise<ProjectAnalysis>
   createProject: (config: Record<string, unknown>) => Promise<{ success: boolean; path?: string; log: string[] }>
   openFolder: (path: string) => Promise<void>

@@ -19,6 +19,7 @@ const api = {
   selectFolder: (defaultPath?: string) => ipcRenderer.invoke('select-folder', defaultPath),
   getGitHubUser: () => ipcRenderer.invoke('get-github-user'),
   getGitHubOrgs: () => ipcRenderer.invoke('get-github-orgs'),
+  scanExistingProject: (projectPath: string) => ipcRenderer.invoke('scan-existing-project', projectPath),
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => ipcRenderer.invoke('analyze-project', name, description, folderPath, lang),
   createProject: (config: Record<string, unknown>) => ipcRenderer.invoke('create-project', config),
   openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),

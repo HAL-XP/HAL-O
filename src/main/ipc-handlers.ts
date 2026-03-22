@@ -57,27 +57,55 @@ function run(cmd: string, cwd?: string): string {
 }
 
 function findApiKey(): { key: string; source: string } {
-  // Check environment first
+  // 1. Check environment variable directly
   if (process.env.ANTHROPIC_API_KEY) {
     return { key: process.env.ANTHROPIC_API_KEY, source: 'Environment variable' }
   }
 
   const home = process.env.HOME || process.env.USERPROFILE || ''
-  const candidates = [
-    { path: join(process.cwd(), '.env'), label: '.env (Claudeborn folder)' },
-    { path: join(process.cwd(), '.env.local'), label: '.env.local (Claudeborn folder)' },
+
+  // 2. Try sourcing ~/.claude_credentials (bash format: export VAR="val")
+  try {
+    const credPath = join(home, '.claude_credentials')
+    const content = readFileSync(credPath, 'utf-8')
+    const match = content.match(/(?:export\s+)?ANTHROPIC_API_KEY\s*=\s*"?([^"\s\n]+)"?/)
+    if (match) return { key: match[1], source: '~/.claude_credentials' }
+  } catch { /* */ }
+
+  // 3. Check .env files in various locations
+  const envFiles = [
+    { path: join(process.cwd(), '.env'), label: '.env (project)' },
+    { path: join(process.cwd(), '.env.local'), label: '.env.local (project)' },
     { path: join(home, '.env'), label: '~/.env' },
     { path: join(home, '.env.local'), label: '~/.env.local' },
-    { path: join(home, '.claude_credentials'), label: '~/.claude_credentials' },
   ]
 
-  for (const c of candidates) {
+  for (const c of envFiles) {
     try {
       const content = readFileSync(c.path, 'utf-8')
       const match = content.match(/(?:export\s+)?ANTHROPIC_API_KEY\s*=\s*"?([^"\s\n]+)"?/)
       if (match) return { key: match[1], source: c.label }
     } catch { /* skip */ }
   }
+
+  // 4. Check Anthropic config locations
+  const configPaths = [
+    { path: join(home, '.anthropic', 'api_key'), label: '~/.anthropic/api_key' },
+    { path: join(home, '.config', 'anthropic', 'api_key'), label: '~/.config/anthropic/api_key' },
+  ]
+
+  for (const c of configPaths) {
+    try {
+      const key = readFileSync(c.path, 'utf-8').trim()
+      if (key && key.startsWith('sk-')) return { key, source: c.label }
+    } catch { /* skip */ }
+  }
+
+  // 5. Try to get it from Claude CLI config (if claude is installed)
+  try {
+    const result = run('claude config get api_key 2>/dev/null || true')
+    if (result && result.startsWith('sk-')) return { key: result, source: 'Claude CLI config' }
+  } catch { /* */ }
 
   return { key: '', source: '' }
 }
@@ -88,20 +116,37 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('check-prerequisites', async () => {
     const home = process.env.HOME || process.env.USERPROFILE || ''
 
-    // Node.js — if we're here, it works
-    let nodeVersion = ''
-    try { nodeVersion = run('node --version') } catch { /* */ }
+    // Node.js — if Electron is running, Node works. Use process.version as primary.
+    let nodeVersion = process.version || ''
+    if (!nodeVersion) {
+      try { nodeVersion = run('node --version') } catch { /* */ }
+    }
 
-    // gh CLI
+    // gh CLI — separate install check from auth check
     let ghInstalled = false
     let ghAuthenticated = false
     let ghUser = ''
     try {
       run('gh --version')
       ghInstalled = true
-      ghUser = run('gh api user --jq .login')
-      ghAuthenticated = true
-    } catch { /* */ }
+    } catch { /* gh not installed */ }
+
+    if (ghInstalled) {
+      try {
+        ghUser = run('gh api user --jq .login')
+        ghAuthenticated = true
+      } catch {
+        // gh installed but not authenticated — that's OK, separate issue
+        try {
+          const status = run('gh auth status 2>&1 || true')
+          ghAuthenticated = status.includes('Logged in')
+          if (ghAuthenticated) {
+            const userMatch = status.match(/account\s+(\S+)/)
+            if (userMatch) ghUser = userMatch[1]
+          }
+        } catch { /* */ }
+      }
+    }
 
     // API key
     const apiKeyResult = findApiKey()
@@ -405,6 +450,86 @@ export function registerIpcHandlers(): void {
     } catch {
       return []
     }
+  })
+
+  // ── Scan existing project for import/recruit ──
+  ipcMain.handle('scan-existing-project', async (_event, projectPath: string) => {
+    const result: {
+      name: string
+      path: string
+      hasGit: boolean
+      gitRemote: string
+      gitBranch: string
+      hasClaude: boolean
+      hasClaudeDir: boolean
+      hasBatchFiles: boolean
+      stack: string
+      description: string
+      files: string[]
+      readme: string
+    } = {
+      name: projectPath.split(/[/\\]/).pop() || '',
+      path: projectPath,
+      hasGit: false, gitRemote: '', gitBranch: '',
+      hasClaude: false, hasClaudeDir: false, hasBatchFiles: false,
+      stack: '', description: '', files: [], readme: '',
+    }
+
+    if (!existsSync(projectPath)) return result
+
+    try {
+      const files = readdirSync(projectPath)
+      result.files = files.slice(0, 50) // first 50 entries
+
+      // Git
+      if (files.includes('.git')) {
+        result.hasGit = true
+        try { result.gitRemote = run('git remote get-url origin', projectPath) } catch { /* */ }
+        try { result.gitBranch = run('git branch --show-current', projectPath) } catch { /* */ }
+      }
+
+      // Claude files
+      result.hasClaude = files.includes('CLAUDE.md')
+      result.hasClaudeDir = files.includes('.claude')
+      const { newScript } = getLaunchScriptNames()
+      result.hasBatchFiles = files.includes(newScript) || files.includes('_CLAUDE_CLI_NEW.bat') || files.includes('_CLAUDE_CLI_NEW.sh')
+
+      // Stack detection
+      if (files.includes('package.json')) {
+        try {
+          const pkg = JSON.parse(readFileSync(join(projectPath, 'package.json'), 'utf-8'))
+          const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+          if (deps['next']) result.stack = 'Next.js'
+          else if (deps['electron']) result.stack = 'Electron'
+          else if (deps['react']) result.stack = 'React'
+          else if (deps['vue']) result.stack = 'Vue'
+          else if (deps['svelte']) result.stack = 'SvelteKit'
+          else result.stack = 'Node.js'
+          if (pkg.description) result.description = pkg.description
+        } catch { result.stack = 'Node.js' }
+      } else if (files.includes('requirements.txt') || files.includes('pyproject.toml')) {
+        result.stack = 'Python'
+      } else if (files.includes('Cargo.toml')) {
+        result.stack = 'Rust'
+      } else if (files.includes('go.mod')) {
+        result.stack = 'Go'
+      }
+
+      // README
+      if (files.includes('README.md')) {
+        try { result.readme = readFileSync(join(projectPath, 'README.md'), 'utf-8').slice(0, 500) } catch { /* */ }
+      }
+
+      // Description from CLAUDE.md if exists
+      if (result.hasClaude && !result.description) {
+        try {
+          const claudeMd = readFileSync(join(projectPath, 'CLAUDE.md'), 'utf-8').slice(0, 300)
+          result.description = claudeMd
+        } catch { /* */ }
+      }
+    } catch { /* */ }
+
+    return result
   })
 
   ipcMain.handle('analyze-project', async (_event, name: string, description: string, folderPath: string, lang?: string) => {
