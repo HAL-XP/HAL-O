@@ -508,9 +508,13 @@ Append to \`_devlog/hours/hours_YYYYMMDD.md\` (one file per day, matching summar
 \`\`\`
 
 ## Guidelines
-- "Human Equiv." = how long a skilled human developer would take for the same task
+- "Human Equiv." = how long a senior full-stack dev (8h/day) would take for the same task
+- Think about: research time, trial-and-error, context switching, testing, debugging
+- A 30min Claude task might be 4-8h human work (native module compilation, shader debugging, etc.)
+- A 5min Claude task might be 30min human work (simple config change with research)
 - Include context: was it a bug fix, new feature, refactor, research?
-- Be honest about complexity -- don't inflate or deflate estimates
+- Be honest about complexity — don't inflate or deflate estimates
+- At session end, include a TOTAL row with the multiplier (e.g., "8-10x compression")
 - Update the log at natural milestones, not after every tiny change
 - Create a new file each day (same pattern as summaries)
 `
