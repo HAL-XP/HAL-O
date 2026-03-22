@@ -5,9 +5,12 @@ interface Props {
   onListeningChange?: (listening: boolean) => void
 }
 
+const MIN_RECORDING_MS = 800 // ignore recordings shorter than this
+
 export function MicButton({ onTranscript, onListeningChange }: Props) {
   const [listening, setListening] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const recordStartRef = useRef(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const isHoldingRef = useRef(false)
@@ -30,7 +33,8 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop())
-        if (chunksRef.current.length === 0) return
+        const duration = Date.now() - recordStartRef.current
+        if (chunksRef.current.length === 0 || duration < MIN_RECORDING_MS) return
 
         setProcessing(true)
         try {
@@ -49,6 +53,7 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
 
       mediaRecorder.start(100)
       mediaRecorderRef.current = mediaRecorder
+      recordStartRef.current = Date.now()
       setListening(true)
       onListeningChange?.(true)
     } catch (err) {

@@ -1952,6 +1952,33 @@ textarea.text-input {
   z-index: 20;
 }
 
+/* HAL response overlay — shows near the sphere */
+.hal-response-overlay {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 60px);
+  transform: translateX(-50%);
+  max-width: 500px;
+  padding: 8px 14px;
+  background: rgba(5, 10, 15, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 34, 0, 0.2);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  white-space: pre-wrap;
+  z-index: 15;
+  cursor: pointer;
+  line-height: 1.5;
+  animation: hal-fade-in 0.3s ease;
+}
+
+@keyframes hal-fade-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Center status label */
 .hal-center-label {
   position: absolute;

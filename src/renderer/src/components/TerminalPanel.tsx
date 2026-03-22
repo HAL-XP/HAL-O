@@ -125,8 +125,13 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       window.api.ptyInput(sessionId, data).catch(() => {})
     })
 
-    // CTRL+V paste support
+    // Custom key handler — intercept before xterm processes
     term.attachCustomKeyEventHandler((e) => {
+      // CTRL+SPACE → let it bubble to window for push-to-talk
+      if (e.ctrlKey && e.code === 'Space') {
+        return false // don't let xterm handle it
+      }
+      // CTRL+V paste
       if (e.ctrlKey && e.key === 'v' && e.type === 'keydown') {
         navigator.clipboard.readText().then((text) => {
           if (text) window.api.ptyInput(sessionId, text).catch(() => {})

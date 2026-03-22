@@ -133,6 +133,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   }
   lines.push('- NEVER kill processes by name -- always by PID from `.claude/.pids`')
   lines.push('- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)')
+  lines.push('- Messages prefixed with `[voice]` are spoken by the user via microphone — respond concisely and conversationally')
   // LLM-suggested conventions
   if (config.conventions && config.conventions.length > 0) {
     for (const conv of config.conventions) {

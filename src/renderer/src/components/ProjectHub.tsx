@@ -16,6 +16,7 @@ interface Props {
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  halSessionId?: string | null
 }
 
 function timeAgo(ms: number): string {
@@ -28,7 +29,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut, halSessionId }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -202,16 +203,17 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           />
           <MicButton
             onTranscript={(text) => {
-              if (voiceFocus === 'hub') {
-                setSearch(text)
-              } else {
-                // Send voice transcript to the focused terminal
-                window.api.ptyInput(voiceFocus!, text + '\n')
+              // Hub focus → send to HAL (the Claudeborn terminal = this session)
+              // Terminal focus → send to that specific terminal
+              const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
+              if (target) {
+                window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
               }
+              // If no target, voice has nowhere to go (no Claudeborn terminal open)
             }}
             onListeningChange={setIsListening}
           />
-          <span className="hal-voice-target">{voiceFocus === 'hub' ? 'HAL' : 'TERM'}</span>
+          <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
         </div>
         <div className="hal-topbar-right">
           <SettingsMenu
@@ -230,7 +232,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
       {/* Status label */}
       <div className="hal-center-label">
-        {loading ? 'SCANNING...' : projects.length === 0 ? 'AWAITING ORDERS' : 'OPERATIONAL'}
+        {loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}
       </div>
 
       {/* Arc cards */}

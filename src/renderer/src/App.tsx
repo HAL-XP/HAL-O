@@ -111,6 +111,15 @@ export function App() {
     localStorage.setItem('claudeborn-voice-out', String(enabled))
   }, [])
 
+  // Find the Claudeborn/HAL terminal session ID (if open)
+  const getHalSessionId = useCallback(() => {
+    // Any Claudeborn/ProjectCreator terminal IS HAL
+    const hal = termSessions.find((s) =>
+      s.projectPath.includes('ProjectCreator') || s.projectName === 'HAL' || s.projectName === 'Claudeborn'
+    )
+    return hal?.id || null
+  }, [termSessions])
+
   const openTerminal = useCallback((projectPath: string, projectName: string, resume: boolean) => {
     const id = projectPath.replace(/[^a-zA-Z0-9]/g, '_')
     // Don't open duplicate
@@ -135,8 +144,14 @@ export function App() {
   }, [termSessions])
 
   const closeTerminal = useCallback((id: string) => {
-    window.api.ptyClose(id)
-    setTermSessions((prev) => prev.filter((s) => s.id !== id))
+    if (id === '_hal_') {
+      // HAL never dies — just hide the tab, keep the pty running
+      setTermSessions((prev) => prev.filter((s) => s.id !== id))
+    } else {
+      // Regular terminals — kill the pty
+      window.api.ptyClose(id)
+      setTermSessions((prev) => prev.filter((s) => s.id !== id))
+    }
   }, [])
 
   // Restore terminals — reconnect to running ptys (survives renderer reload)
@@ -269,6 +284,7 @@ export function App() {
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
+            halSessionId={getHalSessionId()}
           />
         </div>
         {termSessions.length > 0 && (
