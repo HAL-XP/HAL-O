@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -27,37 +27,41 @@ export function ScreenPanel({
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
 }: Props) {
   const groupRef = useRef<THREE.Group>(null)
-  const [facingCamera, setFacingCamera] = useState(true)
+  const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
 
   const W = 2.8   // screen width
   const H = 1.8   // screen height
-  const bar = 0.06 // frame bar thickness
-  const depth = FRAME_DEPTH
+  const bar = 0.04 // frame bar thickness — thin like a real monitor bezel
+  const depth = 0.05 // thin like a flat panel
 
   useFrame(() => {
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.08)
 
-      // Check if screen faces camera — hide Html if facing away
+      // Check if screen faces camera — fade Html via opacity (no snap, no flash)
       const screenNormal = new THREE.Vector3(0, 0, 1)
       screenNormal.applyQuaternion(groupRef.current.quaternion)
       const toCamera = new THREE.Vector3()
       toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = screenNormal.dot(toCamera)
-      setFacingCamera(dot > -0.1) // show if roughly facing camera
+      if (htmlWrapRef.current) {
+        const visible = dot > 0
+        htmlWrapRef.current.style.opacity = visible ? '1' : '0'
+        htmlWrapRef.current.style.pointerEvents = visible ? 'auto' : 'none'
+      }
     }
   })
 
   // Shared PBR material for frame
   const frameMat = {
-    color: '#0a1520',
+    color: '#081018',
     emissive: CYAN,
-    emissiveIntensity: isHovered ? 0.8 : 0.4,
+    emissiveIntensity: isHovered ? 1.2 : 0.6,
     metalness: 0.95,
-    roughness: 0.15,
-    toneMapped: false,
+    roughness: 0.1,
+    toneMapped: false as const,
   }
 
   return (
@@ -103,33 +107,6 @@ export function ScreenPanel({
         <meshStandardMaterial {...frameMat} />
       </mesh>
 
-      {/* ── Corner accents — brighter, thicker ── */}
-      {[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy], i) => (
-        <group key={i} position={[sx * (W / 2 - bar), sy * (H / 2 - bar), depth / 2 + 0.005]}>
-          <mesh position={[sx * 0.12, 0, 0]}>
-            <boxGeometry args={[0.25, bar * 1.2, 0.02]} />
-            <meshStandardMaterial emissive={CYAN} emissiveIntensity={1.5} metalness={1} roughness={0} toneMapped={false} color="#001a2e" />
-          </mesh>
-          <mesh position={[0, sy * 0.12, 0]}>
-            <boxGeometry args={[bar * 1.2, 0.25, 0.02]} />
-            <meshStandardMaterial emissive={CYAN} emissiveIntensity={1.5} metalness={1} roughness={0} toneMapped={false} color="#001a2e" />
-          </mesh>
-        </group>
-      ))}
-
-      {/* ── Curved bracket/shelf below screen ── */}
-      <mesh position={[0, -H / 2 - 0.12, 0.02]} rotation={[0.3, 0, 0]}>
-        <boxGeometry args={[W * 0.6, 0.03, 0.15]} />
-        <meshStandardMaterial
-          color="#0a1520"
-          emissive={CYAN}
-          emissiveIntensity={0.3}
-          metalness={0.9}
-          roughness={0.2}
-          toneMapped={false}
-        />
-      </mesh>
-
       {/* ── Subtle edge glow (bloom catcher) ── */}
       <mesh position={[0, 0, depth / 2 + 0.01]}>
         <planeGeometry args={[W + 0.05, H + 0.05]} />
@@ -143,11 +120,11 @@ export function ScreenPanel({
         />
       </mesh>
 
-      {/* ── HTML content — only when facing camera ── */}
-      {facingCamera && <Html
+      {/* ── HTML content — visibility controlled via DOM ref, not React state ── */}
+      <Html
         transform
         distanceFactor={4}
-        position={[0, 0, depth / 2 + 0.03]}
+        position={[0, 0, depth / 2 + 0.06]}
         style={{
           width: '260px',
           padding: '12px 14px',
@@ -158,9 +135,11 @@ export function ScreenPanel({
         onPointerOver={() => onHover(true)}
         onPointerOut={() => onHover(false)}
       >
-        <div style={{
+        <div ref={htmlWrapRef} style={{
           fontFamily: "'Cascadia Code', 'Fira Code', monospace",
           color: '#c8dce8',
+          transition: 'opacity 0.3s ease',
+          willChange: 'opacity',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
             <span style={{
@@ -194,7 +173,7 @@ export function ScreenPanel({
             <button onClick={onFiles} style={btnGhost}>FILES</button>
           </div>
         </div>
-      </Html>}
+      </Html>
     </group>
   )
 }
