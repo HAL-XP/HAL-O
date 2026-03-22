@@ -8,5 +8,7 @@ dist/
 .claude/agent-memory-local/
 .claude/.pids
 _devlog/
+test-results/
+playwright-report/
 .DS_Store
 Thumbs.db
