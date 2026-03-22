@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useState } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -27,6 +27,8 @@ export function ScreenPanel({
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
 }: Props) {
   const groupRef = useRef<THREE.Group>(null)
+  const [facingCamera, setFacingCamera] = useState(true)
+  const { camera } = useThree()
 
   const W = 2.8   // screen width
   const H = 1.8   // screen height
@@ -37,6 +39,14 @@ export function ScreenPanel({
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.08)
+
+      // Check if screen faces camera — hide Html if facing away
+      const screenNormal = new THREE.Vector3(0, 0, 1)
+      screenNormal.applyQuaternion(groupRef.current.quaternion)
+      const toCamera = new THREE.Vector3()
+      toCamera.subVectors(camera.position, groupRef.current.position).normalize()
+      const dot = screenNormal.dot(toCamera)
+      setFacingCamera(dot > -0.1) // show if roughly facing camera
     }
   })
 
@@ -133,8 +143,8 @@ export function ScreenPanel({
         />
       </mesh>
 
-      {/* ── HTML content ── */}
-      <Html
+      {/* ── HTML content — only when facing camera ── */}
+      {facingCamera && <Html
         transform
         distanceFactor={4}
         position={[0, 0, depth / 2 + 0.03]}
@@ -184,7 +194,7 @@ export function ScreenPanel({
             <button onClick={onFiles} style={btnGhost}>FILES</button>
           </div>
         </div>
-      </Html>
+      </Html>}
     </group>
   )
 }

@@ -94,7 +94,7 @@ function TexturedPlatform() {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <circleGeometry args={[9, 128]} />
+      <circleGeometry args={[12, 128]} />
       <meshStandardMaterial
         map={texture}
         emissiveMap={texture}
@@ -364,7 +364,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
 
   const screenPositions = useMemo(() => {
     const count = projects.length
-    const radius = 7
+    const radius = Math.max(8, count * 0.55) // scale with project count for spacing
     const yBase = 0.8
     return projects.map((_, i) => {
       const angle = (i / count) * Math.PI * 2 - Math.PI / 2
@@ -378,7 +378,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-      camera={{ position: [0, 12, 14], fov: 42, near: 0.1, far: 1000 }}
+      camera={{ position: [0, 10, 16], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
       shadows
