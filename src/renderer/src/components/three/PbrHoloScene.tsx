@@ -313,6 +313,71 @@ function PbrHalSphere() {
   )
 }
 
+// ── Sonar Pulse Ring — HAL heartbeat indicator ──
+function PulseRing() {
+  const ringRef = useRef<THREE.Mesh>(null)
+  const matRef = useRef<THREE.MeshBasicMaterial>(null)
+
+  // Each ring cycles: scale 1→3 over 3s, opacity 0.6→0
+  useFrame((state) => {
+    if (!ringRef.current || !matRef.current) return
+    // Use a smooth sawtooth based on clock
+    const t = (state.clock.elapsedTime % 3) / 3 // 0→1 over 3 seconds
+    const scale = 1 + t * 2 // 1→3
+    ringRef.current.scale.set(scale, scale, 1)
+    matRef.current.opacity = 0.6 * (1 - t) * (1 - t) // quadratic fade for smoother tail
+  })
+
+  return (
+    <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+      <ringGeometry args={[0.8, 1.0, 128]} />
+      <meshBasicMaterial
+        ref={matRef}
+        color="#00d4ff"
+        transparent
+        opacity={0.6}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </mesh>
+  )
+}
+
+// Two staggered pulse rings for continuous sonar effect
+function SonarPulse() {
+  const ring2Ref = useRef<THREE.Mesh>(null)
+  const mat2Ref = useRef<THREE.MeshBasicMaterial>(null)
+
+  // Second ring is offset by 1.5s (half the 3s cycle)
+  useFrame((state) => {
+    if (!ring2Ref.current || !mat2Ref.current) return
+    const t = ((state.clock.elapsedTime + 1.5) % 3) / 3
+    const scale = 1 + t * 2
+    ring2Ref.current.scale.set(scale, scale, 1)
+    mat2Ref.current.opacity = 0.6 * (1 - t) * (1 - t)
+  })
+
+  return (
+    <group>
+      <PulseRing />
+      {/* Second staggered ring */}
+      <mesh ref={ring2Ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+        <ringGeometry args={[0.8, 1.0, 128]} />
+        <meshBasicMaterial
+          ref={mat2Ref}
+          color="#00d4ff"
+          transparent
+          opacity={0.6}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
 // ── Post Processing ──
 function PostFX() {
   const offset = useMemo(() => new Vector2(0.0006, 0.0006), [])
@@ -357,9 +422,10 @@ interface Props {
   listening: boolean
   isFullySetup: (p: ProjectInfo) => boolean
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
+  halOnline?: boolean
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -392,6 +458,9 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       <TexturedPlatform />
       <PbrRingPlatform />
       <PbrHalSphere />
+
+      {/* Sonar pulse — HAL heartbeat */}
+      {halOnline && <SonarPulse />}
 
       {/* Screens */}
       {projects.map((project, i) => {

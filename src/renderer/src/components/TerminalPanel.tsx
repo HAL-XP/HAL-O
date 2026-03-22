@@ -178,16 +178,26 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       return true
     })
 
+    // Prevent browser-level paste event — our custom key handler already sends
+    // clipboard text via ptyInput, but the browser also fires a 'paste' event
+    // that xterm captures through its own paste handling, causing double-paste.
+    const container = containerRef.current
+    const onPaste = (e: ClipboardEvent) => {
+      e.preventDefault()
+    }
+    container.addEventListener('paste', onPaste)
+
     // Handle resize
     const resizeObserver = new ResizeObserver(() => {
       fit.fit()
       window.api.ptyResize(sessionId, term.cols, term.rows)
     })
-    resizeObserver.observe(containerRef.current)
+    resizeObserver.observe(container)
 
     return () => {
       cleanupData()
       cleanupExit()
+      container.removeEventListener('paste', onPaste)
       resizeObserver.disconnect()
       term.dispose()
     }

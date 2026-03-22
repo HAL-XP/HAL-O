@@ -163,6 +163,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           listening={isListening && voiceFocus === 'hub'}
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
+          halOnline={!!halSessionId}
         />
         <div className="hal-topbar">
           <div className="hal-topbar-left">
