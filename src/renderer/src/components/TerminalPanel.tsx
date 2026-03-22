@@ -163,14 +163,12 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       if (e.ctrlKey && e.code === 'Space') {
         return false // don't let xterm handle it
       }
-      // CTRL+V paste
-      if (e.ctrlKey && e.key === 'v' && e.type === 'keydown') {
-        navigator.clipboard.readText().then((text) => {
-          if (text) window.api.ptyInput(sessionId, text).catch(() => {})
-        }).catch(() => {})
-        return false // prevent xterm default handling
+      // CTRL+V / CTRL+SHIFT+V paste — block xterm's \x16 handling,
+      // let the browser paste event flow through to xterm's native paste handler
+      if (e.ctrlKey && (e.key === 'v' || e.key === 'V') && e.type === 'keydown') {
+        return false
       }
-      // CTRL+C for copy when there's a selection
+      // CTRL+C for copy when there's a selection (otherwise let ^C go to pty)
       if (e.ctrlKey && e.key === 'c' && e.type === 'keydown' && term.hasSelection()) {
         navigator.clipboard.writeText(term.getSelection()).catch(() => {})
         return false
@@ -178,14 +176,16 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       return true
     })
 
-    // Prevent browser-level paste event — our custom key handler already sends
-    // clipboard text via ptyInput, but the browser also fires a 'paste' event
-    // that xterm captures through its own paste handling, causing double-paste.
+    // Right-click on terminal: copy selection to clipboard (standard terminal behavior)
     const container = containerRef.current
-    const onPaste = (e: ClipboardEvent) => {
+    const onContextMenu = (e: MouseEvent) => {
       e.preventDefault()
+      if (term.hasSelection()) {
+        navigator.clipboard.writeText(term.getSelection()).catch(() => {})
+        term.clearSelection()
+      }
     }
-    container.addEventListener('paste', onPaste)
+    container.addEventListener('contextmenu', onContextMenu)
 
     // Handle resize
     const resizeObserver = new ResizeObserver(() => {
@@ -197,7 +197,7 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     return () => {
       cleanupData()
       cleanupExit()
-      container.removeEventListener('paste', onPaste)
+      container.removeEventListener('contextmenu', onContextMenu)
       resizeObserver.disconnect()
       term.dispose()
     }
