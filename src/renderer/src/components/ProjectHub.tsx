@@ -179,15 +179,17 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
                 if (target) {
                   ;(window as any).__voiceResponseTarget = target
                   window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
-                } else {
-                  // No terminal available — use as search + try any open session
-                  setSearch(text)
+                } else if (voiceFocus !== 'hub') {
+                  // Terminal focused but target missing — try any session
                   window.api.ptySessions().then((sessions) => {
                     if (sessions.length > 0) {
                       ;(window as any).__voiceResponseTarget = sessions[0].id
                       window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
                     }
                   }).catch(() => {})
+                } else {
+                  // Hub focused, no HAL — just search
+                  setSearch(text)
                 }
               }} onListeningChange={setIsListening} />
             <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
