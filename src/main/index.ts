@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron'
 import { join } from 'path'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
 import { registerIpcHandlers } from './ipc-handlers'
-import { getIconFilename } from './platform'
+import { getIconFilename, openTerminalAt } from './platform'
 import { terminalManager } from './terminal-manager'
 
 let mainWindow: BrowserWindow | null = null
@@ -104,6 +104,11 @@ ipcMain.handle('capture-screenshot', async () => {
 
 // ── App lifecycle ──
 
+// Suppress error dialogs — log to console instead
+process.on('uncaughtException', (err) => {
+  console.error('[Claudeborn] Uncaught exception:', err.message)
+})
+
 app.whenReady().then(() => {
   registerPid('claudeborn')
   registerIpcHandlers()
@@ -112,28 +117,28 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
-  // Pop all terminals to external windows so they survive the restart
-  const { openTerminalAt } = require('./platform')
-  const sessions = terminalManager.getActiveSessions()
+  try {
+    const sessions = terminalManager.getActiveSessions()
+    console.log(`[Claudeborn] before-quit: ${sessions.length} active sessions`)
 
-  if (sessions.length > 0) {
-    // Save for auto-restore on next launch
-    const pendingFile = join(
-      process.env.USERPROFILE || process.env.HOME || '',
-      '.claudeborn-pending-sessions.json'
-    )
-    writeFileSync(pendingFile, JSON.stringify(
-      sessions.map((s: any) => ({ projectPath: s.projectPath, projectName: s.projectName }))
-    ))
-
-    // Pop each to external terminal
-    for (const s of sessions) {
-      openTerminalAt(s.projectPath, `claude --dangerously-skip-permissions -n "${s.projectName}" --continue`)
+    if (sessions.length > 0) {
+      // Save for auto-restore on next launch (no pop-out — just save and restore)
+      const pendingFile = join(
+        process.env.USERPROFILE || process.env.HOME || '',
+        '.claudeborn-pending-sessions.json'
+      )
+      const data = sessions.map((s) => ({ projectPath: s.projectPath, projectName: s.projectName }))
+      writeFileSync(pendingFile, JSON.stringify(data))
+      console.log(`[Claudeborn] Saved ${data.length} sessions for auto-restore`)
     }
-  }
 
-  terminalManager.closeAll()
-  unregisterPid('claudeborn')
+    terminalManager.closeAll()
+    unregisterPid('claudeborn')
+  } catch (err) {
+    console.error('[Claudeborn] before-quit error:', err)
+    terminalManager.closeAll()
+    unregisterPid('claudeborn')
+  }
 })
 
 // ── Graceful restart signal ──
@@ -141,35 +146,13 @@ app.on('before-quit', () => {
 // pop all terminals to external, save sessions, then quit.
 // This lets the CLI agent restart the app without killing terminals.
 const restartSignalFile = join(process.cwd(), '.claudeborn-restart')
-const { watchFile, unwatchFile, unlinkSync: unlinkSyncFs } = require('fs')
 
 function checkRestartSignal() {
   if (existsSync(restartSignalFile)) {
-    console.log('[Claudeborn] Restart signal detected — popping terminals and quitting')
-    try { unlinkSyncFs(restartSignalFile) } catch { /* */ }
-
-    const { openTerminalAt } = require('./platform')
-    const sessions = terminalManager.getActiveSessions()
-
-    // Save sessions for auto-restore
-    if (sessions.length > 0) {
-      const pendingFile = join(
-        process.env.USERPROFILE || process.env.HOME || '',
-        '.claudeborn-pending-sessions.json'
-      )
-      writeFileSync(pendingFile, JSON.stringify(
-        sessions.map((s: any) => ({ projectPath: s.projectPath, projectName: s.projectName }))
-      ))
-
-      // Pop each to external terminal
-      for (const s of sessions) {
-        openTerminalAt(s.projectPath, `claude --dangerously-skip-permissions -n "${s.projectName}" --continue`)
-        terminalManager.close(s.id)
-      }
-    }
-
-    // Quit after a short delay to let terminals spawn
-    setTimeout(() => app.quit(), 1000)
+    console.log('[Claudeborn] Restart signal detected — quitting gracefully')
+    try { require('fs').unlinkSync(restartSignalFile) } catch { /* */ }
+    // before-quit handler will save sessions and pop terminals
+    app.quit()
   }
 }
 

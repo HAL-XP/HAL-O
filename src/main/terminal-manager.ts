@@ -73,11 +73,19 @@ export class TerminalManager {
       if (session.scrollback.length > SCROLLBACK_SIZE) {
         session.scrollback = session.scrollback.slice(-SCROLLBACK_SIZE)
       }
-      this.window?.webContents.send(`pty-data-${id}`, data)
+      try {
+        if (this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send(`pty-data-${id}`, data)
+        }
+      } catch { /* window destroyed during shutdown */ }
     })
 
     p.onExit(({ exitCode }) => {
-      this.window?.webContents.send(`pty-exit-${id}`, { code: exitCode })
+      try {
+        if (this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send(`pty-exit-${id}`, { code: exitCode })
+        }
+      } catch { /* window destroyed during shutdown */ }
       this.sessions.delete(id)
     })
 

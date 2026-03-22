@@ -74,12 +74,14 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     }
 
     // Replay scrollback from main process (reconnection after HMR/reload)
-    if (window.api.ptyScrollback) {
-      window.api.ptyScrollback(sessionId).then((data: string) => {
-        if (data) term.write(data)
-        fit.fit()
-      }).catch(() => {})
-    }
+    try {
+      if (window.api?.ptyScrollback) {
+        window.api.ptyScrollback(sessionId).then((data: string) => {
+          if (data) term.write(data)
+          fit.fit()
+        }).catch(() => {})
+      }
+    } catch { /* pty may not exist yet */ }
 
     // Delayed fit — container needs time to settle its dimensions
     setTimeout(() => fit.fit(), 50)
@@ -88,8 +90,11 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     termRef.current = term
     fitRef.current = fit
 
-    // Connect to pty data stream
-    const cleanupData = window.api.onPtyData(sessionId, (data) => {
+    // Connect to pty data stream (may fail if pty doesn't exist yet)
+    let cleanupData = () => {}
+    let cleanupExit = () => {}
+    try {
+    cleanupData = window.api.onPtyData(sessionId, (data) => {
       term.write(data)
 
       // Buffer output for voice-out TTS
@@ -110,13 +115,30 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       }
     })
 
-    const cleanupExit = window.api.onPtyExit(sessionId, ({ code }) => {
+    cleanupExit = window.api.onPtyExit(sessionId, ({ code }) => {
       term.write(`\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`)
     })
+    } catch { /* pty listeners failed — session may not exist */ }
 
     // Send terminal input to pty
     term.onData((data) => {
-      window.api.ptyInput(sessionId, data)
+      window.api.ptyInput(sessionId, data).catch(() => {})
+    })
+
+    // CTRL+V paste support
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.ctrlKey && e.key === 'v' && e.type === 'keydown') {
+        navigator.clipboard.readText().then((text) => {
+          if (text) window.api.ptyInput(sessionId, text).catch(() => {})
+        }).catch(() => {})
+        return false // prevent xterm default handling
+      }
+      // CTRL+C for copy when there's a selection
+      if (e.ctrlKey && e.key === 'c' && e.type === 'keydown' && term.hasSelection()) {
+        navigator.clipboard.writeText(term.getSelection()).catch(() => {})
+        return false
+      }
+      return true
     })
 
     // Handle resize

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Hexagonal Grid</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #030308;
+    color: #c8d6e5;
+    font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    width: 100vw; height: 100vh; overflow: hidden;
+    position: relative;
+  }
+
+  .vignette {
+    position: fixed; inset: 0; z-index: 100; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  }
+
+  .grid-floor {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 35vh; z-index: 0;
+    background:
+      linear-gradient(to top, rgba(132,204,22,0.06) 1px, transparent 1px),
+      linear-gradient(to right, rgba(132,204,22,0.06) 1px, transparent 1px);
+    background-size: 60px 40px;
+    transform: perspective(500px) rotateX(55deg);
+    transform-origin: bottom center;
+    mask-image: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%);
+  }
+
+  .top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    height: 48px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(to bottom, rgba(3,3,8,0.95), transparent);
+    border-bottom: 1px solid rgba(132,204,22,0.15);
+  }
+  .top-bar .sys-label { font-size: 13px; font-weight: 600; color: #84cc16; letter-spacing: 2px; }
+  .top-bar .stats { display: flex; gap: 24px; font-size: 11px; letter-spacing: 1px; }
+  .top-bar .stats span { color: #556; }
+  .top-bar .stats .val { color: #84cc16; }
+
+  .edge-readout {
+    position: fixed; z-index: 50; font-size: 9px; color: rgba(132,204,22,0.35);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  .edge-readout.left { left: 10px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout.right { right: 10px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout.bottom-left { left: 20px; bottom: 12px; }
+  .edge-readout.bottom-right { right: 20px; bottom: 12px; }
+
+  .hal-eye-container {
+    position: fixed; z-index: 30;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+  }
+  .hal-eye {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: radial-gradient(circle, #ff1a1a 0%, #cc0000 30%, #660000 60%, #330000 80%, transparent 100%);
+    box-shadow: 0 0 60px rgba(255,0,0,0.4), 0 0 120px rgba(255,0,0,0.15), inset 0 0 30px rgba(255,100,100,0.3);
+    position: relative;
+    animation: halPulse 4s ease-in-out infinite;
+  }
+  .hal-eye::after {
+    content: ''; position: absolute; inset: 20%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,100,100,0.3) 40%, transparent 70%);
+  }
+  @keyframes halPulse {
+    0%, 100% { box-shadow: 0 0 60px rgba(255,0,0,0.4), 0 0 120px rgba(255,0,0,0.15); }
+    50% { box-shadow: 0 0 80px rgba(255,0,0,0.5), 0 0 160px rgba(255,0,0,0.2); }
+  }
+
+  .connections-svg {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+  }
+
+  /* Hex card */
+  .hex-card {
+    position: absolute; z-index: 10;
+    width: 180px; height: 100px;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+  }
+  .hex-card .hex-bg {
+    position: absolute; inset: 0;
+    clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+    background: rgba(132,204,22,0.05);
+    border: none;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s;
+  }
+  .hex-card:hover .hex-bg {
+    background: rgba(132,204,22,0.1);
+  }
+  .hex-card .hex-border {
+    position: absolute; inset: -1px;
+    clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+    background: transparent;
+  }
+  .hex-card .hex-border::before {
+    content: ''; position: absolute; inset: 0;
+    clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+    border: 1px solid rgba(132,204,22,0.2);
+    background: transparent;
+  }
+  /* HUD corners on hex */
+  .hex-card .hud-tl { position: absolute; top: 8px; left: 18px; width: 12px; height: 12px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hex-card .hud-br { position: absolute; bottom: 8px; right: 18px; width: 12px; height: 12px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .hex-card .card-content {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; padding: 10px 20px; text-align: center;
+  }
+  .hex-card .card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.ready { background: #84cc16; box-shadow: 0 0 6px rgba(132,204,22,0.6); }
+  .status-dot.pending { background: #eab308; box-shadow: 0 0 6px rgba(234,179,8,0.6); }
+  .card-name { font-size: 9px; font-weight: 600; color: #e2e8f0; letter-spacing: 1px; }
+  .card-stack { font-size: 7px; color: rgba(132,204,22,0.6); letter-spacing: 1px; }
+
+  .bottom-bar {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50;
+    display: flex; gap: 12px;
+  }
+  .cmd-btn {
+    background: rgba(132,204,22,0.06);
+    border: 1px solid rgba(132,204,22,0.25);
+    color: #84cc16; padding: 8px 20px;
+    font-family: inherit; font-size: 11px; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  .cmd-btn:hover {
+    background: rgba(132,204,22,0.12);
+    border-color: rgba(132,204,22,0.5);
+    box-shadow: 0 0 15px rgba(132,204,22,0.15);
+  }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN</div>
+  <div class="stats">
+    <span><span class="val">14</span> OPS</span>
+    <span><span class="val">10</span> READY</span>
+    <span><span class="val">4</span> PENDING</span>
+  </div>
+</div>
+
+<div class="edge-readout left">HEX GRID // HONEYCOMB TOPOLOGY // LOCKED</div>
+<div class="edge-readout right">CELL INTEGRITY 100% // GRID STABLE</div>
+<div class="edge-readout bottom-left">HIVE CLUSTER 0x7F01 :: OPERATIONAL</div>
+<div class="edge-readout bottom-right">UPLINK 2026.03.22 // SESSION ACTIVE</div>
+
+<div class="hal-eye-container">
+  <div class="hal-eye"></div>
+</div>
+
+<svg class="connections-svg" id="connectionsSvg"></svg>
+<div id="hexContainer"></div>
+
+<div class="bottom-bar">
+  <button class="cmd-btn">+ NEW OPERATION</button>
+  <button class="cmd-btn">+ RECRUIT EXISTING</button>
+</div>
+
+<script>
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'ELECTRON/REACT', status: 'ready' },
+  { name: 'SNOWFINDER', stack: 'NEXT.JS', status: 'ready' },
+  { name: 'PREZSANDRINE', stack: 'REACT/VITE', status: 'ready' },
+  { name: 'INEVITABLESTUDIO', stack: 'UNITY/C#', status: 'pending' },
+  { name: 'OFFLINEGAME', stack: 'GODOT/GDSCRIPT', status: 'ready' },
+  { name: 'COMMUNITYSCANNER', stack: 'PYTHON/FAST', status: 'ready' },
+  { name: 'DNDMAPBUILDER', stack: 'REACT/CANVAS', status: 'pending' },
+  { name: 'SCRIPT2UNREAL', stack: 'PYTHON/UE5', status: 'ready' },
+  { name: 'PIXELAGENTMONITOR', stack: 'ELECTRON', status: 'ready' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'NEXT.JS/AI', status: 'pending' },
+  { name: 'CINEMASTER-DEMO', stack: 'REACT/THREE', status: 'ready' },
+  { name: 'PIXEL-AGENTS', stack: 'PYTHON/ML', status: 'ready' },
+  { name: 'MODELTRAINING', stack: 'PYTHON/TORCH', status: 'pending' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'NODE.JS/CLI', status: 'ready' },
+];
+
+const container = document.getElementById('hexContainer');
+const svg = document.getElementById('connectionsSvg');
+const cx = window.innerWidth / 2;
+const cy = window.innerHeight / 2;
+
+// Hex grid positions (q,r axial coords) - ring around center
+const hexPositions = [
+  // Ring 1 (6 positions)
+  { q: 1, r: 0 }, { q: 0, r: 1 }, { q: -1, r: 1 },
+  { q: -1, r: 0 }, { q: 0, r: -1 }, { q: 1, r: -1 },
+  // Ring 2 (8 positions, selected)
+  { q: 2, r: 0 }, { q: 1, r: 1 }, { q: 0, r: 2 }, { q: -1, r: 2 },
+  { q: -2, r: 1 }, { q: -2, r: 0 }, { q: -1, r: -1 }, { q: 1, r: -2 },
+];
+
+const hexW = 195;
+const hexH = 115;
+
+projects.forEach((p, i) => {
+  const pos = hexPositions[i];
+  // Axial to pixel
+  const px = cx + pos.q * hexW * 0.78 + pos.r * hexW * 0.39;
+  const py = cy + pos.r * hexH * 0.85;
+
+  // Connection line
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+  line.setAttribute('x2', px); line.setAttribute('y2', py);
+  line.setAttribute('stroke', 'rgba(132,204,22,0.08)');
+  line.setAttribute('stroke-width', '1');
+  line.setAttribute('stroke-dasharray', '3,6');
+  svg.appendChild(line);
+
+  const card = document.createElement('div');
+  card.className = 'hex-card';
+  card.style.left = px + 'px';
+  card.style.top = py + 'px';
+  card.innerHTML = `
+    <div class="hex-bg"></div>
+    <div class="hud-tl"></div>
+    <div class="hud-br"></div>
+    <div class="card-content">
+      <div class="card-header">
+        <div class="status-dot ${p.status}"></div>
+        <div class="card-name">${p.name}</div>
+      </div>
+      <div class="card-stack">${p.stack}</div>
+    </div>
+  `;
+  container.appendChild(card);
+});
+
+// Draw hex grid outline
+const gridSvg = svg;
+hexPositions.forEach(pos => {
+  const px = cx + pos.q * hexW * 0.78 + pos.r * hexW * 0.39;
+  const py = cy + pos.r * hexH * 0.85;
+  const hex = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  const size = 55;
+  const points = [];
+  for (let a = 0; a < 6; a++) {
+    const angle = Math.PI / 180 * (60 * a - 30);
+    points.push(`${px + size * Math.cos(angle)},${py + size * Math.sin(angle)}`);
+  }
+  hex.setAttribute('points', points.join(' '));
+  hex.setAttribute('fill', 'none');
+  hex.setAttribute('stroke', 'rgba(132,204,22,0.05)');
+  hex.setAttribute('stroke-width', '1');
+  gridSvg.appendChild(hex);
+});
+</script>
+</body>
+</html>

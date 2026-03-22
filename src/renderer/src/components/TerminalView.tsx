@@ -24,23 +24,59 @@ interface Props {
 
 type DropZone = 'left' | 'right' | 'full' | null
 
+const LAYOUT_KEY = 'claudeborn-pane-layout'
+
+function saveLayout(panes: Pane[]) {
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(panes)) } catch { /* */ }
+}
+
+function loadLayout(): Pane[] {
+  try {
+    const data = localStorage.getItem(LAYOUT_KEY)
+    return data ? JSON.parse(data) : []
+  } catch { return [] }
+}
+
 export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, fontSize = 13, voiceOut = false }: Props) {
-  const [panes, setPanes] = useState<Pane[]>([])
+  const [panes, setPanesRaw] = useState<Pane[]>(loadLayout)
   const [draggedTab, setDraggedTab] = useState<string | null>(null)
+
+  // Wrap setPanes to auto-save layout
+  const setPanes: typeof setPanesRaw = useCallback((updater) => {
+    setPanesRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveLayout(next)
+      return next
+    })
+  }, [])
   const [dropPreview, setDropPreview] = useState<{ paneId: string; zone: DropZone } | null>(null)
   const [dragOverNewZone, setDragOverNewZone] = useState<'left' | 'right' | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sessionId: string } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Sync sessions into panes — add new sessions to the last pane, remove closed ones
+  // Sync sessions into panes — restore saved layout, add new sessions, remove closed ones
   useEffect(() => {
     setPanes((prev) => {
-      const allTabIds = prev.flatMap((p) => p.tabs)
       const sessionIds = sessions.map((s) => s.id)
 
-      // Add new sessions
-      const newIds = sessionIds.filter((id) => !allTabIds.includes(id))
-      let updated = [...prev]
+      // Start from saved layout if it has matching tabs, otherwise from current state
+      let updated = prev.length > 0 ? [...prev] : []
+
+      // Filter saved panes to only include tabs that have active sessions
+      updated = updated
+        .map((p) => ({
+          ...p,
+          tabs: p.tabs.filter((t) => sessionIds.includes(t)),
+        }))
+        .map((p) => ({
+          ...p,
+          activeTab: p.tabs.includes(p.activeTab) ? p.activeTab : p.tabs[0] || '',
+        }))
+        .filter((p) => p.tabs.length > 0)
+
+      // Find sessions not in any pane and add them
+      const assignedIds = updated.flatMap((p) => p.tabs)
+      const newIds = sessionIds.filter((id) => !assignedIds.includes(id))
 
       if (newIds.length > 0) {
         if (updated.length === 0) {
@@ -54,19 +90,6 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
           }
         }
       }
-
-      // Remove closed sessions
-      updated = updated
-        .map((p) => {
-          const remaining = p.tabs.filter((t) => sessionIds.includes(t))
-          if (remaining.length === p.tabs.length) return p
-          return {
-            ...p,
-            tabs: remaining,
-            activeTab: remaining.includes(p.activeTab) ? p.activeTab : remaining[0] || '',
-          }
-        })
-        .filter((p) => p.tabs.length > 0)
 
       return updated
     })

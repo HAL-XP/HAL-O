@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Dual Arc</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #030308;
+    color: #c8d6e5;
+    font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    width: 100vw; height: 100vh; overflow: hidden;
+    position: relative;
+  }
+
+  .vignette {
+    position: fixed; inset: 0; z-index: 100; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  }
+
+  .grid-floor {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 35vh; z-index: 0;
+    background:
+      linear-gradient(to top, rgba(132,204,22,0.06) 1px, transparent 1px),
+      linear-gradient(to right, rgba(132,204,22,0.06) 1px, transparent 1px);
+    background-size: 60px 40px;
+    transform: perspective(500px) rotateX(55deg);
+    transform-origin: bottom center;
+    mask-image: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%);
+  }
+
+  .top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    height: 48px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(to bottom, rgba(3,3,8,0.95), transparent);
+    border-bottom: 1px solid rgba(132,204,22,0.15);
+  }
+  .top-bar .sys-label { font-size: 13px; font-weight: 600; color: #84cc16; letter-spacing: 2px; }
+  .top-bar .stats { display: flex; gap: 24px; font-size: 11px; letter-spacing: 1px; }
+  .top-bar .stats span { color: #556; }
+  .top-bar .stats .val { color: #84cc16; }
+
+  .edge-readout {
+    position: fixed; z-index: 50; font-size: 9px; color: rgba(132,204,22,0.35);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  .edge-readout.left { left: 10px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout.right { right: 10px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout.bottom-left { left: 20px; bottom: 12px; }
+  .edge-readout.bottom-right { right: 20px; bottom: 12px; }
+
+  .hal-eye-container {
+    position: fixed; z-index: 30;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+  }
+  .hal-eye {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: radial-gradient(circle, #ff1a1a 0%, #cc0000 30%, #660000 60%, #330000 80%, transparent 100%);
+    box-shadow: 0 0 60px rgba(255,0,0,0.4), 0 0 120px rgba(255,0,0,0.15), inset 0 0 30px rgba(255,100,100,0.3);
+    position: relative;
+    animation: halPulse 4s ease-in-out infinite;
+  }
+  .hal-eye::after {
+    content: ''; position: absolute; inset: 20%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,100,100,0.3) 40%, transparent 70%);
+  }
+  @keyframes halPulse {
+    0%, 100% { box-shadow: 0 0 60px rgba(255,0,0,0.4), 0 0 120px rgba(255,0,0,0.15); }
+    50% { box-shadow: 0 0 80px rgba(255,0,0,0.5), 0 0 160px rgba(255,0,0,0.2); }
+  }
+
+  /* HUD arcs around eye */
+  .hud-arc {
+    position: fixed; z-index: 25; pointer-events: none;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+  }
+  .hud-arc svg { overflow: visible; }
+
+  .connections-svg {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+  }
+
+  .project-card {
+    position: absolute; width: 200px;
+    background: rgba(132,204,22,0.04);
+    border: 1px solid rgba(132,204,22,0.15);
+    border-radius: 4px;
+    padding: 10px 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    z-index: 10;
+  }
+  .project-card:hover {
+    background: rgba(132,204,22,0.08);
+    border-color: rgba(132,204,22,0.4);
+    box-shadow: 0 0 20px rgba(132,204,22,0.1);
+  }
+  .project-card::before {
+    content: ''; position: absolute; top: -1px; left: -1px;
+    width: 14px; height: 14px;
+    border-top: 2px solid #84cc16; border-left: 2px solid #84cc16;
+  }
+  .project-card::after {
+    content: ''; position: absolute; bottom: -1px; right: -1px;
+    width: 14px; height: 14px;
+    border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16;
+  }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.ready { background: #84cc16; box-shadow: 0 0 6px rgba(132,204,22,0.6); }
+  .status-dot.pending { background: #eab308; box-shadow: 0 0 6px rgba(234,179,8,0.6); }
+  .card-name { font-size: 10px; font-weight: 600; color: #e2e8f0; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-stack { font-size: 8px; color: rgba(132,204,22,0.6); background: rgba(132,204,22,0.08); padding: 2px 6px; border-radius: 2px; display: inline-block; letter-spacing: 1px; }
+
+  .bottom-bar {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50;
+    display: flex; gap: 12px;
+  }
+  .cmd-btn {
+    background: rgba(132,204,22,0.06);
+    border: 1px solid rgba(132,204,22,0.25);
+    color: #84cc16; padding: 8px 20px;
+    font-family: inherit; font-size: 11px; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  .cmd-btn:hover {
+    background: rgba(132,204,22,0.12);
+    border-color: rgba(132,204,22,0.5);
+    box-shadow: 0 0 15px rgba(132,204,22,0.15);
+  }
+
+  /* Center label */
+  .center-label {
+    position: fixed; left: 50%; top: calc(50% + 80px); transform: translateX(-50%);
+    font-size: 9px; color: rgba(132,204,22,0.4); letter-spacing: 3px; z-index: 31;
+  }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN</div>
+  <div class="stats">
+    <span><span class="val">14</span> OPS</span>
+    <span><span class="val">10</span> READY</span>
+    <span><span class="val">4</span> PENDING</span>
+  </div>
+</div>
+
+<div class="edge-readout left">ARC FORMATION // DUAL WING // NOMINAL</div>
+<div class="edge-readout right">SYNC RATE 99.7% // ALL CHANNELS OPEN</div>
+<div class="edge-readout bottom-left">MATRIX 0xBEEF :: DUAL-ARC TOPOLOGY</div>
+<div class="edge-readout bottom-right">UPLINK 2026.03.22 // SESSION ACTIVE</div>
+
+<div class="hal-eye-container">
+  <div class="hal-eye"></div>
+</div>
+<div class="center-label">CENTRAL PROCESSING NODE</div>
+
+<!-- HUD arcs -->
+<div class="hud-arc">
+  <svg width="200" height="200" viewBox="-100 -100 200 200">
+    <circle cx="0" cy="0" r="80" fill="none" stroke="rgba(132,204,22,0.1)" stroke-width="1" stroke-dasharray="8,12"/>
+    <circle cx="0" cy="0" r="90" fill="none" stroke="rgba(132,204,22,0.05)" stroke-width="1"/>
+  </svg>
+</div>
+
+<svg class="connections-svg" id="connectionsSvg"></svg>
+<div id="cardsContainer"></div>
+
+<div class="bottom-bar">
+  <button class="cmd-btn">+ NEW OPERATION</button>
+  <button class="cmd-btn">+ RECRUIT EXISTING</button>
+</div>
+
+<script>
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'ELECTRON/REACT', status: 'ready' },
+  { name: 'SNOWFINDER', stack: 'NEXT.JS', status: 'ready' },
+  { name: 'PREZSANDRINE', stack: 'REACT/VITE', status: 'ready' },
+  { name: 'INEVITABLESTUDIO', stack: 'UNITY/C#', status: 'pending' },
+  { name: 'OFFLINEGAME', stack: 'GODOT/GDSCRIPT', status: 'ready' },
+  { name: 'COMMUNITYSCANNER', stack: 'PYTHON/FAST', status: 'ready' },
+  { name: 'DNDMAPBUILDER', stack: 'REACT/CANVAS', status: 'pending' },
+  { name: 'SCRIPT2UNREAL', stack: 'PYTHON/UE5', status: 'ready' },
+  { name: 'PIXELAGENTMONITOR', stack: 'ELECTRON', status: 'ready' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'NEXT.JS/AI', status: 'pending' },
+  { name: 'CINEMASTER-DEMO', stack: 'REACT/THREE', status: 'ready' },
+  { name: 'PIXEL-AGENTS', stack: 'PYTHON/ML', status: 'ready' },
+  { name: 'MODELTRAINING', stack: 'PYTHON/TORCH', status: 'pending' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'NODE.JS/CLI', status: 'ready' },
+];
+
+const container = document.getElementById('cardsContainer');
+const svg = document.getElementById('connectionsSvg');
+const cx = window.innerWidth / 2;
+const cy = window.innerHeight / 2;
+
+const leftArc = projects.slice(0, 7);
+const rightArc = projects.slice(7);
+
+function placeArc(items, side) {
+  const arcRadius = Math.min(window.innerHeight * 0.42, 380);
+  const startAngle = side === 'left' ? Math.PI * 0.65 : -Math.PI * 0.35;
+  const endAngle = side === 'left' ? Math.PI * 1.35 : Math.PI * 0.35;
+  const cardOffset = side === 'left' ? -210 : 10;
+
+  items.forEach((p, i) => {
+    const t = i / (items.length - 1);
+    const angle = startAngle + t * (endAngle - startAngle);
+    const px = cx + Math.cos(angle) * arcRadius;
+    const py = cy + Math.sin(angle) * arcRadius;
+
+    // Curved connection line using quadratic bezier
+    const midX = (cx + px) / 2;
+    const midY = (cy + py) / 2;
+    const controlOffset = side === 'left' ? -40 : 40;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${cx} ${cy} Q ${midX + controlOffset} ${midY} ${px} ${py}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'rgba(132,204,22,0.1)');
+    path.setAttribute('stroke-width', '1');
+    path.setAttribute('stroke-dasharray', '4,6');
+    svg.appendChild(path);
+
+    // Glow dot on the arc
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', px); dot.setAttribute('cy', py);
+    dot.setAttribute('r', '3');
+    dot.setAttribute('fill', p.status === 'ready' ? '#84cc16' : '#eab308');
+    dot.setAttribute('opacity', '0.5');
+    svg.appendChild(dot);
+
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.style.left = (px + cardOffset) + 'px';
+    card.style.top = (py - 22) + 'px';
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="status-dot ${p.status}"></div>
+        <div class="card-name">${p.name}</div>
+      </div>
+      <div class="card-stack">${p.stack}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+placeArc(leftArc, 'left');
+placeArc(rightArc, 'right');
+</script>
+</body>
+</html>
