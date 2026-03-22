@@ -81,49 +81,104 @@ function PbrRingPlatform() {
   })
 
   const ringDefs = [
-    // Inner — red zone near sphere
-    { r: 1.8, tube: 0.06, color: '#220000', emissive: '#ff1100', ei: 0.4 },
-    { r: 2.3, tube: 0.02, color: '#001a2e', emissive: '#003366', ei: 0.3 },
-    // Middle — transition to cyan
-    { r: 3.0, tube: 0.1, color: '#001522', emissive: '#004466', ei: 0.2 },
-    { r: 3.5, tube: 0.03, color: '#003355', emissive: '#00aadd', ei: 0.6 },
-    { r: 4.0, tube: 0.08, color: '#001222', emissive: '#003355', ei: 0.15 },
-    // Outer — bright cyan where screens sit
-    { r: 4.8, tube: 0.04, color: '#004466', emissive: '#00bbee', ei: 0.5 },
-    { r: 5.5, tube: 0.12, color: '#001a33', emissive: '#004466', ei: 0.2 },
-    { r: 6.0, tube: 0.03, color: '#005577', emissive: '#00d4ff', ei: 0.6 },
-    { r: 6.5, tube: 0.08, color: '#001a2e', emissive: '#004466', ei: 0.25 },
-    { r: 7.0, tube: 0.05, color: '#006688', emissive: '#00d4ff', ei: 0.5 },
-    // Outermost — platform edge
-    { r: 7.5, tube: 0.1, color: '#001122', emissive: '#003344', ei: 0.15 },
-    { r: 8.0, tube: 0.03, color: '#005577', emissive: '#00aadd', ei: 0.4 },
-    { r: 8.5, tube: 0.06, color: '#001a2e', emissive: '#003366', ei: 0.2 },
+    // Inner — red zone (thin, etched into surface)
+    { r: 1.5, tube: 0.03, color: '#220000', emissive: '#ff2200', ei: 1.0 },
+    { r: 1.9, tube: 0.015, color: '#110000', emissive: '#ff1100', ei: 0.6 },
+    { r: 2.3, tube: 0.05, color: '#110808', emissive: '#991100', ei: 0.4 },
+    { r: 2.7, tube: 0.02, color: '#110000', emissive: '#cc1100', ei: 0.5 },
+    // Middle — transition zone
+    { r: 3.2, tube: 0.025, color: '#001a2e', emissive: '#006699', ei: 0.8 },
+    { r: 3.6, tube: 0.06, color: '#001222', emissive: '#003355', ei: 0.3 },
+    { r: 4.0, tube: 0.02, color: '#003355', emissive: '#00bbee', ei: 1.0 },
+    { r: 4.4, tube: 0.04, color: '#001522', emissive: '#004466', ei: 0.35 },
+    { r: 4.8, tube: 0.015, color: '#004466', emissive: '#00ccee', ei: 0.7 },
+    // Outer — screen zone
+    { r: 5.3, tube: 0.05, color: '#001a33', emissive: '#004466', ei: 0.3 },
+    { r: 5.7, tube: 0.02, color: '#005577', emissive: '#00d4ff', ei: 1.0 },
+    { r: 6.1, tube: 0.04, color: '#001a2e', emissive: '#004466', ei: 0.35 },
+    { r: 6.5, tube: 0.025, color: '#006688', emissive: '#00d4ff', ei: 0.9 },
+    // Edge rings
+    { r: 6.9, tube: 0.05, color: '#001122', emissive: '#003355', ei: 0.25 },
+    { r: 7.3, tube: 0.02, color: '#005577', emissive: '#00ccdd', ei: 0.7 },
+    { r: 7.7, tube: 0.03, color: '#001a2e', emissive: '#003355', ei: 0.3 },
   ]
 
   return (
-    <group ref={groupRef} position={[0, 0, 0]}>
-      {ringDefs.map((rd, i) => (
-        <mesh key={i} position={[0, rd.tube / 2, 0]}>
-          <torusGeometry args={[rd.r, rd.tube, 12, 128]} />
-          <meshStandardMaterial
-            color={rd.color}
-            emissive={rd.emissive}
-            emissiveIntensity={rd.ei}
-            metalness={0.9}
-            roughness={0.15}
-            toneMapped={false}
-          />
-        </mesh>
-      ))}
+    <group ref={groupRef} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Torus rings removed — shader disc handles all ring visuals */}
 
       {/* Bright marker dots */}
+      {/* Platform disc with ETCHED ring lines via shader */}
+      <mesh position={[0, 0, 0.01]}>
+        <ringGeometry args={[1.0, 8.5, 128]} />
+        <shaderMaterial
+          transparent
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          vertexShader={`
+            varying vec2 vUv;
+            varying float vDist;
+            void main() {
+              vUv = uv;
+              vec4 wp = modelMatrix * vec4(position, 1.0);
+              vDist = length(wp.xy);
+              gl_Position = projectionMatrix * viewMatrix * wp;
+            }
+          `}
+          fragmentShader={`
+            varying vec2 vUv;
+            varying float vDist;
+
+            void main() {
+              // Dark base
+              vec3 base = vec3(0.015, 0.02, 0.025);
+
+              // Concentric ring lines at specific radii
+              float line = 0.0;
+
+              // Inner red rings
+              line += smoothstep(0.02, 0.0, abs(vDist - 1.5)) * 0.8;
+              line += smoothstep(0.015, 0.0, abs(vDist - 1.9)) * 0.5;
+              line += smoothstep(0.03, 0.0, abs(vDist - 2.3)) * 0.6;
+              line += smoothstep(0.015, 0.0, abs(vDist - 2.7)) * 0.4;
+
+              // Transition rings
+              line += smoothstep(0.02, 0.0, abs(vDist - 3.2)) * 0.7;
+              line += smoothstep(0.04, 0.0, abs(vDist - 3.6)) * 0.3;
+              line += smoothstep(0.015, 0.0, abs(vDist - 4.0)) * 0.9;
+              line += smoothstep(0.03, 0.0, abs(vDist - 4.4)) * 0.4;
+              line += smoothstep(0.015, 0.0, abs(vDist - 4.8)) * 0.6;
+
+              // Outer rings
+              line += smoothstep(0.035, 0.0, abs(vDist - 5.3)) * 0.3;
+              line += smoothstep(0.015, 0.0, abs(vDist - 5.7)) * 0.8;
+              line += smoothstep(0.025, 0.0, abs(vDist - 6.1)) * 0.4;
+              line += smoothstep(0.02, 0.0, abs(vDist - 6.5)) * 0.7;
+              line += smoothstep(0.04, 0.0, abs(vDist - 6.9)) * 0.3;
+              line += smoothstep(0.015, 0.0, abs(vDist - 7.3)) * 0.6;
+
+              // Color: red near center, cyan at edges
+              float t = smoothstep(1.5, 5.0, vDist);
+              vec3 innerColor = vec3(1.0, 0.1, 0.0);
+              vec3 outerColor = vec3(0.0, 0.7, 1.0);
+              vec3 lineColor = mix(innerColor, outerColor, t);
+
+              vec3 color = lineColor * line * 0.8;
+              float alpha = line * 0.8;
+
+              gl_FragColor = vec4(color, alpha);
+            }
+          `}
+        />
+      </mesh>
+
       {Array.from({ length: 32 }, (_, i) => {
         const a = (i / 32) * Math.PI * 2
         const r = 7.0
         return (
-          <mesh key={`dot-${i}`} position={[Math.cos(a) * r, 0.03, Math.sin(a) * r]}>
-            <sphereGeometry args={[0.04, 8, 8]} />
-            <meshStandardMaterial emissive="#00d4ff" emissiveIntensity={2} toneMapped={false} />
+          <mesh key={`dot-${i}`} position={[Math.cos(a) * r, Math.sin(a) * r, -0.03]}>
+            <sphereGeometry args={[0.05, 8, 8]} />
+            <meshStandardMaterial emissive="#00d4ff" emissiveIntensity={3} toneMapped={false} color="#003355" metalness={1} roughness={0} />
           </mesh>
         )
       })}
@@ -193,11 +248,13 @@ function PbrHalSphere() {
         <meshStandardMaterial emissive="#ff4400" emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
       </mesh>
 
-      {/* Meridian */}
-      <mesh>
-        <torusGeometry args={[1.3, 0.012, 8, 128]} />
-        <meshStandardMaterial emissive="#ff3300" emissiveIntensity={1.5} toneMapped={false} metalness={1} roughness={0} />
-      </mesh>
+      {/* Latitude rings for globe detail */}
+      {[0.4, 0.8, -0.4, -0.8].map((y, i) => (
+        <mesh key={`lat-${i}`} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[Math.sqrt(1.3 * 1.3 - y * y), 0.006, 6, 64]} />
+          <meshStandardMaterial emissive="#ff2200" emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
+        </mesh>
+      ))}
 
       {/* Red atmospheric glow — subtle, smaller */}
       <mesh>
@@ -217,7 +274,7 @@ function PostFX() {
   const offset = useMemo(() => new Vector2(0.0006, 0.0006), [])
   return (
     <EffectComposer>
-      <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.7} intensity={2.8} radius={0.85} mipmapBlur />
+      <Bloom luminanceThreshold={0.3} luminanceSmoothing={0.8} intensity={1.8} radius={0.7} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={0.6} offset={0.3} />
     </EffectComposer>
@@ -277,7 +334,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-      camera={{ position: [0, 5, 11], fov: 55, near: 0.1, far: 1000 }}
+      camera={{ position: [0, 12, 14], fov: 42, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
       shadows

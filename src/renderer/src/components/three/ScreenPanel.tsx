@@ -136,8 +136,10 @@ export function ScreenPanel({
       {/* ── HTML content ── */}
       <Html
         transform
+        occlude="blending"
         distanceFactor={4}
         position={[0, 0, depth / 2 + 0.01]}
+        zIndexRange={[10, 0]}
         style={{
           width: '260px',
           padding: '12px 14px',
