@@ -167,7 +167,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         />
         <div className="hal-topbar">
           <div className="hal-topbar-left">
-            <span className="hal-sys-label">SYS://CLAUDEBORN</span>
+            <span className="hal-sys-label">SYS://HAL-O</span>
             <span className="hal-sys-ver">v1.0</span>
             <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
             <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ RECRUIT</button>
@@ -221,7 +221,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         {/* Top HUD bar — same as classic */}
         <div className="hal-topbar">
           <div className="hal-topbar-left">
-            <span className="hal-sys-label">SYS://CLAUDEBORN</span>
+            <span className="hal-sys-label">SYS://HAL-O</span>
             <span className="hal-sys-ver">v1.0</span>
             <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
             <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ RECRUIT</button>
@@ -281,7 +281,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       {/* Top HUD bar */}
       <div className="hal-topbar">
         <div className="hal-topbar-left">
-          <span className="hal-sys-label">SYS://CLAUDEBORN</span>
+          <span className="hal-sys-label">SYS://HAL-O</span>
           <span className="hal-sys-ver">v1.0</span>
           <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>
             + NEW

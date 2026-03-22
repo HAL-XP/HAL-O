@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const ar: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'إعداد Claudeborn',
+  'setup.title': 'إعداد HAL-O',
   'setup.subtitle': 'لنتأكد من أن كل شيء جاهز قبل أن نبدأ.',
   'setup.checking': 'جارٍ التحقق من المتطلبات...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const ar: Translations = {
   'setup.riskWarning': 'مرئي لجميع الأدوات على هذا الجهاز التي تقرأ هذا الملف',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (مجلد Claudeborn)',
+  'setup.loc.envLocal.label': '.env.local (مجلد HAL-O)',
   'setup.loc.envLocal.desc': 'هذا التطبيق فقط يمكنه رؤيته. Gitignored. الأكثر أماناً للتجربة.',
-  'setup.loc.env.label': '.env (مجلد Claudeborn)',
+  'setup.loc.env.label': '.env (مجلد HAL-O)',
   'setup.loc.env.desc': 'هذا التطبيق فقط. قد يتم عمل commit له إذا نسيت gitignore.',
   'setup.loc.envHome.label': '~/.env (المجلد الرئيسي)',
   'setup.loc.envHome.desc': 'أي أداة أو سكريبت يقرأ ~/.env سيرى هذا المفتاح. مريح لكن واسع النطاق.',
@@ -41,7 +41,7 @@ export const ar: Translations = {
   'setup.loc.credentials.desc': 'جميع جلسات Claude Code والخطافات يمكنها استخدام هذا الملف. الموقع القياسي إذا كنت تستخدم Claude Code في عدة مشاريع.',
 
   // ── Welcome ──
-  'welcome.title': 'مرحباً بك في Claudeborn!',
+  'welcome.title': 'مرحباً بك في HAL-O!',
   'welcome.body': 'سأرشدك خلال إعداد مشروع Claude Code جديد مع أفضل الممارسات. لنبدأ بالأساسيات.',
 
   // ── Step Questions ──

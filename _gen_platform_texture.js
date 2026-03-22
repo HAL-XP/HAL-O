@@ -106,5 +106,5 @@ for (let i = 0; i < 32; i++) {
 
 // Save
 const buffer = canvas.toBuffer('image/png')
-fs.writeFileSync('D:/GitHub/ProjectCreator/src/renderer/public/ring_platform.png', buffer)
+fs.writeFileSync('D:/GitHub/hal-o/src/renderer/public/ring_platform.png', buffer)
 console.log('Generated ring_platform.png (' + SIZE + 'x' + SIZE + ')')

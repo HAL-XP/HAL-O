@@ -13,7 +13,7 @@ export function registerVoiceHandlers(): void {
   const ttsScript = join(scriptsDir, 'tts.py')
 
   ipcMain.handle('voice-transcribe', async (_e, audioBuffer: ArrayBuffer) => {
-    const tempPath = join(tmpdir(), `claudeborn_voice_${Date.now()}.ogg`)
+    const tempPath = join(tmpdir(), `halo_voice_${Date.now()}.ogg`)
     try {
       writeFileSync(tempPath, Buffer.from(audioBuffer))
       const result = execSync(`python "${transcribeScript}" "${tempPath}"`, {
@@ -29,7 +29,7 @@ export function registerVoiceHandlers(): void {
   })
 
   ipcMain.handle('voice-speak', async (_e, text: string, profile: string = 'narrator', lang: string = 'en') => {
-    const outPath = join(tmpdir(), `claudeborn_tts_${Date.now()}.ogg`)
+    const outPath = join(tmpdir(), `halo_tts_${Date.now()}.ogg`)
     return new Promise<{ success: boolean; audioPath?: string; error?: string }>((resolve) => {
       const proc = spawn('python', [ttsScript, text, outPath, profile, lang], {
         timeout: 120000,

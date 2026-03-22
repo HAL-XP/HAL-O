@@ -37,7 +37,7 @@ export function registerTerminalHandlers(): void {
 
   const pendingSessionsFile = join(
     process.env.USERPROFILE || process.env.HOME || '',
-    '.claudeborn-pending-sessions.json'
+    '.hal-o-pending-sessions.json'
   )
 
   // Pop a specific terminal to external window (e.g. before app restart)

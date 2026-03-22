@@ -1,5 +1,5 @@
 @echo off
-title * Claudeborn Wizard
+title * HAL-O Wizard
 cd /d "%~dp0"
 
 :: Check Node.js
@@ -13,7 +13,7 @@ if %errorlevel% neq 0 (
 
 :: Auto-install dependencies on first run
 if not exist "node_modules\" (
-    echo [Claudeborn] First run detected — installing dependencies...
+    echo [HAL-O] First run detected — installing dependencies...
     call npm install
     if %errorlevel% neq 0 (
         echo [ERROR] npm install failed. Check your Node.js installation.
@@ -24,5 +24,5 @@ if not exist "node_modules\" (
 )
 
 :: Launch
-echo [Claudeborn] Starting wizard...
+echo [HAL-O] Starting wizard...
 npm run dev

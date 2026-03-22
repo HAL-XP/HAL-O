@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const zh: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Claudeborn 设置',
+  'setup.title': 'HAL-O 设置',
   'setup.subtitle': '在开始之前，让我们确保一切准备就绪。',
   'setup.checking': '正在检查前置条件...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const zh: Translations = {
   'setup.riskWarning': '此机器上检查此文件的所有工具都可以看到',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local（Claudeborn 文件夹）',
+  'setup.loc.envLocal.label': '.env.local（HAL-O 文件夹）',
   'setup.loc.envLocal.desc': '仅此应用可见。已加入 gitignore。最安全的试用选项。',
-  'setup.loc.env.label': '.env（Claudeborn 文件夹）',
+  'setup.loc.env.label': '.env（HAL-O 文件夹）',
   'setup.loc.env.desc': '仅此应用。如果忘记添加到 gitignore，可能会被提交。',
   'setup.loc.envHome.label': '~/.env（主目录）',
   'setup.loc.envHome.desc': '任何读取 ~/.env 的工具或脚本都能看到此密钥。方便但范围较广。',
@@ -41,7 +41,7 @@ export const zh: Translations = {
   'setup.loc.credentials.desc': '所有 Claude Code 会话和钩子都可以加载此文件。如果你在多个项目中使用 Claude Code，这是标准位置。',
 
   // ── Welcome ──
-  'welcome.title': '欢迎使用 Claudeborn！',
+  'welcome.title': '欢迎使用 HAL-O！',
   'welcome.body': '我将引导你使用最佳实践来设置新的 Claude Code 项目。让我们从基础开始。',
 
   // ── Step Questions ──

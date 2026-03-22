@@ -1,8 +1,8 @@
 {
-  "name": "claudeborn",
+  "name": "hal-o",
   "version": "1.0.1",
   "private": true,
-  "description": "Claudeborn — Electron wizard for bootstrapping Claude Code projects with best practices",
+  "description": "HAL-O — Holographic Adaptive Layer for Claude Code projects",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

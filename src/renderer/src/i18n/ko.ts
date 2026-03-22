@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const ko: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Claudeborn 설정',
+  'setup.title': 'HAL-O 설정',
   'setup.subtitle': '시작하기 전에 모든 준비가 되었는지 확인합시다.',
   'setup.checking': '사전 요구 사항 확인 중...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const ko: Translations = {
   'setup.riskWarning': '이 파일을 확인하는 이 머신의 모든 도구에서 볼 수 있습니다',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (Claudeborn 폴더)',
+  'setup.loc.envLocal.label': '.env.local (HAL-O 폴더)',
   'setup.loc.envLocal.desc': '이 앱만 볼 수 있습니다. gitignore 처리됨. 시험용으로 가장 안전합니다.',
-  'setup.loc.env.label': '.env (Claudeborn 폴더)',
+  'setup.loc.env.label': '.env (HAL-O 폴더)',
   'setup.loc.env.desc': '이 앱만. gitignore를 잊으면 커밋될 수 있습니다.',
   'setup.loc.envHome.label': '~/.env (홈 디렉토리)',
   'setup.loc.envHome.desc': '~/.env를 읽는 모든 도구나 스크립트가 이 키를 볼 수 있습니다. 편리하지만 범위가 넓습니다.',
@@ -41,7 +41,7 @@ export const ko: Translations = {
   'setup.loc.credentials.desc': '모든 Claude Code 세션과 훅이 이 파일을 로드할 수 있습니다. 여러 프로젝트에서 Claude Code를 사용하는 경우 표준 위치입니다.',
 
   // ── Welcome ──
-  'welcome.title': 'Claudeborn에 오신 것을 환영합니다!',
+  'welcome.title': 'HAL-O에 오신 것을 환영합니다!',
   'welcome.body': '모범 사례를 활용하여 새로운 Claude Code 프로젝트를 설정하는 과정을 안내해 드리겠습니다. 기본부터 시작합시다.',
 
   // ── Step Questions ──

@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const tr: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Claudeborn Kurulumu',
+  'setup.title': 'HAL-O Kurulumu',
   'setup.subtitle': 'Başlamadan önce her şeyin hazır olduğundan emin olalım.',
   'setup.checking': 'Ön koşullar kontrol ediliyor...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const tr: Translations = {
   'setup.riskWarning': 'Bu dosyayı okuyan bu makinedeki tüm araçlar tarafından görülebilir',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (Claudeborn klasörü)',
+  'setup.loc.envLocal.label': '.env.local (HAL-O klasörü)',
   'setup.loc.envLocal.desc': 'Yalnızca bu uygulama görebilir. Gitignored. Denemeler için en güvenli.',
-  'setup.loc.env.label': '.env (Claudeborn klasörü)',
+  'setup.loc.env.label': '.env (HAL-O klasörü)',
   'setup.loc.env.desc': 'Yalnızca bu uygulama. gitignore eklemeyi unutursanız commit edilebilir.',
   'setup.loc.envHome.label': '~/.env (ana dizin)',
   'setup.loc.envHome.desc': '~/.env dosyasını okuyan herhangi bir araç veya betik bu anahtarı görecektir. Kullanışlı ama geniş kapsamlı.',
@@ -41,7 +41,7 @@ export const tr: Translations = {
   'setup.loc.credentials.desc': 'Tüm Claude Code oturumlarınız ve kancalarınız bu dosyayı kullanabilir. Birçok projede Claude Code kullanıyorsanız standart konum.',
 
   // ── Welcome ──
-  'welcome.title': 'Claudeborn\'a hoş geldiniz!',
+  'welcome.title': 'HAL-O\'a hoş geldiniz!',
   'welcome.body': 'En iyi uygulamalarla yeni bir Claude Code projesi kurmanızda size yol göstereceğim. Temellerle başlayalım.',
 
   // ── Step Questions ──

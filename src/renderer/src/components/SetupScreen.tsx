@@ -9,13 +9,13 @@ interface Props {
 const API_KEY_LOCATIONS = [
   {
     id: 'env-local-project',
-    label: '.env.local (Claudeborn folder)',
+    label: '.env.local (HAL-O folder)',
     description: 'Only this app can see it. Gitignored. Safest for trying things out.',
     risk: 'low',
   },
   {
     id: 'env-project',
-    label: '.env (Claudeborn folder)',
+    label: '.env (HAL-O folder)',
     description: 'Only this app. May be committed if you forget to gitignore.',
     risk: 'low',
   },
@@ -62,7 +62,7 @@ export function SetupScreen({ onReady }: Props) {
   useEffect(() => {
     if (loading || !status) return
     const allGood = status.apiKeyFound && status.ghAuthenticated
-    const hasSeenSetup = localStorage.getItem('claudeborn-setup-done') === '1'
+    const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
     if (allGood && hasSeenSetup) onReady()
   }, [loading, status])
 
@@ -81,7 +81,7 @@ export function SetupScreen({ onReady }: Props) {
   const allGood = status.apiKeyFound && status.ghAuthenticated
 
   const handleContinue = () => {
-    localStorage.setItem('claudeborn-setup-done', '1')
+    localStorage.setItem('hal-o-setup-done', '1')
     onReady()
   }
 

@@ -357,7 +357,7 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
       // 15. Initial commit
       try {
         run('git add -A', projectPath)
-        run('git commit -m "Initial project setup via ProjectCreator"', projectPath)
+        run('git commit -m "Initial project setup via HAL-O"', projectPath)
         log.push('[OK] Created initial commit')
       } catch (e: any) {
         log.push(`[OK] Git commit: ${e.message}`)

@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const ru: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Настройка Claudeborn',
+  'setup.title': 'Настройка HAL-O',
   'setup.subtitle': 'Убедимся, что всё готово перед началом.',
   'setup.checking': 'Проверка зависимостей...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const ru: Translations = {
   'setup.riskWarning': 'Видим всем инструментам на этом компьютере, которые читают этот файл',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (папка Claudeborn)',
+  'setup.loc.envLocal.label': '.env.local (папка HAL-O)',
   'setup.loc.envLocal.desc': 'Только это приложение может его видеть. Gitignored. Самый безопасный вариант для экспериментов.',
-  'setup.loc.env.label': '.env (папка Claudeborn)',
+  'setup.loc.env.label': '.env (папка HAL-O)',
   'setup.loc.env.desc': 'Только это приложение. Может быть закоммичен, если забудете gitignore.',
   'setup.loc.envHome.label': '~/.env (домашняя директория)',
   'setup.loc.envHome.desc': 'Любой инструмент или скрипт, читающий ~/.env, увидит этот ключ. Удобно, но широко.',
@@ -41,7 +41,7 @@ export const ru: Translations = {
   'setup.loc.credentials.desc': 'Все ваши сессии и хуки Claude Code могут подключить этот файл. Стандартное расположение, если вы используете Claude Code в нескольких проектах.',
 
   // ── Welcome ──
-  'welcome.title': 'Добро пожаловать в Claudeborn!',
+  'welcome.title': 'Добро пожаловать в HAL-O!',
   'welcome.body': 'Я проведу вас через настройку нового проекта Claude Code с лучшими практиками. Начнём с основ.',
 
   // ── Step Questions ──

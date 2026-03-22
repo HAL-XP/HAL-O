@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const en: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Claudeborn Setup',
+  'setup.title': 'HAL-O Setup',
   'setup.subtitle': "Let's make sure everything's ready before we start.",
   'setup.checking': 'Checking prerequisites...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const en: Translations = {
   'setup.riskWarning': 'Visible to all tools on this machine that check this file',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (Claudeborn folder)',
+  'setup.loc.envLocal.label': '.env.local (HAL-O folder)',
   'setup.loc.envLocal.desc': 'Only this app can see it. Gitignored. Safest for trying things out.',
-  'setup.loc.env.label': '.env (Claudeborn folder)',
+  'setup.loc.env.label': '.env (HAL-O folder)',
   'setup.loc.env.desc': 'Only this app. May be committed if you forget to gitignore.',
   'setup.loc.envHome.label': '~/.env (home directory)',
   'setup.loc.envHome.desc': 'Any tool or script that reads ~/.env will see this key. Convenient but broad.',
@@ -41,7 +41,7 @@ export const en: Translations = {
   'setup.loc.credentials.desc': 'All your Claude Code sessions and hooks can source this file. The standard location if you use Claude Code across many projects.',
 
   // ── Welcome ──
-  'welcome.title': 'Welcome to Claudeborn!',
+  'welcome.title': 'Welcome to HAL-O!',
   'welcome.body': "I'll walk you through setting up a new Claude Code project with best practices. Let's start with the basics.",
 
   // ── Step Questions ──

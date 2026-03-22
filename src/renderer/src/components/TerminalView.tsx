@@ -24,7 +24,7 @@ interface Props {
 
 type DropZone = 'left' | 'right' | 'full' | null
 
-const LAYOUT_KEY = 'claudeborn-pane-layout'
+const LAYOUT_KEY = 'hal-o-pane-layout'
 
 function saveLayout(panes: Pane[]) {
   try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(panes)) } catch { /* */ }

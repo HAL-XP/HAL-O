@@ -1,2 +1,2 @@
 #!/bin/bash
-claude -n "Claudeborn" --dangerously-skip-permissions
+claude -n "HAL-O" --dangerously-skip-permissions

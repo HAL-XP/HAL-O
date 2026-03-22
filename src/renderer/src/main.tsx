@@ -9,6 +9,21 @@ import { COLOR_THEMES, getThemeById } from './color-themes'
 import { FONT_THEMES, getFontById } from './font-themes'
 import './App.css'
 
+// ── One-time migration from Claudeborn → HAL-O localStorage keys ──
+
+;(function migrateLocalStorage() {
+  if (localStorage.getItem('hal-o-migrated')) return
+  const keys = ['muted','lang','theme','color','font','hub-font','term-font',
+    'voice-out','renderer','layout','split','setup-done','pane-layout']
+  for (const k of keys) {
+    const old = localStorage.getItem('claudeborn-' + k)
+    if (old !== null && localStorage.getItem('hal-o-' + k) === null) {
+      localStorage.setItem('hal-o-' + k, old)
+    }
+  }
+  localStorage.setItem('hal-o-migrated', '1')
+})()
+
 // ── Apply color theme CSS variables ──
 
 function applyColorTheme(themeId: string, isDark: boolean) {
@@ -66,11 +81,11 @@ function LanguageToggle({ lang, setLang }: { lang: LanguageCode; setLang: (l: La
 }
 
 function SoundToggle() {
-  const [muted, setMuted] = useState(() => localStorage.getItem('claudeborn-muted') === '1')
+  const [muted, setMuted] = useState(() => localStorage.getItem('hal-o-muted') === '1')
 
   useEffect(() => {
-    window.__claudebornMuted = muted
-    localStorage.setItem('claudeborn-muted', muted ? '1' : '0')
+    window.__halOMuted = muted
+    localStorage.setItem('hal-o-muted', muted ? '1' : '0')
   }, [muted])
 
   return (
@@ -159,24 +174,24 @@ function DarkLightToggle({ dark, setDark }: { dark: boolean; setDark: (d: boolea
 
 function Root() {
   const [lang, setLang] = useState<LanguageCode>(() =>
-    (localStorage.getItem('claudeborn-lang') as LanguageCode) || 'en')
+    (localStorage.getItem('hal-o-lang') as LanguageCode) || 'en')
   const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('claudeborn-theme')
+    const saved = localStorage.getItem('hal-o-theme')
     return saved ? saved === 'dark' : true
   })
   const [colorTheme, setColorTheme] = useState(() =>
-    localStorage.getItem('claudeborn-color') || 'lime')
+    localStorage.getItem('hal-o-color') || 'lime')
   const [fontTheme, setFontTheme] = useState(() =>
-    localStorage.getItem('claudeborn-font') || 'terminal')
+    localStorage.getItem('hal-o-font') || 'terminal')
 
-  useEffect(() => { localStorage.setItem('claudeborn-lang', lang) }, [lang])
+  useEffect(() => { localStorage.setItem('hal-o-lang', lang) }, [lang])
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
-    localStorage.setItem('claudeborn-theme', dark ? 'dark' : 'light')
+    localStorage.setItem('hal-o-theme', dark ? 'dark' : 'light')
     applyColorTheme(colorTheme, dark)
   }, [dark, colorTheme])
   useEffect(() => {
-    localStorage.setItem('claudeborn-font', fontTheme)
+    localStorage.setItem('hal-o-font', fontTheme)
     applyFont(fontTheme)
   }, [fontTheme])
 

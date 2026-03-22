@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icon_256.png" alt="Claudeborn" width="120" />
+  <img src="resources/icon_256.png" alt="HAL-O" width="120" />
 </p>
 
-<h1 align="center">Claudeborn</h1>
+<h1 align="center">HAL-O</h1>
 
 <p align="center">Electron wizard for bootstrapping Claude Code projects with best practices.</p>
 
@@ -15,8 +15,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/HAL-XP/Claudeborn.git
-cd Claudeborn
+git clone https://github.com/HAL-XP/hal-o.git
+cd hal-o
 
 # Windows
 _RUN_WIZARD.bat
@@ -31,7 +31,7 @@ That's it. The script auto-installs dependencies on first run.
 
 ## What it does
 
-Claudeborn walks you through setting up a new Claude Code project via an assistant-style chat interface.
+HAL-O walks you through setting up a new Claude Code project via an assistant-style chat interface.
 
 ### First-Run Setup
 

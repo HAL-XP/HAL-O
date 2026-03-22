@@ -2,7 +2,7 @@ import type { Translations } from './types'
 
 export const vi: Translations = {
   // ── Setup Screen ──
-  'setup.title': 'Thiết lập Claudeborn',
+  'setup.title': 'Thiết lập HAL-O',
   'setup.subtitle': 'Hãy đảm bảo mọi thứ đã sẵn sàng trước khi bắt đầu.',
   'setup.checking': 'Đang kiểm tra các yêu cầu...',
   'setup.nodejs': 'Node.js',
@@ -31,9 +31,9 @@ export const vi: Translations = {
   'setup.riskWarning': 'Hiển thị với tất cả công cụ trên máy này có đọc tệp này',
 
   // ── API Key Locations ──
-  'setup.loc.envLocal.label': '.env.local (thư mục Claudeborn)',
+  'setup.loc.envLocal.label': '.env.local (thư mục HAL-O)',
   'setup.loc.envLocal.desc': 'Chỉ ứng dụng này nhìn thấy. Gitignored. An toàn nhất để thử nghiệm.',
-  'setup.loc.env.label': '.env (thư mục Claudeborn)',
+  'setup.loc.env.label': '.env (thư mục HAL-O)',
   'setup.loc.env.desc': 'Chỉ ứng dụng này. Có thể bị commit nếu bạn quên gitignore.',
   'setup.loc.envHome.label': '~/.env (thư mục chính)',
   'setup.loc.envHome.desc': 'Bất kỳ công cụ hoặc script nào đọc ~/.env sẽ thấy khóa này. Tiện lợi nhưng phạm vi rộng.',
@@ -41,7 +41,7 @@ export const vi: Translations = {
   'setup.loc.credentials.desc': 'Tất cả phiên và hook Claude Code của bạn có thể sử dụng tệp này. Vị trí tiêu chuẩn nếu bạn dùng Claude Code ở nhiều dự án.',
 
   // ── Welcome ──
-  'welcome.title': 'Chào mừng đến với Claudeborn!',
+  'welcome.title': 'Chào mừng đến với HAL-O!',
   'welcome.body': 'Tôi sẽ hướng dẫn bạn thiết lập dự án Claude Code mới với các phương pháp tốt nhất. Hãy bắt đầu với những điều cơ bản.',
 
   // ── Step Questions ──

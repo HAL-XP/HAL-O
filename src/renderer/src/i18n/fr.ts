@@ -1,7 +1,7 @@
 import type { Translations } from './types'
 
 export const fr: Translations = {
-  'setup.title': 'Configuration de Claudeborn',
+  'setup.title': 'Configuration de HAL-O',
   'setup.subtitle': "V\u00e9rifions que tout est pr\u00eat avant de commencer.",
   'setup.checking': 'V\u00e9rification des pr\u00e9requis...',
   'setup.nodejs': 'Node.js',
@@ -28,15 +28,15 @@ export const fr: Translations = {
   'setup.missingOptional': "Les \u00e9l\u00e9ments manquants sont optionnels — l'assistant fonctionne sans",
   'setup.orInstallManually': 'ou installer manuellement depuis cli.github.com',
   'setup.riskWarning': 'Visible par tous les outils sur cette machine',
-  'setup.loc.envLocal.label': '.env.local (dossier Claudeborn)',
+  'setup.loc.envLocal.label': '.env.local (dossier HAL-O)',
   'setup.loc.envLocal.desc': 'Seule cette app peut la voir. Gitignor\u00e9. Le plus s\u00fbr.',
-  'setup.loc.env.label': '.env (dossier Claudeborn)',
+  'setup.loc.env.label': '.env (dossier HAL-O)',
   'setup.loc.env.desc': 'Seule cette app. Peut \u00eatre committ\u00e9 si vous oubliez le gitignore.',
   'setup.loc.envHome.label': '~/.env (r\u00e9pertoire personnel)',
   'setup.loc.envHome.desc': 'Tout outil lisant ~/.env verra cette cl\u00e9. Pratique mais large.',
   'setup.loc.credentials.label': '~/.claude_credentials (utilisateur)',
   'setup.loc.credentials.desc': 'Toutes vos sessions Claude Code peuvent sourcer ce fichier.',
-  'welcome.title': 'Bienvenue sur Claudeborn !',
+  'welcome.title': 'Bienvenue sur HAL-O !',
   'welcome.body': "Je vais vous guider pour configurer un nouveau projet Claude Code avec les meilleures pratiques. Commen\u00e7ons par les bases.",
   'step.project-name.question': 'Quel est le nom de votre nouveau projet ?',
   'step.project-name.placeholder': 'MonSuperProjet',

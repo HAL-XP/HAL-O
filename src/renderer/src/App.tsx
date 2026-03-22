@@ -94,35 +94,35 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
   const [voiceFocus, setVoiceFocus] = useState<'hub' | string>('hub')
-  const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-hub-font') || '10'))
-  const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-term-font') || '13'))
-  const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('claudeborn-voice-out') === 'true')
-  const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('claudeborn-renderer') || 'classic')
-  const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('claudeborn-layout') || 'dual-arc')
+  const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-hub-font') || '10'))
+  const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-term-font') || '13'))
+  const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('hal-o-voice-out') === 'true')
+  const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
+  const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
 
   const updateRenderer = useCallback((id: string) => {
     setRendererId(id)
-    localStorage.setItem('claudeborn-renderer', id)
+    localStorage.setItem('hal-o-renderer', id)
   }, [])
   const updateLayout = useCallback((id: string) => {
     setLayoutId(id)
-    localStorage.setItem('claudeborn-layout', id)
+    localStorage.setItem('hal-o-layout', id)
   }, [])
   const updateHubFont = useCallback((size: number) => {
     setHubFontSize(size)
-    localStorage.setItem('claudeborn-hub-font', String(size))
+    localStorage.setItem('hal-o-hub-font', String(size))
   }, [])
   const updateTermFont = useCallback((size: number) => {
     setTermFontSize(size)
-    localStorage.setItem('claudeborn-term-font', String(size))
+    localStorage.setItem('hal-o-term-font', String(size))
   }, [])
   const updateVoiceOut = useCallback((enabled: boolean) => {
     setVoiceOut(enabled)
-    localStorage.setItem('claudeborn-voice-out', String(enabled))
+    localStorage.setItem('hal-o-voice-out', String(enabled))
   }, [])
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
-  const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('claudeborn-split') || '50'))
+  const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
   const splitRef = useRef(splitRatio)
 
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -139,7 +139,7 @@ export function App() {
     }
 
     const onUp = () => {
-      localStorage.setItem('claudeborn-split', String(splitRef.current))
+      localStorage.setItem('hal-o-split', String(splitRef.current))
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
@@ -152,7 +152,7 @@ export function App() {
   const getHalSessionId = useCallback(() => {
     // Match by project path, exclude legacy _hal_ session
     const hal = termSessions.find((s) =>
-      s.id !== '_hal_' && (s.projectPath.includes('ProjectCreator') || s.projectName === 'Claudeborn')
+      s.id !== '_hal_' && (s.projectPath.includes('hal-o') || s.projectPath.includes('ProjectCreator') || s.projectName === 'HAL-O' || s.projectName === 'Claudeborn')
     )
     return hal?.id || null
   }, [termSessions])

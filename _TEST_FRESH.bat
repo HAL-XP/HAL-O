@@ -1,7 +1,7 @@
 @echo off
-title * Claudeborn - Fresh User Test
+title * HAL-O - Fresh User Test
 echo ============================================
-echo  Claudeborn Fresh User Simulation
+echo  HAL-O Fresh User Simulation
 echo ============================================
 echo.
 echo This will:
@@ -13,7 +13,7 @@ echo Your real setup is NOT affected.
 echo.
 pause
 
-set "TEST_DIR=%TEMP%\claudeborn-fresh-test"
+set "TEST_DIR=%TEMP%\hal-o-fresh-test"
 
 :: Clean previous test
 if exist "%TEST_DIR%" (
@@ -23,7 +23,7 @@ if exist "%TEST_DIR%" (
 
 :: Clone
 echo [*] Cloning repo to %TEST_DIR%...
-git clone https://github.com/HAL-XP/Claudeborn.git "%TEST_DIR%"
+git clone https://github.com/HAL-XP/HAL-O.git "%TEST_DIR%"
 if %errorlevel% neq 0 (
     echo [ERROR] Clone failed
     pause
@@ -65,7 +65,7 @@ echo     gh CLI = still uses system keyring
 echo.
 
 :: Launch
-echo [*] Starting Claudeborn...
+echo [*] Starting HAL-O...
 call npm run dev
 
 :: Restore credentials

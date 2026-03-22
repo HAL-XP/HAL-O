@@ -6,7 +6,7 @@ function getCtx(): AudioContext {
 }
 
 function isMuted(): boolean {
-  return !!(typeof window !== 'undefined' && window.__claudebornMuted)
+  return !!(typeof window !== 'undefined' && window.__halOMuted)
 }
 
 function note(freq: number, start: number, duration: number, type: OscillatorType = 'triangle', volume = 0.09) {

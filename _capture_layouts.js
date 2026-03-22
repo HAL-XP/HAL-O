@@ -2,12 +2,12 @@ const { app, BrowserWindow } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
-const outDir = 'C:/Users/dindo/AppData/Local/Temp/claudeborn-layouts'
+const outDir = 'C:/Users/dindo/AppData/Local/Temp/hal-o-layouts'
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true })
 
 app.whenReady().then(async () => {
   for (let i = 1; i <= 10; i++) {
-    const htmlFile = path.join('D:/GitHub/ProjectCreator', `_layout${i}.html`)
+    const htmlFile = path.join('D:/GitHub/hal-o', `_layout${i}.html`)
     if (!fs.existsSync(htmlFile)) { console.log(`Skip ${i}`); continue }
 
     const win = new BrowserWindow({ width: 1920, height: 1080, show: false })

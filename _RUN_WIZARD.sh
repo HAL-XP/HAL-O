@@ -10,11 +10,11 @@ fi
 
 # Auto-install dependencies on first run
 if [ ! -d "node_modules" ]; then
-    echo "[Claudeborn] First run detected — installing dependencies..."
+    echo "[HAL-O] First run detected — installing dependencies..."
     npm install || { echo "[ERROR] npm install failed."; exit 1; }
     echo
 fi
 
 # Launch
-echo "[Claudeborn] Starting wizard..."
+echo "[HAL-O] Starting wizard..."
 npm run dev

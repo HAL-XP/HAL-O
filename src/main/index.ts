@@ -33,7 +33,7 @@ function unregisterPid(name: string): void {
 function createMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: 'Claudeborn',
+      label: 'HAL-O',
       submenu: [
         { role: 'reload', label: 'Reload' },
         { role: 'forceReload', label: 'Force Reload' },
@@ -60,7 +60,7 @@ function createWindow(): void {
     height: 720,
     minWidth: 750,
     minHeight: 550,
-    title: 'Claudeborn',
+    title: 'HAL-O',
     icon: join(__dirname, '../../resources/', getIconFilename()),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -106,11 +106,11 @@ ipcMain.handle('capture-screenshot', async () => {
 
 // Suppress error dialogs — log to console instead
 process.on('uncaughtException', (err) => {
-  console.error('[Claudeborn] Uncaught exception:', err.message)
+  console.error('[HAL-O] Uncaught exception:', err.message)
 })
 
 app.whenReady().then(() => {
-  registerPid('claudeborn')
+  registerPid('hal-o')
   registerIpcHandlers()
   createMenu()
   createWindow()
@@ -119,37 +119,37 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   try {
     const sessions = terminalManager.getActiveSessions()
-    console.log(`[Claudeborn] before-quit: ${sessions.length} active sessions`)
+    console.log(`[HAL-O] before-quit: ${sessions.length} active sessions`)
 
     if (sessions.length > 0) {
       // Save for auto-restore on next launch (no pop-out — just save and restore)
       const pendingFile = join(
         process.env.USERPROFILE || process.env.HOME || '',
-        '.claudeborn-pending-sessions.json'
+        '.hal-o-pending-sessions.json'
       )
       const data = sessions.map((s) => ({ projectPath: s.projectPath, projectName: s.projectName }))
       writeFileSync(pendingFile, JSON.stringify(data))
-      console.log(`[Claudeborn] Saved ${data.length} sessions for auto-restore`)
+      console.log(`[HAL-O] Saved ${data.length} sessions for auto-restore`)
     }
 
     terminalManager.closeAll()
-    unregisterPid('claudeborn')
+    unregisterPid('hal-o')
   } catch (err) {
-    console.error('[Claudeborn] before-quit error:', err)
+    console.error('[HAL-O] before-quit error:', err)
     terminalManager.closeAll()
-    unregisterPid('claudeborn')
+    unregisterPid('hal-o')
   }
 })
 
 // ── Graceful restart signal ──
-// When a file `.claudeborn-restart` appears in the project dir,
+// When a file `.hal-o-restart` appears in the project dir,
 // pop all terminals to external, save sessions, then quit.
 // This lets the CLI agent restart the app without killing terminals.
-const restartSignalFile = join(process.cwd(), '.claudeborn-restart')
+const restartSignalFile = join(process.cwd(), '.hal-o-restart')
 
 function checkRestartSignal() {
   if (existsSync(restartSignalFile)) {
-    console.log('[Claudeborn] Restart signal detected — quitting gracefully')
+    console.log('[HAL-O] Restart signal detected — quitting gracefully')
     try { require('fs').unlinkSync(restartSignalFile) } catch { /* */ }
     // before-quit handler will save sessions and pop terminals
     app.quit()

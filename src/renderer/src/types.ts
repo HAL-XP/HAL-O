@@ -158,6 +158,6 @@ export interface ElectronAPI {
 declare global {
   interface Window {
     api: ElectronAPI
-    __claudebornMuted?: boolean
+    __halOMuted?: boolean
   }
 }
