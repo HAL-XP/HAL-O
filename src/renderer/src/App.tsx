@@ -477,6 +477,11 @@ export function App() {
             done={state.creationDone}
             createdPath={state.createdPath}
             onBackToHub={() => setViewMode('hub')}
+            onOpenTerminal={(path) => {
+              const name = path.split(/[/\\]/).pop() || 'Project'
+              openTerminal(path, name, false)
+              setViewMode('hub')
+            }}
           />
         </div>
       </div>

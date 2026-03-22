@@ -706,6 +706,18 @@ textarea.text-input {
   display: flex;
   gap: 12px;
   justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.creation-auto-return {
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-top: 8px;
+  animation: fadeIn 0.5s ease;
 }
 
 .done-btn {
