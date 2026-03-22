@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Environment, MeshReflectorMaterial, Float } from '@react-three/drei'
+import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
+import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
@@ -73,6 +73,41 @@ function GridOverlay() {
   )
 }
 
+// ── Textured Platform Disc ──
+function TexturedPlatform() {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null)
+
+  useMemo(() => {
+    const loader = new THREE.TextureLoader()
+    loader.load('/ring_platform.png',
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace
+        setTexture(tex)
+        console.log('[PBR] Ring platform texture loaded')
+      },
+      undefined,
+      (err) => console.error('[PBR] Texture load failed:', err)
+    )
+  }, [])
+
+  if (!texture) return null
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+      <circleGeometry args={[9, 128]} />
+      <meshStandardMaterial
+        map={texture}
+        emissiveMap={texture}
+        emissive="#ffffff"
+        emissiveIntensity={2.0}
+        metalness={0.7}
+        roughness={0.3}
+        toneMapped={false}
+      />
+    </mesh>
+  )
+}
+
 // ── Concentric Ring Platform with PBR materials ──
 function PbrRingPlatform() {
   const groupRef = useRef<THREE.Group>(null)
@@ -108,8 +143,8 @@ function PbrRingPlatform() {
       {/* Torus rings removed — shader disc handles all ring visuals */}
 
       {/* Bright marker dots */}
-      {/* Platform disc with ETCHED ring lines via shader */}
-      <mesh position={[0, 0, 0.01]}>
+      {/* Shader ring lines — kept as fallback, may be hidden by texture */}
+      <mesh position={[0, 0, -0.01]}>
         <ringGeometry args={[1.0, 8.5, 128]} />
         <shaderMaterial
           transparent
@@ -162,6 +197,15 @@ function PbrRingPlatform() {
               vec3 innerColor = vec3(1.0, 0.1, 0.0);
               vec3 outerColor = vec3(0.0, 0.7, 1.0);
               vec3 lineColor = mix(innerColor, outerColor, t);
+
+              // Fade lines on far side (distance from front edge)
+              // vDist is the ring radius, but we also need camera-facing fade
+              // Use a simple front-bias: fade based on how far back the point is
+              float frontFade = 1.0; // shader disc is flat, all points are equal distance in disc-space
+
+              // Pulse wave expanding from center
+              float pulse = smoothstep(0.3, 0.0, abs(vDist - mod(uTime * 2.0, 9.0))) * 0.3;
+              line += pulse;
 
               vec3 color = lineColor * line * 0.8;
               float alpha = line * 0.8;
@@ -345,6 +389,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       {/* No starfield in PBR — pure dark cinematic */}
       <ReflectiveFloor />
       <GridOverlay />
+      <TexturedPlatform />
       <PbrRingPlatform />
       <PbrHalSphere />
 
