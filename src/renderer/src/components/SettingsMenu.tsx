@@ -1,15 +1,32 @@
 import { useState, useRef, useEffect } from 'react'
 
+export const LAYOUTS = [
+  { id: 'dual-arc', label: 'DUAL ARC' },
+  { id: 'dual-arc-3d', label: 'DUAL ARC 3D' },
+  { id: 'jarvis-radial', label: 'JARVIS RADIAL' },
+  { id: 'jarvis-panels', label: 'JARVIS PANELS' },
+  { id: 'holo-stack', label: 'HOLO STACK' },
+  { id: 'command-grid', label: 'COMMAND GRID' },
+  { id: 'data-hack', label: 'DATA HACK' },
+  { id: 'orbital', label: 'ORBITAL' },
+  { id: 'hexagonal', label: 'HEXAGONAL' },
+  { id: 'cinematic', label: 'CINEMATIC' },
+] as const
+
+export type LayoutId = typeof LAYOUTS[number]['id']
+
 interface Props {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  layoutId: LayoutId
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  onLayoutChange: (id: LayoutId) => void
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onLayoutChange }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -55,6 +72,19 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, onHubFontSiz
               <span>{termFontSize}px</span>
               <button onClick={() => onTermFontSize(Math.min(24, termFontSize + 1))}>+</button>
             </div>
+          </div>
+
+          <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <span className="hal-settings-label">LAYOUT</span>
+            <select
+              className="hal-settings-select"
+              value={layoutId}
+              onChange={(e) => onLayoutChange(e.target.value as LayoutId)}
+            >
+              {LAYOUTS.map((l) => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
+            </select>
           </div>
 
           <div className="hal-settings-row">

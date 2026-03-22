@@ -19,10 +19,10 @@ function PostProcessing() {
   return (
     <EffectComposer>
       <Bloom
-        luminanceThreshold={0.4}
+        luminanceThreshold={0.2}
         luminanceSmoothing={0.9}
-        intensity={1.8}
-        radius={0.8}
+        intensity={2.5}
+        radius={0.9}
         mipmapBlur
       />
       <ChromaticAberration
@@ -40,7 +40,7 @@ export function SceneRoot({ projectCount = 0, listening = false }: Props) {
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-      camera={{ position: [0, 0.5, 10], fov: 50, near: 0.1, far: 1000 }}
+      camera={{ position: [0, 4, 8], fov: 50, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
     >

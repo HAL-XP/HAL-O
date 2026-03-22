@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Orbital Motion</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030308; color: #84cc16; font-family: 'Fira Code', 'Cascadia Code', monospace; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+  .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%); pointer-events: none; z-index: 100; }
+
+  .grid-floor { position: fixed; bottom: 0; left: -50%; width: 200%; height: 45%; background: repeating-linear-gradient(90deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px); transform: perspective(400px) rotateX(55deg); transform-origin: center bottom; pointer-events: none; z-index: 0; }
+
+  .hud-corner { position: fixed; width: 40px; height: 40px; z-index: 101; pointer-events: none; }
+  .hud-corner--tl { top: 10px; left: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--tr { top: 10px; right: 10px; border-top: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .hud-corner--bl { bottom: 10px; left: 10px; border-bottom: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--br { bottom: 10px; right: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .edge-readout { position: fixed; font-size: 9px; color: rgba(132,204,22,0.4); z-index: 101; pointer-events: none; letter-spacing: 1px; }
+  .edge-readout--left { left: 15px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout--right { right: 15px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout--bottom { bottom: 15px; left: 50%; transform: translateX(-50%); }
+
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; z-index: 50; background: linear-gradient(180deg, rgba(3,3,8,0.9) 0%, transparent 100%); border-bottom: 1px solid rgba(132,204,22,0.1); }
+  .top-bar .sys-label { font-size: 13px; color: #84cc16; font-weight: 700; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .top-bar .stats { font-size: 10px; color: rgba(132,204,22,0.6); display: flex; gap: 20px; }
+  .top-bar .stats .val { color: #84cc16; font-weight: 700; }
+
+  .sphere-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 30; }
+  .hal-sphere { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6644, #ff2200 40%, #cc1100 70%, #440000 100%); box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); } 50% { box-shadow: 0 0 40px rgba(255,34,0,0.8), 0 0 80px rgba(255,34,0,0.4), 0 0 160px rgba(255,34,0,0.2), inset 0 0 40px rgba(255,100,50,0.4); } }
+  .sphere-ring { position: absolute; border: 1px solid rgba(255,34,0,0.2); border-radius: 50%; top: 50%; left: 50%; }
+  .sphere-ring--1 { width: 200px; height: 200px; margin: -100px 0 0 -100px; animation: ring-rotate 20s linear infinite; }
+  .sphere-ring--2 { width: 240px; height: 240px; margin: -120px 0 0 -120px; animation: ring-rotate 30s linear infinite reverse; border-style: dashed; }
+  @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Orbital rings */
+  .orbit { position: fixed; top: 50%; left: 50%; border-radius: 50%; border: 1px solid rgba(132,204,22,0.08); pointer-events: none; }
+
+  .orbit--1 { width: 500px; height: 500px; margin: -250px 0 0 -250px; animation: orbit-spin 60s linear infinite; z-index: 15; }
+  .orbit--2 { width: 700px; height: 700px; margin: -350px 0 0 -350px; animation: orbit-spin 90s linear infinite reverse; z-index: 14; border-style: dashed; }
+  .orbit--3 { width: 900px; height: 900px; margin: -450px 0 0 -450px; animation: orbit-spin 120s linear infinite; z-index: 13; }
+  @keyframes orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Cards on orbits */
+  .orbital-card { position: absolute; width: 180px; padding: 10px; background: rgba(3,3,8,0.85); border: 1px solid rgba(132,204,22,0.15); backdrop-filter: blur(8px); font-size: 10px; z-index: 20; transition: all 0.3s ease; }
+  .orbital-card::before { content: ''; position: absolute; top: -1px; left: -1px; width: 10px; height: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .orbital-card::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .orbital-card:hover { background: rgba(132,204,22,0.08); border-color: rgba(132,204,22,0.5); }
+  .orbital-card .card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .orbital-card .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .orbital-card .dot.green { background: #84cc16; box-shadow: 0 0 4px #84cc16; }
+  .orbital-card .dot.amber { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
+  .orbital-card .card-name { font-weight: 700; font-size: 9px; color: #e2e8f0; letter-spacing: 1px; }
+  .orbital-card .card-stack { font-size: 8px; color: rgba(132,204,22,0.5); margin-top: 2px; padding: 1px 5px; border: 1px solid rgba(132,204,22,0.15); display: inline-block; }
+
+  .svg-lines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner--tl"></div>
+<div class="hud-corner hud-corner--tr"></div>
+<div class="hud-corner hud-corner--bl"></div>
+<div class="hud-corner hud-corner--br"></div>
+
+<div class="edge-readout edge-readout--left">SYS.MEM: 847MB | PROC: 23 ACTIVE | NET: 1.2GB/s</div>
+<div class="edge-readout edge-readout--right">UPLINK: STABLE | LAT: 12ms | CRYPT: AES-256</div>
+<div class="edge-readout edge-readout--bottom">NODE MESH: 17 CONNECTED | THROUGHPUT: 94.7% | ERR RATE: 0.003%</div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN v1.0</div>
+  <div class="stats">
+    <span><span class="val">17</span> OPS</span>
+    <span><span class="val">6</span> READY</span>
+    <span><span class="val">11</span> PENDING</span>
+  </div>
+</div>
+
+<div class="sphere-container">
+  <div class="hal-sphere"></div>
+  <div class="sphere-ring sphere-ring--1"></div>
+  <div class="sphere-ring sphere-ring--2"></div>
+</div>
+
+<svg class="svg-lines" id="svgLines"></svg>
+
+<div class="orbit orbit--1" id="orbit1"></div>
+<div class="orbit orbit--2" id="orbit2"></div>
+<div class="orbit orbit--3" id="orbit3"></div>
+
+<script>
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'React', status: 'green' },
+  { name: 'SNOWFINDER', stack: 'Next.js', status: 'green' },
+  { name: 'PREZSANDRINE', stack: 'FastAPI', status: 'amber' },
+  { name: 'INEVITABLESTUDIO', stack: 'Next.js', status: 'green' },
+  { name: 'OFFLINEGAME', stack: 'Python', status: 'amber' },
+  { name: 'COMMUNITYSCANNER', stack: 'py-cli', status: 'amber' },
+  { name: 'DNDMAPBUILDER', stack: 'React', status: 'amber' },
+  { name: 'SCRIPT2UNREAL', stack: 'Python', status: 'amber' },
+  { name: 'PIXELAGENTMONITOR', stack: 'React', status: 'green' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'Node.js', status: 'amber' },
+  { name: 'CINEMASTER-DEMO', stack: 'Next.js', status: 'green' },
+  { name: 'PIXEL-AGENTS', stack: 'Node.js', status: 'amber' },
+  { name: 'MODELTRAINING', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDATAPREP', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEIMAGERENDERER', stack: 'Python', status: 'green' },
+  { name: 'COMFYUI', stack: 'Python', status: 'amber' }
+];
+
+// Distribute across 3 orbits: 6, 6, 5
+const orbits = [
+  { el: document.getElementById('orbit1'), items: projects.slice(0, 6), radius: 250, speed: 60 },
+  { el: document.getElementById('orbit2'), items: projects.slice(6, 12), radius: 350, speed: 90 },
+  { el: document.getElementById('orbit3'), items: projects.slice(12), radius: 450, speed: 120 }
+];
+
+const cx = window.innerWidth / 2;
+const cy = window.innerHeight / 2;
+const svg = document.getElementById('svgLines');
+
+orbits.forEach((orbit, oi) => {
+  const count = orbit.items.length;
+  orbit.items.forEach((proj, i) => {
+    const angle = (2 * Math.PI / count) * i;
+    // Position relative to orbit center (which is CSS centered)
+    const x = orbit.radius * Math.cos(angle) - 90;
+    const y = orbit.radius * Math.sin(angle) - 25;
+
+    // Counter-rotation: orbit element rotates, so cards counter-rotate to stay readable
+    const counterSpeed = orbit.speed;
+    const direction = oi === 1 ? '' : 'reverse';
+
+    const card = document.createElement('div');
+    card.className = 'orbital-card';
+    card.style.left = `calc(50% + ${x}px)`;
+    card.style.top = `calc(50% + ${y}px)`;
+    card.style.animation = `orbit-spin ${counterSpeed}s linear infinite ${oi === 1 ? '' : 'reverse'}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="dot ${proj.status}"></div>
+        <div class="card-name">${proj.name}</div>
+      </div>
+      <div class="card-stack">${proj.stack}</div>
+    `;
+    orbit.el.appendChild(card);
+  });
+});
+
+// Static SVG lines from orbit ring edges to center
+[250, 350, 450].forEach((r, i) => {
+  for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x);
+    line.setAttribute('y1', y);
+    line.setAttribute('x2', cx);
+    line.setAttribute('y2', cy);
+    line.setAttribute('stroke', `rgba(132,204,22,${0.04 - i * 0.01})`);
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '6 6');
+    svg.appendChild(line);
+  }
+});
+</script>
+</body>
+</html>

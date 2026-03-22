@@ -97,7 +97,12 @@ export function App() {
   const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-hub-font') || '10'))
   const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-term-font') || '13'))
   const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('claudeborn-voice-out') === 'true')
+  const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('claudeborn-layout') || 'dual-arc')
 
+  const updateLayout = useCallback((id: string) => {
+    setLayoutId(id)
+    localStorage.setItem('claudeborn-layout', id)
+  }, [])
   const updateHubFont = useCallback((size: number) => {
     setHubFontSize(size)
     localStorage.setItem('claudeborn-hub-font', String(size))
@@ -111,11 +116,38 @@ export function App() {
     localStorage.setItem('claudeborn-voice-out', String(enabled))
   }, [])
 
-  // Find the Claudeborn/HAL terminal session ID (if open)
+  // Draggable split ratio between hub and terminal (0-100, percentage for hub)
+  const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('claudeborn-split') || '50'))
+  const splitRef = useRef(splitRatio)
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startRatio = splitRef.current
+
+    const onMove = (me: MouseEvent) => {
+      const deltaPercent = ((me.clientY - startY) / window.innerHeight) * 100
+      const newRatio = Math.max(15, Math.min(85, startRatio + deltaPercent))
+      const rounded = Math.round(newRatio)
+      splitRef.current = rounded
+      setSplitRatio(rounded)
+    }
+
+    const onUp = () => {
+      localStorage.setItem('claudeborn-split', String(splitRef.current))
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  // Find the Claudeborn terminal session ID — THIS is HAL
   const getHalSessionId = useCallback(() => {
-    // Any Claudeborn/ProjectCreator terminal IS HAL
+    // Match by project path, exclude legacy _hal_ session
     const hal = termSessions.find((s) =>
-      s.projectPath.includes('ProjectCreator') || s.projectName === 'HAL' || s.projectName === 'Claudeborn'
+      s.id !== '_hal_' && (s.projectPath.includes('ProjectCreator') || s.projectName === 'Claudeborn')
     )
     return hal?.id || null
   }, [termSessions])
@@ -125,7 +157,7 @@ export function App() {
     // Don't open duplicate
     if (termSessions.find((s) => s.id === id)) return
 
-    const args = ['--dangerously-skip-permissions', '-n', projectName]
+    const args = ['--dangerously-skip-permissions', '-n', projectName, '--channels', 'plugin:telegram@claude-plugins-official']
     if (resume) args.push('--continue')
 
     window.api.ptySpawn({
@@ -144,14 +176,8 @@ export function App() {
   }, [termSessions])
 
   const closeTerminal = useCallback((id: string) => {
-    if (id === '_hal_') {
-      // HAL never dies — just hide the tab, keep the pty running
-      setTermSessions((prev) => prev.filter((s) => s.id !== id))
-    } else {
-      // Regular terminals — kill the pty
-      window.api.ptyClose(id)
-      setTermSessions((prev) => prev.filter((s) => s.id !== id))
-    }
+    window.api.ptyClose(id)
+    setTermSessions((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
   // Restore terminals — reconnect to running ptys (survives renderer reload)
@@ -242,9 +268,10 @@ export function App() {
   }
 
   if (viewMode === 'hub') {
+    const hasTerminals = termSessions.length > 0
     return (
       <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <div style={{ flex: termSessions.length > 0 ? '1 1 50%' : '1 1 100%', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ flex: `0 0 ${hasTerminals ? splitRatio : 100}%`, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
           <ProjectHub
             onNewProject={() => {
               setState({
@@ -284,11 +311,19 @@ export function App() {
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
+            layoutId={layoutId}
+            onLayoutChange={updateLayout}
             halSessionId={getHalSessionId()}
           />
         </div>
-        {termSessions.length > 0 && (
-          <div style={{ flex: '1 1 50%', minHeight: 200, overflow: 'hidden' }}>
+        {hasTerminals && (
+          <div
+            className="hal-split-divider"
+            onMouseDown={handleDividerMouseDown}
+          />
+        )}
+        {hasTerminals && (
+          <div style={{ flex: `0 0 ${100 - splitRatio}%`, minHeight: 100, overflow: 'hidden' }}>
             <TerminalView
               sessions={termSessions}
               onClose={closeTerminal}

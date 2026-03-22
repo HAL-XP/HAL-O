@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Cinematic Widescreen</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030308; color: #84cc16; font-family: 'Fira Code', 'Cascadia Code', monospace; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+  .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 50%, transparent 40%, rgba(0,0,0,0.85) 100%); pointer-events: none; z-index: 100; }
+
+  .grid-floor { position: fixed; bottom: 0; left: -50%; width: 150%; height: 50%; background: repeating-linear-gradient(90deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px); transform: perspective(400px) rotateX(55deg); transform-origin: center bottom; pointer-events: none; z-index: 0; }
+
+  .hud-corner { position: fixed; width: 40px; height: 40px; z-index: 101; pointer-events: none; }
+  .hud-corner--tl { top: 10px; left: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--tr { top: 10px; right: 10px; border-top: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .hud-corner--bl { bottom: 50px; left: 10px; border-bottom: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--br { bottom: 50px; right: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .edge-readout { position: fixed; font-size: 9px; color: rgba(132,204,22,0.4); z-index: 101; pointer-events: none; letter-spacing: 1px; }
+  .edge-readout--left { left: 15px; top: 40%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout--right { right: 15px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; z-index: 50; background: linear-gradient(180deg, rgba(3,3,8,0.9) 0%, transparent 100%); border-bottom: 1px solid rgba(132,204,22,0.1); }
+  .top-bar .sys-label { font-size: 13px; color: #84cc16; font-weight: 700; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .top-bar .stats { font-size: 10px; color: rgba(132,204,22,0.6); display: flex; gap: 20px; }
+  .top-bar .stats .val { color: #84cc16; font-weight: 700; }
+
+  /* Left side: Sphere area (60%) */
+  .left-area { position: fixed; top: 40px; left: 0; width: 60%; height: calc(100vh - 80px); z-index: 10; display: flex; align-items: center; justify-content: center; }
+
+  .sphere-container { position: relative; }
+  .hal-sphere { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6644, #ff2200 40%, #cc1100 70%, #440000 100%); box-shadow: 0 0 40px rgba(255,34,0,0.6), 0 0 80px rgba(255,34,0,0.3), 0 0 160px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 40px rgba(255,34,0,0.6), 0 0 80px rgba(255,34,0,0.3), 0 0 160px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); } 50% { box-shadow: 0 0 50px rgba(255,34,0,0.8), 0 0 100px rgba(255,34,0,0.4), 0 0 200px rgba(255,34,0,0.2), inset 0 0 40px rgba(255,100,50,0.4); } }
+  .sphere-ring { position: absolute; border: 1px solid rgba(255,34,0,0.2); border-radius: 50%; top: 50%; left: 50%; }
+  .sphere-ring--1 { width: 220px; height: 220px; margin: -110px 0 0 -110px; animation: ring-rotate 20s linear infinite; }
+  .sphere-ring--2 { width: 280px; height: 280px; margin: -140px 0 0 -140px; animation: ring-rotate 30s linear infinite reverse; border-style: dashed; }
+  .sphere-ring--3 { width: 360px; height: 360px; margin: -180px 0 0 -180px; animation: ring-rotate 45s linear infinite; border-color: rgba(132,204,22,0.06); }
+  @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* HUD decorations in left area */
+  .hud-deco { position: absolute; font-size: 9px; color: rgba(132,204,22,0.3); pointer-events: none; }
+  .hud-deco--1 { bottom: 80px; left: 60px; }
+  .hud-deco--2 { top: 80px; left: 80px; }
+  .hud-deco--3 { top: 120px; right: 40px; }
+
+  /* Divider line */
+  .divider { position: fixed; top: 40px; left: 60%; width: 1px; height: calc(100vh - 80px); background: linear-gradient(180deg, transparent, rgba(132,204,22,0.15) 20%, rgba(132,204,22,0.15) 80%, transparent); z-index: 30; }
+
+  /* Right side: Cards panel (40%) */
+  .right-panel { position: fixed; top: 40px; right: 0; width: 40%; height: calc(100vh - 80px); z-index: 20; padding: 20px 40px 20px 30px; display: flex; flex-direction: column; }
+  .panel-header { font-size: 10px; color: rgba(132,204,22,0.5); letter-spacing: 3px; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px solid rgba(132,204,22,0.1); }
+
+  .cards-list { flex: 1; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
+
+  .card { width: 100%; padding: 10px 14px; background: rgba(132,204,22,0.03); border: 1px solid rgba(132,204,22,0.12); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 11px; transition: all 0.3s ease; display: flex; align-items: center; gap: 10px; position: relative; flex-shrink: 0; }
+  .card::before { content: ''; position: absolute; top: -1px; left: -1px; width: 10px; height: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .card::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .card:hover { background: rgba(132,204,22,0.08); border-color: rgba(132,204,22,0.4); transform: translateX(-5px); }
+  .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .card .dot.green { background: #84cc16; box-shadow: 0 0 6px #84cc16; }
+  .card .dot.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+  .card .card-name { font-weight: 700; font-size: 10px; color: #e2e8f0; letter-spacing: 1px; flex: 1; }
+  .card .card-stack { font-size: 9px; color: rgba(132,204,22,0.5); padding: 2px 6px; border: 1px solid rgba(132,204,22,0.15); }
+  .card .card-index { font-size: 8px; color: rgba(132,204,22,0.2); margin-right: 4px; }
+
+  /* Bottom ticker */
+  .ticker { position: fixed; bottom: 0; left: 0; right: 0; height: 36px; background: rgba(3,3,8,0.9); border-top: 1px solid rgba(132,204,22,0.1); z-index: 50; overflow: hidden; display: flex; align-items: center; }
+  .ticker-content { display: flex; gap: 40px; font-size: 9px; color: rgba(132,204,22,0.4); white-space: nowrap; animation: ticker-scroll 40s linear infinite; padding-left: 100%; }
+  @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker-content .highlight { color: #84cc16; }
+  .ticker-content .red { color: rgba(255,34,0,0.7); }
+
+  .svg-lines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner--tl"></div>
+<div class="hud-corner hud-corner--tr"></div>
+<div class="hud-corner hud-corner--bl"></div>
+<div class="hud-corner hud-corner--br"></div>
+
+<div class="edge-readout edge-readout--left">SYS.MEM: 847MB | PROC: 23 ACTIVE | NET: 1.2GB/s</div>
+<div class="edge-readout edge-readout--right">UPLINK: STABLE | LAT: 12ms | CRYPT: AES-256</div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN v1.0</div>
+  <div class="stats">
+    <span><span class="val">17</span> OPS</span>
+    <span><span class="val">6</span> READY</span>
+    <span><span class="val">11</span> PENDING</span>
+  </div>
+</div>
+
+<svg class="svg-lines" id="svgLines"></svg>
+
+<div class="left-area">
+  <div class="sphere-container">
+    <div class="hal-sphere"></div>
+    <div class="sphere-ring sphere-ring--1"></div>
+    <div class="sphere-ring sphere-ring--2"></div>
+    <div class="sphere-ring sphere-ring--3"></div>
+  </div>
+  <div class="hud-deco hud-deco--1">NEURAL CORE v3.7<br>STATUS: NOMINAL<br>LOAD: 47.3%</div>
+  <div class="hud-deco hud-deco--2">SECTOR: ALPHA-7<br>CLEARANCE: L5<br>UPTIME: 847:23:11</div>
+  <div class="hud-deco hud-deco--3">MESH NODES: 17<br>BANDWIDTH: 1.2GB/s<br>LATENCY: 12ms</div>
+</div>
+
+<div class="divider"></div>
+
+<div class="right-panel">
+  <div class="panel-header">// OPERATIONS MANIFEST</div>
+  <div class="cards-list" id="cardsList"></div>
+</div>
+
+<!-- Bottom Ticker -->
+<div class="ticker">
+  <div class="ticker-content" id="tickerContent"></div>
+</div>
+
+<script>
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'React', status: 'green' },
+  { name: 'SNOWFINDER', stack: 'Next.js', status: 'green' },
+  { name: 'PREZSANDRINE', stack: 'Python FastAPI', status: 'amber' },
+  { name: 'INEVITABLESTUDIO', stack: 'Next.js', status: 'green' },
+  { name: 'OFFLINEGAME', stack: 'Python', status: 'amber' },
+  { name: 'COMMUNITYSCANNER', stack: 'python-cli', status: 'amber' },
+  { name: 'DNDMAPBUILDER', stack: 'React', status: 'amber' },
+  { name: 'SCRIPT2UNREAL', stack: 'Python', status: 'amber' },
+  { name: 'PIXELAGENTMONITOR', stack: 'React', status: 'green' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'Node.js', status: 'amber' },
+  { name: 'CINEMASTER-DEMO', stack: 'Next.js', status: 'green' },
+  { name: 'PIXEL-AGENTS', stack: 'Node.js', status: 'amber' },
+  { name: 'MODELTRAINING', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDATAPREP', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEIMAGERENDERER', stack: 'Python', status: 'green' },
+  { name: 'COMFYUI', stack: 'Python', status: 'amber' }
+];
+
+const cardsList = document.getElementById('cardsList');
+const svg = document.getElementById('svgLines');
+const sphereCx = window.innerWidth * 0.3;
+const sphereCy = window.innerHeight * 0.5;
+
+projects.forEach((proj, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <span class="card-index">${String(i + 1).padStart(2, '0')}</span>
+    <div class="dot ${proj.status}"></div>
+    <div class="card-name">${proj.name}</div>
+    <div class="card-stack">${proj.stack}</div>
+  `;
+  cardsList.appendChild(card);
+});
+
+// Draw connection lines
+requestAnimationFrame(() => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const rect = card.getBoundingClientRect();
+    const x = rect.left;
+    const y = rect.top + rect.height / 2;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const cp1x = x - 80;
+    const cp1y = y;
+    const cp2x = sphereCx + 100;
+    const cp2y = sphereCy;
+    const d = `M ${x} ${y} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${sphereCx} ${sphereCy}`;
+    line.setAttribute('d', d);
+    line.setAttribute('stroke', 'rgba(132,204,22,0.06)');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('fill', 'none');
+    svg.appendChild(line);
+  });
+});
+
+// Ticker content
+const tickerItems = [
+  'CLAUDEBORN <span class="highlight">BUILD OK</span>',
+  'SNOWFINDER <span class="highlight">DEPLOYED</span>',
+  'GPU VRAM: <span class="highlight">18.2 / 24.0 GB</span>',
+  'MODELTRAINING <span class="red">EPOCH 47/50</span>',
+  'UPTIME: 847:23:11',
+  'NETWORK I/O: <span class="highlight">1.2 GB/s</span>',
+  'PTY SESSIONS: <span class="highlight">3 ACTIVE</span>',
+  'COMMUNITYSCANNER <span class="red">SCAN IN PROGRESS</span>',
+  'DISK: 847 GB FREE',
+  'COMFYUI <span class="highlight">QUEUE: 0</span>',
+  'ELECTRON v35.0.0',
+  'NODE v22.12.0',
+  'CRYPT: AES-256-GCM',
+  'MESH INTEGRITY: <span class="highlight">99.97%</span>',
+  'LAST COMMIT: af854eb',
+  'PIXEL-AGENTS <span class="red">2 ALERTS</span>',
+  'SYSTEM NOMINAL',
+];
+
+const tickerContent = document.getElementById('tickerContent');
+const tickerHtml = tickerItems.map(t => `<span>${t}</span>`).join('');
+tickerContent.innerHTML = tickerHtml + tickerHtml;
+</script>
+</body>
+</html>

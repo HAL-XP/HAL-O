@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Data Hack / Terminal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030308; color: #84cc16; font-family: 'Fira Code', 'Cascadia Code', monospace; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+  .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%); pointer-events: none; z-index: 100; }
+
+  .grid-floor { position: fixed; bottom: 0; left: -50%; width: 200%; height: 35%; background: repeating-linear-gradient(90deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px); transform: perspective(400px) rotateX(55deg); transform-origin: center bottom; pointer-events: none; z-index: 0; }
+
+  .hud-corner { position: fixed; width: 40px; height: 40px; z-index: 101; pointer-events: none; }
+  .hud-corner--tl { top: 10px; left: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--tr { top: 10px; right: 10px; border-top: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .hud-corner--bl { bottom: 10px; left: 10px; border-bottom: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--br { bottom: 10px; right: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .edge-readout { position: fixed; font-size: 9px; color: rgba(132,204,22,0.4); z-index: 101; pointer-events: none; letter-spacing: 1px; }
+  .edge-readout--left { left: 15px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout--right { right: 15px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout--bottom { bottom: 15px; left: 50%; transform: translateX(-50%); }
+
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; z-index: 50; background: linear-gradient(180deg, rgba(3,3,8,0.9) 0%, transparent 100%); border-bottom: 1px solid rgba(132,204,22,0.1); }
+  .top-bar .sys-label { font-size: 13px; color: #84cc16; font-weight: 700; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .top-bar .stats { font-size: 10px; color: rgba(132,204,22,0.6); display: flex; gap: 20px; }
+  .top-bar .stats .val { color: #84cc16; font-weight: 700; }
+
+  /* Data bars at top */
+  .data-bars { position: fixed; top: 44px; left: 0; right: 0; padding: 8px 60px; display: flex; gap: 15px; z-index: 40; }
+  .data-bar { flex: 1; }
+  .data-bar-label { font-size: 8px; color: rgba(132,204,22,0.4); margin-bottom: 3px; display: flex; justify-content: space-between; }
+  .data-bar-track { height: 4px; background: rgba(132,204,22,0.08); border-radius: 2px; overflow: hidden; }
+  .data-bar-fill { height: 100%; border-radius: 2px; }
+  .data-bar-fill.green { background: linear-gradient(90deg, rgba(132,204,22,0.3), #84cc16); }
+  .data-bar-fill.red { background: linear-gradient(90deg, rgba(255,34,0,0.3), #ff2200); }
+  .data-bar-fill.cyan { background: linear-gradient(90deg, rgba(0,200,255,0.3), #00c8ff); }
+
+  /* Three-column layout */
+  .layout { position: fixed; top: 80px; left: 0; right: 0; bottom: 0; display: flex; z-index: 20; }
+
+  /* LEFT: Terminal */
+  .terminal-panel { flex: 0 0 30%; padding: 15px 20px 15px 60px; overflow: hidden; position: relative; }
+  .terminal-panel::after { content: ''; position: absolute; top: 0; right: 0; width: 1px; height: 100%; background: linear-gradient(180deg, transparent, rgba(132,204,22,0.15), transparent); }
+  .terminal-header { font-size: 9px; color: #00c8ff; letter-spacing: 2px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(0,200,255,0.15); }
+  .terminal-content { font-size: 10px; line-height: 1.7; color: rgba(132,204,22,0.5); overflow: hidden; height: calc(100vh - 130px); }
+  .terminal-content .cmd { color: #00c8ff; }
+  .terminal-content .path { color: rgba(255,34,0,0.7); }
+  .terminal-content .comment { color: rgba(132,204,22,0.25); }
+  .terminal-content .highlight { color: #84cc16; }
+  .terminal-scroll { animation: term-scroll 30s linear infinite; }
+  @keyframes term-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+
+  /* CENTER: Sphere */
+  .center-panel { flex: 0 0 40%; display: flex; align-items: center; justify-content: center; position: relative; }
+  .sphere-container { position: relative; z-index: 10; }
+  .hal-sphere { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6644, #ff2200 40%, #cc1100 70%, #440000 100%); box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); } 50% { box-shadow: 0 0 40px rgba(255,34,0,0.8), 0 0 80px rgba(255,34,0,0.4), 0 0 160px rgba(255,34,0,0.2), inset 0 0 40px rgba(255,100,50,0.4); } }
+  .sphere-ring { position: absolute; border: 1px solid rgba(255,34,0,0.2); border-radius: 50%; top: 50%; left: 50%; }
+  .sphere-ring--1 { width: 200px; height: 200px; margin: -100px 0 0 -100px; animation: ring-rotate 20s linear infinite; }
+  .sphere-ring--2 { width: 240px; height: 240px; margin: -120px 0 0 -120px; animation: ring-rotate 30s linear infinite reverse; border-style: dashed; }
+  .sphere-ring--3 { width: 300px; height: 300px; margin: -150px 0 0 -150px; animation: ring-rotate 40s linear infinite; border-color: rgba(0,200,255,0.1); }
+  @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Scan lines across center */
+  .scan-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,200,255,0.02) 3px, rgba(0,200,255,0.02) 4px); pointer-events: none; }
+
+  /* RIGHT: Cards */
+  .cards-panel { flex: 0 0 30%; padding: 15px 60px 15px 20px; overflow: hidden; position: relative; }
+  .cards-panel::before { content: ''; position: absolute; top: 0; left: 0; width: 1px; height: 100%; background: linear-gradient(180deg, transparent, rgba(132,204,22,0.15), transparent); }
+  .cards-header { font-size: 9px; color: #00c8ff; letter-spacing: 2px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(0,200,255,0.15); }
+
+  .card { width: 100%; padding: 8px 10px; background: rgba(132,204,22,0.03); border: 1px solid rgba(132,204,22,0.12); backdrop-filter: blur(10px); font-size: 10px; margin-bottom: 6px; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+  .card::before { content: ''; position: absolute; top: -1px; left: -1px; width: 8px; height: 8px; border-top: 1px solid #84cc16; border-left: 1px solid #84cc16; }
+  .card::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-bottom: 1px solid #84cc16; border-right: 1px solid #84cc16; }
+  .card:hover { background: rgba(132,204,22,0.08); border-color: rgba(0,200,255,0.4); }
+  .card { position: relative; }
+  .card .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .card .dot.green { background: #84cc16; box-shadow: 0 0 4px #84cc16; }
+  .card .dot.amber { background: #f59e0b; box-shadow: 0 0 4px #f59e0b; }
+  .card .card-name { font-weight: 700; font-size: 9px; color: #e2e8f0; letter-spacing: 1px; flex: 1; }
+  .card .card-stack { font-size: 8px; color: rgba(0,200,255,0.5); }
+
+  .svg-lines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner--tl"></div>
+<div class="hud-corner hud-corner--tr"></div>
+<div class="hud-corner hud-corner--bl"></div>
+<div class="hud-corner hud-corner--br"></div>
+
+<div class="edge-readout edge-readout--left">SYS.MEM: 847MB | PROC: 23 ACTIVE | NET: 1.2GB/s</div>
+<div class="edge-readout edge-readout--right">UPLINK: STABLE | LAT: 12ms | CRYPT: AES-256</div>
+<div class="edge-readout edge-readout--bottom">NODE MESH: 17 CONNECTED | THROUGHPUT: 94.7% | ERR RATE: 0.003%</div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN v1.0</div>
+  <div class="stats">
+    <span><span class="val">17</span> OPS</span>
+    <span><span class="val">6</span> READY</span>
+    <span><span class="val">11</span> PENDING</span>
+  </div>
+</div>
+
+<div class="data-bars">
+  <div class="data-bar">
+    <div class="data-bar-label"><span>GPU VRAM</span><span>78%</span></div>
+    <div class="data-bar-track"><div class="data-bar-fill green" style="width:78%"></div></div>
+  </div>
+  <div class="data-bar">
+    <div class="data-bar-label"><span>CPU THREADS</span><span>45%</span></div>
+    <div class="data-bar-track"><div class="data-bar-fill cyan" style="width:45%"></div></div>
+  </div>
+  <div class="data-bar">
+    <div class="data-bar-label"><span>MEMORY</span><span>62%</span></div>
+    <div class="data-bar-track"><div class="data-bar-fill green" style="width:62%"></div></div>
+  </div>
+  <div class="data-bar">
+    <div class="data-bar-label"><span>NET I/O</span><span>91%</span></div>
+    <div class="data-bar-track"><div class="data-bar-fill red" style="width:91%"></div></div>
+  </div>
+  <div class="data-bar">
+    <div class="data-bar-label"><span>DISK</span><span>34%</span></div>
+    <div class="data-bar-track"><div class="data-bar-fill cyan" style="width:34%"></div></div>
+  </div>
+</div>
+
+<svg class="svg-lines" id="svgLines"></svg>
+
+<div class="layout">
+  <!-- LEFT: Terminal -->
+  <div class="terminal-panel">
+    <div class="terminal-header">// SYSTEM LOG</div>
+    <div class="terminal-content">
+      <div class="terminal-scroll" id="termContent"></div>
+    </div>
+  </div>
+
+  <!-- CENTER: Sphere -->
+  <div class="center-panel">
+    <div class="scan-lines"></div>
+    <div class="sphere-container">
+      <div class="hal-sphere"></div>
+      <div class="sphere-ring sphere-ring--1"></div>
+      <div class="sphere-ring sphere-ring--2"></div>
+      <div class="sphere-ring sphere-ring--3"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Cards -->
+  <div class="cards-panel">
+    <div class="cards-header">// ACTIVE NODES</div>
+    <div id="cardsContainer"></div>
+  </div>
+</div>
+
+<script>
+// Generate terminal content
+const termLines = [
+  '<span class="cmd">$</span> <span class="highlight">claudeborn</span> --init --mode=sentinel',
+  '<span class="comment">// Initializing neural mesh...</span>',
+  '<span class="path">[CORE]</span> Loading 17 project nodes...',
+  '<span class="path">[CORE]</span> HAL interface: <span class="highlight">ONLINE</span>',
+  '<span class="cmd">$</span> node scan --deep --recursive',
+  'Scanning D:\\GitHub\\* ... <span class="highlight">17 repositories found</span>',
+  '<span class="comment">// Analyzing dependency trees...</span>',
+  '<span class="path">[NET]</span> Uplink established: ws://localhost:3000',
+  '<span class="path">[GPU]</span> CUDA 12.1 detected | RTX 4090 | 24GB VRAM',
+  '<span class="cmd">$</span> python train.py --model=lora --epochs=50',
+  '<span class="path">[TRAIN]</span> Epoch 1/50 | Loss: 0.4231 | LR: 1e-4',
+  '<span class="path">[TRAIN]</span> Epoch 2/50 | Loss: 0.3892 | LR: 1e-4',
+  '<span class="comment">// Checkpoint saved: model_ep002.safetensors</span>',
+  '<span class="cmd">$</span> git status --porcelain',
+  'M  src/renderer/src/App.tsx',
+  'M  src/renderer/src/components/ProjectHub.tsx',
+  '?? src/renderer/src/components/three/',
+  '<span class="path">[PTY]</span> Terminal session #1: <span class="highlight">active</span>',
+  '<span class="path">[PTY]</span> Terminal session #2: <span class="highlight">active</span>',
+  '<span class="cmd">$</span> npm run build',
+  '<span class="comment">// electron-vite v2.3.0</span>',
+  '<span class="path">[BUILD]</span> Compiling main process... <span class="highlight">done</span>',
+  '<span class="path">[BUILD]</span> Compiling renderer... <span class="highlight">done</span>',
+  '<span class="path">[BUILD]</span> Output: dist/ (14.2 MB)',
+  '<span class="cmd">$</span> <span class="highlight">status</span>',
+  'All systems nominal. 17 nodes connected.',
+];
+
+const termContainer = document.getElementById('termContent');
+let termHtml = '';
+for (let rep = 0; rep < 4; rep++) {
+  termLines.forEach(line => { termHtml += line + '<br>'; });
+}
+termContainer.innerHTML = termHtml;
+
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'React', status: 'green' },
+  { name: 'SNOWFINDER', stack: 'Next.js', status: 'green' },
+  { name: 'PREZSANDRINE', stack: 'FastAPI', status: 'amber' },
+  { name: 'INEVITABLESTUDIO', stack: 'Next.js', status: 'green' },
+  { name: 'OFFLINEGAME', stack: 'Python', status: 'amber' },
+  { name: 'COMMUNITYSCANNER', stack: 'py-cli', status: 'amber' },
+  { name: 'DNDMAPBUILDER', stack: 'React', status: 'amber' },
+  { name: 'SCRIPT2UNREAL', stack: 'Python', status: 'amber' },
+  { name: 'PIXELAGENTMONITOR', stack: 'React', status: 'green' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'Node.js', status: 'amber' },
+  { name: 'CINEMASTER-DEMO', stack: 'Next.js', status: 'green' },
+  { name: 'PIXEL-AGENTS', stack: 'Node.js', status: 'amber' },
+  { name: 'MODELTRAINING', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDATAPREP', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEIMAGERENDERER', stack: 'Python', status: 'green' },
+  { name: 'COMFYUI', stack: 'Python', status: 'amber' }
+];
+
+const cardsContainer = document.getElementById('cardsContainer');
+const svg = document.getElementById('svgLines');
+const sphereCx = window.innerWidth * 0.5;
+const sphereCy = window.innerHeight * 0.5;
+
+projects.forEach((proj, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="dot ${proj.status}"></div>
+    <div class="card-name">${proj.name}</div>
+    <div class="card-stack">${proj.stack}</div>
+  `;
+  cardsContainer.appendChild(card);
+});
+
+// Draw connection lines after render
+requestAnimationFrame(() => {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    const rect = card.getBoundingClientRect();
+    const x = rect.left;
+    const y = rect.top + rect.height / 2;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const midX = (x + sphereCx) / 2;
+    const d = `M ${x} ${y} Q ${midX} ${y} ${sphereCx} ${sphereCy}`;
+    line.setAttribute('d', d);
+    line.setAttribute('stroke', 'rgba(0,200,255,0.06)');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('fill', 'none');
+    svg.appendChild(line);
+  });
+});
+</script>
+</body>
+</html>

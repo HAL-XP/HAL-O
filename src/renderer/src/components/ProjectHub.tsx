@@ -3,6 +3,7 @@ import type { ProjectInfo } from '../types'
 import { SceneRoot } from './three/SceneRoot'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
+import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 
 interface Props {
   onNewProject: () => void
@@ -16,6 +17,8 @@ interface Props {
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  layoutId: string
+  onLayoutChange: (id: string) => void
   halSessionId?: string | null
 }
 
@@ -29,7 +32,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut, halSessionId }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut, layoutId, onLayoutChange, halSessionId }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -68,40 +71,21 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const isFullySetup = (p: ProjectInfo) => p.hasClaude && p.hasBatchFiles && p.hasClaudeDir
   const readyCount = projects.filter(isFullySetup).length
 
-  // Split into left and right arcs
-  const half = Math.ceil(filtered.length / 2)
-  const leftArc = filtered.slice(0, half)
-  const rightArc = filtered.slice(half)
+  // Layout positioning
+  const layoutFn = LAYOUT_FNS[layoutId] || LAYOUT_FNS['dual-arc']
+  const layoutCenter = getLayoutCenter(layoutId, dims.w, dims.h)
+  const cardW = 200
 
-  // Arc positioning
-  const cx = dims.w / 2
-  const cy = dims.h * 0.5
-  const arcRadius = Math.min(dims.h * 0.35, dims.w * 0.3, 350)
-
-  const getArcPosition = useCallback((index: number, total: number, side: 'left' | 'right') => {
-    const startAngle = side === 'left' ? Math.PI * 0.6 : -Math.PI * 0.4
-    const endAngle = side === 'left' ? Math.PI * 1.4 : Math.PI * 0.4
-    const t = total <= 1 ? 0.5 : index / (total - 1)
-    const angle = startAngle + t * (endAngle - startAngle)
-    return {
-      x: cx + Math.cos(angle) * arcRadius,
-      y: cy + Math.sin(angle) * arcRadius,
-    }
-  }, [cx, cy, arcRadius])
-
-  const renderCard = (project: ProjectInfo, index: number, side: 'left' | 'right', total: number) => {
+  const renderCard = (project: ProjectInfo, globalIndex: number) => {
     const ready = isFullySetup(project)
-    const pos = getArcPosition(index, total, side)
-    const cardWidth = 200
-    const left = side === 'left' ? pos.x - cardWidth - 15 : pos.x + 15
-    const top = pos.y - 20
+    const pos = layoutFn(globalIndex, { w: dims.w, h: dims.h, total: filtered.length, cardW })
     const isHovered = hovered === project.path
 
     return (
       <div
         key={project.path}
         className={`hal-arc-card ${ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''}`}
-        style={{ left, top }}
+        style={{ left: pos.left, top: pos.top, transform: pos.transform, transition: 'left 0.5s, top 0.5s, transform 0.5s' }}
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
       >
@@ -131,33 +115,36 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }
 
   // Build SVG connection lines
+  const { x: centerX, y: centerY } = layoutCenter
   const connectionLines = filtered.map((project, i) => {
-    const side = i < half ? 'left' : 'right'
-    const idx = side === 'left' ? i : i - half
-    const total = side === 'left' ? leftArc.length : rightArc.length
-    const pos = getArcPosition(idx, total, side)
+    const pos = layoutFn(i, { w: dims.w, h: dims.h, total: filtered.length, cardW })
+    const cardCenterX = pos.left + cardW / 2
+    const cardCenterY = pos.top + 18
     const ready = isFullySetup(project)
     const isActive = hovered === project.path
 
-    const midX = (cx + pos.x) / 2
-    const midY = (cy + pos.y) / 2
-    const controlOffset = side === 'left' ? -40 : 40
+    const midX = (centerX + cardCenterX) / 2
+    const midY = (centerY + cardCenterY) / 2
+    const dx = cardCenterX - centerX
+    const controlOffset = dx > 0 ? -30 : 30
 
     return (
       <g key={project.path}>
         <path
-          d={`M ${cx} ${cy} Q ${midX + controlOffset} ${midY} ${pos.x} ${pos.y}`}
+          d={`M ${centerX} ${centerY} Q ${midX + controlOffset} ${midY} ${cardCenterX} ${cardCenterY}`}
           fill="none"
           stroke={isActive ? (ready ? '#84cc16' : '#fbbf24') : 'rgba(132,204,22,0.1)'}
           strokeWidth={isActive ? 1.5 : 0.5}
           strokeDasharray={isActive ? 'none' : '4,6'}
+          style={{ transition: 'all 0.5s' }}
         />
         <circle
-          cx={pos.x}
-          cy={pos.y}
+          cx={cardCenterX}
+          cy={cardCenterY}
           r={isActive ? 5 : 3}
           fill={ready ? '#84cc16' : '#fbbf24'}
           opacity={isActive ? 0.8 : 0.4}
+          style={{ transition: 'cx 0.5s, cy 0.5s' }}
         />
       </g>
     )
@@ -203,13 +190,19 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           />
           <MicButton
             onTranscript={(text) => {
-              // Hub focus → send to HAL (the Claudeborn terminal = this session)
-              // Terminal focus → send to that specific terminal
               const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
               if (target) {
+                // Signal that a voice response is expected from this terminal
+                ;(window as any).__voiceResponseTarget = target
                 window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
+              } else {
+                window.api.ptySessions().then((sessions) => {
+                  if (sessions.length > 0) {
+                    ;(window as any).__voiceResponseTarget = sessions[0].id
+                    window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
+                  }
+                }).catch(() => {})
               }
-              // If no target, voice has nowhere to go (no Claudeborn terminal open)
             }}
             onListeningChange={setIsListening}
           />
@@ -220,9 +213,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             hubFontSize={hubFontSize}
             termFontSize={termFontSize}
             voiceOut={voiceOut}
+            layoutId={layoutId as any}
             onHubFontSize={onHubFontSize}
             onTermFontSize={onTermFontSize}
             onVoiceOut={onVoiceOut}
+            onLayoutChange={onLayoutChange as any}
           />
           <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
           <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
@@ -235,9 +230,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         {loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}
       </div>
 
-      {/* Arc cards */}
-      {!loading && leftArc.map((p, i) => renderCard(p, i, 'left', leftArc.length))}
-      {!loading && rightArc.map((p, i) => renderCard(p, i, 'right', rightArc.length))}
+      {/* Project cards — positioned by active layout */}
+      {!loading && filtered.map((p, i) => renderCard(p, i))}
 
       {/* Loading state */}
       {loading && (

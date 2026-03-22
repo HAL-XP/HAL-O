@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "telegram@claude-plugins-official": true
+  },
+  "channelsEnabled": true
+}

@@ -365,7 +365,7 @@ export function registerIpcHandlers(): void {
     } else {
       const cmd = resume
         ? 'claude --dangerously-skip-permissions --resume'
-        : 'claude --dangerously-skip-permissions'
+        : 'claude --dangerously-skip-permissions --channels plugin:telegram@claude-plugins-official'
       openTerminalAt(path, cmd)
     }
   })
@@ -536,7 +536,7 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
     if (existsSync(scriptFile)) {
       runLaunchScript(path, newScript)
     } else {
-      openTerminalAt(path, 'claude --dangerously-skip-permissions')
+      openTerminalAt(path, 'claude --dangerously-skip-permissions --channels plugin:telegram@claude-plugins-official')
     }
   })
 
@@ -786,7 +786,7 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
     const sessions = terminalManager.getActiveSessions()
     const session = sessions.find((s) => s.id === sessionId)
     if (session) {
-      openTerminalAt(session.projectPath, `claude --dangerously-skip-permissions -n "${session.projectName}" --continue`)
+      openTerminalAt(session.projectPath, `claude --dangerously-skip-permissions --channels plugin:telegram@claude-plugins-official -n "${session.projectName}" --continue`)
       terminalManager.close(session.id)
       return true
     }
@@ -805,7 +805,7 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
 
     // Pop each to external terminal
     for (const s of sessions) {
-      openTerminalAt(s.projectPath, `claude --dangerously-skip-permissions -n "${s.projectName}" --continue`)
+      openTerminalAt(s.projectPath, `claude --dangerously-skip-permissions --channels plugin:telegram@claude-plugins-official -n "${s.projectName}" --continue`)
       terminalManager.close(s.id)
     }
 
@@ -829,7 +829,7 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
   ipcMain.handle('voice-speak', async (_e, text: string, profile: string = 'narrator', lang: string = 'en') => {
     const outPath = join(tmpdir(), `claudeborn_tts_${Date.now()}.ogg`)
     return new Promise<{ success: boolean; audioPath?: string; error?: string }>((resolve) => {
-      const proc = spawn('python', [ttsScript, text, outPath, profile, lang, '--play'], {
+      const proc = spawn('python', [ttsScript, text, outPath, profile, lang], {
         timeout: 120000,
       })
       let stderr = ''

@@ -16,6 +16,33 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '')
 }
 
+// Play audio through Web Audio API with analyser for sphere animation
+function playWithAnalyser(url: string) {
+  const audio = new Audio(url)
+  const ctx = new AudioContext()
+  const source = ctx.createMediaElementSource(audio)
+  const analyser = ctx.createAnalyser()
+  analyser.fftSize = 256
+
+  source.connect(analyser)
+  analyser.connect(ctx.destination)
+
+  // Expose analyser globally so HalSphere can read it
+  ;(window as any).__halAudioAnalyser = analyser
+  ;(window as any).__halSpeaking = true
+
+  audio.onended = () => {
+    ;(window as any).__halSpeaking = false
+    ;(window as any).__halAudioAnalyser = null
+    ctx.close()
+  }
+  audio.onerror = () => {
+    ;(window as any).__halSpeaking = false
+    ;(window as any).__halAudioAnalyser = null
+  }
+  audio.play().catch(() => {})
+}
+
 export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -97,21 +124,26 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     cleanupData = window.api.onPtyData(sessionId, (data) => {
       term.write(data)
 
-      // Buffer output for voice-out TTS
-      if (voiceOut) {
+      // Auto-speak response when this terminal is the voice response target
+      const isVoiceTarget = (window as any).__voiceResponseTarget === sessionId
+      if (isVoiceTarget) {
         outputBufferRef.current += data
-        // Reset the timer — wait for output to stop for 3 seconds
         if (ttsTimerRef.current) clearTimeout(ttsTimerRef.current)
         ttsTimerRef.current = setTimeout(() => {
+          // Clear the target flag
+          ;(window as any).__voiceResponseTarget = null
           const text = stripAnsi(outputBufferRef.current).trim()
           outputBufferRef.current = ''
-          // Only speak if there's meaningful content (>20 chars, not just a prompt)
-          if (text.length > 20 && !text.match(/^[>\$#%]\s*$/)) {
-            // Take last 500 chars to avoid speaking huge outputs
-            const toSpeak = text.length > 500 ? text.slice(-500) : text
-            window.api.voiceSpeak(toSpeak, 'narrator', 'en').catch(() => {})
+          if (text.length > 20) {
+            const toSpeak = text.length > 800 ? text.slice(-800) : text
+            window.api.voiceSpeak(toSpeak, 'narrator', 'en').then((result) => {
+              if (result.success && result.audioPath) {
+                // Play with Web Audio API for analyser data
+                playWithAnalyser(`file://${result.audioPath}`)
+              }
+            }).catch(() => {})
           }
-        }, 3000)
+        }, 3000) // wait 3s after output stops
       }
     })
 

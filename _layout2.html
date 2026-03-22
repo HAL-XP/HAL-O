@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — Dual Arc 3D Enhanced</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030308; color: #84cc16; font-family: 'Fira Code', 'Cascadia Code', monospace; width: 100vw; height: 100vh; overflow: hidden; position: relative; perspective: 1200px; }
+
+  .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%); pointer-events: none; z-index: 100; }
+
+  .grid-floor { position: fixed; bottom: 0; left: -50%; width: 200%; height: 45%; background: repeating-linear-gradient(90deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px); transform: perspective(400px) rotateX(55deg); transform-origin: center bottom; pointer-events: none; z-index: 0; }
+
+  .hud-corner { position: fixed; width: 40px; height: 40px; z-index: 101; pointer-events: none; }
+  .hud-corner--tl { top: 10px; left: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--tr { top: 10px; right: 10px; border-top: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .hud-corner--bl { bottom: 10px; left: 10px; border-bottom: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--br { bottom: 10px; right: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .edge-readout { position: fixed; font-size: 9px; color: rgba(132,204,22,0.4); z-index: 101; pointer-events: none; letter-spacing: 1px; }
+  .edge-readout--left { left: 15px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout--right { right: 15px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout--bottom { bottom: 15px; left: 50%; transform: translateX(-50%); }
+
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; z-index: 50; background: linear-gradient(180deg, rgba(3,3,8,0.9) 0%, transparent 100%); border-bottom: 1px solid rgba(132,204,22,0.1); }
+  .top-bar .sys-label { font-size: 13px; color: #84cc16; font-weight: 700; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .top-bar .stats { font-size: 10px; color: rgba(132,204,22,0.6); display: flex; gap: 20px; }
+  .top-bar .stats .val { color: #84cc16; font-weight: 700; }
+
+  .sphere-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
+  .hal-sphere { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6644, #ff2200 40%, #cc1100 70%, #440000 100%); box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); } 50% { box-shadow: 0 0 40px rgba(255,34,0,0.8), 0 0 80px rgba(255,34,0,0.4), 0 0 160px rgba(255,34,0,0.2), inset 0 0 40px rgba(255,100,50,0.4); } }
+  .sphere-ring { position: absolute; border: 1px solid rgba(255,34,0,0.2); border-radius: 50%; top: 50%; left: 50%; }
+  .sphere-ring--1 { width: 200px; height: 200px; margin: -100px 0 0 -100px; animation: ring-rotate 20s linear infinite; }
+  .sphere-ring--2 { width: 240px; height: 240px; margin: -120px 0 0 -120px; animation: ring-rotate 30s linear infinite reverse; border-style: dashed; }
+  @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .svg-lines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+  .card { position: absolute; width: 200px; padding: 12px; background: rgba(132,204,22,0.03); border: 1px solid rgba(132,204,22,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 11px; z-index: 20; transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); transform-style: preserve-3d; }
+  .card::before { content: ''; position: absolute; top: -1px; left: -1px; width: 12px; height: 12px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .card::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .card .depth-shadow { position: absolute; inset: 5px; background: rgba(132,204,22,0.02); transform: translateZ(-20px); filter: blur(8px); z-index: -1; }
+  .card .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .card .dot.green { background: #84cc16; box-shadow: 0 0 6px #84cc16; }
+  .card .dot.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+  .card .card-name { font-weight: 700; font-size: 11px; color: #e2e8f0; letter-spacing: 1px; }
+  .card .card-stack { font-size: 9px; color: rgba(132,204,22,0.5); margin-top: 4px; padding: 2px 6px; border: 1px solid rgba(132,204,22,0.15); display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner--tl"></div>
+<div class="hud-corner hud-corner--tr"></div>
+<div class="hud-corner hud-corner--bl"></div>
+<div class="hud-corner hud-corner--br"></div>
+
+<div class="edge-readout edge-readout--left">SYS.MEM: 847MB | PROC: 23 ACTIVE | NET: 1.2GB/s</div>
+<div class="edge-readout edge-readout--right">UPLINK: STABLE | LAT: 12ms | CRYPT: AES-256</div>
+<div class="edge-readout edge-readout--bottom">NODE MESH: 17 CONNECTED | THROUGHPUT: 94.7% | ERR RATE: 0.003%</div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN v1.0</div>
+  <div class="stats">
+    <span><span class="val">17</span> OPS</span>
+    <span><span class="val">6</span> READY</span>
+    <span><span class="val">11</span> PENDING</span>
+  </div>
+</div>
+
+<div class="sphere-container">
+  <div class="hal-sphere"></div>
+  <div class="sphere-ring sphere-ring--1"></div>
+  <div class="sphere-ring sphere-ring--2"></div>
+</div>
+
+<svg class="svg-lines" id="svgLines"></svg>
+<div id="cardsContainer"></div>
+
+<script>
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'React', status: 'green' },
+  { name: 'SNOWFINDER', stack: 'Next.js', status: 'green' },
+  { name: 'PREZSANDRINE', stack: 'Python FastAPI', status: 'amber' },
+  { name: 'INEVITABLESTUDIO', stack: 'Next.js', status: 'green' },
+  { name: 'OFFLINEGAME', stack: 'Python', status: 'amber' },
+  { name: 'COMMUNITYSCANNER', stack: 'python-cli', status: 'amber' },
+  { name: 'DNDMAPBUILDER', stack: 'React', status: 'amber' },
+  { name: 'SCRIPT2UNREAL', stack: 'Python', status: 'amber' },
+  { name: 'PIXELAGENTMONITOR', stack: 'React', status: 'green' },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'Node.js', status: 'amber' },
+  { name: 'CINEMASTER-DEMO', stack: 'Next.js', status: 'green' },
+  { name: 'PIXEL-AGENTS', stack: 'Node.js', status: 'amber' },
+  { name: 'MODELTRAINING', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDOWNLOAD', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEDATAPREP', stack: 'Python', status: 'amber' },
+  { name: 'CLAUDEIMAGERENDERER', stack: 'Python', status: 'green' },
+  { name: 'COMFYUI', stack: 'Python', status: 'amber' }
+];
+
+const cx = window.innerWidth / 2;
+const cy = window.innerHeight / 2;
+const container = document.getElementById('cardsContainer');
+const svg = document.getElementById('svgLines');
+
+const leftCards = projects.slice(0, 9);
+const rightCards = projects.slice(9);
+
+function positionArc(cards, side) {
+  const arcSpan = Math.PI * 0.7;
+  const startAngle = -arcSpan / 2;
+  const radius = Math.min(window.innerWidth * 0.35, 420);
+
+  return cards.map((proj, i) => {
+    const angle = startAngle + (arcSpan / (cards.length - 1)) * i;
+    const x = side === 'left' ? cx - radius * Math.cos(angle) - 210 : cx + radius * Math.cos(angle) + 10;
+    const y = cy + radius * Math.sin(angle) - 30;
+    const distFromCenter = Math.abs(i - (cards.length - 1) / 2) / ((cards.length - 1) / 2);
+    const tiltY = side === 'left' ? (8 - distFromCenter * 5) : -(8 - distFromCenter * 5);
+    const tiltX = (i - (cards.length - 1) / 2) * -0.8;
+    return { ...proj, x, y, tiltY, tiltX, distFromCenter };
+  });
+}
+
+const allPositioned = [...positionArc(leftCards, 'left'), ...positionArc(rightCards, 'right')];
+
+allPositioned.forEach((proj, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.left = proj.x + 'px';
+  card.style.top = proj.y + 'px';
+  card.style.transform = `perspective(600px) rotateY(${proj.tiltY}deg) rotateX(${proj.tiltX}deg)`;
+  card.style.boxShadow = `${proj.tiltY > 0 ? '-' : ''}8px 6px 20px rgba(0,0,0,0.5), ${proj.tiltY > 0 ? '-' : ''}4px 3px 10px rgba(132,204,22,0.03)`;
+
+  card.innerHTML = `
+    <div class="depth-shadow"></div>
+    <div class="card-header">
+      <div class="dot ${proj.status}"></div>
+      <div class="card-name">${proj.name}</div>
+    </div>
+    <div class="card-stack">${proj.stack}</div>
+  `;
+
+  card.addEventListener('mouseenter', () => {
+    card.style.transform = `perspective(600px) rotateY(${proj.tiltY * 0.3}deg) rotateX(${proj.tiltX * 0.3}deg) translateZ(30px) scale(1.08)`;
+    card.style.boxShadow = `0 0 30px rgba(132,204,22,0.15), 0 10px 40px rgba(0,0,0,0.6)`;
+    card.style.borderColor = 'rgba(132,204,22,0.5)';
+    card.style.background = 'rgba(132,204,22,0.08)';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = `perspective(600px) rotateY(${proj.tiltY}deg) rotateX(${proj.tiltX}deg)`;
+    card.style.boxShadow = `${proj.tiltY > 0 ? '-' : ''}8px 6px 20px rgba(0,0,0,0.5), ${proj.tiltY > 0 ? '-' : ''}4px 3px 10px rgba(132,204,22,0.03)`;
+    card.style.borderColor = 'rgba(132,204,22,0.15)';
+    card.style.background = 'rgba(132,204,22,0.03)';
+  });
+
+  container.appendChild(card);
+
+  const cardCx = proj.x + 100;
+  const cardCy = proj.y + 25;
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const midX = (cardCx + cx) / 2;
+  const d = `M ${cardCx} ${cardCy} Q ${midX} ${cardCy} ${cx} ${cy}`;
+  line.setAttribute('d', d);
+  line.setAttribute('stroke', 'rgba(132,204,22,0.1)');
+  line.setAttribute('stroke-width', '1');
+  line.setAttribute('fill', 'none');
+  svg.appendChild(line);
+});
+</script>
+</body>
+</html>

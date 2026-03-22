@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudeborn — JARVIS Scattered Panels</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #030308; color: #84cc16; font-family: 'Fira Code', 'Cascadia Code', monospace; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+  .vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.8) 100%); pointer-events: none; z-index: 100; }
+
+  .grid-floor { position: fixed; bottom: 0; left: -50%; width: 200%; height: 40%; background: repeating-linear-gradient(90deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px), repeating-linear-gradient(0deg, rgba(132,204,22,0.03) 0px, transparent 1px, transparent 60px); transform: perspective(400px) rotateX(55deg); transform-origin: center bottom; pointer-events: none; z-index: 0; }
+
+  .hud-corner { position: fixed; width: 40px; height: 40px; z-index: 101; pointer-events: none; }
+  .hud-corner--tl { top: 10px; left: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--tr { top: 10px; right: 10px; border-top: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .hud-corner--bl { bottom: 10px; left: 10px; border-bottom: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .hud-corner--br { bottom: 10px; right: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+
+  .edge-readout { position: fixed; font-size: 9px; color: rgba(132,204,22,0.4); z-index: 101; pointer-events: none; letter-spacing: 1px; }
+  .edge-readout--left { left: 15px; top: 50%; transform: rotate(-90deg) translateX(-50%); transform-origin: left center; }
+  .edge-readout--right { right: 15px; top: 50%; transform: rotate(90deg) translateX(50%); transform-origin: right center; }
+  .edge-readout--bottom { bottom: 15px; left: 50%; transform: translateX(-50%); }
+
+  .top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 60px; z-index: 50; background: linear-gradient(180deg, rgba(3,3,8,0.9) 0%, transparent 100%); border-bottom: 1px solid rgba(132,204,22,0.1); }
+  .top-bar .sys-label { font-size: 13px; color: #84cc16; font-weight: 700; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .top-bar .stats { font-size: 10px; color: rgba(132,204,22,0.6); display: flex; gap: 20px; }
+  .top-bar .stats .val { color: #84cc16; font-weight: 700; }
+
+  .sphere-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; }
+  .hal-sphere { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6644, #ff2200 40%, #cc1100 70%, #440000 100%); box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 30px rgba(255,34,0,0.6), 0 0 60px rgba(255,34,0,0.3), 0 0 120px rgba(255,34,0,0.15), inset 0 0 30px rgba(255,100,50,0.3); } 50% { box-shadow: 0 0 40px rgba(255,34,0,0.8), 0 0 80px rgba(255,34,0,0.4), 0 0 160px rgba(255,34,0,0.2), inset 0 0 40px rgba(255,100,50,0.4); } }
+  .sphere-ring { position: absolute; border: 1px solid rgba(255,34,0,0.2); border-radius: 50%; top: 50%; left: 50%; }
+  .sphere-ring--1 { width: 190px; height: 190px; margin: -95px 0 0 -95px; animation: ring-rotate 20s linear infinite; }
+  .sphere-ring--2 { width: 230px; height: 230px; margin: -115px 0 0 -115px; animation: ring-rotate 30s linear infinite reverse; border-style: dashed; }
+  @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .svg-lines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+  .card { position: absolute; padding: 10px; background: rgba(132,204,22,0.03); border: 1px solid rgba(132,204,22,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 11px; z-index: 20; transition: all 0.3s ease; }
+  .card::before { content: ''; position: absolute; top: -1px; left: -1px; width: 10px; height: 10px; border-top: 2px solid #84cc16; border-left: 2px solid #84cc16; }
+  .card::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-bottom: 2px solid #84cc16; border-right: 2px solid #84cc16; }
+  .card:hover { background: rgba(132,204,22,0.08); border-color: rgba(132,204,22,0.4); transform: scale(1.05); z-index: 30; }
+  .card .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .card .dot.green { background: #84cc16; box-shadow: 0 0 6px #84cc16; }
+  .card .dot.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+  .card .card-name { font-weight: 700; font-size: 10px; color: #e2e8f0; letter-spacing: 1px; }
+  .card .card-stack { font-size: 9px; color: rgba(132,204,22,0.5); margin-top: 3px; padding: 2px 6px; border: 1px solid rgba(132,204,22,0.15); display: inline-block; }
+
+  /* HUD Widgets */
+  .hud-widget { position: fixed; z-index: 40; pointer-events: none; }
+
+  /* Circular Gauge - top left */
+  .gauge { top: 60px; left: 60px; width: 120px; height: 120px; }
+  .gauge svg { width: 120px; height: 120px; }
+  .gauge-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 700; color: #84cc16; text-shadow: 0 0 10px rgba(132,204,22,0.5); }
+  .gauge-sublabel { position: absolute; top: 68%; left: 50%; transform: translate(-50%,-50%); font-size: 8px; color: rgba(132,204,22,0.5); }
+
+  /* Bar chart - top right */
+  .barchart { top: 60px; right: 60px; display: flex; gap: 6px; align-items: flex-end; height: 100px; }
+  .barchart .bar { width: 12px; background: linear-gradient(180deg, #84cc16, rgba(132,204,22,0.2)); border-top: 2px solid #84cc16; }
+  .barchart .bar-label { font-size: 7px; color: rgba(132,204,22,0.4); text-align: center; margin-top: 4px; }
+
+  /* Radar - bottom left */
+  .radar { bottom: 60px; left: 60px; width: 130px; height: 130px; }
+  .radar svg { width: 130px; height: 130px; }
+  .radar-sweep { transform-origin: 65px 65px; animation: sweep 4s linear infinite; }
+  @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Hex data - bottom right */
+  .hex-data { bottom: 60px; right: 60px; width: 180px; height: 120px; overflow: hidden; font-size: 8px; color: rgba(132,204,22,0.3); line-height: 1.6; }
+  .hex-scroll { animation: hex-scroll 15s linear infinite; }
+  @keyframes hex-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+</style>
+</head>
+<body>
+
+<div class="vignette"></div>
+<div class="grid-floor"></div>
+<div class="hud-corner hud-corner--tl"></div>
+<div class="hud-corner hud-corner--tr"></div>
+<div class="hud-corner hud-corner--bl"></div>
+<div class="hud-corner hud-corner--br"></div>
+
+<div class="edge-readout edge-readout--left">SYS.MEM: 847MB | PROC: 23 ACTIVE | NET: 1.2GB/s</div>
+<div class="edge-readout edge-readout--right">UPLINK: STABLE | LAT: 12ms | CRYPT: AES-256</div>
+<div class="edge-readout edge-readout--bottom">NODE MESH: 17 CONNECTED | THROUGHPUT: 94.7% | ERR RATE: 0.003%</div>
+
+<div class="top-bar">
+  <div class="sys-label">SYS://CLAUDEBORN v1.0</div>
+  <div class="stats">
+    <span><span class="val">17</span> OPS</span>
+    <span><span class="val">6</span> READY</span>
+    <span><span class="val">11</span> PENDING</span>
+  </div>
+</div>
+
+<div class="sphere-container">
+  <div class="hal-sphere"></div>
+  <div class="sphere-ring sphere-ring--1"></div>
+  <div class="sphere-ring sphere-ring--2"></div>
+</div>
+
+<!-- Circular Gauge -->
+<div class="hud-widget gauge">
+  <svg viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(132,204,22,0.1)" stroke-width="3"/>
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#84cc16" stroke-width="3" stroke-dasharray="240 327" stroke-dashoffset="-40" stroke-linecap="round" opacity="0.7"/>
+    <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(132,204,22,0.05)" stroke-width="1"/>
+  </svg>
+  <div class="gauge-label">73%</div>
+  <div class="gauge-sublabel">CPU LOAD</div>
+</div>
+
+<!-- Bar Chart -->
+<div class="hud-widget barchart">
+  <div><div class="bar" style="height:60px;"></div><div class="bar-label">M</div></div>
+  <div><div class="bar" style="height:45px;"></div><div class="bar-label">T</div></div>
+  <div><div class="bar" style="height:80px;"></div><div class="bar-label">W</div></div>
+  <div><div class="bar" style="height:55px;"></div><div class="bar-label">T</div></div>
+  <div><div class="bar" style="height:70px;"></div><div class="bar-label">F</div></div>
+  <div><div class="bar" style="height:35px;"></div><div class="bar-label">S</div></div>
+  <div><div class="bar" style="height:25px;"></div><div class="bar-label">S</div></div>
+</div>
+
+<!-- Radar -->
+<div class="hud-widget radar">
+  <svg viewBox="0 0 130 130">
+    <circle cx="65" cy="65" r="55" fill="none" stroke="rgba(132,204,22,0.1)" stroke-width="1"/>
+    <circle cx="65" cy="65" r="40" fill="none" stroke="rgba(132,204,22,0.08)" stroke-width="1"/>
+    <circle cx="65" cy="65" r="25" fill="none" stroke="rgba(132,204,22,0.06)" stroke-width="1"/>
+    <line x1="65" y1="10" x2="65" y2="120" stroke="rgba(132,204,22,0.06)" stroke-width="1"/>
+    <line x1="10" y1="65" x2="120" y2="65" stroke="rgba(132,204,22,0.06)" stroke-width="1"/>
+    <path class="radar-sweep" d="M 65 65 L 65 10 A 55 55 0 0 1 97 22 Z" fill="rgba(132,204,22,0.08)"/>
+    <line class="radar-sweep" x1="65" y1="65" x2="65" y2="10" stroke="#84cc16" stroke-width="1.5" opacity="0.6"/>
+    <circle cx="80" cy="40" r="2" fill="#84cc16" opacity="0.8"/>
+    <circle cx="45" cy="85" r="2" fill="#84cc16" opacity="0.5"/>
+    <circle cx="90" cy="75" r="2" fill="#84cc16" opacity="0.6"/>
+    <circle cx="55" cy="50" r="1.5" fill="#f59e0b" opacity="0.7"/>
+  </svg>
+</div>
+
+<!-- Hex Data -->
+<div class="hud-widget hex-data">
+  <div class="hex-scroll" id="hexData"></div>
+</div>
+
+<svg class="svg-lines" id="svgLines"></svg>
+<div id="cardsContainer"></div>
+
+<script>
+// Generate hex data
+const hexContainer = document.getElementById('hexData');
+let hexHtml = '';
+for (let i = 0; i < 40; i++) {
+  let line = '0x' + (0x4A00 + i * 16).toString(16).toUpperCase().padStart(4, '0') + '  ';
+  for (let j = 0; j < 8; j++) {
+    line += Math.floor(Math.random() * 256).toString(16).toUpperCase().padStart(2, '0') + ' ';
+  }
+  hexHtml += line + '\n';
+}
+hexContainer.textContent = hexHtml + hexHtml;
+
+const projects = [
+  { name: 'CLAUDEBORN', stack: 'React', status: 'green', w: 260 },
+  { name: 'SNOWFINDER', stack: 'Next.js', status: 'green', w: 200 },
+  { name: 'PREZSANDRINE', stack: 'Python FastAPI', status: 'amber', w: 220 },
+  { name: 'INEVITABLESTUDIO', stack: 'Next.js', status: 'green', w: 240 },
+  { name: 'OFFLINEGAME', stack: 'Python', status: 'amber', w: 180 },
+  { name: 'COMMUNITYSCANNER', stack: 'python-cli', status: 'amber', w: 210 },
+  { name: 'DNDMAPBUILDER', stack: 'React', status: 'amber', w: 200 },
+  { name: 'SCRIPT2UNREAL', stack: 'Python', status: 'amber', w: 190 },
+  { name: 'PIXELAGENTMONITOR', stack: 'React', status: 'green', w: 230 },
+  { name: 'CLAUDEPRODUCTFINDER', stack: 'Node.js', status: 'amber', w: 250 },
+  { name: 'CINEMASTER-DEMO', stack: 'Next.js', status: 'green', w: 210 },
+  { name: 'PIXEL-AGENTS', stack: 'Node.js', status: 'amber', w: 180 },
+  { name: 'MODELTRAINING', stack: 'Python', status: 'amber', w: 195 },
+  { name: 'CLAUDEDOWNLOAD', stack: 'Python', status: 'amber', w: 200 },
+  { name: 'CLAUDEDATAPREP', stack: 'Python', status: 'amber', w: 210 },
+  { name: 'CLAUDEIMAGERENDERER', stack: 'Python', status: 'green', w: 240 },
+  { name: 'COMFYUI', stack: 'Python', status: 'amber', w: 170 }
+];
+
+// Scattered positions — manually placed for aesthetic scatter
+const positions = [
+  { x: 0.03, y: 0.08 }, { x: 0.78, y: 0.06 }, { x: 0.18, y: 0.22 },
+  { x: 0.60, y: 0.15 }, { x: 0.02, y: 0.42 }, { x: 0.82, y: 0.30 },
+  { x: 0.28, y: 0.38 }, { x: 0.62, y: 0.35 }, { x: 0.08, y: 0.62 },
+  { x: 0.72, y: 0.52 }, { x: 0.35, y: 0.56 }, { x: 0.55, y: 0.55 },
+  { x: 0.15, y: 0.78 }, { x: 0.78, y: 0.72 }, { x: 0.42, y: 0.72 },
+  { x: 0.60, y: 0.78 }, { x: 0.30, y: 0.88 }
+];
+
+const cx = window.innerWidth / 2;
+const cy = window.innerHeight / 2;
+const container = document.getElementById('cardsContainer');
+const svg = document.getElementById('svgLines');
+
+projects.forEach((proj, i) => {
+  const pos = positions[i];
+  const x = pos.x * (window.innerWidth - proj.w - 20);
+  const y = pos.y * (window.innerHeight - 80) + 45;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
+  card.style.width = proj.w + 'px';
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="dot ${proj.status}"></div>
+      <div class="card-name">${proj.name}</div>
+    </div>
+    <div class="card-stack">${proj.stack}</div>
+  `;
+  container.appendChild(card);
+
+  const cardCx = x + proj.w / 2;
+  const cardCy = y + 25;
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const midX = (cardCx + cx) / 2 + (Math.random() - 0.5) * 60;
+  const midY = (cardCy + cy) / 2 + (Math.random() - 0.5) * 40;
+  const d = `M ${cardCx} ${cardCy} Q ${midX} ${midY} ${cx} ${cy}`;
+  line.setAttribute('d', d);
+  line.setAttribute('stroke', 'rgba(132,204,22,0.08)');
+  line.setAttribute('stroke-width', '1');
+  line.setAttribute('fill', 'none');
+  svg.appendChild(line);
+});
+</script>
+</body>
+</html>

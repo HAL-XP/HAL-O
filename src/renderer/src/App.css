@@ -1846,6 +1846,29 @@ textarea.text-input {
   font-family: 'Cascadia Code', 'Fira Code', monospace;
 }
 
+.hal-settings-select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.hal-settings-select:focus {
+  outline: none;
+  border-color: var(--primary-dim);
+}
+
+.hal-settings-select option {
+  background: #0a0f14;
+  color: var(--text);
+}
+
 /* ── Markdown-like rendering ── */
 .md-text {
   white-space: pre-wrap;
@@ -2022,6 +2045,33 @@ textarea.text-input {
 .hal-hud-corner.br { bottom: 45px; right: 10px; border-bottom: 1px solid rgba(132,204,22,0.15); border-right: 1px solid rgba(132,204,22,0.15); }
 
 /* ── Embedded Terminal — Split Pane System ── */
+
+/* Draggable divider between hub and terminal */
+.hal-split-divider {
+  height: 6px;
+  background: rgba(255,255,255,0.04);
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  transition: background 0.2s;
+}
+
+.hal-split-divider:hover {
+  background: var(--primary-dim);
+}
+
+.hal-split-divider::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 2px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+}
 
 .hal-split-container {
   display: flex;
