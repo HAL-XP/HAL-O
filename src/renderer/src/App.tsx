@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useI18n } from './i18n'
 import type { Answers, ProjectConfig, ProjectAnalysis } from './types'
 import { getActiveSteps } from './steps'
@@ -11,6 +11,7 @@ import { CurrentStep } from './components/CurrentStep'
 import { AnalysisStep } from './components/AnalysisStep'
 import { ReviewScreen } from './components/ReviewScreen'
 import { CreationProgress } from './components/CreationProgress'
+import { TerminalView, type TerminalSession } from './components/TerminalView'
 
 interface AppState {
   currentStepId: string
@@ -91,6 +92,86 @@ export function App() {
   })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
+  const [voiceFocus, setVoiceFocus] = useState<'hub' | string>('hub')
+  const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-hub-font') || '10'))
+  const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-term-font') || '13'))
+  const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('claudeborn-voice-out') === 'true')
+
+  const updateHubFont = useCallback((size: number) => {
+    setHubFontSize(size)
+    localStorage.setItem('claudeborn-hub-font', String(size))
+  }, [])
+  const updateTermFont = useCallback((size: number) => {
+    setTermFontSize(size)
+    localStorage.setItem('claudeborn-term-font', String(size))
+  }, [])
+  const updateVoiceOut = useCallback((enabled: boolean) => {
+    setVoiceOut(enabled)
+    localStorage.setItem('claudeborn-voice-out', String(enabled))
+  }, [])
+
+  const openTerminal = useCallback((projectPath: string, projectName: string, resume: boolean) => {
+    const id = projectPath.replace(/[^a-zA-Z0-9]/g, '_')
+    // Don't open duplicate
+    if (termSessions.find((s) => s.id === id)) return
+
+    const args = ['--dangerously-skip-permissions', '-n', projectName]
+    if (resume) args.push('--continue')
+
+    window.api.ptySpawn({
+      id,
+      cwd: projectPath,
+      cmd: 'claude',
+      args,
+      cols: 120,
+      rows: 30,
+      projectName,
+    })
+
+    setTermSessions((prev) => [...prev, { id, projectName, projectPath }])
+    // Auto-focus voice on the new terminal
+    setVoiceFocus(id)
+  }, [termSessions])
+
+  const closeTerminal = useCallback((id: string) => {
+    window.api.ptyClose(id)
+    setTermSessions((prev) => prev.filter((s) => s.id !== id))
+  }, [])
+
+  // Restore terminals — reconnect to running ptys (survives renderer reload)
+  // AND restore from pending file (survives full app restart)
+  useEffect(() => {
+    if (!window.api) return
+
+    // First: check for running pty sessions (renderer reload case)
+    window.api.ptySessions().then((active) => {
+      if (active.length > 0) {
+        setTermSessions((prev) => {
+          const existing = new Set(prev.map((s) => s.id))
+          const toAdd = active.filter((s) => !existing.has(s.id))
+          if (toAdd.length === 0) return prev
+          return [...prev, ...toAdd.map((s) => ({
+            id: s.id,
+            projectName: s.projectName,
+            projectPath: s.projectPath,
+          }))]
+        })
+      }
+    }).catch(() => {})
+
+    // Second: check for pending sessions from full restart
+    if (window.api.ptyCheckPending) {
+      window.api.ptyCheckPending().then((pending) => {
+        if (!pending || pending.length === 0) return
+        setTimeout(() => {
+          for (const s of pending) {
+            openTerminal(s.projectPath, s.projectName, true)
+          }
+        }, 1000)
+      }).catch(() => {})
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute derived values (always, even when setup screen is showing)
   const activeSteps = getActiveSteps(state.answers)
@@ -147,39 +228,61 @@ export function App() {
 
   if (viewMode === 'hub') {
     return (
-      <div className="app">
-        <ProjectHub
-          onNewProject={() => {
-            setState({
-              currentStepId: FIRST_STEP_ID,
-              answers: {},
-              showReview: false,
-              isCreating: false,
-              creationLog: [],
-              creationDone: false,
-              createdPath: null,
-            })
-            setViewMode('wizard')
-          }}
-          onConvertProject={(path) => {
-            // Pre-fill answers from the existing path
-            const folderName = path.split(/[/\\]/).pop() || ''
-            const parentDir = path.substring(0, path.length - folderName.length - 1)
-            setState({
-              currentStepId: 'project-description',
-              answers: {
-                'project-name': { value: folderName, label: folderName },
-                'project-location': { value: parentDir, label: parentDir },
-              },
-              showReview: false,
-              isCreating: false,
-              creationLog: [],
-              creationDone: false,
-              createdPath: null,
-            })
-            setViewMode('wizard')
-          }}
-        />
+      <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div style={{ flex: termSessions.length > 0 ? '1 1 50%' : '1 1 100%', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+          <ProjectHub
+            onNewProject={() => {
+              setState({
+                currentStepId: FIRST_STEP_ID,
+                answers: {},
+                showReview: false,
+                isCreating: false,
+                creationLog: [],
+                creationDone: false,
+                createdPath: null,
+              })
+              setViewMode('wizard')
+            }}
+            onConvertProject={(path) => {
+              const folderName = path.split(/[/\\]/).pop() || ''
+              const parentDir = path.substring(0, path.length - folderName.length - 1)
+              setState({
+                currentStepId: 'project-description',
+                answers: {
+                  'project-name': { value: folderName, label: folderName },
+                  'project-location': { value: parentDir, label: parentDir },
+                },
+                showReview: false,
+                isCreating: false,
+                creationLog: [],
+                creationDone: false,
+                createdPath: null,
+              })
+              setViewMode('wizard')
+            }}
+            onOpenTerminal={openTerminal}
+            voiceFocus={voiceFocus}
+            onVoiceFocusHub={() => setVoiceFocus('hub')}
+            hubFontSize={hubFontSize}
+            termFontSize={termFontSize}
+            voiceOut={voiceOut}
+            onHubFontSize={updateHubFont}
+            onTermFontSize={updateTermFont}
+            onVoiceOut={updateVoiceOut}
+          />
+        </div>
+        {termSessions.length > 0 && (
+          <div style={{ flex: '1 1 50%', minHeight: 200, overflow: 'hidden' }}>
+            <TerminalView
+              sessions={termSessions}
+              onClose={closeTerminal}
+              voiceFocus={voiceFocus}
+              onVoiceFocus={(id) => setVoiceFocus(id)}
+              fontSize={termFontSize}
+              voiceOut={voiceOut}
+            />
+          </div>
+        )}
       </div>
     )
   }

@@ -91,6 +91,8 @@ export interface ProjectInfo {
   hasBatchFiles: boolean
   hasClaudeDir: boolean
   lastModified: number
+  gitOwner: string
+  runCmd: string
 }
 
 export interface PrerequisiteStatus {
@@ -124,7 +126,28 @@ export interface ElectronAPI {
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => Promise<ProjectAnalysis>
   createProject: (config: Record<string, unknown>) => Promise<{ success: boolean; path?: string; log: string[] }>
   openFolder: (path: string) => Promise<void>
+  runApp: (projectPath: string, runCmd: string) => Promise<void>
   openInClaude: (path: string) => Promise<void>
+
+  // Terminal (pty)
+  ptySpawn: (options: {
+    id: string; cwd: string; cmd: string; args: string[]
+    cols: number; rows: number; projectName: string
+  }) => Promise<{ success: boolean }>
+  ptyInput: (id: string, data: string) => Promise<void>
+  ptyResize: (id: string, cols: number, rows: number) => Promise<void>
+  ptyClose: (id: string) => Promise<void>
+  ptySessions: () => Promise<Array<{ id: string; projectName: string; projectPath: string }>>
+  onPtyData: (id: string, callback: (data: string) => void) => () => void
+  onPtyExit: (id: string, callback: (info: { code: number }) => void) => () => void
+
+  ptyPopExternal: (sessionId: string) => Promise<boolean>
+  ptyPreRestart: () => Promise<number>
+  ptyCheckPending: () => Promise<Array<{ projectPath: string; projectName: string }>>
+
+  // Voice
+  voiceTranscribe: (audioBuffer: ArrayBuffer) => Promise<{ success: boolean; text: string; error?: string }>
+  voiceSpeak: (text: string, profile?: string, lang?: string) => Promise<{ success: boolean; audioPath?: string; error?: string }>
 }
 
 declare global {

@@ -52,13 +52,14 @@ export function makeExecutable(filePath: string): void {
 
 export function openTerminalAt(path: string, command?: string): void {
   if (isWin) {
+    const winPath = path.replace(/\//g, '\\')
     if (command) {
-      spawn('cmd', ['/c', 'start', 'cmd', '/k', `cd /d "${path}" && ${command}`], {
-        detached: true, stdio: 'ignore',
+      spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${winPath}" && ${command}`], {
+        cwd: winPath, detached: true, stdio: 'ignore',
       })
     } else {
-      spawn('cmd', ['/c', 'start', 'cmd', '/k', `cd /d "${path}"`], {
-        detached: true, stdio: 'ignore',
+      spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${winPath}"`], {
+        cwd: winPath, detached: true, stdio: 'ignore',
       })
     }
   } else if (isMac) {

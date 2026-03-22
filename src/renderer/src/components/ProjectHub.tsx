@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
-import { useI18n } from '../i18n'
-import { HalEye } from './HalEye'
-import { NetworkBg } from './NetworkBg'
+import { SceneRoot } from './three/SceneRoot'
+import { MicButton } from './MicButton'
+import { SettingsMenu } from './SettingsMenu'
 
 interface Props {
   onNewProject: () => void
   onConvertProject: (path: string) => void
+  onOpenTerminal?: (projectPath: string, projectName: string, resume: boolean) => void
+  voiceFocus?: 'hub' | string
+  onVoiceFocusHub?: () => void
+  hubFontSize: number
+  termFontSize: number
+  voiceOut: boolean
+  onHubFontSize: (size: number) => void
+  onTermFontSize: (size: number) => void
+  onVoiceOut: (enabled: boolean) => void
 }
 
 function timeAgo(ms: number): string {
@@ -19,17 +28,32 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject }: Props) {
-  const { t } = useI18n()
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [isListening, setIsListening] = useState(false)
+  const [hovered, setHovered] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
 
   useEffect(() => {
     window.api.scanProjects().then((p) => {
       setProjects(p)
       setLoading(false)
     }).catch(() => setLoading(false))
+  }, [])
+
+  // Track CONTAINER size, not window size
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      setDims({ w: width, h: height })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   const filtered = search
@@ -43,108 +67,188 @@ export function ProjectHub({ onNewProject, onConvertProject }: Props) {
   const isFullySetup = (p: ProjectInfo) => p.hasClaude && p.hasBatchFiles && p.hasClaudeDir
   const readyCount = projects.filter(isFullySetup).length
 
+  // Split into left and right arcs
+  const half = Math.ceil(filtered.length / 2)
+  const leftArc = filtered.slice(0, half)
+  const rightArc = filtered.slice(half)
+
+  // Arc positioning
+  const cx = dims.w / 2
+  const cy = dims.h * 0.5
+  const arcRadius = Math.min(dims.h * 0.35, dims.w * 0.3, 350)
+
+  const getArcPosition = useCallback((index: number, total: number, side: 'left' | 'right') => {
+    const startAngle = side === 'left' ? Math.PI * 0.6 : -Math.PI * 0.4
+    const endAngle = side === 'left' ? Math.PI * 1.4 : Math.PI * 0.4
+    const t = total <= 1 ? 0.5 : index / (total - 1)
+    const angle = startAngle + t * (endAngle - startAngle)
+    return {
+      x: cx + Math.cos(angle) * arcRadius,
+      y: cy + Math.sin(angle) * arcRadius,
+    }
+  }, [cx, cy, arcRadius])
+
+  const renderCard = (project: ProjectInfo, index: number, side: 'left' | 'right', total: number) => {
+    const ready = isFullySetup(project)
+    const pos = getArcPosition(index, total, side)
+    const cardWidth = 200
+    const left = side === 'left' ? pos.x - cardWidth - 15 : pos.x + 15
+    const top = pos.y - 20
+    const isHovered = hovered === project.path
+
+    return (
+      <div
+        key={project.path}
+        className={`hal-arc-card ${ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''}`}
+        style={{ left, top }}
+        onMouseEnter={() => setHovered(project.path)}
+        onMouseLeave={() => setHovered(null)}
+      >
+        <div className="hal-arc-header">
+          <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
+          <span className="hal-arc-name">{project.name}</span>
+          {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
+        </div>
+        {isHovered && (
+          <div className="hal-arc-actions">
+            <button className="hal-btn deploy" onClick={() => {
+              if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
+              else window.api.launchProject(project.path, true)
+            }}>RESUME</button>
+            <button className="hal-btn" onClick={() => {
+              if (onOpenTerminal) onOpenTerminal(project.path, project.name, false)
+              else window.api.launchProject(project.path, false)
+            }}>NEW</button>
+            {project.runCmd && (
+              <button className="hal-btn run" onClick={() => window.api.runApp(project.path, project.runCmd)}>RUN</button>
+            )}
+            <button className="hal-btn" onClick={() => window.api.openFolder(project.path)}>FILES</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Build SVG connection lines
+  const connectionLines = filtered.map((project, i) => {
+    const side = i < half ? 'left' : 'right'
+    const idx = side === 'left' ? i : i - half
+    const total = side === 'left' ? leftArc.length : rightArc.length
+    const pos = getArcPosition(idx, total, side)
+    const ready = isFullySetup(project)
+    const isActive = hovered === project.path
+
+    const midX = (cx + pos.x) / 2
+    const midY = (cy + pos.y) / 2
+    const controlOffset = side === 'left' ? -40 : 40
+
+    return (
+      <g key={project.path}>
+        <path
+          d={`M ${cx} ${cy} Q ${midX + controlOffset} ${midY} ${pos.x} ${pos.y}`}
+          fill="none"
+          stroke={isActive ? (ready ? '#84cc16' : '#fbbf24') : 'rgba(132,204,22,0.1)'}
+          strokeWidth={isActive ? 1.5 : 0.5}
+          strokeDasharray={isActive ? 'none' : '4,6'}
+        />
+        <circle
+          cx={pos.x}
+          cy={pos.y}
+          r={isActive ? 5 : 3}
+          fill={ready ? '#84cc16' : '#fbbf24'}
+          opacity={isActive ? 0.8 : 0.4}
+        />
+      </g>
+    )
+  })
+
   return (
-    <div className="hal-room">
-      {/* Animated network background */}
-      <NetworkBg nodeCount={35 + projects.length * 2} connectionDistance={110} />
-      {/* Ambient grid */}
-      <div className="hal-grid-bg" />
+    <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
+      <SceneRoot projectCount={projects.length} listening={isListening && voiceFocus === 'hub'} />
+
+      {/* SVG connection lines */}
+      <svg className="hal-connections" viewBox={`0 0 ${dims.w} ${dims.h}`}>
+        {connectionLines}
+      </svg>
+
+      {/* Edge readouts */}
+      <div className="hal-edge left">SYS.MEM 47.2% | GPU 12% | UPTIME 04:32:11</div>
+      <div className="hal-edge right">SYNC 99.7% | ALL CHANNELS OPEN</div>
+      <div className="hal-edge bl">DUAL-ARC TOPOLOGY :: NOMINAL</div>
+      <div className="hal-edge br">SESSION {new Date().toISOString().slice(0, 10)}</div>
 
       {/* Top HUD bar */}
       <div className="hal-topbar">
         <div className="hal-topbar-left">
           <span className="hal-sys-label">SYS://CLAUDEBORN</span>
           <span className="hal-sys-ver">v1.0</span>
+          <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>
+            + NEW
+          </button>
+          <button className="hal-cmd" onClick={async () => {
+            const folder = await window.api.selectFolder()
+            if (folder) onConvertProject(folder)
+          }} style={{ padding: '3px 10px', fontSize: '9px' }}>
+            + RECRUIT
+          </button>
+        </div>
+        <div className="hal-topbar-center">
+          <span className="hal-prompt">&gt;</span>
+          <input
+            className="hal-search"
+            placeholder="SEARCH... (CTRL+SPACE to talk)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <MicButton
+            onTranscript={(text) => {
+              if (voiceFocus === 'hub') {
+                setSearch(text)
+              } else {
+                // Send voice transcript to the focused terminal
+                window.api.ptyInput(voiceFocus!, text + '\n')
+              }
+            }}
+            onListeningChange={setIsListening}
+          />
+          <span className="hal-voice-target">{voiceFocus === 'hub' ? 'HAL' : 'TERM'}</span>
         </div>
         <div className="hal-topbar-right">
+          <SettingsMenu
+            hubFontSize={hubFontSize}
+            termFontSize={termFontSize}
+            voiceOut={voiceOut}
+            onHubFontSize={onHubFontSize}
+            onTermFontSize={onTermFontSize}
+            onVoiceOut={onVoiceOut}
+          />
           <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
           <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
           <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{projects.length - readyCount}</span> PENDING</span>
         </div>
       </div>
 
-      {/* Center: HAL eye + status */}
-      <div className="hal-center">
-        <HalEye size={140} pulseSpeed={1} agentCount={projects.length} />
-        <div className="hal-center-label">
-          {loading ? 'SCANNING...' : projects.length === 0 ? 'AWAITING ORDERS' : 'OPERATIONAL'}
-        </div>
+      {/* Status label */}
+      <div className="hal-center-label">
+        {loading ? 'SCANNING...' : projects.length === 0 ? 'AWAITING ORDERS' : 'OPERATIONAL'}
       </div>
 
-      {/* Search */}
-      <div className="hal-search-wrap">
-        <span className="hal-prompt">&gt;</span>
-        <input
-          className="hal-search"
-          placeholder="SEARCH OPERATIONS..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      {/* Arc cards */}
+      {!loading && leftArc.map((p, i) => renderCard(p, i, 'left', leftArc.length))}
+      {!loading && rightArc.map((p, i) => renderCard(p, i, 'right', rightArc.length))}
 
-      {/* Project list */}
-      <div className="hal-ops-list">
-        {loading && (
-          <div className="hal-loading">SCANNING FIELD OPERATIONS...</div>
-        )}
+      {/* Loading state */}
+      {loading && (
+        <div className="hal-center-label" style={{ top: '55%' }}>SCANNING FIELD OPERATIONS...</div>
+      )}
 
-        {!loading && projects.length === 0 && (
-          <div className="hal-loading">NO OPERATIONS DETECTED — INITIATE FIRST DEPLOYMENT</div>
-        )}
+      {/* Command bar removed — integrated into top bar */}
 
-        {filtered.map((project) => {
-          const ready = isFullySetup(project)
-          return (
-            <div key={project.path} className={`hal-op ${ready ? 'ready' : 'pending'}`}>
-              <div className="hal-op-indicator">
-                <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
-              </div>
-              <div className="hal-op-info">
-                <div className="hal-op-top">
-                  <span className="hal-op-name">{project.name}</span>
-                  {project.stack && <span className="hal-op-stack">{project.stack}</span>}
-                  <span className="hal-op-time">{timeAgo(project.lastModified)}</span>
-                </div>
-                <div className="hal-op-path">{project.path}</div>
-                <div className="hal-op-tags">
-                  <span className={`hal-tag ${project.hasClaude ? 'on' : ''}`}>CLAUDE.md</span>
-                  <span className={`hal-tag ${project.hasClaudeDir ? 'on' : ''}`}>.claude</span>
-                  <span className={`hal-tag ${project.hasBatchFiles ? 'on' : ''}`}>SCRIPTS</span>
-                </div>
-              </div>
-              <div className="hal-op-actions">
-                <button className="hal-btn deploy" onClick={() => window.api.launchProject(project.path, false)}>
-                  DEPLOY
-                </button>
-                <button className="hal-btn" onClick={() => window.api.launchProject(project.path, true)}>
-                  RESUME
-                </button>
-                <button className="hal-btn" onClick={() => window.api.openFolder(project.path)}>
-                  FILES
-                </button>
-                {!ready && (
-                  <button className="hal-btn upgrade" onClick={() => onConvertProject(project.path)}>
-                    UPGRADE
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Command bar */}
-      <div className="hal-cmdbar">
-        <button className="hal-cmd deploy" onClick={onNewProject}>
-          + NEW OPERATION
-        </button>
-        <button className="hal-cmd" onClick={async () => {
-          const folder = await window.api.selectFolder()
-          if (folder) onConvertProject(folder)
-        }}>
-          + RECRUIT EXISTING
-        </button>
-      </div>
+      {/* HUD corners */}
+      <div className="hal-hud-corner tl" />
+      <div className="hal-hud-corner tr" />
+      <div className="hal-hud-corner bl" />
+      <div className="hal-hud-corner br" />
     </div>
   )
 }

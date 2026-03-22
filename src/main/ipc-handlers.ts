@@ -1,7 +1,9 @@
 import { ipcMain, dialog, shell } from 'electron'
+import { terminalManager } from './terminal-manager'
 import { execSync, spawn } from 'child_process'
-import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'fs'
-import { join, sep } from 'path'
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync, unlinkSync } from 'fs'
+import { join, sep, resolve } from 'path'
+import { tmpdir } from 'os'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   openTerminalAt, runLaunchScript, getGhInstallInfo, getCommonProjectDirs,
@@ -196,9 +198,49 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('scan-projects', async () => {
     const dirs = getCommonProjectDirs()
+
+    // Also scan ~/.claude/projects/ cache to find ALL projects ever used with Claude
+    // Cache folder names encode paths: "D--GitHub-ProjectCreator" = "D:\GitHub\ProjectCreator"
+    // But encoding is lossy (hyphens are ambiguous), so we try multiple decodings
+    const claudeProjectsDir = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'projects')
+    if (existsSync(claudeProjectsDir)) {
+      try {
+        const cached = readdirSync(claudeProjectsDir)
+        for (const entry of cached) {
+          // Try: replace first -- with :\ and remaining -- with \
+          const driveMatch = entry.match(/^([A-Za-z])--(.+)$/)
+          if (!driveMatch) continue
+          const drive = driveMatch[1].toUpperCase()
+          const rest = driveMatch[2]
+          // Split on -- (definite path separator), then for each segment try as-is
+          const segments = rest.split('--')
+          // Try with hyphens as-is (folder names may contain hyphens)
+          const tryPath = `${drive}:\\${segments.join('\\')}`
+          if (existsSync(tryPath)) {
+            const parent = join(tryPath, '..')
+            if (!dirs.includes(parent)) dirs.push(parent)
+          } else {
+            // Try replacing remaining hyphens with underscores (common rename)
+            const tryPath2 = `${drive}:\\${segments.map(s => s.replace(/-/g, '_')).join('\\')}`
+            if (existsSync(tryPath2)) {
+              const parent = join(tryPath2, '..')
+              if (!dirs.includes(parent)) dirs.push(parent)
+            }
+            // Try replacing remaining hyphens with path separators
+            const tryPath3 = `${drive}:\\${rest.replace(/-/g, '\\')}`
+            if (existsSync(tryPath3)) {
+              const parent = join(tryPath3, '..')
+              if (!dirs.includes(parent)) dirs.push(parent)
+            }
+          }
+        }
+      } catch { /* */ }
+    }
+
     const projects: Array<{
       name: string; path: string; stack: string
       hasClaude: boolean; hasBatchFiles: boolean; hasClaudeDir: boolean; lastModified: number
+      gitOwner: string; runCmd: string
     }> = []
     const seen = new Set<string>()
 
@@ -270,6 +312,30 @@ export function registerIpcHandlers(): void {
             if (nameMatch) name = nameMatch[1]
           } catch { /* */ }
 
+          // Detect if project is a runnable app
+          let runCmd = ''
+          if (files.includes('package.json')) {
+            try {
+              const pkg = JSON.parse(readFileSync(join(fullPath, 'package.json'), 'utf-8'))
+              const scripts = pkg.scripts || {}
+              if (scripts.dev) runCmd = 'npm run dev'
+              else if (scripts.start) runCmd = 'npm start'
+              else if (scripts.serve) runCmd = 'npm run serve'
+            } catch { /* */ }
+          } else if (files.includes('manage.py')) {
+            runCmd = 'python manage.py runserver'
+          } else if (files.includes('main.py') || files.includes('app.py')) {
+            runCmd = `python ${files.includes('app.py') ? 'app.py' : 'main.py'}`
+          }
+
+          // Detect GitHub owner/org from git remote
+          let gitOwner = ''
+          try {
+            const gitConfig = readFileSync(join(fullPath, '.git', 'config'), 'utf-8')
+            const remoteMatch = gitConfig.match(/url\s*=\s*(?:https?:\/\/github\.com\/|git@github\.com:)([^/\s]+)\//i)
+            if (remoteMatch) gitOwner = remoteMatch[1]
+          } catch { /* no git or no remote */ }
+
           projects.push({
             name,
             path: fullPath,
@@ -278,6 +344,8 @@ export function registerIpcHandlers(): void {
             hasBatchFiles,
             hasClaudeDir,
             lastModified: stat.mtimeMs,
+            gitOwner,
+            runCmd,
           })
         } catch { continue }
       }
@@ -651,5 +719,131 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
       log.push(`[ERROR] ${e.message}`)
       return { success: false, path: projectPath, log }
     }
+  })
+
+  // ── Voice ──
+
+  const scriptsDir = resolve(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'scripts')
+  const transcribeScript = join(scriptsDir, 'transcribe.py')
+  const ttsScript = join(scriptsDir, 'tts.py')
+
+  ipcMain.handle('voice-transcribe', async (_e, audioBuffer: ArrayBuffer) => {
+    const tempPath = join(tmpdir(), `claudeborn_voice_${Date.now()}.ogg`)
+    try {
+      writeFileSync(tempPath, Buffer.from(audioBuffer))
+      const result = execSync(`python "${transcribeScript}" "${tempPath}"`, {
+        encoding: 'utf-8',
+        timeout: 30000,
+      }).trim()
+      return { success: true, text: result }
+    } catch (e: any) {
+      return { success: false, text: '', error: e.message }
+    } finally {
+      try { unlinkSync(tempPath) } catch { /* */ }
+    }
+  })
+
+  ipcMain.handle('run-app', async (_e, projectPath: string, runCmd: string) => {
+    openTerminalAt(projectPath, runCmd)
+  })
+
+  // ── Terminal (pty) ──
+
+  ipcMain.handle('pty-spawn', async (_e, options: {
+    id: string; cwd: string; cmd: string; args: string[]
+    cols: number; rows: number; projectName: string
+  }) => {
+    return { success: terminalManager.spawn(options.id, options) }
+  })
+
+  ipcMain.handle('pty-input', async (_e, id: string, data: string) => {
+    terminalManager.write(id, data)
+  })
+
+  ipcMain.handle('pty-resize', async (_e, id: string, cols: number, rows: number) => {
+    terminalManager.resize(id, cols, rows)
+  })
+
+  ipcMain.handle('pty-close', async (_e, id: string) => {
+    terminalManager.close(id)
+  })
+
+  ipcMain.handle('pty-scrollback', async (_e, id: string) => {
+    return terminalManager.getScrollback(id)
+  })
+
+  ipcMain.handle('pty-sessions', async () => {
+    return terminalManager.getActiveSessions()
+  })
+
+  const pendingSessionsFile = join(
+    process.env.USERPROFILE || process.env.HOME || '',
+    '.claudeborn-pending-sessions.json'
+  )
+
+  // Pop a specific terminal to external window (e.g. before app restart)
+  ipcMain.handle('pty-pop-external', async (_e, sessionId: string) => {
+    const sessions = terminalManager.getActiveSessions()
+    const session = sessions.find((s) => s.id === sessionId)
+    if (session) {
+      openTerminalAt(session.projectPath, `claude --dangerously-skip-permissions -n "${session.projectName}" --continue`)
+      terminalManager.close(session.id)
+      return true
+    }
+    return false
+  })
+
+  // Save all active sessions to disk before restart, pop them to external
+  ipcMain.handle('pty-pre-restart', async () => {
+    const sessions = terminalManager.getActiveSessions()
+    if (sessions.length === 0) return 0
+
+    // Save session info for auto-restore after restart
+    writeFileSync(pendingSessionsFile, JSON.stringify(
+      sessions.map((s) => ({ projectPath: s.projectPath, projectName: s.projectName }))
+    ))
+
+    // Pop each to external terminal
+    for (const s of sessions) {
+      openTerminalAt(s.projectPath, `claude --dangerously-skip-permissions -n "${s.projectName}" --continue`)
+      terminalManager.close(s.id)
+    }
+
+    return sessions.length
+  })
+
+  // Check for pending sessions from a previous restart
+  ipcMain.handle('pty-check-pending', async () => {
+    try {
+      if (!existsSync(pendingSessionsFile)) return []
+      const data = JSON.parse(readFileSync(pendingSessionsFile, 'utf-8'))
+      unlinkSync(pendingSessionsFile) // consume it
+      return data as Array<{ projectPath: string; projectName: string }>
+    } catch {
+      return []
+    }
+  })
+
+  // ── Voice ──
+
+  ipcMain.handle('voice-speak', async (_e, text: string, profile: string = 'narrator', lang: string = 'en') => {
+    const outPath = join(tmpdir(), `claudeborn_tts_${Date.now()}.ogg`)
+    return new Promise<{ success: boolean; audioPath?: string; error?: string }>((resolve) => {
+      const proc = spawn('python', [ttsScript, text, outPath, profile, lang, '--play'], {
+        timeout: 120000,
+      })
+      let stderr = ''
+      proc.stderr.on('data', (d) => { stderr += d.toString() })
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve({ success: true, audioPath: outPath })
+        } else {
+          resolve({ success: false, error: stderr || `Exit code ${code}` })
+        }
+      })
+      proc.on('error', (err) => {
+        resolve({ success: false, error: err.message })
+      })
+    })
   })
 }
