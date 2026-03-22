@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 
+export const RENDERERS = [
+  { id: 'classic', label: 'CLASSIC' },
+  { id: 'holographic', label: 'HOLOGRAPHIC' },
+  { id: 'pbr-holo', label: 'PBR HOLOGRAPHIC' },
+] as const
+
+export type RendererId = typeof RENDERERS[number]['id']
+
 export const LAYOUTS = [
   { id: 'dual-arc', label: 'DUAL ARC' },
   { id: 'dual-arc-3d', label: 'DUAL ARC 3D' },
@@ -19,14 +27,16 @@ interface Props {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  rendererId: RendererId
   layoutId: LayoutId
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onLayoutChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onRendererChange, onLayoutChange }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -75,7 +85,20 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, layoutId, on
           </div>
 
           <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-            <span className="hal-settings-label">LAYOUT</span>
+            <span className="hal-settings-label">RENDERER</span>
+            <select
+              className="hal-settings-select"
+              value={rendererId}
+              onChange={(e) => onRendererChange(e.target.value as RendererId)}
+            >
+              {RENDERERS.map((r) => (
+                <option key={r.id} value={r.id}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <span className="hal-settings-label">{rendererId === 'classic' ? 'LAYOUT' : 'LAYOUT (3D)'}</span>
             <select
               className="hal-settings-select"
               value={layoutId}

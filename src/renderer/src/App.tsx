@@ -97,8 +97,13 @@ export function App() {
   const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-hub-font') || '10'))
   const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('claudeborn-term-font') || '13'))
   const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('claudeborn-voice-out') === 'true')
+  const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('claudeborn-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('claudeborn-layout') || 'dual-arc')
 
+  const updateRenderer = useCallback((id: string) => {
+    setRendererId(id)
+    localStorage.setItem('claudeborn-renderer', id)
+  }, [])
   const updateLayout = useCallback((id: string) => {
     setLayoutId(id)
     localStorage.setItem('claudeborn-layout', id)
@@ -311,6 +316,8 @@ export function App() {
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
+            rendererId={rendererId}
+            onRendererChange={updateRenderer}
             layoutId={layoutId}
             onLayoutChange={updateLayout}
             halSessionId={getHalSessionId()}

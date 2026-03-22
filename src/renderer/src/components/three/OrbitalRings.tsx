@@ -98,13 +98,15 @@ export function OrbitalRings() {
 
   return (
     <group position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      {/* Platform rings — concentric, horizontal */}
-      <DetailedRing radius={2.5} width={0.02} ticks={60} speed={0.05} opacity={0.4} color={primaryHex} />
-      <DetailedRing radius={3.0} width={0.03} ticks={40} speed={-0.03} opacity={0.3} color={primaryHex} />
-      <DetailedRing radius={3.5} width={0.015} ticks={80} speed={0.02} opacity={0.25} color={primaryHex} />
-      <DetailedRing radius={4.0} width={0.04} ticks={30} speed={-0.04} opacity={0.2} color={primaryHex} />
-      <DetailedRing radius={4.5} width={0.01} ticks={100} speed={0.01} opacity={0.15} color={primaryHex} />
-      <DetailedRing radius={5.0} width={0.025} ticks={50} speed={-0.02} opacity={0.12} color={primaryHex} />
+      {/* Platform rings — concentric, horizontal, extending to screen radius */}
+      <DetailedRing radius={2.0} width={0.03} ticks={60} speed={0.05} opacity={0.5} color={primaryHex} />
+      <DetailedRing radius={2.8} width={0.04} ticks={40} speed={-0.03} opacity={0.4} color={primaryHex} />
+      <DetailedRing radius={3.5} width={0.02} ticks={80} speed={0.02} opacity={0.35} color={primaryHex} />
+      <DetailedRing radius={4.2} width={0.05} ticks={30} speed={-0.04} opacity={0.3} color={primaryHex} />
+      <DetailedRing radius={5.0} width={0.02} ticks={100} speed={0.01} opacity={0.25} color={primaryHex} />
+      <DetailedRing radius={5.8} width={0.03} ticks={50} speed={-0.02} opacity={0.2} color={primaryHex} />
+      <DetailedRing radius={6.5} width={0.04} ticks={40} speed={0.03} opacity={0.15} color={primaryHex} />
+      <DetailedRing radius={7.2} width={0.02} ticks={70} speed={-0.01} opacity={0.12} color={primaryHex} />
 
       {/* Arc segments — partial rings for visual interest */}
       <ArcSegment radius={2.2} width={0.08} startAngle={0} endAngle={Math.PI * 0.7} color={primaryHex} opacity={0.15} speed={0.08} />

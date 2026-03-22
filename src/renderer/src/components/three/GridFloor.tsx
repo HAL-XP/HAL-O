@@ -10,7 +10,6 @@ export function GridFloor() {
     uColor: { value: new THREE.Color('#84cc16') },
   }), [])
 
-  // Read primary color from CSS
   useMemo(() => {
     const style = getComputedStyle(document.documentElement)
     const primary = style.getPropertyValue('--primary').trim()
@@ -41,39 +40,50 @@ export function GridFloor() {
     varying vec3 vWorldPos;
 
     void main() {
-      // Grid lines
+      float dist = length(vWorldPos.xz);
+
+      // Major grid — thin, precise lines
       float gridSize = 2.0;
       vec2 grid = abs(fract(vWorldPos.xz / gridSize - 0.5) - 0.5) / fwidth(vWorldPos.xz / gridSize);
       float line = min(grid.x, grid.y);
       float gridAlpha = 1.0 - min(line, 1.0);
 
-      // Finer sub-grid
-      float subGridSize = 0.5;
-      vec2 subGrid = abs(fract(vWorldPos.xz / subGridSize - 0.5) - 0.5) / fwidth(vWorldPos.xz / subGridSize);
+      // Fine sub-grid — very subtle
+      float subSize = 0.5;
+      vec2 subGrid = abs(fract(vWorldPos.xz / subSize - 0.5) - 0.5) / fwidth(vWorldPos.xz / subSize);
       float subLine = min(subGrid.x, subGrid.y);
-      float subGridAlpha = (1.0 - min(subLine, 1.0)) * 0.15;
+      float subAlpha = (1.0 - min(subLine, 1.0)) * 0.06;
 
-      // Distance fade — grid fades into darkness at distance
-      float dist = length(vWorldPos.xz);
-      float fade = smoothstep(40.0, 5.0, dist);
+      // Distance fade — exponential for realism
+      float fade = exp(-dist * 0.04);
 
-      // Pulse wave expanding from center
-      float pulse = smoothstep(0.5, 0.0, abs(dist - mod(uTime * 3.0, 45.0)));
-      float pulseGlow = pulse * 0.4;
+      // Center glow — subtle red from the sphere reflected on the floor
+      float centerGlow = exp(-dist * 0.15) * 0.08;
+      vec3 centerColor = vec3(1.0, 0.1, 0.0);
+
+      // Subtle pulse wave — very faint, slow
+      float pulse = smoothstep(0.8, 0.0, abs(dist - mod(uTime * 1.5, 50.0))) * 0.08;
+
+      // Base floor — dark reflective surface
+      vec3 baseColor = vec3(0.02, 0.025, 0.03);
+
+      // Grid line color — dim, not bright
+      vec3 lineColor = uColor * 0.4;
 
       // Combine
-      float alpha = (gridAlpha * 0.5 + subGridAlpha + pulseGlow) * fade;
+      float lineStrength = (gridAlpha * 0.12 + subAlpha + pulse) * fade;
+      vec3 color = baseColor + lineColor * lineStrength + centerColor * centerGlow;
 
-      // Glow color
-      vec3 color = uColor * (1.0 + pulseGlow * 2.0);
+      // Very slight floor opacity everywhere (reflective surface feel)
+      float alpha = 0.85 * fade + lineStrength;
 
-      gl_FragColor = vec4(color, alpha * 0.6);
+      gl_FragColor = vec4(color, alpha);
     }
   `
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]}>
-      <planeGeometry args={[80, 80, 1, 1]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
+      <planeGeometry args={[120, 120, 1, 1]} />
       <shaderMaterial
         ref={materialRef}
         vertexShader={vertexShader}

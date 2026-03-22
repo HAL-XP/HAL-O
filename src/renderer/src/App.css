@@ -1918,9 +1918,10 @@ textarea.text-input {
 .hal-arc-card.pending { border-left: 2px solid var(--warning); }
 
 .hal-arc-card.hovered {
-  background: rgba(10, 20, 30, 0.75);
+  background: rgba(10, 20, 30, 0.85);
   border-color: rgba(132,204,22,0.4);
   box-shadow: 0 0 25px rgba(0,0,0,0.5), 0 0 40px rgba(132,204,22,0.05);
+  z-index: 50;
 }
 
 .hal-arc-header {
