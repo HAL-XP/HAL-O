@@ -174,7 +174,22 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           <div className="hal-topbar-center">
             <span className="hal-prompt">&gt;</span>
             <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <MicButton onTranscript={(text) => { const target = voiceFocus === 'hub' ? halSessionId : voiceFocus; if (target) { (window as any).__voiceResponseTarget = target; window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {}) } }} onListeningChange={setIsListening} />
+            <MicButton onTranscript={(text) => {
+                const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
+                if (target) {
+                  ;(window as any).__voiceResponseTarget = target
+                  window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
+                } else {
+                  // No terminal available — use as search + try any open session
+                  setSearch(text)
+                  window.api.ptySessions().then((sessions) => {
+                    if (sessions.length > 0) {
+                      ;(window as any).__voiceResponseTarget = sessions[0].id
+                      window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
+                    }
+                  }).catch(() => {})
+                }
+              }} onListeningChange={setIsListening} />
             <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
           </div>
           <div className="hal-topbar-right">
@@ -214,7 +229,18 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             <MicButton
               onTranscript={(text) => {
                 const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
-                if (target) { (window as any).__voiceResponseTarget = target; window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {}) }
+                if (target) {
+                  ;(window as any).__voiceResponseTarget = target
+                  window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
+                } else {
+                  setSearch(text)
+                  window.api.ptySessions().then((sessions) => {
+                    if (sessions.length > 0) {
+                      ;(window as any).__voiceResponseTarget = sessions[0].id
+                      window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
+                    }
+                  }).catch(() => {})
+                }
               }}
               onListeningChange={setIsListening}
             />
