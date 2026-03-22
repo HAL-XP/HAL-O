@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -19,8 +19,6 @@ interface Props {
 }
 
 const CYAN = '#00d4ff'
-const CYAN_DARK = '#003355'
-const FRAME_DEPTH = 0.08
 
 export function ScreenPanel({
   position, rotation, projectName, stack, ready,
@@ -30,101 +28,90 @@ export function ScreenPanel({
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
 
-  const W = 2.8   // screen width
-  const H = 1.8   // screen height
-  const bar = 0.04 // frame bar thickness — thin like a real monitor bezel
-  const depth = 0.05 // thin like a flat panel
+  const W = 2.8
+  const H = 1.8
+
+  // Edge frame as a single line loop — clean from any angle
+  const framePoints = useMemo(() => {
+    const hw = W / 2, hh = H / 2
+    return new Float32Array([
+      -hw, -hh, 0,  hw, -hh, 0,  hw, hh, 0,  -hw, hh, 0,
+    ])
+  }, [])
 
   useFrame(() => {
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.08)
 
-      // Check if screen faces camera — fade Html via opacity (no snap, no flash)
+      // Hide Html for back-facing screens via DOM opacity
       const screenNormal = new THREE.Vector3(0, 0, 1)
       screenNormal.applyQuaternion(groupRef.current.quaternion)
       const toCamera = new THREE.Vector3()
       toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = screenNormal.dot(toCamera)
       if (htmlWrapRef.current) {
-        const visible = dot > 0
-        htmlWrapRef.current.style.opacity = visible ? '1' : '0'
-        htmlWrapRef.current.style.pointerEvents = visible ? 'auto' : 'none'
+        htmlWrapRef.current.style.opacity = dot > 0 ? '1' : '0'
+        htmlWrapRef.current.style.pointerEvents = dot > 0 ? 'auto' : 'none'
       }
     }
   })
 
-  // Shared PBR material for frame
-  const frameMat = {
-    color: '#081018',
-    emissive: CYAN,
-    emissiveIntensity: isHovered ? 1.2 : 0.6,
-    metalness: 0.95,
-    roughness: 0.1,
-    toneMapped: false as const,
-  }
-
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
 
-      {/* ── Back panel (screen face) — dark but visible ── */}
-      <mesh position={[0, 0, -depth / 2]}>
-        <boxGeometry args={[W - bar * 2, H - bar * 2, 0.01]} />
+      {/* Screen face — flat dark panel */}
+      <mesh>
+        <planeGeometry args={[W, H]} />
         <meshStandardMaterial
-          color="#060a10"
-          metalness={0.2}
-          roughness={0.95}
-          emissive="#002235"
-          emissiveIntensity={0.15}
-        />
-      </mesh>
-
-      {/* ── Inner screen glow border (inside the frame) ── */}
-      <mesh position={[0, 0, -depth / 2 + 0.005]}>
-        <planeGeometry args={[W - bar * 2 + 0.02, H - bar * 2 + 0.02]} />
-        <meshBasicMaterial color={CYAN} transparent opacity={0.02} toneMapped={false} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-
-      {/* ── Frame — 4 bars as 3D boxes ── */}
-      {/* Top bar */}
-      <mesh position={[0, H / 2 - bar / 2, 0]}>
-        <boxGeometry args={[W, bar, depth]} />
-        <meshStandardMaterial {...frameMat} />
-      </mesh>
-      {/* Bottom bar */}
-      <mesh position={[0, -H / 2 + bar / 2, 0]}>
-        <boxGeometry args={[W, bar, depth]} />
-        <meshStandardMaterial {...frameMat} />
-      </mesh>
-      {/* Left bar */}
-      <mesh position={[-W / 2 + bar / 2, 0, 0]}>
-        <boxGeometry args={[bar, H, depth]} />
-        <meshStandardMaterial {...frameMat} />
-      </mesh>
-      {/* Right bar */}
-      <mesh position={[W / 2 - bar / 2, 0, 0]}>
-        <boxGeometry args={[bar, H, depth]} />
-        <meshStandardMaterial {...frameMat} />
-      </mesh>
-
-      {/* ── Subtle edge glow (bloom catcher) ── */}
-      <mesh position={[0, 0, depth / 2 + 0.01]}>
-        <planeGeometry args={[W + 0.05, H + 0.05]} />
-        <meshBasicMaterial
-          color={CYAN}
-          transparent
-          opacity={isHovered ? 0.03 : 0.01}
-          toneMapped={false}
+          color="#050810"
+          metalness={0.3}
+          roughness={0.9}
+          emissive="#001520"
+          emissiveIntensity={0.1}
           side={THREE.DoubleSide}
-          depthWrite={false}
         />
       </mesh>
 
-      {/* ── HTML content — visibility controlled via DOM ref, not React state ── */}
+      {/* Frame edge — single line loop, always clean */}
+      <lineLoop>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[framePoints, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial
+          color={CYAN}
+          toneMapped={false}
+          linewidth={1}
+        />
+      </lineLoop>
+
+      {/* Emissive edge glow planes — thin strips on each edge for bloom */}
+      {/* Top */}
+      <mesh position={[0, H / 2, 0.001]}>
+        <planeGeometry args={[W, 0.02]} />
+        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+      </mesh>
+      {/* Bottom */}
+      <mesh position={[0, -H / 2, 0.001]}>
+        <planeGeometry args={[W, 0.02]} />
+        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+      </mesh>
+      {/* Left */}
+      <mesh position={[-W / 2, 0, 0.001]}>
+        <planeGeometry args={[0.02, H]} />
+        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+      </mesh>
+      {/* Right */}
+      <mesh position={[W / 2, 0, 0.001]}>
+        <planeGeometry args={[0.02, H]} />
+        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+      </mesh>
+
+      {/* HTML content */}
       <Html
         transform
         distanceFactor={4}
-        position={[0, 0, depth / 2 + 0.06]}
+        position={[0, 0, 0.05]}
         style={{
           width: '260px',
           padding: '12px 14px',
