@@ -4,15 +4,30 @@
 
 <h1 align="center">HAL-O</h1>
 
-<p align="center">Electron wizard for bootstrapping Claude Code projects with best practices.</p>
-
-<p align="center"><em>"FUS RO CLAUDE"</em> — shout a new project into existence.</p>
+<p align="center">Holographic Adaptive Layer for Claude Code projects.</p>
 
 <p align="center">
-  <img src="screenshots/stack.png" alt="LLM-powered stack analysis" width="700" />
+  <img src="screenshots/e2e-hub.png" alt="HAL-O Hub" width="700" />
 </p>
 
+## Features
+
+- **3 Renderers** — Classic (CSS cards + Three.js background), Holographic, and PBR Holographic (full 3D with bloom, chromatic aberration, reflective floor)
+- **10 Holographic Layouts** — Default, dual-ring, stacked-rings, spiral, hemisphere, arena, grid-wall, DNA helix, cascade, constellation
+- **6 3D Styles + 28 Color Palettes** — Tactical, holographic, neon, minimal, ember, arctic
+- **Embedded Terminal** — xterm.js + node-pty with split panes, drag-to-dock tabs (bottom/right/left), scrollback persistence
+- **Voice System** — 20 voice profiles, push-to-talk (Ctrl+Space), auto-speak terminal output
+- **Project Wizard** — Create new projects or import existing ones with zero-friction enlistment
+- **Setup Screen** — Auto-detect and install git, Python, Claude CLI, ffmpeg, GitHub CLI
+- **Custom Project Groups** — Color-coded groups with group-aware 3D layouts
+- **Demo Mode** — 30 simulated projects with scripted terminal feeds
+- **16 Languages** — EN, FR, ES, DE, PT, IT, NL, PL, RU, TR, AR, HI, JA, ZH, KO, VI
+- **Docker Testing** — Containerized test framework
+- **CI** — GitHub Actions on Linux and Windows
+
 ## Quick Start
+
+**Prerequisites:** Node.js 18+
 
 ```bash
 git clone https://github.com/HAL-XP/hal-o.git
@@ -25,120 +40,43 @@ _RUN_WIZARD.bat
 chmod +x _RUN_WIZARD.sh && ./_RUN_WIZARD.sh
 ```
 
-That's it. The script auto-installs dependencies on first run.
+The script auto-installs dependencies on first run.
 
-**Only prerequisite:** Node.js 18+ (you already have it if you use Claude Code CLI).
+## Development
 
-## What it does
+```bash
+npm install
+npm run dev          # Start in dev mode (hot reload)
+npm run build        # Production build
+npm run test         # Playwright E2E tests
+npm run test:docker  # Run tests in Docker
+```
 
-HAL-O walks you through setting up a new Claude Code project via an assistant-style chat interface.
+## Architecture
 
-### First-Run Setup
+```
+src/
+  main/              Electron main process — PTY management, IPC handlers, window lifecycle
+  renderer/src/
+    components/
+      three/          Three.js scenes — PBR holo, classic, screen panels, sphere, starfield
+      SettingsMenu    Renderer, layout, style, font, voice settings
+      ProjectHub      Main hub — switches between renderers
+      TerminalView    Split-pane terminal with drag-to-dock tabs
+      MicButton       Push-to-talk voice input
+    hooks/            useSettings, useTerminalSessions, useI18n
+    layouts.ts        10 layout positioning functions
+```
 
-Checks prerequisites and helps you set up anything missing — all in-app.
+| Layer | Tech |
+|-------|------|
+| Framework | Electron 35, React 19, TypeScript |
+| Build | electron-vite |
+| 3D | Three.js via @react-three/fiber, drei, postprocessing |
+| Terminal | xterm.js + node-pty |
+| Voice | faster-whisper (STT), Chatterbox/Voicebox/Edge TTS (TTS) |
+| Tests | Playwright, Docker Compose |
 
-<p align="center">
-  <img src="screenshots/init-screen.png" alt="Setup screen" width="500" />
-</p>
+## License
 
-### Smart Stack Analysis
-
-Describe your project, and Claude Sonnet searches the web for the latest frameworks then suggests the best tech stack, languages, styling, database, and conventions. Accept in one click or adjust manually.
-
-<p align="center">
-  <img src="screenshots/stack.png" alt="Stack analysis" width="700" />
-</p>
-
-### 16 Languages
-
-Switch languages on the fly — the entire UI translates instantly.
-
-<p align="center">
-  <img src="screenshots/languages.png" alt="16 languages" width="700" />
-</p>
-
-### Project Creation
-
-Everything generated in seconds — CLAUDE.md, hooks, rules, agents, devlog, scripts, .gitignore, README. With confetti and a victory fanfare.
-
-<p align="center">
-  <img src="screenshots/project-created.png" alt="Project created" width="700" />
-</p>
-
-### Full Feature List
-
-**25 Curated Stack Profiles**
-
-Smart defaults tailored for solo developers — hooks, rules, extras, and cloud suggestions all adjust based on your stack:
-
-| Category | Stacks |
-|----------|--------|
-| Web / Frontend | React, Next.js, SvelteKit, Astro, Nuxt, Remix |
-| Full-Stack | React + Node, React + FastAPI, Python + HTMX |
-| Backend | FastAPI, Express/NestJS, Go, Rust (Axum/Actix) |
-| Desktop | Electron, Tauri |
-| Mobile | React Native / Expo |
-| Games | Pygame, Godot |
-| CLI / Scripts | Node CLI, Python CLI, automation/scraping |
-| Data / ML | Jupyter + pandas, ML training pipeline |
-| Other | Static HTML/CSS/JS |
-
-**Smart Context-Aware Defaults**
-- Playwright MCP only suggested for frontend stacks (not for CLI, games, backends)
-- Agent templates only for projects complex enough to need them
-- Cloud integrations suggested per stack: Vercel, Cloudflare, GCP, AWS, Supabase, Docker, Railway, Fly.io
-- Stack-specific rules: go-api, rust-api, game-loop, data-pipeline, mobile (alongside frontend, ux, python-api, node-api, banned-techniques)
-
-**Project Setup**
-- LLM-powered stack analysis (Sonnet + web search) with folder scanning
-- GitHub repo creation via `gh` CLI (personal or org, public or private)
-- Local `git init` fallback
-
-**Claude Code Configuration**
-- CLAUDE.md generation from [claude-cli-setup-tips](https://github.com/HAL-XP/claude-cli-setup-tips) best practices
-- Stack-aware hooks (SessionStart, PostToolUse tsc/pycache/fmt)
-- 10 rule templates: frontend, ux, python-api, node-api, go-api, rust-api, game-loop, data-pipeline, mobile, banned-techniques
-- Agent templates (QA verifier, frontend, backend, gamedev, data-analyst)
-- Playwright MCP (`.mcp.json`) for frontend stacks
-
-**Project Structure**
-- `_devlog/` — summaries, hours tracking, architecture decisions, experiments
-- Launch scripts — `.bat` (Windows) and `.sh` (macOS/Linux)
-- Stack-aware .gitignore (Python, Rust, Go, Tauri, games, data science, Playwright)
-- README.md, MEMORY.md seed
-- PID tracking (`.claude/.pids`) for safe process management
-
-**UI**
-- 30 color themes (sorted by hue — reds through purples + neutral)
-- 10 font families (7 sans/serif + 3 monospace including Terminal)
-- Dark/light mode toggle
-- 16 languages (EN, FR, ES, DE, PT, IT, NL, PL, RU, TR, AR, HI, JA, ZH, KO, VI)
-- Typing animation with blinking cursor
-- Staggered button entrance, phase progress bar with glow
-- Confetti + JRPG victory fanfare on success
-- Sound effects with mute toggle (Web Audio API, no files)
-- Custom Scroll/Blueprint logo
-
-## Optional Extras
-
-| Tool | What for | Without it |
-|------|----------|------------|
-| `gh` CLI (authenticated) | Create GitHub repos directly | Use "just git init locally" option |
-| `ANTHROPIC_API_KEY` | LLM-powered stack analysis | Falls back to manual stack selection |
-
-### API Key Lookup
-
-Set your key in any of these (checked in order):
-
-1. `ANTHROPIC_API_KEY` environment variable
-2. `.env` / `.env.local` in project or wizard folder
-3. `~/.env`
-4. `~/.claude_credentials` (`export ANTHROPIC_API_KEY="sk-ant-..."`)
-
-## Stack
-
-- **Electron** + **React 19** + **TypeScript**
-- **Anthropic SDK** (Sonnet + web search, 25 curated stack profiles)
-- **electron-vite** for build tooling
-- **Web Audio API** for sound effects (no audio files)
-- **Canvas API** for confetti animation (no libraries)
+[MIT](LICENSE)
