@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { VOICE_PROFILES, type VoiceProfileId } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, type VoiceProfileId, type DockPosition } from '../hooks/useSettings'
 
 export const RENDERERS = [
   { id: 'classic', label: 'CLASSIC' },
@@ -52,17 +52,19 @@ interface Props {
   termFontSize: number
   voiceOut: boolean
   voiceProfile: VoiceProfileId
+  dockPosition: DockPosition
   rendererId: RendererId
   layoutId: LayoutId
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
+  onDockPositionChange: (pos: DockPosition) => void
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onRendererChange, onLayoutChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onRendererChange, onLayoutChange }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -191,6 +193,21 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
               >
                 {previewing ? '...' : '\u25B6'}
               </button>
+            </div>
+          </div>
+
+          <div className="hal-settings-row">
+            <span className="hal-settings-label">TERMINAL DOCK</span>
+            <div className="hal-settings-control">
+              <select
+                className="hal-settings-select"
+                value={dockPosition}
+                onChange={(e) => onDockPositionChange(e.target.value as DockPosition)}
+              >
+                {DOCK_POSITIONS.map((d) => (
+                  <option key={d.id} value={d.id}>{d.label}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

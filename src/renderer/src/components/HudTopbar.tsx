@@ -1,6 +1,6 @@
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
-import type { VoiceProfileId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
 
 interface HudTopbarProps {
   search: string
@@ -16,12 +16,14 @@ interface HudTopbarProps {
   termFontSize: number
   voiceOut: boolean
   voiceProfile: VoiceProfileId
+  dockPosition: DockPosition
   rendererId: string
   layoutId: string
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
+  onDockPositionChange: (pos: DockPosition) => void
   onRendererChange: (id: string) => void
   onLayoutChange: (id: string) => void
 }
@@ -30,8 +32,8 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId,
-  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onRendererChange, onLayoutChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onRendererChange, onLayoutChange,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -70,10 +72,10 @@ export function HudTopbar({
       </div>
       <div className="hal-topbar-right">
         <SettingsMenu
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition}
           rendererId={rendererId as any} layoutId={layoutId as any}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
-          onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
+          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>

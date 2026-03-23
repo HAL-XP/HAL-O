@@ -2112,6 +2112,18 @@ textarea.text-input {
   border-radius: 1px;
 }
 
+/* Horizontal (left/right) dock divider */
+.hal-split-divider.horizontal {
+  height: 100%;
+  width: 6px;
+  cursor: col-resize;
+}
+
+.hal-split-divider.horizontal::after {
+  width: 2px;
+  height: 40px;
+}
+
 .hal-split-container {
   display: flex;
   height: 100%;

@@ -95,7 +95,7 @@ export function App() {
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateRenderer, updateLayout } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateRenderer, updateLayout } = useSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
@@ -103,11 +103,16 @@ export function App() {
 
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    const startY = e.clientY
+    const isHoriz = dockPosition === 'left' || dockPosition === 'right'
+    const startPos = isHoriz ? e.clientX : e.clientY
     const startRatio = splitRef.current
 
     const onMove = (me: MouseEvent) => {
-      const deltaPercent = ((me.clientY - startY) / window.innerHeight) * 100
+      const currentPos = isHoriz ? me.clientX : me.clientY
+      const totalSize = isHoriz ? window.innerWidth : window.innerHeight
+      let deltaPercent = ((currentPos - startPos) / totalSize) * 100
+      // For left dock, hub is on the right so dragging left = more terminal
+      if (dockPosition === 'left') deltaPercent = -deltaPercent
       const newRatio = Math.max(15, Math.min(85, startRatio + deltaPercent))
       const rounded = Math.round(newRatio)
       splitRef.current = rounded
@@ -122,7 +127,7 @@ export function App() {
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [])
+  }, [dockPosition])
 
   // Compute derived values (always, even when setup screen is showing)
   const activeSteps = getActiveSteps(state.answers)
@@ -179,9 +184,20 @@ export function App() {
 
   if (viewMode === 'hub') {
     const hasTerminals = termSessions.length > 0
+    const isHorizontal = dockPosition === 'left' || dockPosition === 'right'
+    const flexDir = isHorizontal ? (dockPosition === 'left' ? 'row-reverse' : 'row') : 'column'
+    const hubSize = hasTerminals ? splitRatio : 100
+    const termSize = 100 - splitRatio
+    const hubStyle = isHorizontal
+      ? { flex: `0 0 ${hubSize}%`, minWidth: 0, overflow: 'hidden', position: 'relative' as const }
+      : { flex: `0 0 ${hubSize}%`, minHeight: 0, overflow: 'hidden', position: 'relative' as const }
+    const termStyle = isHorizontal
+      ? { flex: `0 0 ${termSize}%`, minWidth: 100, overflow: 'hidden' }
+      : { flex: `0 0 ${termSize}%`, minHeight: 100, overflow: 'hidden' }
+
     return (
-      <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <div style={{ flex: `0 0 ${hasTerminals ? splitRatio : 100}%`, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+      <div className="app" style={{ display: 'flex', flexDirection: flexDir, height: '100vh' }}>
+        <div style={hubStyle}>
           <ProjectHub
             onNewProject={() => {
               setState({
@@ -219,10 +235,12 @@ export function App() {
             termFontSize={termFontSize}
             voiceOut={voiceOut}
             voiceProfile={voiceProfile}
+            dockPosition={dockPosition}
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
             onVoiceProfileChange={updateVoiceProfile}
+            onDockPositionChange={updateDockPosition}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}
@@ -232,12 +250,12 @@ export function App() {
         </div>
         {hasTerminals && (
           <div
-            className="hal-split-divider"
+            className={`hal-split-divider ${isHorizontal ? 'horizontal' : ''}`}
             onMouseDown={handleDividerMouseDown}
           />
         )}
         {hasTerminals && (
-          <div style={{ flex: `0 0 ${100 - splitRatio}%`, minHeight: 100, overflow: 'hidden' }}>
+          <div style={termStyle}>
             <TerminalView
               sessions={termSessions}
               onClose={closeTerminal}

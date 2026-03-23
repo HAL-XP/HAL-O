@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ProjectInfo } from '../types'
-import type { VoiceProfileId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
@@ -17,10 +17,12 @@ interface Props {
   termFontSize: number
   voiceOut: boolean
   voiceProfile: VoiceProfileId
+  dockPosition: DockPosition
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
+  onDockPositionChange: (pos: DockPosition) => void
   rendererId: string
   onRendererChange: (id: string) => void
   layoutId: string
@@ -38,7 +40,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -171,8 +173,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
@@ -194,8 +196,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
