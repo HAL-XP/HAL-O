@@ -53,7 +53,10 @@ export function registerHubHandlers(): void {
     } catch { /* */ }
 
     try {
-      const count = run('git ls-files --cached | find /c /v ""', projectPath)
+      const countCmd = process.platform === 'win32'
+        ? 'git ls-files --cached | find /c /v ""'
+        : 'git ls-files --cached | wc -l'
+      const count = run(countCmd, projectPath)
       stats.fileCount = parseInt(count.trim(), 10) || 0
     } catch {
       try {
@@ -261,19 +264,28 @@ export function registerHubHandlers(): void {
 
   // ── Session Absorption: detect external Claude CLI processes ──
 
-  /** Parse WMIC CSV output lines into { pid, cmdLine } entries */
-  function parseWmicCsv(output: string): Array<{ pid: number; cmdLine: string }> {
+  /** Parse PowerShell CSV output (ConvertTo-Csv) into { pid, cmdLine } entries.
+   *  Format: "ProcessId","CommandLine" header, then "1234","cmd /c ..." data rows. */
+  function parseProcessCsv(output: string): Array<{ pid: number; cmdLine: string }> {
     const entries: Array<{ pid: number; cmdLine: string }> = []
     for (const line of output.split('\n')) {
       const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('Node,')) continue
-      // CSV: Node,CommandLine,ProcessId — cmdLine can contain commas
-      const parts = trimmed.split(',')
-      if (parts.length < 3) continue
-      const pid = parseInt(parts[parts.length - 1].trim(), 10)
-      if (!pid || isNaN(pid)) continue
-      const cmdLine = parts.slice(1, -1).join(',')
-      entries.push({ pid, cmdLine })
+      if (!trimmed) continue
+      // Skip header row
+      if (trimmed.startsWith('"ProcessId"') || trimmed.startsWith('"CommandLine"')) continue
+      // Also skip old WMIC-style header (safety)
+      if (trimmed.startsWith('Node,')) continue
+      // Parse quoted CSV: "PID","CommandLine" — CommandLine can contain commas and quotes
+      const pidMatch = trimmed.match(/^"?(\d+)"?,/)
+      if (pidMatch) {
+        const pid = parseInt(pidMatch[1], 10)
+        if (!pid || isNaN(pid)) continue
+        // Rest after first comma is the CommandLine (may be quoted)
+        let cmdLine = trimmed.slice(pidMatch[0].length).replace(/^"|"$/g, '')
+        // Unescape doubled quotes from CSV
+        cmdLine = cmdLine.replace(/""/g, '"')
+        entries.push({ pid, cmdLine })
+      }
     }
     return entries
   }
@@ -292,19 +304,18 @@ export function registerHubHandlers(): void {
     const seenPids = new Set<number>()
 
     // Scan both node.exe (claude CLI runs as node) and cmd.exe (wrapper shells)
-    const queries = [
-      "name='node.exe' and CommandLine like '%claude%'",
-      "name='cmd.exe' and CommandLine like '%claude%'",
-    ]
+    // Use PowerShell Get-CimInstance instead of WMIC to avoid cmd.exe quote escaping issues
+    // WMIC is deprecated and its WHERE clause quotes conflict with cmd.exe shell parsing
+    const processNames = ['node.exe', 'cmd.exe']
 
-    for (const filter of queries) {
+    for (const procName of processNames) {
       try {
-        const wmicOut = execSync(
-          `wmic process where "${filter}" get ProcessId,CommandLine /format:csv`,
-          { encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
-        )
+        const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='${procName}' and CommandLine like '%claude%'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`
+        const wmicOut = execSync(psCmd, {
+          encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+        })
 
-        for (const { pid, cmdLine } of parseWmicCsv(wmicOut)) {
+        for (const { pid, cmdLine } of parseProcessCsv(wmicOut)) {
           if (seenPids.has(pid)) continue
           // Skip our own Electron/hal-o processes
           if (cmdLine.includes('electron') || cmdLine.includes('hal-o')) continue

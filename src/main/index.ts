@@ -3,7 +3,7 @@ import { join } from 'path'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
 import { execSync, spawn } from 'child_process'
 import { registerIpcHandlers } from './ipc-handlers'
-import { getIconFilename, openTerminalAt } from './platform'
+import { getIconFilename, openTerminalAt, escapeCmdArg } from './platform'
 import { terminalManager } from './terminal-manager'
 
 let mainWindow: BrowserWindow | null = null
@@ -54,32 +54,36 @@ function createMenu(): void {
         {
           label: 'Run Tests (local)',
           click: () => {
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm test`], {
-              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            const cwd = process.cwd().replace(/\//g, '\\')
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm test')}`], {
+              cwd, detached: true, stdio: 'ignore',
             })
           },
         },
         {
           label: 'Run Tests (Docker)',
           click: () => {
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:docker`], {
-              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            const cwd = process.cwd().replace(/\//g, '\\')
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:docker')}`], {
+              cwd, detached: true, stdio: 'ignore',
             })
           },
         },
         {
           label: 'Test Fresh Install (Docker)',
           click: () => {
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:fresh`], {
-              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            const cwd = process.cwd().replace(/\//g, '\\')
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:fresh')}`], {
+              cwd, detached: true, stdio: 'ignore',
             })
           },
         },
         {
           label: 'Docker Shell',
           click: () => {
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:shell`], {
-              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            const cwd = process.cwd().replace(/\//g, '\\')
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:shell')}`], {
+              cwd, detached: true, stdio: 'ignore',
             })
           },
         },

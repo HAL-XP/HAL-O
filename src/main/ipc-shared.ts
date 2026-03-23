@@ -31,7 +31,7 @@ export interface ProjectConfig {
 
 export function run(cmd: string, cwd?: string): string {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], shell: true }).trim()
   } catch (e: any) {
     throw new Error(e.stderr || e.message)
   }

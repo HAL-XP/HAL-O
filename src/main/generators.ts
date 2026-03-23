@@ -246,19 +246,27 @@ export function generateHooksSettings(config: ProjectConfig): object {
     healthChecks.push('echo "---"')
     healthChecks.push('echo "ACTION: Read MEMORY.md for current state. Commit any uncommitted work."')
 
+    const startupCmd = process.platform === 'win32'
+      ? `cmd /c "${healthChecks.join(' && ')}"`
+      : `bash -c '${healthChecks.join('; ')}'`
+
+    const resumeCmd = process.platform === 'win32'
+      ? `cmd /c "echo === SESSION RESUMED === && echo Project: ${config.name} && echo Git branch: && git branch --show-current 2>NUL && echo Uncommitted: && git status --short 2>NUL && echo === && echo ACTION: Read MEMORY.md for current state and resume pending work."`
+      : `bash -c 'echo "=== SESSION RESUMED ==="; echo "Project: ${config.name}"; echo "Git branch: $(git branch --show-current 2>/dev/null || echo N/A)"; echo "Uncommitted: $(git status --short 2>/dev/null | wc -l | tr -d " ") files"; echo "==="; echo "ACTION: Read MEMORY.md for current state and resume pending work."'`
+
     hooks.SessionStart = [
       {
         matcher: 'startup',
         hooks: [{
           type: 'command',
-          command: `bash -c '${healthChecks.join('; ')}'`,
+          command: startupCmd,
         }],
       },
       {
         matcher: 'resume',
         hooks: [{
           type: 'command',
-          command: `bash -c 'echo "=== SESSION RESUMED ==="; echo "Project: ${config.name}"; echo "Git branch: $(git branch --show-current 2>/dev/null || echo N/A)"; echo "Uncommitted: $(git status --short 2>/dev/null | wc -l | tr -d " ") files"; echo "==="; echo "ACTION: Read MEMORY.md for current state and resume pending work."'`,
+          command: resumeCmd,
         }],
       },
     ]

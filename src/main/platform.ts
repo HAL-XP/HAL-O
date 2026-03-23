@@ -6,6 +6,11 @@ export const isWin = process.platform === 'win32'
 export const isMac = process.platform === 'darwin'
 export const isLinux = process.platform === 'linux'
 
+/** Escape special characters for cmd.exe argument strings */
+export function escapeCmdArg(s: string): string {
+  return s.replace(/([&|<>^])/g, '^$1')
+}
+
 // ── Launch script generation (.bat / .sh) ──
 
 export function generateLaunchScript(
@@ -54,7 +59,8 @@ export function openTerminalAt(path: string, command?: string): void {
   if (isWin) {
     const winPath = path.replace(/\//g, '\\')
     if (command) {
-      spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${winPath}" && ${command}`], {
+      const safeCmd = escapeCmdArg(command)
+      spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${winPath}" && ${safeCmd}`], {
         cwd: winPath, detached: true, stdio: 'ignore',
       })
     } else {
@@ -92,7 +98,7 @@ export function openTerminalAt(path: string, command?: string): void {
 export function runLaunchScript(projectPath: string, scriptName: string): void {
   const scriptPath = join(projectPath, scriptName)
   if (isWin) {
-    spawn('cmd', ['/c', 'start', '', scriptPath], {
+    spawn('cmd', ['/c', 'start', '', `"${scriptPath}"`], {
       cwd: projectPath, detached: true, stdio: 'ignore',
     })
   } else {
