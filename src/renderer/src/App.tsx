@@ -150,21 +150,51 @@ export function App() {
 
   // ALL hooks must be above any conditional return — React requires stable hook order
 
-  // On mount: check prerequisites and skip to hub if returning user with core tools
+  // Continuation message shown briefly when resuming after restart
+  const [continuationMsg, setContinuationMsg] = useState<string | null>(null)
+
+  // On mount: check for continuation file, then prerequisites, then decide view
   useEffect(() => {
     if (viewMode !== 'loading') return
-    const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
-    if (!hasSeenSetup) {
-      setViewMode('setup')
-      return
-    }
-    // Returning user — check prerequisites silently
-    window.api.checkPrerequisites().then((status) => {
-      const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
-      setViewMode(coreGood ? 'hub' : 'setup')
+
+    // Check for continuation file first (D4)
+    window.api.readContinuation().then((continuation) => {
+      if (continuation) {
+        // Show a brief "Continuing setup..." message, then go to setup
+        setContinuationMsg(continuation.message || 'Continuing setup...')
+        setTimeout(() => {
+          setContinuationMsg(null)
+          setViewMode('setup')
+        }, 1500)
+        return
+      }
+
+      // Normal boot flow
+      const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
+      if (!hasSeenSetup) {
+        setViewMode('setup')
+        return
+      }
+      // Returning user — check prerequisites silently
+      window.api.checkPrerequisites().then((status) => {
+        const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
+        setViewMode(coreGood ? 'hub' : 'setup')
+      }).catch(() => {
+        setViewMode('setup')
+      })
     }).catch(() => {
-      // If check fails, fall through to setup
-      setViewMode('setup')
+      // If continuation check fails, proceed normally
+      const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
+      if (!hasSeenSetup) {
+        setViewMode('setup')
+        return
+      }
+      window.api.checkPrerequisites().then((status) => {
+        const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
+        setViewMode(coreGood ? 'hub' : 'setup')
+      }).catch(() => {
+        setViewMode('setup')
+      })
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -204,8 +234,16 @@ export function App() {
   // --- Conditional returns AFTER all hooks ---
 
   if (viewMode === 'loading') {
-    // Render nothing visible — just a dark background matching the app
-    return <div className="app" style={{ background: 'var(--bg-base)' }} />
+    return (
+      <div className="app" style={{ background: 'var(--bg-base)' }}>
+        {continuationMsg && (
+          <div className="continuation-banner">
+            <div className="analysis-spinner" style={{ width: 16, height: 16, display: 'inline-block', marginRight: 10 }} />
+            {continuationMsg}
+          </div>
+        )}
+      </div>
+    )
   }
 
   if (viewMode === 'setup') {

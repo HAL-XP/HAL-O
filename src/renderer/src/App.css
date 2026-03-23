@@ -3002,3 +3002,78 @@ textarea.text-input {
   border-color: var(--text-secondary);
   color: var(--text);
 }
+
+/* ── Dev Tools Prompt (D2) ── */
+
+.dev-tools-prompt {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: rgba(139, 124, 247, 0.06);
+  border: 1px solid rgba(139, 124, 247, 0.2);
+  border-radius: var(--radius);
+  animation: fadeIn 0.4s ease;
+}
+
+.dev-tools-prompt-text {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+
+.dev-tools-prompt-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.dev-tools-dismiss {
+  font-size: 11px !important;
+  padding: 6px 14px !important;
+  opacity: 0.6;
+}
+
+.dev-tools-dismiss:hover {
+  opacity: 1;
+}
+
+.dev-tools-setup-log {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: left;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dev-tools-running {
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Continuation Banner (D4) ── */
+
+.continuation-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 28px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  color: var(--text);
+  animation: fadeIn 0.3s ease;
+  letter-spacing: 0.3px;
+}

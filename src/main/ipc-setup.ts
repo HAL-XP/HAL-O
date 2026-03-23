@@ -2,10 +2,13 @@
 // Owner: Agent D (Wizard + UX)
 
 import { ipcMain, dialog } from 'electron'
-import { writeFileSync, existsSync, readFileSync } from 'fs'
+import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { run, findApiKey } from './ipc-shared'
 import { openTerminalAt, getGhInstallInfo, getPythonInstallInfo, getClaudeCliInstallInfo, getFfmpegInstallInfo, getGitInstallInfo, getCommonProjectDirs } from './platform'
+
+const HOME = process.env.HOME || process.env.USERPROFILE || ''
+const CONTINUATION_FILE = join(HOME, '.hal-o-setup-continue.json')
 
 export function registerSetupHandlers(): void {
   ipcMain.handle('check-prerequisites', async () => {
@@ -232,5 +235,72 @@ export function registerSetupHandlers(): void {
       properties: ['openDirectory', 'createDirectory'],
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  // ── Continuation files (D4) ──
+  // Write a continuation file so the app knows to resume setup after relaunch
+  ipcMain.handle('write-continuation', async (_event, data: { step: string; reason: string; message: string }) => {
+    try {
+      writeFileSync(CONTINUATION_FILE, JSON.stringify(data, null, 2), 'utf-8')
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  // Read and delete the continuation file (returns null if none)
+  ipcMain.handle('read-continuation', async () => {
+    try {
+      if (!existsSync(CONTINUATION_FILE)) return null
+      const data = JSON.parse(readFileSync(CONTINUATION_FILE, 'utf-8'))
+      unlinkSync(CONTINUATION_FILE)
+      return data
+    } catch {
+      // If parse fails or file disappears, clean up and return null
+      try { unlinkSync(CONTINUATION_FILE) } catch { /* */ }
+      return null
+    }
+  })
+
+  // ── Statusline config detection (D8) ──
+  ipcMain.handle('check-statusline', async () => {
+    const claudeSettingsPath = join(HOME, '.claude', 'settings.json')
+    try {
+      if (!existsSync(claudeSettingsPath)) {
+        return { exists: false, hasStatusline: false, settingsPath: claudeSettingsPath }
+      }
+      const settings = JSON.parse(readFileSync(claudeSettingsPath, 'utf-8'))
+      const hasStatusline = !!(
+        settings.env?.CLAUDE_CODE_ENABLE_STATUSLINE ||
+        settings.env?.CLAUDE_STATUSLINE ||
+        settings.statusline
+      )
+      return { exists: true, hasStatusline, settingsPath: claudeSettingsPath }
+    } catch {
+      return { exists: false, hasStatusline: false, settingsPath: claudeSettingsPath }
+    }
+  })
+
+  // Configure a default statusline in ~/.claude/settings.json
+  ipcMain.handle('configure-statusline', async () => {
+    const claudeDir = join(HOME, '.claude')
+    const claudeSettingsPath = join(claudeDir, 'settings.json')
+    try {
+      const { mkdirSync } = require('fs')
+      mkdirSync(claudeDir, { recursive: true })
+
+      let settings: Record<string, any> = {}
+      try {
+        settings = JSON.parse(readFileSync(claudeSettingsPath, 'utf-8'))
+      } catch { /* new file */ }
+
+      if (!settings.env) settings.env = {}
+      settings.env.CLAUDE_CODE_ENABLE_STATUSLINE = '1'
+
+      writeFileSync(claudeSettingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+      return { success: true, path: claudeSettingsPath }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
   })
 }

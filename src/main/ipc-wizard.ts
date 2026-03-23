@@ -23,6 +23,45 @@ import {
 } from './generators'
 import { HAL_O_VERSION, RULES_VERSION } from './version'
 
+// ── Dev tools templates for post-creation prompt ──
+
+const PLAYWRIGHT_CONFIG_TEMPLATE = `import { defineConfig } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    trace: 'on-first-retry',
+  },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+  ],
+})
+`
+
+const SMOKE_TEST_TEMPLATE = `import { test, expect } from '@playwright/test'
+
+test('app loads successfully', async ({ page }) => {
+  // Update this URL to match your dev server
+  await page.goto('http://localhost:3000')
+  await expect(page).toHaveTitle(/.+/)
+})
+
+test('no console errors on load', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text())
+  })
+  await page.goto('http://localhost:3000')
+  await page.waitForTimeout(2000)
+  expect(errors).toHaveLength(0)
+})
+`
+
 // ── Language detection from file extensions + manifest files ──
 
 const EXT_LANG_MAP: Record<string, string> = {
@@ -721,6 +760,93 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
     } catch (e: any) {
       log.push(`[ERROR] ${e.message}`)
       return { success: false, path: projectPath, log }
+    }
+  })
+
+  // ── Setup dev tools (Playwright + lint) for a created project ──
+  ipcMain.handle('setup-dev-tools', async (_event, projectPath: string) => {
+    const log: string[] = []
+
+    try {
+      if (!existsSync(projectPath)) {
+        return { success: false, log: [`[ERROR] Path does not exist: ${projectPath}`] }
+      }
+
+      // 1. Create playwright.config.ts
+      const playwrightConfigPath = join(projectPath, 'playwright.config.ts')
+      if (existsSync(playwrightConfigPath)) {
+        log.push('[SKIP] playwright.config.ts already exists')
+      } else {
+        writeFileSync(playwrightConfigPath, PLAYWRIGHT_CONFIG_TEMPLATE, 'utf-8')
+        log.push('[OK] Created playwright.config.ts')
+      }
+
+      // 2. Create e2e/smoke.spec.ts
+      const e2eDir = join(projectPath, 'e2e')
+      mkdirSync(e2eDir, { recursive: true })
+      const smokeTestPath = join(e2eDir, 'smoke.spec.ts')
+      if (existsSync(smokeTestPath)) {
+        log.push('[SKIP] e2e/smoke.spec.ts already exists')
+      } else {
+        writeFileSync(smokeTestPath, SMOKE_TEST_TEMPLATE, 'utf-8')
+        log.push('[OK] Created e2e/smoke.spec.ts')
+      }
+
+      // 3. Add test script to package.json (if it exists)
+      const pkgPath = join(projectPath, 'package.json')
+      if (existsSync(pkgPath)) {
+        try {
+          const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+          if (!pkg.scripts) pkg.scripts = {}
+          if (!pkg.scripts.test) {
+            pkg.scripts.test = 'npx playwright test'
+            writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
+            log.push('[OK] Added "test" script to package.json')
+          } else {
+            log.push(`[SKIP] package.json already has a "test" script: ${pkg.scripts.test}`)
+          }
+        } catch (e: any) {
+          log.push(`[ERROR] Could not update package.json: ${e.message}`)
+        }
+      } else {
+        log.push('[SKIP] No package.json found — skipping test script')
+      }
+
+      log.push('')
+      log.push('[OK] Dev tools setup complete!')
+
+      return { success: true, log }
+    } catch (e: any) {
+      log.push(`[ERROR] ${e.message}`)
+      return { success: false, log }
+    }
+  })
+
+  // ── Write dev tools prompt preference to project meta ──
+  ipcMain.handle('write-dev-tools-meta', async (_event, projectPath: string, preference: 'later' | 'never') => {
+    try {
+      const claudeDir = join(projectPath, '.claude')
+      mkdirSync(claudeDir, { recursive: true })
+      const metaPath = join(claudeDir, '.hal-o-meta.json')
+
+      let meta: Record<string, unknown> = {}
+      try {
+        meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+      } catch { /* new file or parse error */ }
+
+      if (preference === 'later') {
+        // Snooze for 7 days
+        const snoozeUntil = new Date()
+        snoozeUntil.setDate(snoozeUntil.getDate() + 7)
+        meta.devToolsPromptSnooze = snoozeUntil.toISOString()
+      } else {
+        meta.devToolsPrompt = 'never'
+      }
+
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
     }
   })
 }

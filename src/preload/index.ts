@@ -38,6 +38,20 @@ const api = {
   absorbSession: (info: { pid: number; projectPath: string; projectName: string }) =>
     ipcRenderer.invoke('absorb-session', info),
 
+  // Continuation (D4)
+  writeContinuation: (data: { step: string; reason: string; message: string }) =>
+    ipcRenderer.invoke('write-continuation', data),
+  readContinuation: () => ipcRenderer.invoke('read-continuation'),
+
+  // Statusline (D8)
+  checkStatusline: () => ipcRenderer.invoke('check-statusline'),
+  configureStatusline: () => ipcRenderer.invoke('configure-statusline'),
+
+  // Dev tools setup (D2)
+  setupDevTools: (projectPath: string) => ipcRenderer.invoke('setup-dev-tools', projectPath),
+  writeDevToolsMeta: (projectPath: string, preference: 'later' | 'never') =>
+    ipcRenderer.invoke('write-dev-tools-meta', projectPath, preference),
+
   // Dev
   captureScreenshot: () => ipcRenderer.invoke('capture-screenshot'),
   reloadRenderer: () => ipcRenderer.invoke('reload-renderer'),

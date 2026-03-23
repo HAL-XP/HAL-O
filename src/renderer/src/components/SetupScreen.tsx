@@ -46,6 +46,9 @@ export function SetupScreen({ onReady }: Props) {
   const [saveResult, setSaveResult] = useState<string | null>(null)
   const [installing, setInstalling] = useState<InstallingTool>(null)
   const [needsRestart, setNeedsRestart] = useState(false)
+  const [statuslineInfo, setStatuslineInfo] = useState<{ exists: boolean; hasStatusline: boolean } | null>(null)
+  const [statuslineConfiguring, setStatuslineConfiguring] = useState(false)
+  const [statuslineResult, setStatuslineResult] = useState<string | null>(null)
 
   const refresh = () => {
     setLoading(true)
@@ -58,6 +61,8 @@ export function SetupScreen({ onReady }: Props) {
   useEffect(() => {
     refresh()
     window.api.getInstallLabels().then(setLabels).catch(() => {})
+    // Check statusline config (D8)
+    window.api.checkStatusline().then(setStatuslineInfo).catch(() => {})
   }, [])
 
   // Auto-skip if core tools are present and user has seen setup before
@@ -66,7 +71,7 @@ export function SetupScreen({ onReady }: Props) {
     const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
     const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
     if (coreGood && hasSeenSetup) onReady()
-  }, [loading, status])
+  }, [loading, status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Conditional return AFTER all hooks ---
 
@@ -103,6 +108,13 @@ export function SetupScreen({ onReady }: Props) {
       }
       if (result.needsRestart) {
         setNeedsRestart(true)
+        // D4: Write continuation file so app resumes setup after relaunch
+        const toolName = tool === 'claude-cli' ? 'Claude CLI' : tool.charAt(0).toUpperCase() + tool.slice(1)
+        await window.api.writeContinuation({
+          step: 'setup',
+          reason: `${tool}-installed`,
+          message: `${toolName} was installed. Relaunch to continue setup.`,
+        }).catch(() => {})
       }
       setTimeout(refresh, 1000)
     } catch { /* */ }
@@ -129,6 +141,23 @@ export function SetupScreen({ onReady }: Props) {
     setTimeout(refresh, 5000)
   }
 
+  const handleConfigureStatusline = async () => {
+    setStatuslineConfiguring(true)
+    setStatuslineResult(null)
+    try {
+      const result = await window.api.configureStatusline()
+      if (result.success) {
+        setStatuslineResult('Statusline configured')
+        setStatuslineInfo({ exists: true, hasStatusline: true })
+      } else {
+        setStatuslineResult(`Error: ${result.error}`)
+      }
+    } catch (e: any) {
+      setStatuslineResult(`Error: ${e.message}`)
+    }
+    setStatuslineConfiguring(false)
+  }
+
   const itemClass = (ok: boolean, warn?: boolean) =>
     `setup-item ${ok ? 'ok' : warn ? 'warn' : 'missing'}`
   const icon = (ok: boolean, warn?: boolean) =>
@@ -141,11 +170,11 @@ export function SetupScreen({ onReady }: Props) {
 
       {needsRestart && (
         <div className="setup-restart-banner">
-          Some tools need a restart to update your PATH. Close and relaunch HAL-O when ready.
+          Some tools need a restart to update your PATH. Close and relaunch HAL-O to continue.
         </div>
       )}
 
-      {/* ── Essential Tools ── */}
+      {/* -- Essential Tools -- */}
       <div className="setup-section-label">ESSENTIAL</div>
 
       {/* Node.js — always OK since Electron bundles it */}
@@ -255,7 +284,7 @@ export function SetupScreen({ onReady }: Props) {
         </div>
       </div>
 
-      {/* ── Recommended Tools ── */}
+      {/* -- Recommended Tools -- */}
       <div className="setup-section-label">RECOMMENDED</div>
 
       {/* Python */}
@@ -334,6 +363,40 @@ export function SetupScreen({ onReady }: Props) {
           )}
         </div>
       </div>
+
+      {/* -- Configuration -- */}
+      <div className="setup-section-label">CONFIGURATION</div>
+
+      {/* Statusline (D8) */}
+      {statuslineInfo && (
+        <div className={itemClass(statuslineInfo.hasStatusline, statuslineInfo.exists && !statuslineInfo.hasStatusline)}>
+          <span className="setup-icon">{icon(statuslineInfo.hasStatusline, statuslineInfo.exists && !statuslineInfo.hasStatusline)}</span>
+          <div className="setup-info">
+            <span className="setup-label">Claude Code Statusline</span>
+            <span className="setup-detail">
+              {statuslineInfo.hasStatusline
+                ? 'Statusline configured'
+                : 'Not configured — shows agent status in your terminal prompt'}
+            </span>
+            {!statuslineInfo.hasStatusline && (
+              <div className="setup-actions">
+                <button
+                  className="submit-btn"
+                  onClick={handleConfigureStatusline}
+                  disabled={statuslineConfiguring}
+                >
+                  {statuslineConfiguring ? 'Configuring...' : 'Configure Statusline'}
+                </button>
+              </div>
+            )}
+            {statuslineResult && (
+              <span className={`setup-save-result ${statuslineResult.startsWith('Error') ? 'error' : 'success'}`}>
+                {statuslineResult}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Continue */}
       <div className="setup-continue">
