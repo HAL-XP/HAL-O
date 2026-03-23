@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
@@ -46,6 +47,7 @@ interface HudTopbarProps {
   onReorderGroups?: (ids: string[]) => void
   onApplyPreset?: (preset: GroupPreset) => void
   demo?: DemoSettings
+  onVoiceBlocked?: () => void
 }
 
 export function HudTopbar({
@@ -56,8 +58,16 @@ export function HudTopbar({
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   demo,
+  onVoiceBlocked,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
+
+  // Mic is disabled when hub is focused but no HAL terminal is linked
+  const micDisabled = voiceFocus === 'hub' && !halSessionId
+
+  const handleBlockedAttempt = useCallback(() => {
+    onVoiceBlocked?.()
+  }, [onVoiceBlocked])
 
   const handleTranscript = (text: string) => {
     const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
@@ -72,10 +82,8 @@ export function HudTopbar({
           window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
         }
       }).catch(() => {})
-    } else {
-      // Hub focused, no HAL — just search
-      onSearchChange(text)
     }
+    // No fallback to search — if no valid target, mic should be disabled
   }
 
   return (
@@ -89,7 +97,13 @@ export function HudTopbar({
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>
         <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => onSearchChange(e.target.value)} />
-        <MicButton onTranscript={handleTranscript} onListeningChange={onListeningChange} />
+        <MicButton
+          onTranscript={handleTranscript}
+          onListeningChange={onListeningChange}
+          disabled={micDisabled}
+          disabledTooltip="No embedded terminal — open a project terminal first"
+          onBlockedAttempt={handleBlockedAttempt}
+        />
         <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
       </div>
       <div className="hal-topbar-right">

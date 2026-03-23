@@ -326,7 +326,7 @@ function PbrHalSphere({ blockedInput = false }: { blockedInput?: boolean }) {
         <meshStandardMaterial
           color={theme.sphereHex}
           emissive={theme.sphereGlowHex}
-          emissiveIntensity={3}
+          emissiveIntensity={theme.style?.sphereGlowIntensity ?? 3}
           toneMapped={false}
         />
       </mesh>

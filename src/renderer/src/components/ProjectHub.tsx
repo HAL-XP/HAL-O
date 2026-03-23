@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
 import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
@@ -70,6 +70,15 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string } | null>(null)
   const [preview2d, setPreview2d] = useState(false)
+  const [voiceBlocked, setVoiceBlocked] = useState(false)
+  const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Flash sphere briefly when voice input is blocked (no valid target)
+  const handleVoiceBlocked = useCallback(() => {
+    setVoiceBlocked(true)
+    if (voiceBlockedTimer.current) clearTimeout(voiceBlockedTimer.current)
+    voiceBlockedTimer.current = setTimeout(() => setVoiceBlocked(false), 600)
+  }, [])
 
   // Listen for 2D preview toggle from Dev menu
   useEffect(() => {
@@ -303,6 +312,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          onVoiceBlocked={handleVoiceBlocked}
         />
       </div>
     )
@@ -326,6 +336,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           camera={camera}
           themeId={threeTheme}
           onCameraMove={onCameraMove}
+          blockedInput={voiceBlocked}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
@@ -339,6 +350,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          onVoiceBlocked={handleVoiceBlocked}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
@@ -369,6 +381,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          onVoiceBlocked={handleVoiceBlocked}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -405,6 +418,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
+        onVoiceBlocked={handleVoiceBlocked}
       />
 
       {/* Status label */}

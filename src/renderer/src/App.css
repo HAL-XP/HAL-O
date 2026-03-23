@@ -1420,6 +1420,18 @@ textarea.text-input {
   opacity: 0.6;
 }
 
+.hal-mic.disabled {
+  border-color: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.15);
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.hal-mic.disabled:hover {
+  border-color: rgba(255,100,100,0.3);
+  color: rgba(255,100,100,0.4);
+}
+
 .hal-mic-pulse {
   position: absolute;
   inset: -4px;

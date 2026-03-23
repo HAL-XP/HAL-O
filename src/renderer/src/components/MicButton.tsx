@@ -3,11 +3,14 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 interface Props {
   onTranscript: (text: string) => void
   onListeningChange?: (listening: boolean) => void
+  disabled?: boolean
+  disabledTooltip?: string
+  onBlockedAttempt?: () => void
 }
 
 const MIN_RECORDING_MS = 800 // ignore recordings shorter than this
 
-export function MicButton({ onTranscript, onListeningChange }: Props) {
+export function MicButton({ onTranscript, onListeningChange, disabled = false, disabledTooltip, onBlockedAttempt }: Props) {
   const [listening, setListening] = useState(false)
   const [processing, setProcessing] = useState(false)
   const recordStartRef = useRef(0)
@@ -16,6 +19,10 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
   const isHoldingRef = useRef(false)
 
   const startRecording = useCallback(async () => {
+    if (disabled) {
+      onBlockedAttempt?.()
+      return
+    }
     if (mediaRecorderRef.current) return // already recording
 
     try {
@@ -63,7 +70,7 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
     } catch (err) {
       console.error('Mic access denied:', err)
     }
-  }, [onTranscript, onListeningChange])
+  }, [onTranscript, onListeningChange, disabled, onBlockedAttempt])
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -115,10 +122,10 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
 
   return (
     <button
-      className={`hal-mic ${listening ? 'active' : ''} ${processing ? 'processing' : ''}`}
+      className={`hal-mic ${listening ? 'active' : ''} ${processing ? 'processing' : ''} ${disabled ? 'disabled' : ''}`}
       onClick={toggle}
-      disabled={processing}
-      title={listening ? 'Release to send (or release CTRL+SPACE)' : 'Click or hold CTRL+SPACE to talk'}
+      disabled={processing || disabled}
+      title={disabled ? (disabledTooltip || 'No voice target available') : listening ? 'Release to send (or release CTRL+SPACE)' : 'Click or hold CTRL+SPACE to talk'}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         {listening ? (
