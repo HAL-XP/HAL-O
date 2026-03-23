@@ -59,6 +59,7 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
 
     const term = new Terminal({
       cursorBlink: true,
+      cursorStyle: 'bar',
       fontSize,
       fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
       theme: {
@@ -84,7 +85,6 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
         brightCyan: '#67e8f9',
         brightWhite: '#ffffff',
       },
-      allowTransparency: true,
       scrollback: 5000,
     })
 
@@ -93,11 +93,17 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
 
     term.open(containerRef.current)
 
-    // Try WebGL renderer for GPU acceleration
+    // GPU-accelerated renderer — use canvas fallback if WebGL fails
     try {
-      term.loadAddon(new WebglAddon())
+      const webgl = new WebglAddon()
+      webgl.onContextLoss(() => {
+        webgl.dispose()
+      })
+      term.loadAddon(webgl)
+      // Force redraw so WebGL fully owns the cursor (prevents ghost artifacts)
+      requestAnimationFrame(() => term.refresh(0, term.rows - 1))
     } catch {
-      // fallback to canvas renderer — fine
+      // canvas renderer fallback — fine
     }
 
     // Replay scrollback from main process (reconnection after HMR/reload)
