@@ -924,6 +924,32 @@ textarea.text-input {
   color: var(--primary-hover);
 }
 
+.setup-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin: 20px 0 8px;
+  padding-left: 4px;
+}
+
+.setup-restart-banner {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #fbbf24;
+  margin-bottom: 16px;
+}
+
+.setup-python-warning {
+  color: #fbbf24;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
 .setup-location-picker {
   display: flex;
   flex-direction: column;

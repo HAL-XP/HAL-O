@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { PrerequisiteStatus } from '../types'
+import type { PrerequisiteStatus, InstallLabels } from '../types'
 import { useI18n } from '../i18n'
 
 interface Props {
@@ -33,16 +33,19 @@ const API_KEY_LOCATIONS = [
   },
 ]
 
+type InstallingTool = 'git' | 'gh' | 'python' | 'claude-cli' | 'ffmpeg' | null
+
 export function SetupScreen({ onReady }: Props) {
   const { t } = useI18n()
   const [status, setStatus] = useState<PrerequisiteStatus | null>(null)
+  const [labels, setLabels] = useState<InstallLabels | null>(null)
   const [loading, setLoading] = useState(true)
   const [apiKey, setApiKey] = useState('')
-  const [saveLocation, setSaveLocation] = useState('env-local-project')
+  const [saveLocation, setSaveLocation] = useState('claude-credentials')
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
-  const [installing, setInstalling] = useState(false)
-  const [ghInstallLabel, setGhInstallLabel] = useState('Install')
+  const [installing, setInstalling] = useState<InstallingTool>(null)
+  const [needsRestart, setNeedsRestart] = useState(false)
 
   const refresh = () => {
     setLoading(true)
@@ -52,18 +55,17 @@ export function SetupScreen({ onReady }: Props) {
     })
   }
 
-  // ALL hooks at the top, before any conditional return
   useEffect(() => {
     refresh()
-    window.api.getGhInstallLabel().then(setGhInstallLabel).catch(() => {})
+    window.api.getInstallLabels().then(setLabels).catch(() => {})
   }, [])
 
-  // Auto-skip if everything's good and user has seen setup before
+  // Auto-skip if core tools are present and user has seen setup before
   useEffect(() => {
     if (loading || !status) return
-    const allGood = status.apiKeyFound && status.ghAuthenticated
+    const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
     const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
-    if (allGood && hasSeenSetup) onReady()
+    if (coreGood && hasSeenSetup) onReady()
   }, [loading, status])
 
   // --- Conditional return AFTER all hooks ---
@@ -78,11 +80,33 @@ export function SetupScreen({ onReady }: Props) {
     )
   }
 
-  const allGood = status.apiKeyFound && status.ghAuthenticated
+  const coreReady = status.gitInstalled && status.claudeCliInstalled
+  const allGood = coreReady && status.apiKeyFound && status.ghAuthenticated && status.pythonInstalled
 
   const handleContinue = () => {
     localStorage.setItem('hal-o-setup-done', '1')
     onReady()
+  }
+
+  const handleInstall = async (tool: InstallingTool) => {
+    if (!tool || installing) return
+    setInstalling(tool)
+    try {
+      let result: { success: boolean; needsRestart?: boolean; error?: string }
+      switch (tool) {
+        case 'git': result = await window.api.installGit(); break
+        case 'gh': result = await window.api.installGhCli(); break
+        case 'python': result = await window.api.installPython(); break
+        case 'claude-cli': result = await window.api.installClaudeCli(); break
+        case 'ffmpeg': result = await window.api.installFfmpeg(); break
+        default: return
+      }
+      if (result.needsRestart) {
+        setNeedsRestart(true)
+      }
+      setTimeout(refresh, 1000)
+    } catch { /* */ }
+    setInstalling(null)
   }
 
   const handleSaveKey = async () => {
@@ -100,83 +124,84 @@ export function SetupScreen({ onReady }: Props) {
     }
   }
 
-  const handleInstallGh = async () => {
-    setInstalling(true)
-    const result = await window.api.installGhCli()
-    setInstalling(false)
-    if (result.success) {
-      refresh()
-    }
-  }
-
   const handleAuthGh = async () => {
     await window.api.authGhCli()
     setTimeout(refresh, 5000)
   }
 
+  const itemClass = (ok: boolean, warn?: boolean) =>
+    `setup-item ${ok ? 'ok' : warn ? 'warn' : 'missing'}`
+  const icon = (ok: boolean, warn?: boolean) =>
+    ok ? '\u2713' : warn ? '!' : '\u2717'
+
   return (
     <div className="setup-screen">
       <h2>{t('setup.title')}</h2>
-      <p className="setup-subtitle">{t('setup.subtitle')}</p>
+      <p className="setup-subtitle">HAL-O checks your system and helps install anything missing.</p>
 
-      {/* Node.js */}
+      {needsRestart && (
+        <div className="setup-restart-banner">
+          Some tools need a restart to update your PATH. Close and relaunch HAL-O when ready.
+        </div>
+      )}
+
+      {/* ── Essential Tools ── */}
+      <div className="setup-section-label">ESSENTIAL</div>
+
+      {/* Node.js — always OK since Electron bundles it */}
       <div className="setup-item ok">
-        <span className="setup-icon">&#10003;</span>
+        <span className="setup-icon">{'\u2713'}</span>
         <div className="setup-info">
-          <span className="setup-label">{t('setup.nodejs')}</span>
+          <span className="setup-label">Node.js</span>
           <span className="setup-detail">{status.nodeVersion}</span>
         </div>
       </div>
 
-      {/* gh CLI */}
-      <div className={`setup-item ${status.ghAuthenticated ? 'ok' : status.ghInstalled ? 'warn' : 'missing'}`}>
-        <span className="setup-icon">
-          {status.ghAuthenticated ? '\u2713' : status.ghInstalled ? '!' : '\u2717'}
-        </span>
+      {/* git */}
+      <div className={itemClass(status.gitInstalled)}>
+        <span className="setup-icon">{icon(status.gitInstalled)}</span>
         <div className="setup-info">
-          <span className="setup-label">{t('setup.ghCli')}</span>
+          <span className="setup-label">Git</span>
           <span className="setup-detail">
-            {status.ghAuthenticated
-              ? t('setup.ghAuthenticated', { user: status.ghUser })
-              : status.ghInstalled
-                ? t('setup.ghInstalledNotAuth')
-                : t('setup.ghNotInstalled')}
+            {status.gitInstalled ? status.gitVersion : 'Not found — required for version control'}
           </span>
-          {!status.ghInstalled && (
+          {!status.gitInstalled && labels && (
             <div className="setup-actions">
-              <button className="submit-btn" onClick={handleInstallGh} disabled={installing}>
-                {installing ? t('setup.installing') : ghInstallLabel}
-              </button>
-              <span className="setup-hint">{t('setup.orInstallManually')}</span>
-            </div>
-          )}
-          {status.ghInstalled && !status.ghAuthenticated && (
-            <div className="setup-actions">
-              <button className="submit-btn" onClick={handleAuthGh}>
-                {t('setup.openTerminalAuth')}
-              </button>
-              <button className="skip-btn" onClick={refresh} style={{ marginLeft: 8 }}>
-                {t('setup.refreshAuth')}
+              <button className="submit-btn" onClick={() => handleInstall('git')} disabled={!!installing}>
+                {installing === 'git' ? 'Installing...' : labels.git}
               </button>
             </div>
           )}
-          {!status.ghInstalled && (
-            <span className="setup-optional">{t('setup.ghOptional')}</span>
+        </div>
+      </div>
+
+      {/* Claude CLI */}
+      <div className={itemClass(status.claudeCliInstalled)}>
+        <span className="setup-icon">{icon(status.claudeCliInstalled)}</span>
+        <div className="setup-info">
+          <span className="setup-label">Claude CLI</span>
+          <span className="setup-detail">
+            {status.claudeCliInstalled ? status.claudeCliVersion : 'Not found — this is the core agent tool'}
+          </span>
+          {!status.claudeCliInstalled && labels && (
+            <div className="setup-actions">
+              <button className="submit-btn" onClick={() => handleInstall('claude-cli')} disabled={!!installing}>
+                {installing === 'claude-cli' ? 'Installing...' : labels.claudeCli}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* API Key */}
-      <div className={`setup-item ${status.apiKeyFound ? 'ok' : 'missing'}`}>
-        <span className="setup-icon">
-          {status.apiKeyFound ? '\u2713' : '\u2717'}
-        </span>
+      <div className={itemClass(status.apiKeyFound)}>
+        <span className="setup-icon">{icon(status.apiKeyFound)}</span>
         <div className="setup-info">
-          <span className="setup-label">{t('setup.apiKey')}</span>
+          <span className="setup-label">Anthropic API Key</span>
           <span className="setup-detail">
             {status.apiKeyFound
-              ? t('setup.apiKeyFound', { source: status.apiKeySource, preview: status.apiKeyPreview })
-              : t('setup.apiKeyNotFound')}
+              ? `Found in ${status.apiKeySource} (${status.apiKeyPreview})`
+              : 'Not found — needed for Claude agents to work'}
           </span>
 
           {!status.apiKeyFound && (
@@ -185,19 +210,19 @@ export function SetupScreen({ onReady }: Props) {
                 <input
                   className="text-input"
                   type="password"
-                  placeholder={t('setup.apiKeyPlaceholder')}
+                  placeholder="sk-ant-..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveKey() }}
                   style={{ marginTop: 8, maxWidth: 400 }}
                 />
                 <span className="setup-link">
-                  {t('setup.getKeyAt')}
+                  Get your key at console.anthropic.com
                 </span>
               </div>
 
               <div className="setup-location-picker">
-                <span className="setup-location-label">{t('setup.saveTo')}</span>
+                <span className="setup-location-label">Save to:</span>
                 {API_KEY_LOCATIONS.map((loc) => (
                   <label key={loc.id} className={`setup-location-option ${saveLocation === loc.id ? 'selected' : ''}`}>
                     <input
@@ -208,13 +233,8 @@ export function SetupScreen({ onReady }: Props) {
                       onChange={() => setSaveLocation(loc.id)}
                     />
                     <div>
-                      <span className="setup-location-name">{t(`setup.loc.${loc.id.replace(/-/g, '')}.label`) !== `setup.loc.${loc.id.replace(/-/g, '')}.label` ? t(`setup.loc.${loc.id.replace(/-/g, '')}.label`) : loc.label}</span>
-                      <span className="setup-location-desc">{t(`setup.loc.${loc.id.replace(/-/g, '')}.desc`) !== `setup.loc.${loc.id.replace(/-/g, '')}.desc` ? t(`setup.loc.${loc.id.replace(/-/g, '')}.desc`) : loc.description}</span>
-                      {loc.risk === 'medium' && (
-                        <span className="setup-location-warn">
-                          &#9888; {t('setup.riskWarning')}
-                        </span>
-                      )}
+                      <span className="setup-location-name">{loc.label}</span>
+                      <span className="setup-location-desc">{loc.description}</span>
                     </div>
                   </label>
                 ))}
@@ -222,7 +242,7 @@ export function SetupScreen({ onReady }: Props) {
 
               <div className="setup-actions">
                 <button className="submit-btn" onClick={handleSaveKey} disabled={saving || !apiKey.trim()}>
-                  {saving ? t('setup.saving') : t('setup.saveKey')}
+                  {saving ? 'Saving...' : 'Save Key'}
                 </button>
               </div>
               {saveResult && (
@@ -230,8 +250,87 @@ export function SetupScreen({ onReady }: Props) {
                   {saveResult}
                 </span>
               )}
-              <span className="setup-optional">{t('setup.apiKeyOptional')}</span>
             </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Recommended Tools ── */}
+      <div className="setup-section-label">RECOMMENDED</div>
+
+      {/* Python */}
+      <div className={itemClass(status.pythonInstalled, false)}>
+        <span className="setup-icon">{icon(status.pythonInstalled)}</span>
+        <div className="setup-info">
+          <span className="setup-label">Python 3</span>
+          <span className="setup-detail">
+            {status.pythonInstalled
+              ? status.pythonVersion
+              : 'Strongly recommended — Claude agents use Python for scripts, automation, data processing, and tool execution'}
+          </span>
+          {!status.pythonInstalled && (
+            <span className="setup-python-warning">
+              Without Python, Claude agents lose access to most automation tools, voice transcription, and data processing capabilities.
+            </span>
+          )}
+          {!status.pythonInstalled && labels && (
+            <div className="setup-actions">
+              <button className="submit-btn" onClick={() => handleInstall('python')} disabled={!!installing}>
+                {installing === 'python' ? 'Installing...' : labels.python}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* gh CLI */}
+      <div className={itemClass(status.ghAuthenticated, status.ghInstalled)}>
+        <span className="setup-icon">{icon(status.ghAuthenticated, status.ghInstalled)}</span>
+        <div className="setup-info">
+          <span className="setup-label">GitHub CLI</span>
+          <span className="setup-detail">
+            {status.ghAuthenticated
+              ? `Authenticated as ${status.ghUser}`
+              : status.ghInstalled
+                ? 'Installed but not authenticated'
+                : 'Not found — enables GitHub repo creation and management'}
+          </span>
+          {!status.ghInstalled && labels && (
+            <div className="setup-actions">
+              <button className="submit-btn" onClick={() => handleInstall('gh')} disabled={!!installing}>
+                {installing === 'gh' ? 'Installing...' : labels.gh}
+              </button>
+            </div>
+          )}
+          {status.ghInstalled && !status.ghAuthenticated && (
+            <div className="setup-actions">
+              <button className="submit-btn" onClick={handleAuthGh}>
+                Login with GitHub
+              </button>
+              <button className="skip-btn" onClick={refresh} style={{ marginLeft: 8 }}>
+                Refresh
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ffmpeg */}
+      <div className={itemClass(status.ffmpegInstalled)}>
+        <span className="setup-icon">{icon(status.ffmpegInstalled)}</span>
+        <div className="setup-info">
+          <span className="setup-label">FFmpeg</span>
+          <span className="setup-detail">
+            {status.ffmpegInstalled
+              ? 'Installed'
+              : 'Optional — needed for voice features (TTS audio processing)'}
+          </span>
+          {!status.ffmpegInstalled && labels && (
+            <div className="setup-actions">
+              <button className="submit-btn" onClick={() => handleInstall('ffmpeg')} disabled={!!installing}>
+                {installing === 'ffmpeg' ? 'Installing...' : labels.ffmpeg}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -239,11 +338,13 @@ export function SetupScreen({ onReady }: Props) {
       {/* Continue */}
       <div className="setup-continue">
         <button className="create-btn" onClick={handleContinue}>
-          {allGood ? t('setup.startWizard') : t('setup.continueAnyway')}
+          {allGood ? 'Launch HAL-O' : coreReady ? 'Continue' : 'Skip Setup'}
         </button>
         {!allGood && (
           <span className="setup-hint" style={{ marginTop: 8 }}>
-            {t('setup.missingOptional')}
+            {!coreReady
+              ? 'Some essential tools are missing — install them for the best experience'
+              : 'Recommended tools are optional but enhance the Claude agent experience'}
           </span>
         )}
       </div>
