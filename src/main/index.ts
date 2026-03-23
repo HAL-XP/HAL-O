@@ -76,6 +76,25 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // Auto-reload on renderer crash — ptys survive in main process
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[HAL-O] Renderer crashed (${details.reason}). Auto-reloading in 1s...`)
+    setTimeout(() => {
+      mainWindow?.webContents.reload()
+    }, 1000)
+  })
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[HAL-O] Renderer unresponsive. Auto-reloading in 2s...')
+    setTimeout(() => {
+      mainWindow?.webContents.reload()
+    }, 2000)
+  })
+
+  mainWindow.webContents.on('responsive', () => {
+    console.log('[HAL-O] Renderer responsive again')
+  })
+
   // Give terminal manager access to the window for IPC sends
   terminalManager.setWindow(mainWindow)
 
@@ -104,9 +123,13 @@ ipcMain.handle('capture-screenshot', async () => {
 
 // ── App lifecycle ──
 
-// Suppress error dialogs — log to console instead
+// Suppress error dialogs — log to console instead, keep main process alive
 process.on('uncaughtException', (err) => {
   console.error('[HAL-O] Uncaught exception:', err.message)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[HAL-O] Unhandled rejection:', reason)
 })
 
 app.whenReady().then(() => {
