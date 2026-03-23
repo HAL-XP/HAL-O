@@ -214,9 +214,10 @@ interface Props {
   isFullySetup: (p: ProjectInfo) => boolean
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
   layoutId?: string
+  screenOpacity?: number
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default' }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -287,6 +288,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
             healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
             demoStats={project.demoStats}
+            screenOpacity={screenOpacity}
           />
         )
       })}

@@ -279,7 +279,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
           </div>
 
           <div className="hal-settings-row">
-            <span className="hal-settings-label">SCREEN OPACITY</span>
+            <span className="hal-settings-label">SCREENS OPACITY</span>
             <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
                 type="range"

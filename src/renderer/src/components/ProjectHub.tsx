@@ -349,6 +349,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           themeId={threeTheme}
           onCameraMove={onCameraMove}
           blockedInput={voiceBlocked}
+          screenOpacity={screenOpacity}
           onProjectContextMenu={(x, y, path, name) => setCtxMenu({ x, y, projectPath: path, projectName: name })}
         />
         <HudTopbar
@@ -391,6 +392,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
           layoutId={layoutId}
+          screenOpacity={screenOpacity}
         />
 
         <HudTopbar
