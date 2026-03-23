@@ -660,6 +660,10 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
     return () => clearInterval(interval)
   }, [vfxFrequency])
 
+  // Scale camera max distance with screen ring radius so users can always zoom out to see the full ring
+  const screenRadius = Math.max(8, projects.length * 0.55)
+  const maxCamDistance = Math.max(40, screenRadius * 2.5)
+
   // Compute camera position from settings
   const angleRad = (camera.cameraAngle * Math.PI) / 180
   const camY = Math.sin(angleRad) * camera.cameraDistance
@@ -743,8 +747,8 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
         <OrbitControls
           enablePan={false}
           enableZoom={true}
-          minDistance={5}
-          maxDistance={20}
+          minDistance={6}
+          maxDistance={maxCamDistance}
           minPolarAngle={0.3}
           maxPolarAngle={Math.PI / 2.2}
           autoRotate
