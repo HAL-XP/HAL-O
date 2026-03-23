@@ -78,6 +78,35 @@ interface Props {
   demo?: DemoSettings
 }
 
+// Per-voice audio cache: { profileId -> { text, audioPath } }
+const voiceCache = new Map<string, { text: string; audioPath: string }>()
+
+function playOrGenerate(text: string, profileId: string, setPreviewing: (v: string | null) => void) {
+  const cached = voiceCache.get(profileId)
+  if (cached && cached.text === text) {
+    // Play from cache
+    setPreviewing(profileId)
+    const audio = new Audio(`file://${cached.audioPath}`)
+    audio.onended = () => setPreviewing(null)
+    audio.onerror = () => setPreviewing(null)
+    audio.play().catch(() => setPreviewing(null))
+    return
+  }
+  // Generate new + cache
+  setPreviewing(profileId)
+  window.api.voiceSpeak(text, profileId, 'en').then((result) => {
+    if (result.success && result.audioPath) {
+      voiceCache.set(profileId, { text, audioPath: result.audioPath })
+      const audio = new Audio(`file://${result.audioPath}`)
+      audio.onended = () => setPreviewing(null)
+      audio.onerror = () => setPreviewing(null)
+      audio.play().catch(() => setPreviewing(null))
+    } else {
+      setPreviewing(null)
+    }
+  }).catch(() => setPreviewing(null))
+}
+
 export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
@@ -85,18 +114,8 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
 
   const previewProfile = useCallback((profileId: string) => {
     if (profileId === 'auto' || previewing) return
-    setPreviewing(profileId)
     const text = PROFILE_SAMPLE_TEXTS[profileId] || 'Hello, this is a voice test.'
-    window.api.voiceSpeak(text, profileId, 'en').then((result) => {
-      if (result.success && result.audioPath) {
-        const audio = new Audio(`file://${result.audioPath}`)
-        audio.onended = () => setPreviewing(null)
-        audio.onerror = () => setPreviewing(null)
-        audio.play().catch(() => setPreviewing(null))
-      } else {
-        setPreviewing(null)
-      }
-    }).catch(() => setPreviewing(null))
+    playOrGenerate(text, profileId, setPreviewing)
   }, [previewing])
 
   useEffect(() => {
@@ -390,18 +409,8 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                         className="hal-settings-preview-btn"
                         onClick={() => {
                           if (previewing) return
-                          setPreviewing(demo.demoVoice)
                           const text = demo.demoText || 'Hello, this is a demo voice test.'
-                          window.api.voiceSpeak(text, demo.demoVoice, 'en').then((result) => {
-                            if (result.success && result.audioPath) {
-                              const audio = new Audio(`file://${result.audioPath}`)
-                              audio.onended = () => setPreviewing(null)
-                              audio.onerror = () => setPreviewing(null)
-                              audio.play().catch(() => setPreviewing(null))
-                            } else {
-                              setPreviewing(null)
-                            }
-                          }).catch(() => setPreviewing(null))
+                          playOrGenerate(text, demo.demoVoice, setPreviewing)
                         }}
                         disabled={!!previewing}
                         title={previewing ? `Playing...` : 'Play Demo Voice'}
