@@ -285,6 +285,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             onFiles={() => window.api.openFolder(project.path)}
             runCmd={project.runCmd}
             onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
+            demoStats={project.demoStats}
           />
         )
       })}

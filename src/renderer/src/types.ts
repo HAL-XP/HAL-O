@@ -99,6 +99,8 @@ export interface ProjectInfo {
   lastModified: number
   gitOwner: string
   runCmd: string
+  /** Pre-baked stats for demo projects (bypasses IPC getProjectStats) */
+  demoStats?: ProjectStats
 }
 
 export interface PrerequisiteStatus {
@@ -190,6 +192,18 @@ export interface ElectronAPI {
   openFolder: (path: string) => Promise<void>
   runApp: (projectPath: string, runCmd: string) => Promise<void>
   openInClaude: (path: string) => Promise<void>
+
+  // Continuation (D4)
+  writeContinuation: (data: { step: string; reason: string; message: string }) => Promise<{ success: boolean; error?: string }>
+  readContinuation: () => Promise<{ step: string; reason: string; message: string } | null>
+
+  // Statusline (D8)
+  checkStatusline: () => Promise<{ exists: boolean; hasStatusline: boolean; settingsPath: string }>
+  configureStatusline: () => Promise<{ success: boolean; path?: string; error?: string }>
+
+  // Dev tools setup (D2)
+  setupDevTools: (projectPath: string) => Promise<{ success: boolean; log: string[] }>
+  writeDevToolsMeta: (projectPath: string, preference: 'later' | 'never') => Promise<{ success: boolean; error?: string }>
 
   // Session absorption
   detectExternalSessions: () => Promise<Array<{ pid: number; projectPath: string; projectName: string }>>

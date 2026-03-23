@@ -49,12 +49,21 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
   const progressRef = useRef(0)
   const trailIdxRef = useRef(0)
   const originalTargetRef = useRef<THREE.Vector3 | null>(null)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Track whether we've ever been active (for cleanup)
   const [visible, setVisible] = useState(false)
 
   const trigger = useCallback(() => {
     if (activeRef.current) return // don't stack flybys
+    console.log('[Flyby] trigger() — starting new flyby')
+
+    // Cancel any pending hide timer from a previous flyby
+    if (hideTimerRef.current !== null) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+
     activeRef.current = true
     progressRef.current = 0
     trailIdxRef.current = 0
@@ -65,11 +74,14 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
       originalTargetRef.current = (controls as any).target.clone()
     }
 
-    // Reset trail positions offscreen
+    // Reset trail positions AND opacities offscreen
     if (trailRef.current) {
       const posArr = trailRef.current.geometry.attributes.position.array as Float32Array
+      const opArr = trailRef.current.geometry.attributes.aOpacity.array as Float32Array
       for (let i = 0; i < TRAIL_COUNT * 3; i++) posArr[i] = -999
+      for (let i = 0; i < TRAIL_COUNT; i++) opArr[i] = 0
       trailRef.current.geometry.attributes.position.needsUpdate = true
+      trailRef.current.geometry.attributes.aOpacity.needsUpdate = true
     }
   }, [controls])
 
@@ -148,6 +160,7 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
 
     // Flyby complete
     if (t >= 1) {
+      console.log('[Flyby] flyby complete — deactivating, hide in 2s')
       activeRef.current = false
 
       // Restore orbit target
@@ -156,7 +169,11 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
       }
 
       // Fade out trail then hide (but keep mounted for re-trigger)
-      setTimeout(() => setVisible(false), 2000)
+      hideTimerRef.current = setTimeout(() => {
+        setVisible(false)
+        hideTimerRef.current = null
+        console.log('[Flyby] hidden — ready for next trigger')
+      }, 2000)
     }
   })
 

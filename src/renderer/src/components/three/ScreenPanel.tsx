@@ -31,6 +31,7 @@ interface Props {
   groupColor?: string    // override edge color with group color
   healthStatus?: HealthStatus // visual health indicator — changes edge glow color
   healthText?: string // status text shown in scrolling background layer (e.g. "SYNC OK", "3 BEHIND")
+  demoStats?: ProjectStats // pre-baked stats for demo projects (bypasses IPC getProjectStats)
 }
 
 // Health-based edge glow colors
@@ -86,6 +87,7 @@ export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
+  demoStats,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -95,14 +97,20 @@ export function ScreenPanel({
   const [visible, setVisible] = useState(false)
 
   // Lazy-load stats when screen becomes visible (front-facing)
+  // If demoStats is provided (demo projects), use it directly without IPC
   useEffect(() => {
-    if (!visible || !projectPath) return
+    if (!visible) return
+    if (demoStats) {
+      setStats(demoStats)
+      return
+    }
+    if (!projectPath) return
     let cancelled = false
     window.api.getProjectStats(projectPath).then((s) => {
       if (!cancelled) setStats(s)
     }).catch(() => { /* ignore */ })
     return () => { cancelled = true }
-  }, [visible, projectPath])
+  }, [visible, projectPath, demoStats])
 
   // Derive effective health from prop + stats (stats can upgrade 'ok' to 'outdated')
   const effectiveHealth: HealthStatus = useMemo(() => {

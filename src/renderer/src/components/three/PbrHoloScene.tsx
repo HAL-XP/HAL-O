@@ -243,10 +243,11 @@ function PbrRingPlatform() {
 }
 
 // ── HAL Sphere — PBR version ──
-function PbrHalSphere() {
+function PbrHalSphere({ blockedInput = false }: { blockedInput?: boolean }) {
   const theme = useThreeTheme()
   const wireRef = useRef<THREE.Mesh>(null)
   const coreRef = useRef<THREE.Mesh>(null)
+  const flashRef = useRef(0) // countdown timer for blocked flash
 
   // Derive a darkened version of sphere color for the wireframe base
   const sphereDark = useMemo(() => {
@@ -265,11 +266,25 @@ function PbrHalSphere() {
     return '#' + c.getHexString()
   }, [theme.sphere])
 
+  // Trigger flash when blockedInput goes true
+  useEffect(() => {
+    if (blockedInput) flashRef.current = 0.5 // 0.5 second flash
+  }, [blockedInput])
+
   useFrame((state, delta) => {
     if (wireRef.current) wireRef.current.rotation.y += delta * 0.15
     if (coreRef.current) {
       const s = 0.38 + Math.sin(state.clock.elapsedTime * 2) * 0.03
       coreRef.current.scale.setScalar(s)
+
+      // Blocked flash: briefly flash core red
+      if (flashRef.current > 0) {
+        flashRef.current -= delta
+        const intensity = Math.max(0, flashRef.current / 0.5)
+        const mat = coreRef.current.material as THREE.MeshStandardMaterial
+        mat.emissive.setRGB(1, intensity * 0.2, intensity * 0.2) // red flash
+        mat.emissiveIntensity = 3 + intensity * 8
+      }
     }
   })
 
@@ -414,7 +429,9 @@ function PostFX() {
   const theme = useThreeTheme()
   const { gl } = useThree()
   const [ready, setReady] = useState(false)
-  const offset = useMemo(() => new Vector2(0.0006, 0.0006), [])
+  const chromaticVal = theme.style?.chromaticOffset ?? 0.0006
+  const vignetteVal = theme.style?.vignetteStrength ?? 0.6
+  const offset = useMemo(() => new Vector2(chromaticVal, chromaticVal), [chromaticVal])
 
   // Delay one frame so the WebGL context is fully initialized after Canvas remount
   useEffect(() => { setReady(true) }, [])
@@ -424,7 +441,7 @@ function PostFX() {
     <EffectComposer>
       <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
-      <Vignette darkness={0.6} offset={0.3} />
+      <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
   )
 }
@@ -533,12 +550,32 @@ interface Props {
   camera?: CameraSettings
   themeId?: string
   onCameraMove?: (distance: number, angle: number) => void
+  blockedInput?: boolean
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
+
+  // Read --primary CSS var to bridge Tier 1 color palette → Tier 2 3D style
+  const [accentHex, setAccentHex] = useState(() => {
+    if (typeof document === 'undefined') return '#84cc16'
+    return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#84cc16'
+  })
+
+  // Observe style attribute changes on <html> to detect palette switches
+  useEffect(() => {
+    const root = document.documentElement
+    const readAccent = () => {
+      const v = getComputedStyle(root).getPropertyValue('--primary').trim()
+      if (v) setAccentHex(v)
+    }
+    readAccent()
+    const observer = new MutationObserver(readAccent)
+    observer.observe(root, { attributes: true, attributeFilter: ['style'] })
+    return () => observer.disconnect()
+  }, [])
 
   // Build group index map: project index -> group order index (-1 = ungrouped)
   const groupIndices = useMemo(() => {
@@ -615,7 +652,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
     >
-      <ThreeThemeProvider themeId={themeId}>
+      <ThreeThemeProvider styleId={themeId} accentHex={accentHex}>
         <SceneBackground />
 
         <SceneLights />
@@ -624,7 +661,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
         <GridOverlay />
         <TexturedPlatform />
         <PbrRingPlatform />
-        <PbrHalSphere />
+        <PbrHalSphere blockedInput={blockedInput} />
 
         {/* Ambient data particles */}
         <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} />
@@ -662,6 +699,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
               onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
               groupColor={projectGroupColors[i]}
               healthStatus={!isFullySetup(project) ? 'warning' : 'ok'}
+              demoStats={project.demoStats}
             />
           )
         })}

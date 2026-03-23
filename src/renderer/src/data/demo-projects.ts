@@ -1,4 +1,82 @@
-import type { ProjectInfo } from '../types'
+import type { ProjectInfo, ProjectStats } from '../types'
+
+// Deterministic seeded pseudo-random — same values every load for consistency
+function seededRandom(seed: number): () => number {
+  let s = seed
+  return () => {
+    s = (s * 16807 + 0) % 2147483647
+    return (s - 1) / 2147483646
+  }
+}
+
+// Generate fake commit messages per project seed
+const COMMIT_MESSAGES = [
+  'fix: resolve race condition in event handler',
+  'feat: add streaming response support',
+  'refactor: extract shared validation logic',
+  'chore: upgrade dependencies to latest',
+  'fix: handle edge case in parser',
+  'feat: implement WebSocket reconnection',
+  'docs: update API reference',
+  'perf: optimize query batching',
+  'fix: correct off-by-one in pagination',
+  'feat: add dark mode toggle',
+  'refactor: simplify state management',
+  'chore: add CI pipeline config',
+  'fix: prevent duplicate submissions',
+  'feat: implement file upload drag-drop',
+  'test: add integration tests for auth flow',
+  'fix: sanitize user input properly',
+  'feat: add real-time notifications',
+  'perf: lazy-load heavy components',
+  'fix: resolve memory leak in listener',
+  'feat: implement search with fuzzy matching',
+  'refactor: migrate to new ORM syntax',
+  'chore: clean up unused imports',
+  'fix: handle timeout in retry logic',
+  'feat: add export to CSV/JSON',
+  'perf: add response caching layer',
+  'fix: correct timezone handling',
+  'feat: implement role-based access',
+  'refactor: split monolith into modules',
+  'chore: update linting rules',
+  'fix: patch XSS vulnerability in renderer',
+]
+
+function makeDemoStats(index: number, name: string): ProjectStats {
+  const rng = seededRandom(index * 31 + name.length * 7)
+
+  // Commit count: active projects get 5-48, less active get 0-8
+  const isActive = rng() > 0.25
+  const commitCount30d = isActive
+    ? Math.floor(rng() * 43) + 5
+    : Math.floor(rng() * 9)
+
+  // File count: 20-2400 depending on project "size"
+  const sizeClass = rng()
+  const fileCount = sizeClass < 0.3
+    ? Math.floor(rng() * 80) + 20     // small
+    : sizeClass < 0.7
+    ? Math.floor(rng() * 400) + 100   // medium
+    : Math.floor(rng() * 1800) + 600  // large
+
+  // Last commit: 5 minutes to 18 days ago
+  const minutesAgo = Math.floor(rng() * 26000) + 5
+  const lastCommitTime = Date.now() - minutesAgo * 60_000
+
+  // Pick a commit message deterministically
+  const msgIdx = Math.floor(rng() * COMMIT_MESSAGES.length)
+  const lastCommit = COMMIT_MESSAGES[msgIdx]
+
+  return { lastCommit, lastCommitTime, commitCount30d, fileCount }
+}
+
+// Spread lastModified across recent time: 5 minutes to 10 days
+function spreadTimestamp(index: number): number {
+  const rng = seededRandom(index * 53 + 17)
+  const minutesAgo = Math.floor(rng() * 14400) + 5 // 5 min to 10 days
+  return Date.now() - minutesAgo * 60_000
+}
 
 /**
  * 30 hardcoded fake projects for Demo Mode.
@@ -13,9 +91,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 3600_000,
+    lastModified: spreadTimestamp(0),
     gitOwner: 'astralworks',
     runCmd: 'cargo run --release',
+    demoStats: makeDemoStats(0, 'Nebula Engine'),
   },
   {
     name: 'Quantum Mesh',
@@ -24,9 +103,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 7200_000,
+    lastModified: spreadTimestamp(1),
     gitOwner: 'meshworks',
     runCmd: 'go run .',
+    demoStats: makeDemoStats(1, 'Quantum Mesh'),
   },
   {
     name: 'Phoenix API',
@@ -35,9 +115,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 1800_000,
+    lastModified: spreadTimestamp(2),
     gitOwner: 'phoenix-labs',
     runCmd: 'mix phx.server',
+    demoStats: makeDemoStats(2, 'Phoenix API'),
   },
   {
     name: 'Shadow Protocol',
@@ -46,9 +127,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 86400_000,
+    lastModified: spreadTimestamp(3),
     gitOwner: 'cryptex',
     runCmd: '',
+    demoStats: makeDemoStats(3, 'Shadow Protocol'),
   },
   {
     name: 'Titan ML',
@@ -57,9 +139,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 14400_000,
+    lastModified: spreadTimestamp(4),
     gitOwner: 'deepforge',
     runCmd: 'python train.py',
+    demoStats: makeDemoStats(4, 'Titan ML'),
   },
   {
     name: 'Cosmic DB',
@@ -68,9 +151,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: false,
     hasClaudeDir: true,
-    lastModified: Date.now() - 172800_000,
+    lastModified: spreadTimestamp(5),
     gitOwner: 'cosmicdata',
     runCmd: '',
+    demoStats: makeDemoStats(5, 'Cosmic DB'),
   },
   {
     name: 'Neural Forge',
@@ -79,9 +163,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 5400_000,
+    lastModified: spreadTimestamp(6),
     gitOwner: 'forgeai',
     runCmd: 'python -m forge.train',
+    demoStats: makeDemoStats(6, 'Neural Forge'),
   },
   {
     name: 'Plasma UI',
@@ -90,9 +175,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 600_000,
+    lastModified: spreadTimestamp(7),
     gitOwner: 'plasmadesign',
     runCmd: 'npm run dev',
+    demoStats: makeDemoStats(7, 'Plasma UI'),
   },
   {
     name: 'Dark Matter',
@@ -101,9 +187,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: false,
-    lastModified: Date.now() - 259200_000,
+    lastModified: spreadTimestamp(8),
     gitOwner: 'darklabs',
     runCmd: '',
+    demoStats: makeDemoStats(8, 'Dark Matter'),
   },
   {
     name: 'Cipher Core',
@@ -112,9 +199,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 43200_000,
+    lastModified: spreadTimestamp(9),
     gitOwner: 'cipherx',
     runCmd: 'cargo run',
+    demoStats: makeDemoStats(9, 'Cipher Core'),
   },
   {
     name: 'Aurora Dashboard',
@@ -123,9 +211,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 1200_000,
+    lastModified: spreadTimestamp(10),
     gitOwner: 'auroraui',
     runCmd: 'npm run dev',
+    demoStats: makeDemoStats(10, 'Aurora Dashboard'),
   },
   {
     name: 'Vortex Stream',
@@ -134,9 +223,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 28800_000,
+    lastModified: spreadTimestamp(11),
     gitOwner: 'vortexio',
     runCmd: './gradlew run',
+    demoStats: makeDemoStats(11, 'Vortex Stream'),
   },
   {
     name: 'Hyperion Ops',
@@ -145,9 +235,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: false,
     hasClaudeDir: false,
-    lastModified: Date.now() - 604800_000,
+    lastModified: spreadTimestamp(12),
     gitOwner: 'hyperioncloud',
     runCmd: '',
+    demoStats: makeDemoStats(12, 'Hyperion Ops'),
   },
   {
     name: 'Zenith CMS',
@@ -156,9 +247,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 9600_000,
+    lastModified: spreadTimestamp(13),
     gitOwner: 'zenithweb',
     runCmd: 'npm run dev',
+    demoStats: makeDemoStats(13, 'Zenith CMS'),
   },
   {
     name: 'Obsidian Vault',
@@ -167,9 +259,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 2400_000,
+    lastModified: spreadTimestamp(14),
     gitOwner: 'obsidiantools',
     runCmd: 'npm start',
+    demoStats: makeDemoStats(14, 'Obsidian Vault'),
   },
   {
     name: 'Crimson Guard',
@@ -178,9 +271,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 36000_000,
+    lastModified: spreadTimestamp(15),
     gitOwner: 'crimsonsec',
     runCmd: 'python manage.py runserver',
+    demoStats: makeDemoStats(15, 'Crimson Guard'),
   },
   {
     name: 'Warp Drive',
@@ -189,9 +283,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: false,
     hasBatchFiles: false,
     hasClaudeDir: false,
-    lastModified: Date.now() - 432000_000,
+    lastModified: spreadTimestamp(16),
     gitOwner: 'warpgames',
     runCmd: '',
+    demoStats: makeDemoStats(16, 'Warp Drive'),
   },
   {
     name: 'Solstice AI',
@@ -200,9 +295,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 7200_000,
+    lastModified: spreadTimestamp(17),
     gitOwner: 'solsticeml',
     runCmd: 'python inference.py',
+    demoStats: makeDemoStats(17, 'Solstice AI'),
   },
   {
     name: 'Frost Compiler',
@@ -211,9 +307,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: false,
     hasClaudeDir: true,
-    lastModified: Date.now() - 518400_000,
+    lastModified: spreadTimestamp(18),
     gitOwner: 'frostlang',
     runCmd: '',
+    demoStats: makeDemoStats(18, 'Frost Compiler'),
   },
   {
     name: 'Echo Chamber',
@@ -222,9 +319,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 4800_000,
+    lastModified: spreadTimestamp(19),
     gitOwner: 'echolabs',
     runCmd: 'npm start',
+    demoStats: makeDemoStats(19, 'Echo Chamber'),
   },
   {
     name: 'Monolith ERP',
@@ -233,9 +331,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 72000_000,
+    lastModified: spreadTimestamp(20),
     gitOwner: 'monolithsys',
     runCmd: './mvnw spring-boot:run',
+    demoStats: makeDemoStats(20, 'Monolith ERP'),
   },
   {
     name: 'Starfield Nav',
@@ -244,9 +343,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: false,
-    lastModified: Date.now() - 345600_000,
+    lastModified: spreadTimestamp(21),
     gitOwner: 'starfieldgames',
     runCmd: '',
+    demoStats: makeDemoStats(21, 'Starfield Nav'),
   },
   {
     name: 'Prism Analytics',
@@ -255,9 +355,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 10800_000,
+    lastModified: spreadTimestamp(22),
     gitOwner: 'prismdata',
     runCmd: 'python -m prism.server',
+    demoStats: makeDemoStats(22, 'Prism Analytics'),
   },
   {
     name: 'Halcyon UI',
@@ -266,9 +367,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 300_000,
+    lastModified: spreadTimestamp(23),
     gitOwner: 'halcyondesign',
     runCmd: 'npm run dev',
+    demoStats: makeDemoStats(23, 'Halcyon UI'),
   },
   {
     name: 'Sentinel Watch',
@@ -277,9 +379,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 21600_000,
+    lastModified: spreadTimestamp(24),
     gitOwner: 'sentinelio',
     runCmd: 'go run cmd/sentinel/main.go',
+    demoStats: makeDemoStats(24, 'Sentinel Watch'),
   },
   {
     name: 'Obelisk Chain',
@@ -288,9 +391,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: false,
     hasBatchFiles: false,
     hasClaudeDir: false,
-    lastModified: Date.now() - 691200_000,
+    lastModified: spreadTimestamp(25),
     gitOwner: 'obeliskweb3',
     runCmd: '',
+    demoStats: makeDemoStats(25, 'Obelisk Chain'),
   },
   {
     name: 'Tempest CLI',
@@ -299,9 +403,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 16200_000,
+    lastModified: spreadTimestamp(26),
     gitOwner: 'tempestdev',
     runCmd: 'cargo run -- --help',
+    demoStats: makeDemoStats(26, 'Tempest CLI'),
   },
   {
     name: 'Mirage VR',
@@ -310,9 +415,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: false,
     hasClaudeDir: false,
-    lastModified: Date.now() - 864000_000,
+    lastModified: spreadTimestamp(27),
     gitOwner: 'miragevr',
     runCmd: '',
+    demoStats: makeDemoStats(27, 'Mirage VR'),
   },
   {
     name: 'Cascade Flow',
@@ -321,9 +427,10 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 54000_000,
+    lastModified: spreadTimestamp(28),
     gitOwner: 'cascadedata',
     runCmd: 'python -m cascade.run',
+    demoStats: makeDemoStats(28, 'Cascade Flow'),
   },
   {
     name: 'Axiom Kernel',
@@ -332,8 +439,9 @@ export const DEMO_PROJECTS: ProjectInfo[] = [
     hasClaude: true,
     hasBatchFiles: true,
     hasClaudeDir: true,
-    lastModified: Date.now() - 129600_000,
+    lastModified: spreadTimestamp(29),
     gitOwner: 'axiomOS',
     runCmd: 'make qemu',
+    demoStats: makeDemoStats(29, 'Axiom Kernel'),
   },
 ]
