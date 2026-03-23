@@ -271,7 +271,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // PBR Holographic renderer — reference-quality 3D
   if (rendererId === 'pbr-holo') {
     return (
-      <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub}>
+      <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
         <PbrHoloScene
           projects={filtered}
           listening={isListening && voiceFocus === 'hub'}
@@ -306,7 +306,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Holographic renderer — full 3D scene with floating screens
   if (rendererId === 'holographic') {
     return (
-      <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub}>
+      <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
         <HolographicScene
           projects={filtered}
           listening={isListening && voiceFocus === 'hub'}

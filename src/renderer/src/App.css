@@ -1284,18 +1284,19 @@ textarea.text-input {
   background: rgba(5, 10, 15, 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  font-size: var(--hub-font, 10px);
 }
 
 .hal-topbar-left { display: flex; align-items: baseline; gap: 8px; }
 .hal-sys-label {
-  font-size: 11px;
+  font-size: calc(var(--hub-font, 10px) * 1.1);
   font-weight: 700;
   letter-spacing: 3px;
   color: var(--primary);
   font-family: 'Cascadia Code', 'Fira Code', monospace;
 }
 .hal-sys-ver {
-  font-size: 9px;
+  font-size: calc(var(--hub-font, 10px) * 0.9);
   color: var(--text-dim);
   letter-spacing: 1px;
 }
@@ -1313,7 +1314,7 @@ textarea.text-input {
 
 .hal-topbar-right { display: flex; gap: 14px; margin-right: 200px; }
 .hal-stat {
-  font-size: 10px;
+  font-size: var(--hub-font, 10px);
   color: var(--text-dim);
   letter-spacing: 1.5px;
   font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -1894,7 +1895,7 @@ textarea.text-input {
 }
 
 .hal-settings-label {
-  font-size: 9px;
+  font-size: calc(var(--hub-font, 10px) * 0.9);
   letter-spacing: 1px;
   color: var(--text-dim);
   font-family: 'Cascadia Code', 'Fira Code', monospace;
