@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies (skip node-pty rebuild)
+        run: npm ci --ignore-scripts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
+      - name: Build with electron-vite
+        run: npx electron-vite build
+
+      - name: Install Electron system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1
+
+      - name: Run E2E smoke tests
+        run: xvfb-run --auto-servernum npx playwright test e2e/smoke.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-linux
+          path: screenshots/
+          retention-days: 7
+
+  test-windows:
+    runs-on: windows-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies (skip node-pty rebuild)
+        run: npm ci --ignore-scripts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
+      - name: Build with electron-vite
+        run: npx electron-vite build
+
+      - name: Run E2E smoke tests
+        run: npx playwright test e2e/smoke.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-windows
+          path: screenshots/
+          retention-days: 7
