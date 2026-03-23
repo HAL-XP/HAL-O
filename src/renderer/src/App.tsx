@@ -3,6 +3,7 @@ import { useI18n } from './i18n'
 import type { Answers, ProjectConfig, ProjectAnalysis } from './types'
 import { getActiveSteps } from './steps'
 import { useSettings } from './hooks/useSettings'
+import { useDemoSettings } from './hooks/useDemoSettings'
 import { useTerminalSessions } from './hooks/useTerminalSessions'
 import { SetupScreen } from './components/SetupScreen'
 import { ProjectHub } from './components/ProjectHub'
@@ -15,6 +16,7 @@ import { ReviewScreen } from './components/ReviewScreen'
 import { CreationProgress } from './components/CreationProgress'
 import { ImportScreen } from './components/ImportScreen'
 import { TerminalView } from './components/TerminalView'
+import { DemoTerminalView } from './components/DemoTerminalView'
 
 interface AppState {
   currentStepId: string
@@ -98,6 +100,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateRenderer, updateLayout } = useSettings()
+  const demo = useDemoSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
@@ -199,7 +202,9 @@ export function App() {
   }
 
   if (viewMode === 'hub') {
-    const hasTerminals = termSessions.length > 0
+    const hasRealTerminals = termSessions.length > 0
+    const hasDemoTerminals = demo.enabled && demo.terminalCount > 0
+    const hasTerminals = hasRealTerminals || hasDemoTerminals
     const isHorizontal = dockPosition === 'left' || dockPosition === 'right'
     const flexDir = isHorizontal ? (dockPosition === 'left' ? 'row-reverse' : 'row') : 'column'
     const hubSize = hasTerminals ? splitRatio : 100
@@ -216,6 +221,7 @@ export function App() {
         <div style={hubStyle}>
           <ProjectHub
             onNewProject={() => {
+              if (demo.enabled) return // Disable in demo mode
               setState({
                 currentStepId: FIRST_STEP_ID,
                 answers: {},
@@ -228,10 +234,11 @@ export function App() {
               setViewMode('wizard')
             }}
             onConvertProject={(path) => {
+              if (demo.enabled) return // Disable in demo mode
               setImportPath(path)
               setViewMode('import')
             }}
-            onOpenTerminal={openTerminal}
+            onOpenTerminal={demo.enabled ? undefined : openTerminal}
             voiceFocus={voiceFocus}
             onVoiceFocusHub={() => setVoiceFocus('hub')}
             hubFontSize={hubFontSize}
@@ -250,8 +257,9 @@ export function App() {
             onRendererChange={updateRenderer}
             layoutId={layoutId}
             onLayoutChange={updateLayout}
-            halSessionId={getHalSessionId()}
-            terminalCount={termSessions.length}
+            halSessionId={demo.enabled ? 'demo-hal' : getHalSessionId()}
+            terminalCount={demo.enabled ? demo.terminalCount : termSessions.length}
+            demo={demo}
           />
         </div>
         {hasTerminals && (
@@ -262,15 +270,24 @@ export function App() {
         )}
         {hasTerminals && (
           <div style={termStyle}>
-            <TerminalView
-              sessions={termSessions}
-              onClose={closeTerminal}
-              voiceFocus={voiceFocus}
-              onVoiceFocus={(id) => setVoiceFocus(id)}
-              fontSize={termFontSize}
-              voiceOut={voiceOut}
-              voiceProfile={voiceProfile}
-            />
+            {demo.enabled ? (
+              <DemoTerminalView
+                terminalCount={demo.terminalCount}
+                tabsMin={demo.tabsMin}
+                tabsMax={demo.tabsMax}
+                fontSize={termFontSize}
+              />
+            ) : (
+              <TerminalView
+                sessions={termSessions}
+                onClose={closeTerminal}
+                voiceFocus={voiceFocus}
+                onVoiceFocus={(id) => setVoiceFocus(id)}
+                fontSize={termFontSize}
+                voiceOut={voiceOut}
+                voiceProfile={voiceProfile}
+              />
+            )}
           </div>
         )}
       </div>

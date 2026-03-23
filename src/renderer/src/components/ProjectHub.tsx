@@ -343,6 +343,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
         onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
+        demo={demo}
       />
 
       {/* Status label */}

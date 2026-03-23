@@ -248,6 +248,173 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
               <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
             </div>
           </div>
+
+          {/* DEMO MODE section */}
+          {demo && (
+            <>
+              <div className="hal-settings-divider" />
+              <div className="hal-settings-title" style={{ marginTop: 4 }}>DEMO MODE</div>
+
+              <div className="hal-settings-row">
+                <span className="hal-settings-label">ENABLED</span>
+                <div className="hal-settings-control">
+                  <button
+                    onClick={() => demo.setEnabled(!demo.enabled)}
+                    style={{
+                      width: 'auto',
+                      padding: '2px 8px',
+                      color: demo.enabled ? '#22d3ee' : 'var(--text-dim)',
+                      borderColor: demo.enabled ? '#22d3ee55' : undefined,
+                    }}
+                  >
+                    {demo.enabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              </div>
+
+              {demo.enabled && (
+                <>
+                  <div className="hal-settings-row">
+                    <span className="hal-settings-label">PROJECT CARDS</span>
+                    <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="1"
+                        value={demo.cardCount}
+                        onChange={(e) => demo.setCardCount(parseInt(e.target.value))}
+                        style={{ flex: 1, accentColor: '#22d3ee' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 20 }}>{demo.cardCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="hal-settings-row">
+                    <span className="hal-settings-label">TERMINAL AREAS</span>
+                    <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        step="1"
+                        value={demo.terminalCount}
+                        onChange={(e) => demo.setTerminalCount(parseInt(e.target.value))}
+                        style={{ flex: 1, accentColor: '#22d3ee' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 14 }}>{demo.terminalCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="hal-settings-row">
+                    <span className="hal-settings-label">MIN TABS</span>
+                    <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={demo.tabsMin}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value)
+                          demo.setTabsMin(v)
+                          if (v > demo.tabsMax) demo.setTabsMax(v)
+                        }}
+                        style={{ flex: 1, accentColor: '#22d3ee' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMin}</span>
+                    </div>
+                  </div>
+
+                  <div className="hal-settings-row">
+                    <span className="hal-settings-label">MAX TABS</span>
+                    <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={demo.tabsMax}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value)
+                          demo.setTabsMax(v)
+                          if (v < demo.tabsMin) demo.setTabsMin(v)
+                        }}
+                        style={{ flex: 1, accentColor: '#22d3ee' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMax}</span>
+                    </div>
+                  </div>
+
+                  <div className="hal-settings-row">
+                    <span className="hal-settings-label">FLYBY FX</span>
+                    <div className="hal-settings-control">
+                      <button
+                        onClick={() => demo.setFlybyFx(!demo.flybyFx)}
+                        style={{
+                          width: 'auto',
+                          padding: '2px 8px',
+                          color: demo.flybyFx ? '#22d3ee' : 'var(--text-dim)',
+                          borderColor: demo.flybyFx ? '#22d3ee55' : undefined,
+                        }}
+                      >
+                        {demo.flybyFx ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                    <span className="hal-settings-label">DEMO TEXT</span>
+                    <input
+                      type="text"
+                      className="hal-settings-select"
+                      style={{ width: '100%', padding: '4px 6px', fontSize: 9 }}
+                      value={demo.demoText}
+                      onChange={(e) => demo.setDemoText(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                    <span className="hal-settings-label">DEMO VOICE</span>
+                    <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                      <select
+                        className="hal-settings-select"
+                        style={{ flex: 1 }}
+                        value={demo.demoVoice}
+                        onChange={(e) => demo.setDemoVoice(e.target.value as VoiceProfileId)}
+                      >
+                        {VOICE_PROFILES.filter((p) => p.id !== 'auto').map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="hal-settings-preview-btn"
+                        onClick={() => {
+                          if (previewing) return
+                          setPreviewing(demo.demoVoice)
+                          const text = demo.demoText || 'Hello, this is a demo voice test.'
+                          window.api.voiceSpeak(text, demo.demoVoice, 'en').then((result) => {
+                            if (result.success && result.audioPath) {
+                              const audio = new Audio(`file://${result.audioPath}`)
+                              audio.onended = () => setPreviewing(null)
+                              audio.onerror = () => setPreviewing(null)
+                              audio.play().catch(() => setPreviewing(null))
+                            } else {
+                              setPreviewing(null)
+                            }
+                          }).catch(() => setPreviewing(null))
+                        }}
+                        disabled={!!previewing}
+                        title={previewing ? `Playing...` : 'Play Demo Voice'}
+                      >
+                        {previewing ? '...' : '\u25B6'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
