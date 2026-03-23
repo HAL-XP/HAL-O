@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from 'react'
+import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
 import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
@@ -425,24 +425,43 @@ function SonarPulse() {
 }
 
 // ── Post Processing ──
-function PostFX() {
+class PostFXErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch() { /* EffectComposer alpha crash — swallow and retry */ }
+  componentDidUpdate(_: any, prevState: { hasError: boolean }) {
+    if (this.state.hasError && !prevState.hasError) {
+      setTimeout(() => this.setState({ hasError: false }), 500)
+    }
+  }
+  render() { return this.state.hasError ? null : this.props.children }
+}
+
+function PostFXInner() {
   const theme = useThreeTheme()
   const { gl } = useThree()
-  const [ready, setReady] = useState(false)
   const chromaticVal = theme.style?.chromaticOffset ?? 0.0006
   const vignetteVal = theme.style?.vignetteStrength ?? 0.6
   const offset = useMemo(() => new Vector2(chromaticVal, chromaticVal), [chromaticVal])
 
-  // Delay one frame so the WebGL context is fully initialized after Canvas remount
-  useEffect(() => { setReady(true) }, [])
-
-  if (!ready || !gl?.domElement) return null
+  if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer>
       <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
+  )
+}
+
+function PostFX() {
+  const [ready, setReady] = useState(false)
+  useEffect(() => { setReady(true) }, [])
+  if (!ready) return null
+  return (
+    <PostFXErrorBoundary>
+      <PostFXInner />
+    </PostFXErrorBoundary>
   )
 }
 
