@@ -1,6 +1,6 @@
 @echo off
 title * HAL-O Wizard
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 :: Check Node.js
 where node >nul 2>&1

@@ -50,10 +50,10 @@ git clone https://github.com/HAL-XP/hal-o.git
 cd hal-o
 
 # Windows
-_RUN_WIZARD.bat
+_scripts\win\_RUN_WIZARD.bat
 
 # macOS / Linux
-chmod +x _RUN_WIZARD.sh && ./_RUN_WIZARD.sh
+chmod +x _scripts/unix/_RUN_WIZARD.sh && ./_scripts/unix/_RUN_WIZARD.sh
 ```
 
 The script auto-installs dependencies on first run.

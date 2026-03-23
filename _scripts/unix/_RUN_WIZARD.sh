@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 # Check Node.js
 if ! command -v node &> /dev/null; then
