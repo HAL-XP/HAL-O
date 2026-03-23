@@ -106,6 +106,8 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
         window.api.ptyScrollback(sessionId).then((data: string) => {
           if (data) term.write(data)
           fit.fit()
+          // Force full redraw after scrollback — WebGL can get out of sync
+          term.refresh(0, term.rows - 1)
         }).catch(() => {})
       }
     } catch { /* pty may not exist yet */ }
@@ -187,26 +189,34 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     }
     container.addEventListener('contextmenu', onContextMenu)
 
-    // Handle resize
+    // Handle resize — debounced to prevent display corruption during drag
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
     const resizeObserver = new ResizeObserver(() => {
-      fit.fit()
-      window.api.ptyResize(sessionId, term.cols, term.rows)
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        fit.fit()
+        window.api.ptyResize(sessionId, term.cols, term.rows)
+      }, 50)
     })
     resizeObserver.observe(container)
 
     return () => {
       cleanupData()
       cleanupExit()
+      if (resizeTimer) clearTimeout(resizeTimer)
       container.removeEventListener('contextmenu', onContextMenu)
       resizeObserver.disconnect()
       term.dispose()
     }
   }, [sessionId])
 
-  // Re-fit when tab becomes active
+  // Re-fit and refresh when tab becomes active (WebGL needs full redraw after display:none)
   useEffect(() => {
-    if (active && fitRef.current) {
-      setTimeout(() => fitRef.current?.fit(), 50)
+    if (active && fitRef.current && termRef.current) {
+      setTimeout(() => {
+        fitRef.current?.fit()
+        termRef.current?.refresh(0, termRef.current.rows - 1)
+      }, 50)
     }
   }, [active])
 
