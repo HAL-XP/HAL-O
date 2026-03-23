@@ -507,6 +507,40 @@ function SceneBackground() {
   return <color attach="background" args={[theme.backgroundHex]} />
 }
 
+// ── AutoRotate Manager — pauses rotation on user interaction, resumes after 3s ──
+function AutoRotateManager() {
+  const { controls } = useThree()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!controls) return
+    const orbitControls = controls as any
+
+    const onStart = () => {
+      orbitControls.autoRotate = false
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+
+    const onEnd = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => {
+        orbitControls.autoRotate = true
+      }, 3000)
+    }
+
+    orbitControls.addEventListener('start', onStart)
+    orbitControls.addEventListener('end', onEnd)
+
+    return () => {
+      orbitControls.removeEventListener('start', onStart)
+      orbitControls.removeEventListener('end', onEnd)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [controls])
+
+  return null
+}
+
 // ── Camera Driver — pushes settings changes into the actual Three.js camera + OrbitControls ──
 function CameraDriver({ distance, angle }: { distance: number; angle: number }) {
   const { camera, controls } = useThree()
@@ -745,6 +779,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
         ))}
 
         <OrbitControls
+          makeDefault
           enablePan={false}
           enableZoom={true}
           minDistance={6}
@@ -755,6 +790,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           autoRotateSpeed={0.12}
           target={[0, 0.3, 0]}
         />
+        <AutoRotateManager />
 
         <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
         {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
