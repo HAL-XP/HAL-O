@@ -296,6 +296,35 @@ export function generateHooksSettings(config: ProjectConfig): object {
     }]
   }
 
+  // Telegram notification hooks — permission prompts + idle with agent name prefix
+  if (config.hooksSetup.includes('telegram-notify')) {
+    const agentTag = config.agentName || config.name || 'Claude'
+    const credPath = process.platform === 'win32'
+      ? 'C:/Users/$USERNAME/.claude_credentials'
+      : '~/.claude_credentials'
+
+    const permissionCmd = `bash -c 'source ${credPath} 2>/dev/null && curl -s "https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage" -d "chat_id=\${TELEGRAM_CHAT_ID}" -d "text=[${agentTag}] Permission prompt - check terminal" > /dev/null 2>&1 || true'`
+
+    const idleCmd = `bash -c 'MSG_FILE=/tmp/claude_telegram_msg.txt; if [ -s "$MSG_FILE" ]; then source ${credPath} 2>/dev/null && MSG=$(cat "$MSG_FILE") && curl -s "https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage" --data-urlencode "chat_id=\${TELEGRAM_CHAT_ID}" --data-urlencode "text=${MSG}" > /dev/null 2>&1; rm -f "$MSG_FILE"; fi'`
+
+    hooks.Notification = [
+      {
+        matcher: 'permission_prompt',
+        hooks: [{
+          type: 'command',
+          command: permissionCmd,
+        }],
+      },
+      {
+        matcher: 'idle_prompt',
+        hooks: [{
+          type: 'command',
+          command: idleCmd,
+        }],
+      },
+    ]
+  }
+
   return { hooks }
 }
 

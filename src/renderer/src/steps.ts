@@ -222,6 +222,7 @@ export const STEPS: StepDef[] = [
       if (hasPython(answers)) {
         choices.push({ id: 'post-tool-pycache', label: 'PostToolUse: pycache clear', description: 'Clear __pycache__ after .py edits' })
       }
+      choices.push({ id: 'telegram-notify', label: 'Telegram notifications', description: 'Permission prompts + idle updates via Telegram bot' })
       return choices
     },
     defaultValue: (answers) => {

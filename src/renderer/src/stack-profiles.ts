@@ -35,7 +35,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'web-react', label: 'React + Vite', icon: 'R', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: null,
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -46,7 +46,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'nextjs', label: 'Next.js', icon: 'N', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: 'postgresql',
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -57,7 +57,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'sveltekit', label: 'SvelteKit', icon: 'Sv', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: null,
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -68,7 +68,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'astro', label: 'Astro (content)', icon: 'As', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: null,
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'banned-techniques'],
     extras: ['playwright-mcp', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -79,7 +79,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'nuxt', label: 'Nuxt (Vue)', icon: 'Nx', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: null,
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -90,7 +90,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'remix', label: 'Remix', icon: 'Rm', category: 'Web / Frontend',
     languages: ['typescript'], styling: 'tailwind', database: 'postgresql',
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -103,7 +103,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'fullstack-node', label: 'React + Node/Express', icon: 'FN', category: 'Full-Stack',
     languages: ['typescript'], styling: 'tailwind', database: 'postgresql',
-    playwright: true, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'node-api', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'backend-node', 'qa'],
@@ -114,7 +114,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'fullstack-python', label: 'React + FastAPI', icon: 'FP', category: 'Full-Stack',
     languages: ['typescript', 'python'], styling: 'tailwind', database: 'postgresql',
-    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'post-tool-pycache'],
+    playwright: true, hooks: ['session-start', 'post-tool-tsc', 'post-tool-pycache', 'telegram-notify'],
     rules: ['frontend', 'ux', 'python-api', 'banned-techniques'],
     extras: ['playwright-mcp', 'agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'backend-py', 'qa'],
@@ -125,7 +125,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'fullstack-htmx', label: 'Python + HTMX', icon: 'HX', category: 'Full-Stack',
     languages: ['python'], styling: 'plain-css', database: 'sqlite',
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['python-api', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['backend-py', 'qa'],
@@ -138,7 +138,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'python-backend', label: 'FastAPI / Django', icon: 'Py', category: 'Backend',
     languages: ['python'], styling: null, database: 'postgresql',
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['python-api', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['backend-py', 'qa'],
@@ -149,7 +149,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'node-backend', label: 'Express / NestJS', icon: 'No', category: 'Backend',
     languages: ['typescript'], styling: null, database: 'postgresql',
-    playwright: false, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: false, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['node-api', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['backend-node', 'qa'],
@@ -160,7 +160,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'go-backend', label: 'Go API', icon: 'Go', category: 'Backend',
     languages: ['go'], styling: null, database: 'postgresql',
-    playwright: false, hooks: ['session-start'],
+    playwright: false, hooks: ['session-start', 'telegram-notify'],
     rules: ['go-api', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -171,7 +171,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'rust-backend', label: 'Rust (Axum/Actix)', icon: 'Rs', category: 'Backend',
     languages: ['rust'], styling: null, database: 'postgresql',
-    playwright: false, hooks: ['session-start'],
+    playwright: false, hooks: ['session-start', 'telegram-notify'],
     rules: ['rust-api', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -184,7 +184,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'electron', label: 'Electron + React', icon: 'El', category: 'Desktop',
     languages: ['typescript'], styling: 'tailwind', database: 'sqlite',
-    playwright: false, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: false, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -195,7 +195,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'tauri', label: 'Tauri (Rust + Web)', icon: 'Ta', category: 'Desktop',
     languages: ['typescript', 'rust'], styling: 'tailwind', database: 'sqlite',
-    playwright: false, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: false, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['frontend', 'ux', 'banned-techniques'],
     extras: ['agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['frontend', 'qa'],
@@ -208,7 +208,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'react-native', label: 'React Native / Expo', icon: 'RN', category: 'Mobile',
     languages: ['typescript'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: false, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['mobile', 'ux', 'banned-techniques'],
     extras: ['agent-templates', 'plugin-frontend-design', 'memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['mobile', 'qa'],
@@ -221,7 +221,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'pygame', label: 'Pygame (2D)', icon: 'PG', category: 'Games',
     languages: ['python'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['game-loop', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -232,7 +232,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'godot', label: 'Godot', icon: 'Gd', category: 'Games',
     languages: ['gdscript'], styling: null, database: null,
-    playwright: false, hooks: ['session-start'],
+    playwright: false, hooks: ['session-start', 'telegram-notify'],
     rules: ['game-loop', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -245,7 +245,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'cli-node', label: 'Node.js CLI', icon: 'CN', category: 'CLI / Scripts',
     languages: ['typescript'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-tsc'],
+    playwright: false, hooks: ['session-start', 'post-tool-tsc', 'telegram-notify'],
     rules: ['banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -256,7 +256,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'cli-python', label: 'Python CLI', icon: 'CP', category: 'CLI / Scripts',
     languages: ['python'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -267,7 +267,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'automation', label: 'Python automation / scraping', icon: 'Au', category: 'CLI / Scripts',
     languages: ['python'], styling: null, database: 'json-files',
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -280,7 +280,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'data-science', label: 'Jupyter + pandas', icon: 'DS', category: 'Data / ML',
     languages: ['python'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['data-pipeline', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -291,7 +291,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'ml-pipeline', label: 'ML training pipeline', icon: 'ML', category: 'Data / ML',
     languages: ['python'], styling: null, database: null,
-    playwright: false, hooks: ['session-start', 'post-tool-pycache'],
+    playwright: false, hooks: ['session-start', 'post-tool-pycache', 'telegram-notify'],
     rules: ['data-pipeline', 'banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: ['qa'],
@@ -304,7 +304,7 @@ export const STACK_PROFILES: StackProfile[] = [
   {
     id: 'static-site', label: 'HTML / CSS / JS', icon: 'HT', category: 'Other',
     languages: ['javascript'], styling: 'plain-css', database: null,
-    playwright: false, hooks: ['session-start'],
+    playwright: false, hooks: ['session-start', 'telegram-notify'],
     rules: ['banned-techniques'],
     extras: ['memory-seed', 'readme', 'skip-permissions'],
     agentTypes: [],
@@ -354,6 +354,7 @@ export function getSmartDefaults(techStack: string, languages: string[]): StackD
 
   if (hasTS) hooks.push('post-tool-tsc')
   if (hasPy) hooks.push('post-tool-pycache')
+  hooks.push('telegram-notify')
 
   return {
     hooks,
