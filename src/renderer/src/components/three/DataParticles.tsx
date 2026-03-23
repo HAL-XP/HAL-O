@@ -83,7 +83,7 @@ export function DataParticles({ projectCount }: Props) {
 
         // Fade out particles close to camera (prevents blocking the view)
         float camDist = length(mvPosition.xyz);
-        vOpacity *= smoothstep(2.0, 5.0, camDist);
+        vOpacity *= smoothstep(4.0, 8.0, camDist);
 
         // Size: streams slightly larger
         float size = aStream > 0.5 ? 3.0 : (1.5 + sin(aSeed * 6.28 + uTime) * 0.5);
