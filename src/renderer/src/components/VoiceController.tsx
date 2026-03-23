@@ -43,9 +43,9 @@ export function VoiceController({ projects, onSearch, onNewProject, onConvertPro
     setState((s) => ({ ...s, response: text, speaking: true }))
     try {
       const result = await window.api.voiceSpeak(text, 'narrator', 'en')
-      if (result.success && result.audioPath) {
-        // Play the audio file
-        const audio = new Audio(`file://${result.audioPath}`)
+      if (result.success && result.audioDataUrl) {
+        // Play the audio via base64 data URL (file:// blocked by contextIsolation)
+        const audio = new Audio(result.audioDataUrl)
         audioRef.current = audio
         audio.onended = () => setState((s) => ({ ...s, speaking: false }))
         audio.onerror = () => setState((s) => ({ ...s, speaking: false }))

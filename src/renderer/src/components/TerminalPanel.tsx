@@ -155,9 +155,9 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
             // Resolve the effective profile: override > explicit profile > auto-select
             const effectiveProfile = override || (voiceProfile === 'auto' ? selectVoiceProfile(toSpeak) : voiceProfile)
             window.api.voiceSpeak(toSpeak, effectiveProfile, 'en').then((result) => {
-              if (result.success && result.audioPath) {
-                // Play with Web Audio API for analyser data
-                playWithAnalyser(`file://${result.audioPath}`)
+              if (result.success && result.audioDataUrl) {
+                // Play with Web Audio API for analyser data (base64 data URL works with contextIsolation)
+                playWithAnalyser(result.audioDataUrl)
               }
             }).catch(() => {})
           }
