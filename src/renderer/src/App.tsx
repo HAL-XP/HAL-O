@@ -100,6 +100,14 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
+
+  // Camera sync: orbit/zoom -> sliders (only when tweaking is enabled)
+  // Use a ref to avoid stale closures and prevent render loops
+  const cameraRef = useRef(camera)
+  cameraRef.current = camera
+  const handleCameraMove = useCallback((distance: number, angle: number) => {
+    updateCamera({ ...cameraRef.current, cameraDistance: Math.round(distance), cameraAngle: Math.round(angle) })
+  }, [updateCamera])
   const demo = useDemoSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
@@ -281,6 +289,7 @@ export function App() {
             onCameraChange={updateCamera}
             onCameraTweakingChange={updateCameraTweaking}
             onCameraReset={resetCamera}
+            onCameraMove={cameraTweaking ? handleCameraMove : undefined}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}

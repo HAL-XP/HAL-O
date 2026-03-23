@@ -471,6 +471,30 @@ function SceneBackground() {
   return <color attach="background" args={[theme.backgroundHex]} />
 }
 
+// ── Camera Sync — reads orbit/zoom and reports back to settings sliders ──
+function CameraSync({ onCameraMove }: { onCameraMove: (distance: number, angle: number) => void }) {
+  const { camera } = useThree()
+  const lastReportRef = useRef({ distance: 0, angle: 0, time: 0 })
+
+  useFrame(() => {
+    const now = performance.now()
+    const last = lastReportRef.current
+    // Throttle: max 2 updates/second (500ms)
+    if (now - last.time < 500) return
+
+    const distance = camera.position.length()
+    const angle = Math.asin(camera.position.y / distance) * (180 / Math.PI)
+
+    // Only report if values changed significantly (distance ±0.5, angle ±1°)
+    if (Math.abs(distance - last.distance) < 0.5 && Math.abs(angle - last.angle) < 1) return
+
+    lastReportRef.current = { distance, angle, time: now }
+    onCameraMove(distance, angle)
+  })
+
+  return null
+}
+
 // ── Main PBR Scene ──
 interface Props {
   projects: ProjectInfo[]
@@ -485,9 +509,10 @@ interface Props {
   assignments?: Record<string, string>
   camera?: CameraSettings
   themeId?: string
+  onCameraMove?: (distance: number, angle: number) => void
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical' }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -641,6 +666,8 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           autoRotateSpeed={0.12}
           target={[0, 0.3, 0]}
         />
+
+        {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
 
         <PostFX />
       </ThreeThemeProvider>
