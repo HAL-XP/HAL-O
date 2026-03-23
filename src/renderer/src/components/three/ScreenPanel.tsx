@@ -2,6 +2,7 @@ import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
+import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 interface ProjectStats {
   lastCommit: string
@@ -32,11 +33,9 @@ interface Props {
   healthText?: string // status text shown in scrolling background layer (e.g. "SYNC OK", "3 BEHIND")
 }
 
-const CYAN = '#00d4ff'
-
 // Health-based edge glow colors
 const HEALTH_COLORS: Record<HealthStatus, string> = {
-  ok: '',       // empty = use default (cyan or groupColor)
+  ok: '',       // empty = use default (accent or groupColor)
   warning: '#fbbf24',   // amber
   outdated: '#fb923c',  // dim orange
   error: '#f87171',     // red
@@ -77,11 +76,18 @@ function activityBars(commitCount: number): number[] {
   })
 }
 
+// Convert hex color to rgba string
+function hexToRgba(hex: string, alpha: number): string {
+  const c = new THREE.Color(hex)
+  return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${alpha})`
+}
+
 export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
 }: Props) {
+  const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
@@ -117,8 +123,34 @@ export function ScreenPanel({
 
   // Health status overrides edge color (except 'ok' which uses default)
   const healthColor = HEALTH_COLORS[effectiveHealth]
-  const edgeColor = healthColor || groupColor || CYAN
+  const accentHex = theme.screenEdgeHex
+  const edgeColor = healthColor || groupColor || accentHex
   const edgeBaseOpacity = HEALTH_EDGE_OPACITY[effectiveHealth]
+
+  // Button styles derived from theme accent color
+  const btnPrimary: React.CSSProperties = useMemo(() => ({
+    padding: '3px 9px', background: accentHex, border: `1px solid ${accentHex}`,
+    color: '#000', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
+    cursor: 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+    textTransform: 'uppercase',
+  }), [accentHex])
+
+  const btnGhost: React.CSSProperties = useMemo(() => ({
+    padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
+    color: '#8b8fa3', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
+    cursor: 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+    textTransform: 'uppercase',
+  }), [])
+
+  // Stack tag badge colors
+  const stackBadgeBg = useMemo(() => hexToRgba(accentHex, 0.1), [accentHex])
+  const stackBadgeBorder = useMemo(() => hexToRgba(accentHex, 0.2), [accentHex])
+
+  // Activity bar highlight color
+  const activityBarHighlight = useMemo(() => {
+    const c = theme.accent
+    return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)},`
+  }, [theme.accent])
 
   const W = 2.8
   const H = 1.8
@@ -158,10 +190,10 @@ export function ScreenPanel({
       <mesh>
         <planeGeometry args={[W, H]} />
         <meshStandardMaterial
-          color="#050810"
+          color={theme.screenFaceHex}
           metalness={0.3}
           roughness={0.9}
-          emissive="#001520"
+          emissive={theme.gridLineHex}
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
           transparent={screenOpacity < 1}
@@ -273,10 +305,10 @@ export function ScreenPanel({
           {stack && (
             <div style={{ marginBottom: '6px' }}>
               <span style={{
-                fontSize: '8px', color: CYAN,
-                background: 'rgba(0,212,255,0.1)',
+                fontSize: '8px', color: accentHex,
+                background: stackBadgeBg,
                 padding: '2px 7px', borderRadius: '2px',
-                letterSpacing: '1px', border: '1px solid rgba(0,212,255,0.2)',
+                letterSpacing: '1px', border: `1px solid ${stackBadgeBorder}`,
               }}>
                 {stack}
               </span>
@@ -311,7 +343,7 @@ export function ScreenPanel({
                       height: `${Math.max(3, v * 12)}px`,
                       borderRadius: '1px',
                       background: v > 0.6
-                        ? `rgba(0, 212, 255, ${0.4 + v * 0.5})`
+                        ? `${activityBarHighlight} ${0.4 + v * 0.5})`
                         : `rgba(100, 130, 160, ${0.2 + v * 0.4})`,
                       transition: 'height 0.3s ease',
                     }} />
@@ -347,18 +379,4 @@ export function ScreenPanel({
       </Html>
     </group>
   )
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '3px 9px', background: CYAN, border: `1px solid ${CYAN}`,
-  color: '#000', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
-  cursor: 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-  textTransform: 'uppercase',
-}
-
-const btnGhost: React.CSSProperties = {
-  padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-  color: '#8b8fa3', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
-  cursor: 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-  textTransform: 'uppercase',
 }

@@ -16,12 +16,16 @@ import type { ProjectGroup } from '../../hooks/useProjectGroups'
 import { DEFAULT_CAMERA, type CameraSettings } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
-
-const CYAN = new THREE.Color('#00d4ff')
-const RED = new THREE.Color('#ff2200')
+import { ThreeThemeProvider, useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 // ── Reflective Floor Platform ──
 function ReflectiveFloor() {
+  const theme = useThreeTheme()
+  // Derive a dark floor color from the screen face
+  const floorColor = useMemo(() => {
+    return theme.screenFaceHex
+  }, [theme.screenFaceHex])
+
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
       <circleGeometry args={[16, 128]} />
@@ -32,7 +36,7 @@ function ReflectiveFloor() {
         mixStrength={0.4}
         roughness={0.92}
         metalness={0.3}
-        color="#040608"
+        color={floorColor}
         blur={[400, 150]}
       />
     </mesh>
@@ -41,10 +45,23 @@ function ReflectiveFloor() {
 
 // ── Grid Lines (separate mesh on top of reflective floor) ──
 function GridOverlay() {
+  const theme = useThreeTheme()
   const matRef = useRef<THREE.ShaderMaterial>(null)
+
+  // Convert gridLine color to vec3 for shader
+  const gridRGB = useMemo(() => {
+    const c = theme.gridLine
+    return [c.r, c.g, c.b]
+  }, [theme.gridLine])
+
   useFrame((_, delta) => {
     if (matRef.current) matRef.current.uniforms.uTime.value += delta
   })
+
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uGridColor: { value: new THREE.Vector3(gridRGB[0], gridRGB[1], gridRGB[2]) },
+  }), [gridRGB])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
@@ -53,7 +70,7 @@ function GridOverlay() {
         ref={matRef}
         transparent
         depthWrite={false}
-        uniforms={{ uTime: { value: 0 } }}
+        uniforms={uniforms}
         vertexShader={`
           varying vec3 vWorldPos;
           void main() {
@@ -64,6 +81,7 @@ function GridOverlay() {
         `}
         fragmentShader={`
           uniform float uTime;
+          uniform vec3 uGridColor;
           varying vec3 vWorldPos;
           void main() {
             float dist = length(vWorldPos.xz);
@@ -71,7 +89,7 @@ function GridOverlay() {
             vec2 g = abs(fract(vWorldPos.xz / gs - 0.5) - 0.5) / fwidth(vWorldPos.xz / gs);
             float line = 1.0 - min(min(g.x, g.y), 1.0);
             float edge = smoothstep(16.0, 10.0, dist);
-            vec3 color = vec3(0.0, 0.5, 0.8) * line * 0.06;
+            vec3 color = uGridColor * line * 0.5;
             float alpha = line * 0.1 * edge;
             gl_FragColor = vec4(color, alpha);
           }
@@ -118,23 +136,35 @@ function TexturedPlatform() {
 
 // ── Concentric Ring Platform with PBR materials ──
 function PbrRingPlatform() {
+  const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.015
   })
 
+  // Derive inner/outer colors from theme
+  const innerRGB = useMemo(() => {
+    const c = theme.sphere
+    return [c.r, c.g, c.b]
+  }, [theme.sphere])
+  const outerRGB = useMemo(() => {
+    const c = theme.accent
+    return [c.r, c.g, c.b]
+  }, [theme.accent])
+
   return (
     <group ref={groupRef} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      {/* Torus rings removed — shader disc handles all ring visuals */}
-
-      {/* Bright marker dots */}
-      {/* Shader ring lines — kept as fallback, may be hidden by texture */}
+      {/* Shader ring lines — concentric rings with theme colors */}
       <mesh position={[0, 0, -0.01]}>
         <ringGeometry args={[1.0, 8.5, 128]} />
         <shaderMaterial
           transparent
           side={THREE.DoubleSide}
           depthWrite={false}
+          uniforms={{
+            uInnerColor: { value: new THREE.Vector3(innerRGB[0], innerRGB[1], innerRGB[2]) },
+            uOuterColor: { value: new THREE.Vector3(outerRGB[0], outerRGB[1], outerRGB[2]) },
+          }}
           vertexShader={`
             varying vec2 vUv;
             varying float vDist;
@@ -146,6 +176,8 @@ function PbrRingPlatform() {
             }
           `}
           fragmentShader={`
+            uniform vec3 uInnerColor;
+            uniform vec3 uOuterColor;
             varying vec2 vUv;
             varying float vDist;
 
@@ -156,7 +188,7 @@ function PbrRingPlatform() {
               // Concentric ring lines at specific radii
               float line = 0.0;
 
-              // Inner red rings
+              // Inner rings
               line += smoothstep(0.02, 0.0, abs(vDist - 1.5)) * 0.8;
               line += smoothstep(0.015, 0.0, abs(vDist - 1.9)) * 0.5;
               line += smoothstep(0.03, 0.0, abs(vDist - 2.3)) * 0.6;
@@ -177,16 +209,11 @@ function PbrRingPlatform() {
               line += smoothstep(0.04, 0.0, abs(vDist - 6.9)) * 0.3;
               line += smoothstep(0.015, 0.0, abs(vDist - 7.3)) * 0.6;
 
-              // Color: red near center, cyan at edges
+              // Color: inner near center, outer at edges
               float t = smoothstep(1.5, 5.0, vDist);
-              vec3 innerColor = vec3(1.0, 0.1, 0.0);
-              vec3 outerColor = vec3(0.0, 0.7, 1.0);
-              vec3 lineColor = mix(innerColor, outerColor, t);
+              vec3 lineColor = mix(uInnerColor, uOuterColor, t);
 
-              // Fade lines on far side (distance from front edge)
-              // vDist is the ring radius, but we also need camera-facing fade
-              // Use a simple front-bias: fade based on how far back the point is
-              float frontFade = 1.0; // shader disc is flat, all points are equal distance in disc-space
+              float frontFade = 1.0;
 
               // Pulse wave expanding from center
               float pulse = smoothstep(0.3, 0.0, abs(vDist - mod(uTime * 2.0, 9.0))) * 0.3;
@@ -207,7 +234,7 @@ function PbrRingPlatform() {
         return (
           <mesh key={`dot-${i}`} position={[Math.cos(a) * r, Math.sin(a) * r, -0.03]}>
             <sphereGeometry args={[0.05, 8, 8]} />
-            <meshStandardMaterial emissive="#00d4ff" emissiveIntensity={3} toneMapped={false} color="#003355" metalness={1} roughness={0} />
+            <meshStandardMaterial emissive={theme.accentHex} emissiveIntensity={3} toneMapped={false} color={theme.def.accentDim} metalness={1} roughness={0} />
           </mesh>
         )
       })}
@@ -217,8 +244,26 @@ function PbrRingPlatform() {
 
 // ── HAL Sphere — PBR version ──
 function PbrHalSphere() {
+  const theme = useThreeTheme()
   const wireRef = useRef<THREE.Mesh>(null)
   const coreRef = useRef<THREE.Mesh>(null)
+
+  // Derive a darkened version of sphere color for the wireframe base
+  const sphereDark = useMemo(() => {
+    const c = theme.sphere.clone()
+    const hsl = { h: 0, s: 0, l: 0 }
+    c.getHSL(hsl)
+    c.setHSL(hsl.h, hsl.s, hsl.l * 0.2)
+    return '#' + c.getHexString()
+  }, [theme.sphere])
+
+  const sphereVeryDark = useMemo(() => {
+    const c = theme.sphere.clone()
+    const hsl = { h: 0, s: 0, l: 0 }
+    c.getHSL(hsl)
+    c.setHSL(hsl.h, hsl.s, hsl.l * 0.08)
+    return '#' + c.getHexString()
+  }, [theme.sphere])
 
   useFrame((state, delta) => {
     if (wireRef.current) wireRef.current.rotation.y += delta * 0.15
@@ -234,8 +279,8 @@ function PbrHalSphere() {
       <mesh ref={wireRef}>
         <sphereGeometry args={[1.3, 36, 24]} />
         <meshStandardMaterial
-          color="#330000"
-          emissive="#ff2200"
+          color={sphereDark}
+          emissive={theme.sphereHex}
           emissiveIntensity={0.6}
           wireframe
           transparent
@@ -250,8 +295,8 @@ function PbrHalSphere() {
       <mesh>
         <sphereGeometry args={[1.25, 32, 32]} />
         <meshStandardMaterial
-          color="#110000"
-          emissive="#ff1100"
+          color={sphereVeryDark}
+          emissive={theme.sphereHex}
           emissiveIntensity={0.1}
           transparent
           opacity={0.15}
@@ -264,8 +309,8 @@ function PbrHalSphere() {
       <mesh ref={coreRef} scale={0.38}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshStandardMaterial
-          color="#ff2200"
-          emissive="#ff4400"
+          color={theme.sphereHex}
+          emissive={theme.sphereGlowHex}
           emissiveIntensity={3}
           toneMapped={false}
         />
@@ -274,43 +319,43 @@ function PbrHalSphere() {
       {/* Equatorial band */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[1.3, 0.02, 8, 128]} />
-        <meshStandardMaterial emissive="#ff4400" emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
+        <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
       </mesh>
 
       {/* Latitude rings for globe detail */}
       {[0.4, 0.8, -0.4, -0.8].map((y, i) => (
         <mesh key={`lat-${i}`} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[Math.sqrt(1.3 * 1.3 - y * y), 0.006, 6, 64]} />
-          <meshStandardMaterial emissive="#ff2200" emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
+          <meshStandardMaterial emissive={theme.sphereHex} emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
         </mesh>
       ))}
 
-      {/* Red atmospheric glow — subtle, smaller */}
+      {/* Atmospheric glow — subtle, smaller */}
       <mesh>
         <sphereGeometry args={[2, 16, 16]} />
-        <meshBasicMaterial color="#ff1100" transparent opacity={0.008} side={THREE.BackSide} depthWrite={false} />
+        <meshBasicMaterial color={theme.sphereHex} transparent opacity={0.008} side={THREE.BackSide} depthWrite={false} />
       </mesh>
 
       {/* Lights from sphere — contained, not flooding */}
-      <pointLight color="#ff2200" intensity={3} distance={8} decay={2} />
-      <pointLight color="#ff4400" intensity={1.5} distance={5} decay={2} position={[0, 1, 0]} />
+      <pointLight color={theme.sphereHex} intensity={3} distance={8} decay={2} />
+      <pointLight color={theme.sphereGlowHex} intensity={1.5} distance={5} decay={2} position={[0, 1, 0]} />
     </group>
   )
 }
 
 // ── Sonar Pulse Ring — HAL heartbeat indicator ──
 function PulseRing() {
+  const theme = useThreeTheme()
   const ringRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.MeshBasicMaterial>(null)
 
-  // Each ring cycles: scale 1→3 over 3s, opacity 0.6→0
+  // Each ring cycles: scale 1->3 over 3s, opacity 0.6->0
   useFrame((state) => {
     if (!ringRef.current || !matRef.current) return
-    // Use a smooth sawtooth based on clock
-    const t = (state.clock.elapsedTime % 3) / 3 // 0→1 over 3 seconds
-    const scale = 1 + t * 2 // 1→3
+    const t = (state.clock.elapsedTime % 3) / 3
+    const scale = 1 + t * 2
     ringRef.current.scale.set(scale, scale, 1)
-    matRef.current.opacity = 0.6 * (1 - t) * (1 - t) // quadratic fade for smoother tail
+    matRef.current.opacity = 0.6 * (1 - t) * (1 - t)
   })
 
   return (
@@ -318,7 +363,7 @@ function PulseRing() {
       <ringGeometry args={[0.8, 1.0, 128]} />
       <meshBasicMaterial
         ref={matRef}
-        color="#00d4ff"
+        color={theme.accentHex}
         transparent
         opacity={0.6}
         depthWrite={false}
@@ -331,6 +376,7 @@ function PulseRing() {
 
 // Two staggered pulse rings for continuous sonar effect
 function SonarPulse() {
+  const theme = useThreeTheme()
   const ring2Ref = useRef<THREE.Mesh>(null)
   const mat2Ref = useRef<THREE.MeshBasicMaterial>(null)
 
@@ -351,7 +397,7 @@ function SonarPulse() {
         <ringGeometry args={[0.8, 1.0, 128]} />
         <meshBasicMaterial
           ref={mat2Ref}
-          color="#00d4ff"
+          color={theme.accentHex}
           transparent
           opacity={0.6}
           depthWrite={false}
@@ -365,6 +411,7 @@ function SonarPulse() {
 
 // ── Post Processing ──
 function PostFX() {
+  const theme = useThreeTheme()
   const { gl } = useThree()
   const [ready, setReady] = useState(false)
   const offset = useMemo(() => new Vector2(0.0006, 0.0006), [])
@@ -375,7 +422,7 @@ function PostFX() {
   if (!ready || !gl?.domElement) return null
   return (
     <EffectComposer>
-      <Bloom luminanceThreshold={0.3} luminanceSmoothing={0.8} intensity={1.8} radius={0.7} mipmapBlur />
+      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={0.6} offset={0.3} />
     </EffectComposer>
@@ -384,6 +431,16 @@ function PostFX() {
 
 // ── Scene Lighting ──
 function SceneLights() {
+  const theme = useThreeTheme()
+  // Derive a dim spot light color from accent
+  const spotColor = useMemo(() => {
+    const c = theme.accent.clone()
+    const hsl = { h: 0, s: 0, l: 0 }
+    c.getHSL(hsl)
+    c.setHSL(hsl.h, hsl.s * 0.6, hsl.l * 0.3)
+    return '#' + c.getHexString()
+  }, [theme.accent])
+
   return (
     <>
       <ambientLight intensity={0.008} color="#080818" />
@@ -399,13 +456,19 @@ function SceneLights() {
             angle={0.4}
             penumbra={0.8}
             intensity={0.5}
-            color="#224466"
+            color={spotColor}
             distance={12}
           />
         )
       })}
     </>
   )
+}
+
+// ── Scene Background ──
+function SceneBackground() {
+  const theme = useThreeTheme()
+  return <color attach="background" args={[theme.backgroundHex]} />
 }
 
 // ── Main PBR Scene ──
@@ -421,9 +484,10 @@ interface Props {
   groups?: ProjectGroup[]
   assignments?: Record<string, string>
   camera?: CameraSettings
+  themeId?: string
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical' }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -503,81 +567,83 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
     >
-      <color attach="background" args={['#010104']} />
+      <ThreeThemeProvider themeId={themeId}>
+        <SceneBackground />
 
-      <SceneLights />
-      {/* No starfield in PBR — pure dark cinematic */}
-      <ReflectiveFloor />
-      <GridOverlay />
-      <TexturedPlatform />
-      <PbrRingPlatform />
-      <PbrHalSphere />
+        <SceneLights />
+        {/* No starfield in PBR — pure dark cinematic */}
+        <ReflectiveFloor />
+        <GridOverlay />
+        <TexturedPlatform />
+        <PbrRingPlatform />
+        <PbrHalSphere />
 
-      {/* Ambient data particles */}
-      <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} />
+        {/* Ambient data particles */}
+        <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} />
 
-      {/* Scrolling HUD text strips — left and right edges */}
-      <HudScrollText />
+        {/* Scrolling HUD text strips — left and right edges */}
+        <HudScrollText />
 
-      {/* Spaceship flyby — triggered on new terminal open */}
-      <SpaceshipFlyby ref={flybyRef} />
+        {/* Spaceship flyby — triggered on new terminal open */}
+        <SpaceshipFlyby ref={flybyRef} />
 
-      {/* Sonar pulse — HAL heartbeat */}
-      {halOnline && <SonarPulse />}
+        {/* Sonar pulse — HAL heartbeat */}
+        {halOnline && <SonarPulse />}
 
-      {/* Screens — skip stacked (hidden) projects when stack info is active */}
-      {projects.map((project, i) => {
-        const sp = screenPositions[i]
-        if (!sp) return null
-        // If stack info exists and this project is not in the visible set, skip it
-        if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
-        return (
-          <ScreenPanel
-            key={project.path}
-            position={sp.position}
-            rotation={sp.rotation}
-            projectName={project.name}
-            projectPath={project.path}
-            stack={project.stack}
-            ready={isFullySetup(project)}
-            isHovered={hoveredId === project.path}
-            onHover={(h) => setHoveredId(h ? project.path : null)}
-            onResume={() => onOpenTerminal?.(project.path, project.name, true)}
-            onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
-            onFiles={() => window.api.openFolder(project.path)}
-            runCmd={project.runCmd}
-            onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
-            groupColor={projectGroupColors[i]}
-            healthStatus={!isFullySetup(project) ? 'warning' : 'ok'}
+        {/* Screens — skip stacked (hidden) projects when stack info is active */}
+        {projects.map((project, i) => {
+          const sp = screenPositions[i]
+          if (!sp) return null
+          // If stack info exists and this project is not in the visible set, skip it
+          if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
+          return (
+            <ScreenPanel
+              key={project.path}
+              position={sp.position}
+              rotation={sp.rotation}
+              projectName={project.name}
+              projectPath={project.path}
+              stack={project.stack}
+              ready={isFullySetup(project)}
+              isHovered={hoveredId === project.path}
+              onHover={(h) => setHoveredId(h ? project.path : null)}
+              onResume={() => onOpenTerminal?.(project.path, project.name, true)}
+              onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
+              onFiles={() => window.api.openFolder(project.path)}
+              runCmd={project.runCmd}
+              onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
+              groupColor={projectGroupColors[i]}
+              healthStatus={!isFullySetup(project) ? 'warning' : 'ok'}
+            />
+          )
+        })}
+
+        {/* Stack indicator panels — shown when groups overflow */}
+        {stackInfo?.stacks.map((stack) => (
+          <StackIndicatorPanel
+            key={`stack-${stack.groupIndex}`}
+            position={stack.position}
+            rotation={stack.rotation}
+            count={stack.hiddenCount}
+            groupColor={groups[stack.groupIndex]?.color}
+            groupName={groupNameMap.get(stack.groupIndex)}
           />
-        )
-      })}
+        ))}
 
-      {/* Stack indicator panels — shown when groups overflow */}
-      {stackInfo?.stacks.map((stack) => (
-        <StackIndicatorPanel
-          key={`stack-${stack.groupIndex}`}
-          position={stack.position}
-          rotation={stack.rotation}
-          count={stack.hiddenCount}
-          groupColor={groups[stack.groupIndex]?.color}
-          groupName={groupNameMap.get(stack.groupIndex)}
+        <OrbitControls
+          enablePan={false}
+          enableZoom={true}
+          minDistance={5}
+          maxDistance={20}
+          minPolarAngle={0.3}
+          maxPolarAngle={Math.PI / 2.2}
+          autoRotate
+          autoRotateSpeed={0.12}
+          target={[0, 0.3, 0]}
         />
-      ))}
 
-      <OrbitControls
-        enablePan={false}
-        enableZoom={true}
-        minDistance={5}
-        maxDistance={20}
-        minPolarAngle={0.3}
-        maxPolarAngle={Math.PI / 2.2}
-        autoRotate
-        autoRotateSpeed={0.12}
-        target={[0, 0.3, 0]}
-      />
-
-      <PostFX />
+        <PostFX />
+      </ThreeThemeProvider>
     </Canvas>
   )
 }

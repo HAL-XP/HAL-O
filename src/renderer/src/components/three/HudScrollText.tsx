@@ -1,6 +1,7 @@
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 // ── Static HUD text lines — randomized at mount ──
 
@@ -53,10 +54,11 @@ function ScrollStrip({
   direction: 1 | -1
   lineCount?: number
 }) {
+  const theme = useThreeTheme()
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
-  // Bake text into a canvas texture once
+  // Bake text into a canvas texture once, using theme colors
   const texture = useMemo(() => {
     const lines = pickLines(lineCount)
     const lineHeight = 16
@@ -72,14 +74,18 @@ function ScrollStrip({
     ctx.font = '10px "Cascadia Code", "Fira Code", monospace'
     ctx.textBaseline = 'top'
 
+    // Convert theme colors to RGBA strings for canvas
+    const pA = theme.particleA
+    const pB = theme.particleB
+
     for (let i = 0; i < lines.length; i++) {
-      // Alternate between cyan and green-ish with varied brightness
-      const isCyan = Math.random() > 0.3
+      // Alternate between primary and secondary particle colors with varied brightness
+      const isPrimary = Math.random() > 0.3
       const brightness = 0.4 + Math.random() * 0.6
-      if (isCyan) {
-        ctx.fillStyle = `rgba(0, 212, 255, ${brightness})`
+      if (isPrimary) {
+        ctx.fillStyle = `rgba(${Math.round(pA.r * 255)}, ${Math.round(pA.g * 255)}, ${Math.round(pA.b * 255)}, ${brightness})`
       } else {
-        ctx.fillStyle = `rgba(132, 204, 22, ${brightness})`
+        ctx.fillStyle = `rgba(${Math.round(pB.r * 255)}, ${Math.round(pB.g * 255)}, ${Math.round(pB.b * 255)}, ${brightness})`
       }
       ctx.fillText(lines[i], 4, i * lineHeight + 2)
     }
@@ -90,7 +96,7 @@ function ScrollStrip({
     tex.minFilter = THREE.LinearFilter
     tex.magFilter = THREE.LinearFilter
     return tex
-  }, [lineCount])
+  }, [lineCount, theme.particleA, theme.particleB])
 
   useFrame((state) => {
     if (matRef.current) {

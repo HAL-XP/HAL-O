@@ -1,6 +1,7 @@
 import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 interface Props {
   projectCount: number
@@ -12,10 +13,12 @@ const _v3 = new THREE.Vector3()
 
 /**
  * Ambient data particles drifting through the scene.
- * A mix of slow-swirling cyan/green motes and faster vertical "data stream" columns.
+ * A mix of slow-swirling motes and faster vertical "data stream" columns.
  * Particle count scales with project count.
+ * Colors are derived from the active 3D theme.
  */
 export function DataParticles({ projectCount, hideDist = 4 }: Props) {
+  const theme = useThreeTheme()
   const pointsRef = useRef<THREE.Points>(null)
 
   const count = 200 + projectCount * 10
@@ -26,8 +29,8 @@ export function DataParticles({ projectCount, hideDist = 4 }: Props) {
     const sd = new Float32Array(count * 4) // x: phase, y: speed, z: radius, w: isStream (0|1)
     const col = new Float32Array(count * 3)
 
-    const cyan = new THREE.Color('#00d4ff')
-    const green = new THREE.Color('#84cc16')
+    const colorA = theme.particleA
+    const colorB = theme.particleB
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3
@@ -50,15 +53,15 @@ export function DataParticles({ projectCount, hideDist = 4 }: Props) {
       sd[i4 + 2] = radius                     // original radius
       sd[i4 + 3] = isStream
 
-      // Color: cyan dominant, some green. Streams are always cyan.
-      const c = isStream ? cyan : (Math.random() < 0.35 ? green : cyan)
+      // Color: primary dominant, some secondary. Streams are always primary.
+      const c = isStream ? colorA : (Math.random() < 0.35 ? colorB : colorA)
       col[i3] = c.r
       col[i3 + 1] = c.g
       col[i3 + 2] = c.b
     }
 
     return { positions: pos, seeds: sd, colors: col }
-  }, [count])
+  }, [count, theme.particleA, theme.particleB])
 
   // Custom shader material for soft round points with varying opacity
   const shaderData = useMemo(() => ({
