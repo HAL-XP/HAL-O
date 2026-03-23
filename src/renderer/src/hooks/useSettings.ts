@@ -46,6 +46,9 @@ export const DEFAULT_CAMERA: CameraSettings = {
   cameraAngle: 32,
 }
 
+export const PARTICLE_DENSITY_LABELS = ['NONE', 'LOW', 'MED', 'HIGH', 'MAX'] as const
+export const PARTICLE_DENSITY_MULTIPLIERS = [0, 0.3, 1, 2, 3] as const
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -55,6 +58,7 @@ export interface SettingsState {
   screenOpacity: number
   camera: CameraSettings
   cameraTweaking: boolean
+  particleDensity: number
   rendererId: string
   layoutId: string
   threeTheme: string
@@ -67,6 +71,7 @@ export interface SettingsState {
   updateCamera: (cam: CameraSettings) => void
   updateCameraTweaking: (on: boolean) => void
   resetCamera: () => void
+  updateParticleDensity: (v: number) => void
   updateRenderer: (id: string) => void
   updateLayout: (id: string) => void
   updateThreeTheme: (id: string) => void
@@ -83,6 +88,10 @@ export function useSettings(): SettingsState {
     try { const c = localStorage.getItem('hal-o-camera'); return c ? JSON.parse(c) : DEFAULT_CAMERA } catch { return DEFAULT_CAMERA }
   })
   const [cameraTweaking, setCameraTweaking] = useState(() => localStorage.getItem('hal-o-camera-tweaking') === 'true')
+  const [particleDensity, setParticleDensity] = useState(() => {
+    const stored = localStorage.getItem('hal-o-particle-density')
+    return stored !== null ? parseInt(stored) : 2
+  })
   const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
   const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
@@ -135,9 +144,13 @@ export function useSettings(): SettingsState {
     setCamera(DEFAULT_CAMERA)
     localStorage.setItem('hal-o-camera', JSON.stringify(DEFAULT_CAMERA))
   }, [])
+  const updateParticleDensity = useCallback((v: number) => {
+    setParticleDensity(v)
+    localStorage.setItem('hal-o-particle-density', String(v))
+  }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, rendererId, layoutId, threeTheme,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderer, updateLayout, updateThreeTheme,
   }
 }

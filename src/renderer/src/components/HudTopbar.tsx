@@ -31,6 +31,8 @@ interface HudTopbarProps {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  particleDensity: number
+  onParticleDensityChange: (v: number) => void
   camera: CameraSettings
   cameraTweaking: boolean
   onCameraChange: (cam: CameraSettings) => void
@@ -57,8 +59,8 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
-  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   hiddenPaths = [], onUnhide,
   demo,
@@ -123,6 +125,7 @@ export function HudTopbar({
         )}
         <SettingsMenu
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId as any} layoutId={layoutId as any} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}

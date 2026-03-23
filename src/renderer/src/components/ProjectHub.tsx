@@ -324,6 +324,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
@@ -358,6 +359,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onCameraMove={onCameraMove}
           blockedInput={voiceBlocked}
           screenOpacity={screenOpacity}
+          particleDensity={particleDensity}
           onProjectContextMenu={(x, y, path, name) => setCtxMenu({ x, y, projectPath: path, projectName: name })}
         />
         <HudTopbar
@@ -365,6 +367,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
@@ -408,6 +411,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}

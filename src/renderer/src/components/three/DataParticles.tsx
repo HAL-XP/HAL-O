@@ -3,9 +3,13 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
+/** Density multipliers: NONE=0, LOW=0.3, MED=1, HIGH=2, MAX=3 */
+const DENSITY_MULTIPLIERS = [0, 0.3, 1, 2, 3] as const
+
 interface Props {
   projectCount: number
   hideDist?: number
+  densityLevel?: number  // 0-4 index into DENSITY_MULTIPLIERS
 }
 
 // Pre-allocated scratch vectors — never allocate in useFrame
@@ -14,14 +18,16 @@ const _v3 = new THREE.Vector3()
 /**
  * Ambient data particles drifting through the scene.
  * A mix of slow-swirling motes and faster vertical "data stream" columns.
- * Particle count scales with project count.
+ * Particle count scales with project count and density setting.
  * Colors are derived from the active 3D theme.
  */
-export function DataParticles({ projectCount, hideDist = 4 }: Props) {
+export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2 }: Props) {
   const theme = useThreeTheme()
   const pointsRef = useRef<THREE.Points>(null)
 
-  const count = 200 + projectCount * 10
+  const densityMultiplier = DENSITY_MULTIPLIERS[Math.max(0, Math.min(4, densityLevel))] ?? 1
+  const baseCount = 200 + projectCount * 10
+  const count = Math.round(baseCount * densityMultiplier)
 
   // Generate initial positions, velocities, and per-particle properties
   const { positions, seeds, colors } = useMemo(() => {
@@ -175,6 +181,9 @@ export function DataParticles({ projectCount, hideDist = 4 }: Props) {
 
     geo.attributes.position.needsUpdate = true
   })
+
+  // NONE density — render nothing (all hooks already called above)
+  if (count === 0) return null
 
   return (
     <points ref={pointsRef}>

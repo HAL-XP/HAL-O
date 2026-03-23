@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -75,6 +75,8 @@ interface Props {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  particleDensity: number
+  onParticleDensityChange: (v: number) => void
   camera: CameraSettings
   cameraTweaking: boolean
   onCameraChange: (cam: CameraSettings) => void
@@ -117,7 +119,7 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   }).catch(() => setPreviewing(null))
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -291,6 +293,22 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                 style={{ flex: 1, accentColor: 'var(--primary)' }}
               />
               <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
+            </div>
+          </div>
+
+          <div className="hal-settings-row">
+            <span className="hal-settings-label">PARTICLE DENSITY</span>
+            <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="range"
+                min="0"
+                max="4"
+                step="1"
+                value={particleDensity}
+                onChange={(e) => onParticleDensityChange(parseInt(e.target.value))}
+                style={{ flex: 1, accentColor: 'var(--primary)' }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{PARTICLE_DENSITY_LABELS[particleDensity]}</span>
             </div>
           </div>
 

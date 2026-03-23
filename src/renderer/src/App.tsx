@@ -100,7 +100,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
 
   // Camera sync: orbit/zoom -> sliders (only when tweaking is enabled)
   // Use a ref to avoid stale closures and prevent render loops
@@ -322,6 +322,8 @@ export function App() {
             onVoiceProfileChange={updateVoiceProfile}
             onDockPositionChange={updateDockPosition}
             onScreenOpacityChange={updateScreenOpacity}
+            particleDensity={particleDensity}
+            onParticleDensityChange={updateParticleDensity}
             camera={camera}
             cameraTweaking={cameraTweaking}
             onCameraChange={updateCamera}
