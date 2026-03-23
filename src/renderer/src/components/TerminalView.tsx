@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { TerminalPanel } from './TerminalPanel'
 import type { TerminalSession } from '../types'
+import type { VoiceProfileId } from '../hooks/useSettings'
 
 export type { TerminalSession }
 
@@ -17,6 +18,7 @@ interface Props {
   onVoiceFocus?: (sessionId: string) => void
   fontSize?: number
   voiceOut?: boolean
+  voiceProfile?: VoiceProfileId
 }
 
 type DropZone = 'left' | 'right' | 'full' | null
@@ -34,7 +36,7 @@ function loadLayout(): Pane[] {
   } catch { return [] }
 }
 
-export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, fontSize = 13, voiceOut = false }: Props) {
+export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
   const [panes, setPanesRaw] = useState<Pane[]>(loadLayout)
   const [draggedTab, setDraggedTab] = useState<string | null>(null)
 
@@ -304,7 +306,7 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
           {/* Terminal content */}
           <div className="hal-terminal-content">
             {pane.tabs.map((tabId) => (
-              <TerminalPanel key={tabId} sessionId={tabId} active={tabId === pane.activeTab} fontSize={fontSize} voiceOut={voiceOut} />
+              <TerminalPanel key={tabId} sessionId={tabId} active={tabId === pane.activeTab} fontSize={fontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} />
             ))}
           </div>
         </div>

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { selectVoiceProfile } from '../utils/selectVoiceProfile'
+import type { VoiceProfileId } from '../hooks/useSettings'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
@@ -9,6 +11,7 @@ interface Props {
   active: boolean
   fontSize?: number
   voiceOut?: boolean // enable TTS for Claude responses
+  voiceProfile?: VoiceProfileId
 }
 
 // Strip ANSI escape codes for TTS
@@ -43,7 +46,7 @@ function playWithAnalyser(url: string) {
   audio.play().catch(() => {})
 }
 
-export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false }: Props) {
+export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -144,7 +147,14 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
           outputBufferRef.current = ''
           if (text.length > 20) {
             const toSpeak = text.length > 800 ? text.slice(-800) : text
-            window.api.voiceSpeak(toSpeak, 'narrator', 'en').then((result) => {
+            // Check for a one-shot override (e.g. from zog-zog detection)
+            const override = (window as any).__voiceProfileOverride as string | undefined
+            if (override) {
+              ;(window as any).__voiceProfileOverride = null
+            }
+            // Resolve the effective profile: override > explicit profile > auto-select
+            const effectiveProfile = override || (voiceProfile === 'auto' ? selectVoiceProfile(toSpeak) : voiceProfile)
+            window.api.voiceSpeak(toSpeak, effectiveProfile, 'en').then((result) => {
               if (result.success && result.audioPath) {
                 // Play with Web Audio API for analyser data
                 playWithAnalyser(`file://${result.audioPath}`)

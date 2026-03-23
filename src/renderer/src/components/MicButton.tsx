@@ -42,6 +42,10 @@ export function MicButton({ onTranscript, onListeningChange }: Props) {
           const arrayBuffer = await blob.arrayBuffer()
           const result = await window.api.voiceTranscribe(arrayBuffer)
           if (result.success && result.text) {
+            // Zog zog detection — override voice profile to orc for the TTS response
+            if (/zog\s*zog/i.test(result.text)) {
+              ;(window as any).__voiceProfileOverride = 'orc'
+            }
             onTranscript(result.text)
           }
         } catch (err) {

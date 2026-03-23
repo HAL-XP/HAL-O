@@ -245,6 +245,7 @@ export function App() {
               onVoiceFocus={(id) => setVoiceFocus(id)}
               fontSize={termFontSize}
               voiceOut={voiceOut}
+              voiceProfile={voiceProfile}
             />
           </div>
         )}
