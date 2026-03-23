@@ -123,6 +123,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
   // Poll for external Claude CLI sessions every 10 seconds
   useEffect(() => {
+    if (demo?.enabled) return // No real sessions to detect in demo
     if (!window.api.detectExternalSessions) return
     let cancelled = false
     const poll = () => {
@@ -133,10 +134,14 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     poll() // Initial check
     const interval = setInterval(poll, 10_000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [])
+  }, [demo?.enabled])
 
   // Filter out hidden projects first, then apply search
-  const visibleProjects = useMemo(() => projects.filter((p) => !isHidden(p.path)), [projects, isHidden])
+  // In demo mode, skip the hidden filter — demo projects are synthetic
+  const visibleProjects = useMemo(
+    () => demo?.enabled ? projects : projects.filter((p) => !isHidden(p.path)),
+    [projects, isHidden, demo?.enabled],
+  )
 
   const filteredUnsorted = search
     ? visibleProjects.filter((p) =>
@@ -147,8 +152,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     : visibleProjects
 
   // Sort by group (group order first, ungrouped last), then by lastModified within each group
+  // In demo mode, skip group sorting — demo projects have no real group assignments
   const filtered = useMemo(() => {
-    if (groups.length === 0) return filteredUnsorted
+    if (demo?.enabled || groups.length === 0) return filteredUnsorted
     const groupIdToOrder = new Map(groups.map((g, i) => [g.id, i]))
     return [...filteredUnsorted].sort((a, b) => {
       const ga = assignments[a.path] ? (groupIdToOrder.get(assignments[a.path]) ?? 999) : 1000
@@ -157,7 +163,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       // Within same group, sort by lastModified descending (most recent first)
       return (b.lastModified || 0) - (a.lastModified || 0)
     })
-  }, [filteredUnsorted, groups, assignments])
+  }, [filteredUnsorted, groups, assignments, demo?.enabled])
 
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
   const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)

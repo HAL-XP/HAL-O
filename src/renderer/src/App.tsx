@@ -98,7 +98,8 @@ export function App() {
 
   const [configurePath, setConfigurePath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
+  const demo = useDemoSettings()
+  const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
 
   // Camera sync: orbit/zoom -> sliders (only when tweaking is enabled)
@@ -108,7 +109,6 @@ export function App() {
   const handleCameraMove = useCallback((distance: number, angle: number) => {
     updateCamera({ ...cameraRef.current, cameraDistance: Math.round(distance), cameraAngle: Math.round(angle) })
   }, [updateCamera])
-  const demo = useDemoSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))

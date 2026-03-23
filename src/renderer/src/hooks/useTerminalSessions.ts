@@ -10,7 +10,7 @@ export interface TerminalSessionsState {
   closeTerminal: (id: string) => void
 }
 
-export function useTerminalSessions(): TerminalSessionsState {
+export function useTerminalSessions(demoEnabled = false): TerminalSessionsState {
   const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
   const [voiceFocus, setVoiceFocus] = useState<'hub' | string>('hub')
 
@@ -49,8 +49,9 @@ export function useTerminalSessions(): TerminalSessionsState {
 
   // Restore terminals — reconnect to running ptys (survives renderer reload)
   // AND restore from pending file (survives full app restart)
+  // Skip entirely in demo mode — no real PTY sessions to restore
   useEffect(() => {
-    if (!window.api) return
+    if (!window.api || demoEnabled) return
 
     // First: check for running pty sessions (renderer reload case)
     window.api.ptySessions().then((active) => {
@@ -81,7 +82,7 @@ export function useTerminalSessions(): TerminalSessionsState {
         }, 1000)
       }).catch(() => {})
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [demoEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal }
 }
