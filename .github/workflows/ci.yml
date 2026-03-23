@@ -7,7 +7,6 @@ on:
 jobs:
   test-linux:
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -54,7 +53,6 @@ jobs:
 
   test-windows:
     runs-on: windows-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -93,3 +91,30 @@ jobs:
           name: screenshots-windows
           path: screenshots/
           retention-days: 7
+
+  # ── Telegram notifications ──────────────────────────────────────────
+  # Requires repo secrets: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
+  # Add them at: Settings → Secrets and variables → Actions → New repository secret
+
+  notify-failure:
+    needs: [test-linux, test-windows]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="MarkdownV2" \
+            -d text="🔴 *CI FAILED* on \`master\`%0A%0ACommit: \`${{ github.sha }}\`%0ARun: [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+  notify-success:
+    needs: [test-linux, test-windows]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="✅ CI passed on master (${{ github.sha }})"
