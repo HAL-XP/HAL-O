@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -74,43 +74,8 @@ export function DemoTerminalPanel({ feedEntries, active, fontSize = 13, startOff
     termRef.current = term
     fitRef.current = fit
 
-    // Start the scripted feed playback
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let loopCount = 0
-    const maxLoops = 50 // prevent infinite loops in demo
-
-    function playFeed(offset: number) {
-      if (loopCount >= maxLoops) return
-      loopCount++
-      let cumulativeDelay = 0
-      const startIdx = offset % feedEntries.length
-
-      // Play from startIdx to end, then from 0 to startIdx
-      const ordered = [
-        ...feedEntries.slice(startIdx),
-        ...feedEntries.slice(0, startIdx),
-      ]
-
-      for (let i = 0; i < ordered.length; i++) {
-        const entry = ordered[i]
-        cumulativeDelay += entry.delay
-        const t = setTimeout(() => {
-          term.write(entry.text)
-        }, cumulativeDelay)
-        timers.push(t)
-      }
-
-      // After entire feed plays, add a pause then restart
-      cumulativeDelay += 8000
-      const restartTimer = setTimeout(() => {
-        term.write('\r\n\x1b[90m' + '\u2500'.repeat(60) + '\x1b[0m\r\n')
-        term.write('\x1b[90m  [Demo loop restarting...]\x1b[0m\r\n\r\n')
-        playFeed(0)
-      }, cumulativeDelay)
-      timers.push(restartTimer)
-    }
-
-    playFeed(startOffset)
+    // Feed playback is managed by a separate effect that respects `active`
+    // Just store term ref here, playback starts in the active-watching effect
 
     // Resize handling
     const container = containerRef.current
@@ -122,22 +87,67 @@ export function DemoTerminalPanel({ feedEntries, active, fontSize = 13, startOff
     resizeObserver.observe(container)
 
     return () => {
-      for (const t of timers) clearTimeout(t)
       if (resizeTimer) clearTimeout(resizeTimer)
       resizeObserver.disconnect()
       term.dispose()
     }
   }, [feedEntries, startOffset]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fit when tab becomes active
+  // Feed playback — only runs when tab is active, pauses when backgrounded
+  const feedTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const feedIndexRef = useRef(startOffset % feedEntries.length)
+  const loopCountRef = useRef(0)
+
   useEffect(() => {
-    if (active && fitRef.current && termRef.current) {
-      setTimeout(() => {
-        fitRef.current?.fit()
-        termRef.current?.refresh(0, termRef.current.rows - 1)
-      }, 50)
+    if (!active || !termRef.current) return
+
+    const term = termRef.current
+    fitRef.current?.fit()
+    term.refresh(0, term.rows - 1)
+
+    const timers: ReturnType<typeof setTimeout>[] = []
+    feedTimersRef.current = timers
+    let cancelled = false
+
+    function playFeed() {
+      if (cancelled || loopCountRef.current >= 50) return
+      loopCountRef.current++
+      let cumulativeDelay = 0
+
+      const startIdx = feedIndexRef.current
+      const ordered = [
+        ...feedEntries.slice(startIdx),
+        ...feedEntries.slice(0, startIdx),
+      ]
+
+      for (let i = 0; i < ordered.length; i++) {
+        const entry = ordered[i]
+        cumulativeDelay += entry.delay
+        const idx = (startIdx + i) % feedEntries.length
+        timers.push(setTimeout(() => {
+          if (cancelled) return
+          term.write(entry.text)
+          feedIndexRef.current = (idx + 1) % feedEntries.length
+        }, cumulativeDelay))
+      }
+
+      cumulativeDelay += 8000
+      timers.push(setTimeout(() => {
+        if (cancelled) return
+        term.write('\r\n\x1b[90m' + '\u2500'.repeat(60) + '\x1b[0m\r\n')
+        term.write('\x1b[90m  [Demo loop restarting...]\x1b[0m\r\n\r\n')
+        feedIndexRef.current = 0
+        playFeed()
+      }, cumulativeDelay))
     }
-  }, [active])
+
+    playFeed()
+
+    return () => {
+      cancelled = true
+      for (const t of timers) clearTimeout(t)
+    }
+  }, [active, feedEntries])
 
   // Live font size update
   useEffect(() => {
