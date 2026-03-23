@@ -3,9 +3,11 @@
 
 import { ipcMain, shell } from 'electron'
 import { existsSync, readdirSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { execSync } from 'child_process'
+import { join, normalize } from 'path'
 import { run } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames } from './platform'
+import { terminalManager } from './terminal-manager'
 
 // ── Project stats cache (60s TTL) ──
 interface ProjectStats {
@@ -255,5 +257,122 @@ export function registerHubHandlers(): void {
 
   ipcMain.handle('run-app', async (_e, projectPath: string, runCmd: string) => {
     openTerminalAt(projectPath, runCmd)
+  })
+
+  // ── Session Absorption: detect external Claude CLI processes ──
+
+  /** Parse WMIC CSV output lines into { pid, cmdLine } entries */
+  function parseWmicCsv(output: string): Array<{ pid: number; cmdLine: string }> {
+    const entries: Array<{ pid: number; cmdLine: string }> = []
+    for (const line of output.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('Node,')) continue
+      // CSV: Node,CommandLine,ProcessId — cmdLine can contain commas
+      const parts = trimmed.split(',')
+      if (parts.length < 3) continue
+      const pid = parseInt(parts[parts.length - 1].trim(), 10)
+      if (!pid || isNaN(pid)) continue
+      const cmdLine = parts.slice(1, -1).join(',')
+      entries.push({ pid, cmdLine })
+    }
+    return entries
+  }
+
+  ipcMain.handle('detect-external-sessions', async (): Promise<Array<{
+    pid: number; projectPath: string; projectName: string
+  }>> => {
+    const isWin = process.platform === 'win32'
+    if (!isWin) return [] // Only Windows implemented for now
+
+    const embeddedPaths = new Set(
+      terminalManager.getActiveSessions().map((s) => normalize(s.projectPath).toLowerCase())
+    )
+
+    const results: Array<{ pid: number; projectPath: string; projectName: string }> = []
+    const seenPids = new Set<number>()
+
+    // Scan both node.exe (claude CLI runs as node) and cmd.exe (wrapper shells)
+    const queries = [
+      "name='node.exe' and CommandLine like '%claude%'",
+      "name='cmd.exe' and CommandLine like '%claude%'",
+    ]
+
+    for (const filter of queries) {
+      try {
+        const wmicOut = execSync(
+          `wmic process where "${filter}" get ProcessId,CommandLine /format:csv`,
+          { encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+        )
+
+        for (const { pid, cmdLine } of parseWmicCsv(wmicOut)) {
+          if (seenPids.has(pid)) continue
+          // Skip our own Electron/hal-o processes
+          if (cmdLine.includes('electron') || cmdLine.includes('hal-o')) continue
+          if (!cmdLine.includes('claude')) continue
+
+          // Extract project name from -n "Name" flag
+          let projectName = ''
+          const nameMatch = cmdLine.match(/-n\s+"([^"]+)"/) || cmdLine.match(/-n\s+(\S+)/)
+          if (nameMatch) projectName = nameMatch[1]
+
+          // Extract cwd from `cd /d "path"` pattern (cmd.exe launch scripts)
+          let cwd = ''
+          const cdMatch = cmdLine.match(/cd\s+\/d\s+"([^"]+)"/) || cmdLine.match(/cd\s+\/d\s+(\S+)/)
+          if (cdMatch) cwd = cdMatch[1]
+
+          // Validate cwd — discard if it points to node_modules or doesn't exist
+          if (cwd && (!existsSync(cwd) || cwd.includes('node_modules') || cwd.includes('\\npm'))) {
+            cwd = ''
+          }
+
+          // Skip if already embedded
+          if (cwd && embeddedPaths.has(normalize(cwd).toLowerCase())) continue
+
+          // Must have at least a cwd or a project name to be useful
+          if (!cwd && !projectName) continue
+
+          if (cwd && !projectName) {
+            projectName = cwd.split(/[/\\]/).pop() || 'Unknown'
+          }
+
+          seenPids.add(pid)
+          results.push({
+            pid,
+            projectPath: cwd || '',
+            projectName: projectName || 'Claude Session',
+          })
+        }
+      } catch { /* wmic query failed — silently ignore */ }
+    }
+
+    return results
+  })
+
+  // ── Session Absorption: absorb an external Claude session into embedded terminal ──
+  ipcMain.handle('absorb-session', async (_e, info: {
+    pid: number; projectPath: string; projectName: string
+  }): Promise<{ success: boolean }> => {
+    const isWin = process.platform === 'win32'
+
+    try {
+      // Gracefully terminate the external process
+      if (isWin) {
+        // Graceful kill (no /F) — gives process chance to clean up
+        execSync(`taskkill //PID ${info.pid} //T`, {
+          encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
+        })
+      } else {
+        execSync(`kill -TERM ${info.pid}`, {
+          encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
+        })
+      }
+    } catch {
+      // Process may have already exited — that's fine, continue with absorption
+    }
+
+    // Wait a moment for the process to release resources
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    return { success: true }
   })
 }

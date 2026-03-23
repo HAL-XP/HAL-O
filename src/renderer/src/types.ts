@@ -191,6 +191,10 @@ export interface ElectronAPI {
   runApp: (projectPath: string, runCmd: string) => Promise<void>
   openInClaude: (path: string) => Promise<void>
 
+  // Session absorption
+  detectExternalSessions: () => Promise<Array<{ pid: number; projectPath: string; projectName: string }>>
+  absorbSession: (info: { pid: number; projectPath: string; projectName: string }) => Promise<{ success: boolean }>
+
   // Terminal (pty)
   ptySpawn: (options: {
     id: string; cwd: string; cmd: string; args: string[]

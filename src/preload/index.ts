@@ -33,6 +33,11 @@ const api = {
   runApp: (projectPath: string, runCmd: string) => ipcRenderer.invoke('run-app', projectPath, runCmd),
   openInClaude: (path: string) => ipcRenderer.invoke('open-in-claude', path),
 
+  // Session absorption
+  detectExternalSessions: () => ipcRenderer.invoke('detect-external-sessions'),
+  absorbSession: (info: { pid: number; projectPath: string; projectName: string }) =>
+    ipcRenderer.invoke('absorb-session', info),
+
   // Dev
   captureScreenshot: () => ipcRenderer.invoke('capture-screenshot'),
   reloadRenderer: () => ipcRenderer.invoke('reload-renderer'),

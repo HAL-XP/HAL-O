@@ -1700,6 +1700,50 @@ textarea.text-input {
   text-shadow: 0 0 6px var(--warning);
 }
 
+/* Absorb button — session absorption */
+.hal-btn.absorb {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.4);
+  animation: absorb-pulse 2s ease-in-out infinite;
+}
+
+.hal-btn.absorb:hover {
+  border-color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.25);
+  text-shadow: 0 0 6px #c084fc;
+}
+
+.hal-btn.absorb:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  animation: none;
+}
+
+@keyframes absorb-pulse {
+  0%, 100% { border-color: rgba(192, 132, 252, 0.2); }
+  50% { border-color: rgba(192, 132, 252, 0.6); }
+}
+
+/* External session badge on card header */
+.hal-external-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 6px;
+  animation: absorb-pulse 2s ease-in-out infinite;
+}
+
+/* Card glow when external session detected */
+.hal-arc-card.has-external {
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.15);
+}
+
 /* Command bar */
 .hal-cmdbar {
   display: flex;

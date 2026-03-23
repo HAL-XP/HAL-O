@@ -49,6 +49,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [hovered, setHovered] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
+  const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
+  const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
 
   useEffect(() => {
     window.api.scanProjects().then((p) => {
@@ -69,6 +71,20 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return () => observer.disconnect()
   }, [])
 
+  // Poll for external Claude CLI sessions every 10 seconds
+  useEffect(() => {
+    if (!window.api.detectExternalSessions) return
+    let cancelled = false
+    const poll = () => {
+      window.api.detectExternalSessions().then((sessions) => {
+        if (!cancelled) setExternalSessions(sessions)
+      }).catch(() => {})
+    }
+    poll() // Initial check
+    const interval = setInterval(poll, 10_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
   const filtered = search
     ? projects.filter((p) =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -85,15 +101,42 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const layoutCenter = getLayoutCenter(layoutId, dims.w, dims.h)
   const cardW = 200
 
+  // Check if a project has an external session running
+  const getExternalSession = (projectPath: string) => {
+    const norm = projectPath.replace(/\\/g, '/').toLowerCase()
+    return externalSessions.find((s) => {
+      const ePath = s.projectPath.replace(/\\/g, '/').toLowerCase()
+      return ePath === norm || norm.includes(ePath) || ePath.includes(norm)
+    }) || externalSessions.find((s) => {
+      const eName = s.projectName.toLowerCase()
+      const pName = projectPath.split(/[/\\]/).pop()?.toLowerCase() || ''
+      return eName === pName
+    })
+  }
+
+  const handleAbsorb = async (extSession: { pid: number; projectPath: string; projectName: string }, project: ProjectInfo) => {
+    setAbsorbingPid(extSession.pid)
+    try {
+      await window.api.absorbSession(extSession)
+      // Remove from external sessions immediately
+      setExternalSessions((prev) => prev.filter((s) => s.pid !== extSession.pid))
+      // Open embedded terminal with --continue to pick up the conversation
+      if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
+    } catch { /* */ }
+    setAbsorbingPid(null)
+  }
+
   const renderCard = (project: ProjectInfo, globalIndex: number) => {
     const ready = isFullySetup(project)
     const pos = layoutFn(globalIndex, { w: dims.w, h: dims.h, total: filtered.length, cardW })
     const isHovered = hovered === project.path
+    const extSession = getExternalSession(project.path)
+    const isAbsorbing = extSession && absorbingPid === extSession.pid
 
     return (
       <div
         key={project.path}
-        className={`hal-arc-card ${ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''}`}
+        className={`hal-arc-card ${ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''} ${extSession ? 'has-external' : ''}`}
         style={{ left: pos.left, top: pos.top, transform: pos.transform, transition: 'left 0.5s, top 0.5s, transform 0.5s' }}
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
@@ -102,9 +145,17 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
           <span className="hal-arc-name">{project.name}</span>
           {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
+          {extSession && <span className="hal-external-badge">EXT</span>}
         </div>
         {isHovered && (
           <div className="hal-arc-actions">
+            {extSession && (
+              <button
+                className="hal-btn absorb"
+                disabled={!!isAbsorbing}
+                onClick={(e) => { e.stopPropagation(); handleAbsorb(extSession, project) }}
+              >{isAbsorbing ? 'ABSORBING...' : 'ABSORB'}</button>
+            )}
             <button className="hal-btn deploy" onClick={() => {
               if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
               else window.api.launchProject(project.path, true)
