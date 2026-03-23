@@ -69,11 +69,13 @@ export function useTerminalSessions(): TerminalSessionsState {
     }).catch(() => {})
 
     // Second: check for pending sessions from full restart
+    // Only auto-restore the most recent 2 sessions to avoid flooding
     if (window.api.ptyCheckPending) {
       window.api.ptyCheckPending().then((pending) => {
         if (!pending || pending.length === 0) return
+        const toRestore = pending.slice(-2) // most recent 2 only
         setTimeout(() => {
-          for (const s of pending) {
+          for (const s of toRestore) {
             openTerminal(s.projectPath, s.projectName, true)
           }
         }, 1000)
