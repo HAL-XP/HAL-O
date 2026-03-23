@@ -62,19 +62,19 @@ function createMenu(): void {
       submenu: [
         {
           label: 'Run Tests (local)',
-          click: () => openTerminalAt(getWinCwd(), 'npm test'),
+          click: () => { execSync('start cmd /k "npm test"', { cwd: getWinCwd(), shell: 'cmd.exe' }) },
         },
         {
           label: 'Run Tests (Docker)',
-          click: () => openTerminalAt(getWinCwd(), 'npm run test:docker'),
+          click: () => { execSync('start cmd /k "npm run test:docker"', { cwd: getWinCwd(), shell: 'cmd.exe' }) },
         },
         {
           label: 'Test Fresh Install (Docker)',
-          click: () => openTerminalAt(getWinCwd(), 'npm run test:fresh'),
+          click: () => { execSync('start cmd /k "npm run test:fresh"', { cwd: getWinCwd(), shell: 'cmd.exe' }) },
         },
         {
           label: 'Docker Shell',
-          click: () => openTerminalAt(getWinCwd(), 'npm run test:shell'),
+          click: () => { execSync('start cmd /k "npm run test:shell"', { cwd: getWinCwd(), shell: 'cmd.exe' }) },
         },
         { type: 'separator' },
         {
