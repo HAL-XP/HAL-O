@@ -13,6 +13,7 @@ import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
+import { DEFAULT_CAMERA, type CameraSettings } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../../layouts3d'
 
 const CYAN = new THREE.Color('#00d4ff')
@@ -414,9 +415,10 @@ interface Props {
   vfxFrequency?: number // seconds between auto-spawns, 0 = only on terminal open
   groups?: ProjectGroup[]
   assignments?: Record<string, string>
+  camera?: CameraSettings
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {} }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -470,10 +472,15 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
     return () => clearInterval(interval)
   }, [vfxFrequency])
 
+  // Compute camera position from settings
+  const angleRad = (camera.cameraAngle * Math.PI) / 180
+  const camY = Math.sin(angleRad) * camera.cameraDistance
+  const camZ = Math.cos(angleRad) * camera.cameraDistance
+
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-      camera={{ position: [0, 10, 16], fov: 48, near: 0.1, far: 1000 }}
+      camera={{ position: [0, camY, camZ], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
     >
@@ -488,7 +495,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       <PbrHalSphere />
 
       {/* Ambient data particles */}
-      <DataParticles projectCount={projects.length} />
+      <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} />
 
       {/* Scrolling HUD text strips — left and right edges */}
       <HudScrollText />

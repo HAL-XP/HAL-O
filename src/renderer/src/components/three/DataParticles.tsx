@@ -4,6 +4,7 @@ import * as THREE from 'three'
 
 interface Props {
   projectCount: number
+  hideDist?: number
 }
 
 // Pre-allocated scratch vectors — never allocate in useFrame
@@ -14,7 +15,7 @@ const _v3 = new THREE.Vector3()
  * A mix of slow-swirling cyan/green motes and faster vertical "data stream" columns.
  * Particle count scales with project count.
  */
-export function DataParticles({ projectCount }: Props) {
+export function DataParticles({ projectCount, hideDist = 4 }: Props) {
   const pointsRef = useRef<THREE.Points>(null)
 
   const count = 200 + projectCount * 10
@@ -64,6 +65,7 @@ export function DataParticles({ projectCount }: Props) {
     uniforms: {
       uTime: { value: 0 },
       uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      uHideDist: { value: 4.0 },
     },
     vertexShader: /* glsl */ `
       attribute float aSeed;
@@ -72,6 +74,7 @@ export function DataParticles({ projectCount }: Props) {
       varying vec3 vColor;
       uniform float uTime;
       uniform float uPixelRatio;
+      uniform float uHideDist;
 
       void main() {
         vColor = color;
@@ -83,7 +86,7 @@ export function DataParticles({ projectCount }: Props) {
 
         // Fade out particles close to camera (prevents blocking the view)
         float camDist = length(mvPosition.xyz);
-        vOpacity *= smoothstep(4.0, 8.0, camDist);
+        vOpacity *= smoothstep(uHideDist, uHideDist * 2.0, camDist);
 
         // Size: streams slightly larger
         float size = aStream > 0.5 ? 3.0 : (1.5 + sin(aSeed * 6.28 + uTime) * 0.5);
@@ -123,9 +126,12 @@ export function DataParticles({ projectCount }: Props) {
     const posArr = geo.attributes.position.array as Float32Array
     const elapsed = state.clock.elapsedTime
 
-    // Update shader time uniform
+    // Update shader uniforms
     const mat = pointsRef.current.material as THREE.ShaderMaterial
-    if (mat.uniforms) mat.uniforms.uTime.value = elapsed
+    if (mat.uniforms) {
+      mat.uniforms.uTime.value = elapsed
+      mat.uniforms.uHideDist.value = hideDist
+    }
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3

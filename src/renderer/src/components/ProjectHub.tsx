@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { ProjectInfo } from '../types'
-import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
@@ -29,6 +29,11 @@ interface Props {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  camera: CameraSettings
+  cameraTweaking: boolean
+  onCameraChange: (cam: CameraSettings) => void
+  onCameraTweakingChange: (on: boolean) => void
+  onCameraReset: () => void
   rendererId: string
   onRendererChange: (id: string) => void
   layoutId: string
@@ -48,7 +53,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -278,13 +283,18 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           vfxFrequency={demo?.vfxFrequency}
           groups={groups}
           assignments={assignments}
+          camera={camera}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          camera={camera} cameraTweaking={cameraTweaking}
+          rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
         />
@@ -309,8 +319,12 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          camera={camera} cameraTweaking={cameraTweaking}
+          rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
         />
@@ -341,8 +355,12 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
         voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
         projectCount={projects.length} readyCount={readyCount}
-        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
-        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+        camera={camera} cameraTweaking={cameraTweaking}
+        rendererId={rendererId} layoutId={layoutId}
+        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+        onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+        onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
       />

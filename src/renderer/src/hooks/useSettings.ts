@@ -34,6 +34,18 @@ export const DOCK_POSITIONS = [
 
 export type DockPosition = typeof DOCK_POSITIONS[number]['id']
 
+export interface CameraSettings {
+  particleHideDist: number  // units from camera where particles fade (default 4)
+  cameraDistance: number    // distance from sphere center (default 19)
+  cameraAngle: number      // elevation angle in degrees above horizontal (default 32)
+}
+
+export const DEFAULT_CAMERA: CameraSettings = {
+  particleHideDist: 4,
+  cameraDistance: 19,
+  cameraAngle: 32,
+}
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -41,6 +53,8 @@ export interface SettingsState {
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
   screenOpacity: number
+  camera: CameraSettings
+  cameraTweaking: boolean
   rendererId: string
   layoutId: string
   updateHubFont: (size: number) => void
@@ -49,6 +63,9 @@ export interface SettingsState {
   updateVoiceProfile: (id: VoiceProfileId) => void
   updateDockPosition: (pos: DockPosition) => void
   updateScreenOpacity: (opacity: number) => void
+  updateCamera: (cam: CameraSettings) => void
+  updateCameraTweaking: (on: boolean) => void
+  resetCamera: () => void
   updateRenderer: (id: string) => void
   updateLayout: (id: string) => void
 }
@@ -60,6 +77,10 @@ export function useSettings(): SettingsState {
   const [voiceProfile, setVoiceProfile] = useState<VoiceProfileId>(() => (localStorage.getItem('hal-o-voice-profile') as VoiceProfileId) || 'auto')
   const [dockPosition, setDockPosition] = useState<DockPosition>(() => (localStorage.getItem('hal-o-dock') as DockPosition) || 'bottom')
   const [screenOpacity, setScreenOpacity] = useState(() => parseFloat(localStorage.getItem('hal-o-screen-opacity') || '1'))
+  const [camera, setCamera] = useState<CameraSettings>(() => {
+    try { const c = localStorage.getItem('hal-o-camera'); return c ? JSON.parse(c) : DEFAULT_CAMERA } catch { return DEFAULT_CAMERA }
+  })
+  const [cameraTweaking, setCameraTweaking] = useState(() => localStorage.getItem('hal-o-camera-tweaking') === 'true')
   const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
 
@@ -95,9 +116,21 @@ export function useSettings(): SettingsState {
     setScreenOpacity(opacity)
     localStorage.setItem('hal-o-screen-opacity', String(opacity))
   }, [])
+  const updateCamera = useCallback((cam: CameraSettings) => {
+    setCamera(cam)
+    localStorage.setItem('hal-o-camera', JSON.stringify(cam))
+  }, [])
+  const updateCameraTweaking = useCallback((on: boolean) => {
+    setCameraTweaking(on)
+    localStorage.setItem('hal-o-camera-tweaking', String(on))
+  }, [])
+  const resetCamera = useCallback(() => {
+    setCamera(DEFAULT_CAMERA)
+    localStorage.setItem('hal-o-camera', JSON.stringify(DEFAULT_CAMERA))
+  }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateRenderer, updateLayout,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout,
   }
 }

@@ -99,7 +99,7 @@ export function App() {
   const [importPath, setImportPath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateRenderer, updateLayout } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout } = useSettings()
   const demo = useDemoSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
@@ -253,6 +253,11 @@ export function App() {
             onVoiceProfileChange={updateVoiceProfile}
             onDockPositionChange={updateDockPosition}
             onScreenOpacityChange={updateScreenOpacity}
+            camera={camera}
+            cameraTweaking={cameraTweaking}
+            onCameraChange={updateCamera}
+            onCameraTweakingChange={updateCameraTweaking}
+            onCameraReset={resetCamera}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}

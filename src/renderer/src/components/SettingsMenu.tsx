@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { VOICE_PROFILES, DOCK_POSITIONS, type VoiceProfileId, type DockPosition } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 
@@ -73,6 +73,11 @@ interface Props {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  camera: CameraSettings
+  cameraTweaking: boolean
+  onCameraChange: (cam: CameraSettings) => void
+  onCameraTweakingChange: (on: boolean) => void
+  onCameraReset: () => void
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
   demo?: DemoSettings
@@ -107,7 +112,7 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   }).catch(() => setPreviewing(null))
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -267,6 +272,62 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
               <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
             </div>
           </div>
+
+          {/* CAMERA TWEAKING section */}
+          <div className="hal-settings-row">
+            <span className="hal-settings-label">CAMERA TWEAKING</span>
+            <div className="hal-settings-control">
+              <button
+                onClick={() => onCameraTweakingChange(!cameraTweaking)}
+                style={{
+                  width: 'auto', padding: '2px 8px',
+                  color: cameraTweaking ? '#fbbf24' : 'var(--text-dim)',
+                  borderColor: cameraTweaking ? '#fbbf2455' : undefined,
+                }}
+              >
+                {cameraTweaking ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+
+          {cameraTweaking && (
+            <>
+              <div className="hal-settings-row">
+                <span className="hal-settings-label">PARTICLE HIDE DIST</span>
+                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="range" min="1" max="15" step="0.5" value={camera.particleHideDist}
+                    onChange={(e) => onCameraChange({ ...camera, particleHideDist: parseFloat(e.target.value) })}
+                    style={{ flex: 1, accentColor: '#fbbf24' }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{camera.particleHideDist}u</span>
+                </div>
+              </div>
+
+              <div className="hal-settings-row">
+                <span className="hal-settings-label">CAMERA DISTANCE</span>
+                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="range" min="8" max="40" step="1" value={camera.cameraDistance}
+                    onChange={(e) => onCameraChange({ ...camera, cameraDistance: parseFloat(e.target.value) })}
+                    style={{ flex: 1, accentColor: '#fbbf24' }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{camera.cameraDistance}u</span>
+                </div>
+              </div>
+
+              <div className="hal-settings-row">
+                <span className="hal-settings-label">ELEVATION ANGLE</span>
+                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="range" min="5" max="75" step="1" value={camera.cameraAngle}
+                    onChange={(e) => onCameraChange({ ...camera, cameraAngle: parseFloat(e.target.value) })}
+                    style={{ flex: 1, accentColor: '#fbbf24' }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{camera.cameraAngle}°</span>
+                </div>
+              </div>
+
+              <div className="hal-settings-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+                <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to defaults"
+                  style={{ padding: '3px 10px', fontSize: 9 }}>RESET</button>
+              </div>
+            </>
+          )}
 
           {/* DEMO MODE section */}
           {demo && (

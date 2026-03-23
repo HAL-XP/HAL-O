@@ -1,7 +1,7 @@
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
-import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -29,6 +29,11 @@ interface HudTopbarProps {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  camera: CameraSettings
+  cameraTweaking: boolean
+  onCameraChange: (cam: CameraSettings) => void
+  onCameraTweakingChange: (on: boolean) => void
+  onCameraReset: () => void
   onRendererChange: (id: string) => void
   onLayoutChange: (id: string) => void
   // Groups
@@ -45,8 +50,8 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId,
-  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   demo,
 }: HudTopbarProps) {
@@ -98,9 +103,12 @@ export function HudTopbar({
         )}
         <SettingsMenu
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId as any} layoutId={layoutId as any}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
-          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
+          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
           demo={demo}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
