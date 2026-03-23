@@ -10,6 +10,22 @@
   <img src="screenshots/readme-demo-default.png" alt="HAL-O — PBR Holographic view with demo projects" width="800" />
 </p>
 
+## Why HAL-O?
+
+Most developer dashboards give you a file tree and a terminal. HAL-O gives you a command center.
+
+🎛️ **Multi-Agent Command Center** — Run multiple Claude agents side-by-side in split terminals. Dispatch work from Telegram while you're away. HAL-O bridges agents that normally can't talk to each other, turning isolated sessions into a coordinated workforce.
+
+🎙️ **Voice-Controlled Development** — Push-to-talk with 20 cloned voice personalities, from a calm narrator to a drill sergeant. Say "Zog zog" and an orc grunt reports your build status. Terminal output auto-speaks so you can code eyes-free.
+
+🌐 **Holographic Project Dashboard** — Your projects orbit a 3D sphere with live git stats, PBR lighting, bloom post-processing, and a reflective floor. Choose from 10 layouts, 6 visual styles, and 28 color palettes. This is not a sidebar.
+
+⚡ **Zero-Friction Onboarding** — Import existing Claude Code projects in one click. The setup wizard auto-detects and installs git, Python, Claude CLI, and more. Nothing is overwritten — your existing config stays untouched.
+
+🛡️ **Session Resilience** — Terminals survive renderer crashes with automatic reload. Sessions save and restore across relaunches with full scrollback. External Claude sessions can be absorbed back into the app seamlessly.
+
+🎬 **Demo Mode** — Spin up 30 fake projects with scripted terminal feeds for presentations and screenshots. No real data, no real repos — just the full HAL-O experience without exposing anything private.
+
 ## Features
 
 - **3 Renderers** — Classic (CSS cards + Three.js background), Holographic, and PBR Holographic (full 3D with bloom, chromatic aberration, reflective floor)
