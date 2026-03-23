@@ -40,6 +40,7 @@ export interface SettingsState {
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
+  screenOpacity: number
   rendererId: string
   layoutId: string
   updateHubFont: (size: number) => void
@@ -47,6 +48,7 @@ export interface SettingsState {
   updateVoiceOut: (enabled: boolean) => void
   updateVoiceProfile: (id: VoiceProfileId) => void
   updateDockPosition: (pos: DockPosition) => void
+  updateScreenOpacity: (opacity: number) => void
   updateRenderer: (id: string) => void
   updateLayout: (id: string) => void
 }
@@ -57,6 +59,7 @@ export function useSettings(): SettingsState {
   const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('hal-o-voice-out') === 'true')
   const [voiceProfile, setVoiceProfile] = useState<VoiceProfileId>(() => (localStorage.getItem('hal-o-voice-profile') as VoiceProfileId) || 'auto')
   const [dockPosition, setDockPosition] = useState<DockPosition>(() => (localStorage.getItem('hal-o-dock') as DockPosition) || 'bottom')
+  const [screenOpacity, setScreenOpacity] = useState(() => parseFloat(localStorage.getItem('hal-o-screen-opacity') || '1'))
   const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
 
@@ -88,9 +91,13 @@ export function useSettings(): SettingsState {
     setDockPosition(pos)
     localStorage.setItem('hal-o-dock', pos)
   }, [])
+  const updateScreenOpacity = useCallback((opacity: number) => {
+    setScreenOpacity(opacity)
+    localStorage.setItem('hal-o-screen-opacity', String(opacity))
+  }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateRenderer, updateLayout,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateRenderer, updateLayout,
   }
 }

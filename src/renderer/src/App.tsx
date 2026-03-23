@@ -97,7 +97,7 @@ export function App() {
   const [importPath, setImportPath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateRenderer, updateLayout } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateRenderer, updateLayout } = useSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
@@ -239,11 +239,13 @@ export function App() {
             voiceOut={voiceOut}
             voiceProfile={voiceProfile}
             dockPosition={dockPosition}
+            screenOpacity={screenOpacity}
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
             onVoiceProfileChange={updateVoiceProfile}
             onDockPositionChange={updateDockPosition}
+            onScreenOpacityChange={updateScreenOpacity}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}

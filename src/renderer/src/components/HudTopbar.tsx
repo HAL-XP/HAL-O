@@ -1,6 +1,8 @@
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
+import { GroupsPanel } from './GroupsPanel'
 import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
+import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
 interface HudTopbarProps {
   search: string
@@ -17,6 +19,7 @@ interface HudTopbarProps {
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
+  screenOpacity: number
   rendererId: string
   layoutId: string
   onHubFontSize: (size: number) => void
@@ -24,16 +27,25 @@ interface HudTopbarProps {
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
+  onScreenOpacityChange: (opacity: number) => void
   onRendererChange: (id: string) => void
   onLayoutChange: (id: string) => void
+  // Groups
+  groups?: ProjectGroup[]
+  onCreateGroup?: (name: string, color: string) => void
+  onDeleteGroup?: (id: string) => void
+  onRenameGroup?: (id: string, name: string) => void
+  onReorderGroups?: (ids: string[]) => void
+  onApplyPreset?: (preset: GroupPreset) => void
 }
 
 export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId,
-  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onRendererChange, onLayoutChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange,
+  groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -71,11 +83,21 @@ export function HudTopbar({
         <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
       </div>
       <div className="hal-topbar-right">
+        {onCreateGroup && onDeleteGroup && onRenameGroup && onReorderGroups && onApplyPreset && (
+          <GroupsPanel
+            groups={groups}
+            onCreateGroup={onCreateGroup}
+            onDeleteGroup={onDeleteGroup}
+            onRenameGroup={onRenameGroup}
+            onReorderGroups={onReorderGroups}
+            onApplyPreset={onApplyPreset}
+          />
+        )}
         <SettingsMenu
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           rendererId={rendererId as any} layoutId={layoutId as any}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
-          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
+          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>

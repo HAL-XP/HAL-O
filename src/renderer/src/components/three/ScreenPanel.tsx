@@ -24,6 +24,8 @@ interface Props {
   onFiles: () => void
   runCmd?: string
   onRunApp?: () => void
+  screenOpacity?: number // 0-1, default 1 (opaque). Lower = more see-through
+  groupColor?: string    // override edge color with group color
 }
 
 const CYAN = '#00d4ff'
@@ -60,7 +62,9 @@ function activityBars(commitCount: number): number[] {
 export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
+  screenOpacity = 1, groupColor,
 }: Props) {
+  const edgeColor = groupColor || CYAN
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
@@ -111,7 +115,7 @@ export function ScreenPanel({
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
 
-      {/* Screen face — flat dark panel */}
+      {/* Screen face — flat dark panel with adjustable opacity */}
       <mesh>
         <planeGeometry args={[W, H]} />
         <meshStandardMaterial
@@ -121,6 +125,8 @@ export function ScreenPanel({
           emissive="#001520"
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
+          transparent={screenOpacity < 1}
+          opacity={screenOpacity}
         />
       </mesh>
 
@@ -130,7 +136,7 @@ export function ScreenPanel({
           <bufferAttribute attach="attributes-position" args={[framePoints, 3]} />
         </bufferGeometry>
         <lineBasicMaterial
-          color={CYAN}
+          color={edgeColor}
           toneMapped={false}
           linewidth={1}
         />
@@ -140,22 +146,22 @@ export function ScreenPanel({
       {/* Top */}
       <mesh position={[0, H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
       </mesh>
       {/* Bottom */}
       <mesh position={[0, -H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
       </mesh>
       {/* Left */}
       <mesh position={[-W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
       </mesh>
       {/* Right */}
       <mesh position={[W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={CYAN} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
       </mesh>
 
       {/* HTML content */}

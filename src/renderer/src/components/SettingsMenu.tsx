@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { VOICE_PROFILES, DOCK_POSITIONS, type VoiceProfileId, type DockPosition } from '../hooks/useSettings'
+import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 
 export const RENDERERS = [
@@ -63,6 +64,7 @@ interface Props {
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
+  screenOpacity: number
   rendererId: RendererId
   layoutId: LayoutId
   onHubFontSize: (size: number) => void
@@ -70,11 +72,13 @@ interface Props {
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
+  onScreenOpacityChange: (opacity: number) => void
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
+  demo?: DemoSettings
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onRendererChange, onLayoutChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -226,6 +230,22 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                   <option key={d.id} value={d.id}>{d.label}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="hal-settings-row">
+            <span className="hal-settings-label">SCREEN OPACITY</span>
+            <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={screenOpacity}
+                onChange={(e) => onScreenOpacityChange(parseFloat(e.target.value))}
+                style={{ flex: 1, accentColor: 'var(--primary)' }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
             </div>
           </div>
         </div>

@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { ProjectInfo } from '../types'
 import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
+import { useProjectGroups } from '../hooks/useProjectGroups'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
+import { GroupContextMenu } from './GroupContextMenu'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
 import { PbrHoloScene } from './three/PbrHoloScene'
@@ -18,11 +20,13 @@ interface Props {
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
+  screenOpacity: number
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
+  onScreenOpacityChange: (opacity: number) => void
   rendererId: string
   onRendererChange: (id: string) => void
   layoutId: string
@@ -41,7 +45,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -51,6 +55,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string } | null>(null)
+
+  // Project groups
+  const {
+    groups, assignments, getProjectGroup, assignProject,
+    createGroup, deleteGroup, renameGroup, reorderGroups, applyPreset,
+  } = useProjectGroups()
 
   useEffect(() => {
     window.api.scanProjects().then((p) => {
@@ -85,13 +96,26 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
-  const filtered = search
+  const filteredUnsorted = search
     ? projects.filter((p) =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.path.toLowerCase().includes(search.toLowerCase()) ||
         p.stack.toLowerCase().includes(search.toLowerCase())
       )
     : projects
+
+  // Sort by group (group order first, ungrouped last), then by lastModified within each group
+  const filtered = useMemo(() => {
+    if (groups.length === 0) return filteredUnsorted
+    const groupIdToOrder = new Map(groups.map((g, i) => [g.id, i]))
+    return [...filteredUnsorted].sort((a, b) => {
+      const ga = assignments[a.path] ? (groupIdToOrder.get(assignments[a.path]) ?? 999) : 1000
+      const gb = assignments[b.path] ? (groupIdToOrder.get(assignments[b.path]) ?? 999) : 1000
+      if (ga !== gb) return ga - gb
+      // Within same group, sort by lastModified descending (most recent first)
+      return (b.lastModified || 0) - (a.lastModified || 0)
+    })
+  }, [filteredUnsorted, groups, assignments])
 
   const isFullySetup = (p: ProjectInfo) => p.hasClaude && p.hasBatchFiles && p.hasClaudeDir
   const readyCount = projects.filter(isFullySetup).length
@@ -133,6 +157,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     const extSession = getExternalSession(project.path)
     const isAbsorbing = extSession && absorbingPid === extSession.pid
 
+    const projGroup = getProjectGroup(project.path)
+
     return (
       <div
         key={project.path}
@@ -140,8 +166,21 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         style={{ left: pos.left, top: pos.top, transform: pos.transform, transition: 'left 0.5s, top 0.5s, transform 0.5s' }}
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
+        onContextMenu={(e) => {
+          if (groups.length > 0) {
+            e.preventDefault()
+            setCtxMenu({ x: e.clientX, y: e.clientY, projectPath: project.path })
+          }
+        }}
       >
         <div className="hal-arc-header">
+          {projGroup && (
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: projGroup.color, display: 'inline-block',
+              boxShadow: `0 0 4px ${projGroup.color}`, flexShrink: 0,
+            }} />
+          )}
           <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
           <span className="hal-arc-name">{project.name}</span>
           {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
@@ -222,13 +261,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           halOnline={!!halSessionId}
           layoutId={layoutId}
           terminalCount={terminalCount}
+          groups={groups}
+          assignments={assignments}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
@@ -251,8 +293,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
