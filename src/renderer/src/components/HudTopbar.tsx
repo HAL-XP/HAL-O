@@ -46,6 +46,9 @@ interface HudTopbarProps {
   onRenameGroup?: (id: string, name: string) => void
   onReorderGroups?: (ids: string[]) => void
   onApplyPreset?: (preset: GroupPreset) => void
+  // Hidden projects
+  hiddenPaths?: string[]
+  onUnhide?: (path: string) => void
   demo?: DemoSettings
   onVoiceBlocked?: () => void
 }
@@ -57,6 +60,7 @@ export function HudTopbar({
   hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
+  hiddenPaths = [], onUnhide,
   demo,
   onVoiceBlocked,
 }: HudTopbarProps) {
@@ -125,6 +129,7 @@ export function HudTopbar({
           onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
           onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
+          hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>

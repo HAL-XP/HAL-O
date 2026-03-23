@@ -3083,3 +3083,43 @@ textarea.text-input {
   animation: fadeIn 0.3s ease;
   letter-spacing: 0.3px;
 }
+
+/* ── Project Context Menu ── */
+.project-context-menu {
+  animation: fadeIn 0.15s ease;
+}
+
+/* ── Hidden Projects List (Settings) ── */
+.hidden-projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0 2px;
+}
+
+.hidden-project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.hidden-project-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hidden-project-name {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}

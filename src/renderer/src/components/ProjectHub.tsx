@@ -5,7 +5,6 @@ import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
-import { GroupContextMenu } from './GroupContextMenu'
 import { ProjectContextMenu } from './ProjectContextMenu'
 import { PreviewGrid } from './PreviewGrid'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
@@ -324,6 +323,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
         />
       </div>
@@ -363,6 +363,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -404,6 +405,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
+          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
         />
 

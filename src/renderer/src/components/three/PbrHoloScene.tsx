@@ -570,9 +570,10 @@ interface Props {
   themeId?: string
   onCameraMove?: (distance: number, angle: number) => void
   blockedInput?: boolean
+  onProjectContextMenu?: (x: number, y: number, projectPath: string, projectName: string) => void
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -719,6 +720,10 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
               groupColor={projectGroupColors[i]}
               healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
               demoStats={project.demoStats}
+              onContextMenu={onProjectContextMenu ? (e: React.MouseEvent) => {
+                e.preventDefault()
+                onProjectContextMenu(e.clientX, e.clientY, project.path, project.name)
+              } : undefined}
             />
           )
         })}

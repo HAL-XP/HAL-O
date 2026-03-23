@@ -83,6 +83,8 @@ interface Props {
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
   onThreeThemeChange: (id: string) => void
+  hiddenPaths?: string[]
+  onUnhide?: (path: string) => void
   demo?: DemoSettings
 }
 
@@ -115,7 +117,7 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   }).catch(() => setPreviewing(null))
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -363,6 +365,37 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                 <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to defaults"
                   style={{ padding: '3px 10px', fontSize: 9, width: 'auto' }}>RESET</button>
               </div>
+            </>
+          )}
+
+          {/* HIDDEN PROJECTS section */}
+          {onUnhide && (
+            <>
+              <div className="hal-settings-divider" />
+              <div className="hal-settings-title" style={{ marginTop: 4 }}>HIDDEN PROJECTS</div>
+              {hiddenPaths.length === 0 ? (
+                <div className="hal-settings-row">
+                  <span className="hal-settings-label" style={{ color: 'var(--text-dim)' }}>(none)</span>
+                </div>
+              ) : (
+                <div className="hidden-projects-list">
+                  {hiddenPaths.map((p) => {
+                    const name = p.split(/[/\\]/).pop() || p
+                    return (
+                      <div key={p} className="hidden-project-item">
+                        <span className="hidden-project-name" title={p}>{name}</span>
+                        <button
+                          className="hal-settings-preview-btn"
+                          onClick={() => onUnhide(p)}
+                          style={{ padding: '2px 8px', fontSize: 8, width: 'auto', color: '#4ade80', borderColor: '#4ade8055' }}
+                        >
+                          RESTORE
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </>
           )}
 

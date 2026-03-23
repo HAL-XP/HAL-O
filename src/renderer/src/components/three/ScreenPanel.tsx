@@ -32,6 +32,7 @@ interface Props {
   healthStatus?: HealthStatus // visual health indicator — changes edge glow color
   healthText?: string // status text shown in scrolling background layer (e.g. "SYNC OK", "3 BEHIND")
   demoStats?: ProjectStats // pre-baked stats for demo projects (bypasses IPC getProjectStats)
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
 // Health-based edge glow colors
@@ -89,7 +90,7 @@ export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
-  demoStats,
+  demoStats, onContextMenu,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -262,7 +263,7 @@ export function ScreenPanel({
         onPointerOver={() => onHover(true)}
         onPointerOut={() => onHover(false)}
       >
-        <div ref={htmlWrapRef} style={{
+        <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
           fontFamily: "'Cascadia Code', 'Fira Code', monospace",
           color: '#c8dce8',
           transition: 'opacity 0.3s ease',
