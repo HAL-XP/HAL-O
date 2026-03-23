@@ -155,15 +155,13 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
         ;(controls as any).target.copy(originalTargetRef.current)
       }
 
-      // Fade out trail
+      // Fade out trail then hide (but keep mounted for re-trigger)
       setTimeout(() => setVisible(false), 2000)
     }
   })
 
-  if (!visible) return null
-
   return (
-    <group>
+    <group visible={visible}>
       {/* Ship group */}
       <group ref={shipGroupRef} scale={1.2}>
         {/* Hull — elongated cone */}
