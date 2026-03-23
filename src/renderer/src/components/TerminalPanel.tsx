@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { selectVoiceProfile } from '../utils/selectVoiceProfile'
+import { playWithAnalyser } from '../utils/audioAnalyser'
 import type { VoiceProfileId } from '../hooks/useSettings'
 import '@xterm/xterm/css/xterm.css'
 
@@ -19,32 +20,6 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '')
 }
 
-// Play audio through Web Audio API with analyser for sphere animation
-function playWithAnalyser(url: string) {
-  const audio = new Audio(url)
-  const ctx = new AudioContext()
-  const source = ctx.createMediaElementSource(audio)
-  const analyser = ctx.createAnalyser()
-  analyser.fftSize = 256
-
-  source.connect(analyser)
-  analyser.connect(ctx.destination)
-
-  // Expose analyser globally so HalSphere can read it
-  ;(window as any).__halAudioAnalyser = analyser
-  ;(window as any).__halSpeaking = true
-
-  audio.onended = () => {
-    ;(window as any).__halSpeaking = false
-    ;(window as any).__halAudioAnalyser = null
-    ctx.close()
-  }
-  audio.onerror = () => {
-    ;(window as any).__halSpeaking = false
-    ;(window as any).__halAudioAnalyser = null
-  }
-  audio.play().catch(() => {})
-}
 
 export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)

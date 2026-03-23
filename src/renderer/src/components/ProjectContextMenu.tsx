@@ -8,6 +8,10 @@ interface Props {
   projectName: string
   onHide: (path: string) => void
   onConfigure: (path: string) => void
+  rulesOutdated?: boolean
+  // Favorite toggle
+  isFavorite?: boolean
+  onToggleFavorite?: (path: string) => void
   // Group assignment (optional — only shown when groups exist)
   groups?: ProjectGroup[]
   currentGroupId?: string
@@ -17,7 +21,8 @@ interface Props {
 
 export function ProjectContextMenu({
   x, y, projectPath, projectName,
-  onHide, onConfigure,
+  onHide, onConfigure, rulesOutdated,
+  isFavorite = false, onToggleFavorite,
   groups = [], currentGroupId, onAssignGroup,
   onClose,
 }: Props) {
@@ -92,6 +97,19 @@ export function ProjectContextMenu({
         {projectName.toUpperCase()}
       </div>
 
+      {/* Favorite toggle */}
+      {onToggleFavorite && (
+        <button
+          onClick={() => { onToggleFavorite(projectPath); onClose() }}
+          style={{ ...itemStyle, color: isFavorite ? '#fbbf24' : 'var(--text-secondary)' }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <span style={{ fontSize: '11px', color: isFavorite ? '#fbbf24' : 'var(--text-secondary)' }}>&#x2605;</span>
+          {isFavorite ? 'UNFAVORITE' : 'FAVORITE'}
+        </button>
+      )}
+
       {/* Hide from hub */}
       <button
         onClick={() => { onHide(projectPath); onClose() }}
@@ -113,6 +131,19 @@ export function ProjectContextMenu({
         <span style={{ fontSize: '10px' }}>&#x2699;</span>
         CONFIGURE HAL-O FEATURES...
       </button>
+
+      {/* Update HAL-O rules — shown only when outdated */}
+      {rulesOutdated && (
+        <button
+          onClick={() => { onConfigure(projectPath); onClose() }}
+          style={{ ...itemStyle, color: '#fb923c' }}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <span style={{ fontSize: '8px', color: '#fb923c' }}>&#x25B2;</span>
+          UPDATE HAL-O RULES
+        </button>
+      )}
 
       {/* Group assignment submenu */}
       {groups.length > 0 && onAssignGroup && (

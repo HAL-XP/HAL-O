@@ -33,10 +33,10 @@ interface HudTopbarProps {
   onScreenOpacityChange: (opacity: number) => void
   particleDensity: number
   onParticleDensityChange: (v: number) => void
+  renderQuality: number
+  onRenderQualityChange: (v: number) => void
   camera: CameraSettings
-  cameraTweaking: boolean
   onCameraChange: (cam: CameraSettings) => void
-  onCameraTweakingChange: (on: boolean) => void
   onCameraReset: () => void
   onRendererChange: (id: string) => void
   onLayoutChange: (id: string) => void
@@ -48,6 +48,8 @@ interface HudTopbarProps {
   onRenameGroup?: (id: string, name: string) => void
   onReorderGroups?: (ids: string[]) => void
   onApplyPreset?: (preset: GroupPreset) => void
+  shipVfxEnabled?: boolean
+  onShipVfxEnabledChange?: (enabled: boolean) => void
   // Hidden projects
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
@@ -59,8 +61,9 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
-  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
+  shipVfxEnabled = true, onShipVfxEnabledChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   hiddenPaths = [], onUnhide,
   demo,
@@ -126,18 +129,20 @@ export function HudTopbar({
         <SettingsMenu
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          camera={camera} cameraTweaking={cameraTweaking}
+          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+          camera={camera}
           rendererId={rendererId as any} layoutId={layoutId as any} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
           onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
+          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
         />
-        <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
-        <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
-        <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{pendingCount}</span> PENDING</span>
+        <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span><span className="hal-stat-label"> OPS</span></span>
+        <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span><span className="hal-stat-label"> READY</span></span>
+        <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{pendingCount}</span><span className="hal-stat-label"> PENDING</span></span>
       </div>
     </div>
   )

@@ -3,6 +3,8 @@ import type { ProjectInfo } from '../types'
 import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
+import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
+import { useSceneReady } from '../hooks/useSceneReady'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { ProjectContextMenu } from './ProjectContextMenu'
@@ -34,10 +36,10 @@ interface Props {
   onScreenOpacityChange: (opacity: number) => void
   particleDensity: number
   onParticleDensityChange: (v: number) => void
+  renderQuality: number
+  onRenderQualityChange: (v: number) => void
   camera: CameraSettings
-  cameraTweaking: boolean
   onCameraChange: (cam: CameraSettings) => void
-  onCameraTweakingChange: (on: boolean) => void
   onCameraReset: () => void
   onCameraMove?: (distance: number, angle: number) => void
   rendererId: string
@@ -46,6 +48,8 @@ interface Props {
   onLayoutChange: (id: string) => void
   threeTheme: string
   onThreeThemeChange: (id: string) => void
+  shipVfxEnabled?: boolean
+  onShipVfxEnabledChange?: (enabled: boolean) => void
   halSessionId?: string | null
   terminalCount?: number
   demo?: DemoSettings
@@ -61,20 +65,36 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
+  const [showPerf, setShowPerf] = useState(false)
+
+  // F2 toggles perf overlay
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'F2') setShowPerf(p => !p) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
   const containerRef = useRef<HTMLDivElement>(null)
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string; projectName: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string; projectName: string; rulesOutdated?: boolean } | null>(null)
   const [preview2d, setPreview2d] = useState(false)
   const [voiceBlocked, setVoiceBlocked] = useState(false)
   const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Scene loading overlay — staged reveal
+  const { ready: sceneReady, dismissed: sceneDismissed, onSceneReady, reset: resetSceneReady } = useSceneReady()
+
+  // Reset overlay when renderer changes
+  useEffect(() => {
+    resetSceneReady()
+  }, [rendererId, resetSceneReady])
 
   // Flash sphere briefly when voice input is blocked (no valid target)
   const handleVoiceBlocked = useCallback(() => {
@@ -99,9 +119,27 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Hidden projects
   const { hiddenPaths, hideProject, unhideProject, isHidden } = useHiddenProjects()
 
+  // Favorite projects
+  const { toggleFavorite, isFavorite } = useFavoriteProjects()
+
   useEffect(() => {
     if (demo?.enabled) {
-      setProjects(DEMO_PROJECTS.slice(0, demo.cardCount))
+      const count = demo.cardCount
+      if (count <= DEMO_PROJECTS.length) {
+        setProjects(DEMO_PROJECTS.slice(0, count))
+      } else {
+        // Duplicate demo projects to reach requested count
+        const expanded: ProjectInfo[] = []
+        for (let i = 0; i < count; i++) {
+          const src = DEMO_PROJECTS[i % DEMO_PROJECTS.length]
+          expanded.push(i < DEMO_PROJECTS.length ? src : {
+            ...src,
+            name: `${src.name} ${Math.floor(i / DEMO_PROJECTS.length) + 1}`,
+            path: `${src.path}-dup-${i}`,
+          })
+        }
+        setProjects(expanded)
+      }
       setLoading(false)
       return
     }
@@ -153,19 +191,32 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       )
     : visibleProjects
 
-  // Sort by group (group order first, ungrouped last), then by lastModified within each group
-  // In demo mode, skip group sorting — demo projects have no real group assignments
+  // Sort by group (group order first, ungrouped last), then favorites first within group,
+  // then by lastModified within each group.
+  // In demo mode, skip group/favorite sorting — demo projects are synthetic.
   const filtered = useMemo(() => {
-    if (demo?.enabled || groups.length === 0) return filteredUnsorted
+    if (demo?.enabled) return filteredUnsorted
+    if (groups.length === 0) {
+      // No groups — just float favorites to the top, then by lastModified
+      return [...filteredUnsorted].sort((a, b) => {
+        const fa = isFavorite(a.path) ? 0 : 1
+        const fb = isFavorite(b.path) ? 0 : 1
+        if (fa !== fb) return fa - fb
+        return (b.lastModified || 0) - (a.lastModified || 0)
+      })
+    }
     const groupIdToOrder = new Map(groups.map((g, i) => [g.id, i]))
     return [...filteredUnsorted].sort((a, b) => {
       const ga = assignments[a.path] ? (groupIdToOrder.get(assignments[a.path]) ?? 999) : 1000
       const gb = assignments[b.path] ? (groupIdToOrder.get(assignments[b.path]) ?? 999) : 1000
       if (ga !== gb) return ga - gb
-      // Within same group, sort by lastModified descending (most recent first)
+      // Within same group: favorites first, then by lastModified descending
+      const fa = isFavorite(a.path) ? 0 : 1
+      const fb = isFavorite(b.path) ? 0 : 1
+      if (fa !== fb) return fa - fb
       return (b.lastModified || 0) - (a.lastModified || 0)
     })
-  }, [filteredUnsorted, groups, assignments, demo?.enabled])
+  }, [filteredUnsorted, groups, assignments, isFavorite, demo?.enabled])
 
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
   const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
@@ -221,7 +272,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onContextMenu={(e) => {
           {
             e.preventDefault()
-            setCtxMenu({ x: e.clientX, y: e.clientY, projectPath: project.path, projectName: project.name })
+            setCtxMenu({ x: e.clientX, y: e.clientY, projectPath: project.path, projectName: project.name, rulesOutdated: project.rulesOutdated })
           }
         }}
       >
@@ -235,13 +286,19 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           )}
           <span className={`hal-dot ${isBare ? 'dim' : ready ? 'green' : 'amber'}`} />
           <span className="hal-arc-name" title={project.name}>{project.name}</span>
+          {isFavorite(project.path) && (
+            <span className="favorite-star" title="Favorite">&#x2605;</span>
+          )}
           {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
           {extSession && <span className="hal-external-badge">EXT</span>}
+          {project.rulesOutdated && (
+            <span className="hal-update-badge" title="HAL-O rules update available — right-click to update">UPDATE</span>
+          )}
         </div>
         {isHovered && (
           <div className="hal-arc-actions">
             {demo?.enabled ? (
-              <span style={{ fontSize: 8, letterSpacing: 2, color: '#22d3ee', opacity: 0.6 }}>DEMO PROJECT</span>
+              <span style={{ fontSize: 'calc(var(--hub-font, 10px) - 2px)', letterSpacing: 2, color: '#22d3ee', opacity: 0.6 }}>DEMO PROJECT</span>
             ) : (
               <>
                 {extSession && (
@@ -325,11 +382,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          camera={camera} cameraTweaking={cameraTweaking}
+          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+          camera={camera}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -360,19 +419,31 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           blockedInput={voiceBlocked}
           screenOpacity={screenOpacity}
           particleDensity={particleDensity}
-          onProjectContextMenu={(x, y, path, name) => setCtxMenu({ x, y, projectPath: path, projectName: name })}
+          renderQuality={renderQuality}
+          onProjectContextMenu={(x, y, path, name, rulesOutdated) => setCtxMenu({ x, y, projectPath: path, projectName: name, rulesOutdated })}
+          isFavorite={isFavorite}
+          showPerf={showPerf}
+          onSceneReady={onSceneReady}
+          shipVfxEnabled={shipVfxEnabled}
         />
+        {!sceneDismissed && (
+          <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
+            <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+          </div>
+        )}
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          camera={camera} cameraTweaking={cameraTweaking}
+          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+          camera={camera}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -384,6 +455,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             x={ctxMenu.x} y={ctxMenu.y}
             projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
             onHide={hideProject} onConfigure={onConvertProject}
+            rulesOutdated={ctxMenu.rulesOutdated}
+            isFavorite={isFavorite(ctxMenu.projectPath)}
+            onToggleFavorite={toggleFavorite}
             groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
             onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
             onClose={() => setCtxMenu(null)}
@@ -404,7 +478,15 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenTerminal={onOpenTerminal}
           layoutId={layoutId}
           screenOpacity={screenOpacity}
+          renderQuality={renderQuality}
+          showPerf={showPerf}
+          onSceneReady={onSceneReady}
         />
+        {!sceneDismissed && (
+          <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
+            <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+          </div>
+        )}
 
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
@@ -412,11 +494,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          camera={camera} cameraTweaking={cameraTweaking}
+          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+          camera={camera}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -429,6 +513,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             x={ctxMenu.x} y={ctxMenu.y}
             projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
             onHide={hideProject} onConfigure={onConvertProject}
+            rulesOutdated={ctxMenu.rulesOutdated}
+            isFavorite={isFavorite(ctxMenu.projectPath)}
+            onToggleFavorite={toggleFavorite}
             groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
             onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
             onClose={() => setCtxMenu(null)}
@@ -441,7 +528,12 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Classic renderer — CSS cards + Three.js background
   return (
     <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
-      <SceneRoot projectCount={visibleProjects.length} listening={isListening && voiceFocus === 'hub'} />
+      <SceneRoot projectCount={visibleProjects.length} listening={isListening && voiceFocus === 'hub'} showPerf={showPerf} onSceneReady={onSceneReady} renderQuality={renderQuality} />
+      {!sceneDismissed && (
+        <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
+          <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+        </div>
+      )}
 
       {/* SVG connection lines */}
       <svg className="hal-connections" viewBox={`0 0 ${dims.w} ${dims.h}`}>
@@ -460,10 +552,12 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
         projectCount={projects.length} readyCount={readyCount}
         hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-        camera={camera} cameraTweaking={cameraTweaking}
+        particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
+        renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+        camera={camera}
         rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
         onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-        onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+        onCameraChange={onCameraChange} onCameraReset={onCameraReset}
         onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
@@ -494,6 +588,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectName={ctxMenu.projectName}
           onHide={hideProject}
           onConfigure={onConvertProject}
+          rulesOutdated={ctxMenu.rulesOutdated}
+          isFavorite={isFavorite(ctxMenu.projectPath)}
+          onToggleFavorite={toggleFavorite}
           groups={groups}
           currentGroupId={assignments[ctxMenu.projectPath]}
           onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}

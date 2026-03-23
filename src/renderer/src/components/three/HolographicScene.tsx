@@ -10,6 +10,23 @@ import { ScreenPanel } from './ScreenPanel'
 import type { ProjectInfo } from '../../types'
 import { LAYOUT_3D_FNS } from '../../layouts3d'
 import { ThreeThemeProvider } from '../../contexts/ThreeThemeContext'
+import { Perf } from 'r3f-perf'
+
+function PerfStatsExporter() {
+  const { gl } = useThree()
+  const init = useRef(false)
+  useEffect(() => { gl.info.autoReset = false; init.current = true; return () => { gl.info.autoReset = true } }, [gl])
+  useFrame(() => {
+    if (!init.current) return
+    ;(window as any).__haloPerfStats = {
+      drawCalls: gl.info.render.calls, triangles: gl.info.render.triangles,
+      geometries: gl.info.memory.geometries, textures: gl.info.memory.textures,
+      programs: gl.info.programs?.length ?? 0, timestamp: Date.now(),
+    }
+    gl.info.reset()
+  })
+  return null
+}
 
 // ── Holographic colors (cyan, not green) ──
 const CYAN = '#00d4ff'
@@ -199,9 +216,15 @@ function PostProcessing() {
   // Delay one frame so the WebGL context is fully initialized after Canvas remount
   useEffect(() => { setReady(true) }, [])
 
+  // Derive a stable key from the gl context so EffectComposer remounts
+  // when the underlying WebGL context is replaced (stale context = crash).
+  const glKey = useMemo(() => {
+    try { return (gl?.getContext?.() as any)?.getParameter?.(0x1F02) ?? 0 } catch { return 0 }
+  }, [gl])
+
   if (!ready || !gl?.domElement) return null
   return (
-    <EffectComposer>
+    <EffectComposer key={glKey}>
       <Bloom luminanceThreshold={0.1} luminanceSmoothing={0.8} intensity={3.5} radius={0.95} mipmapBlur />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={0.65} offset={0.3} />
@@ -211,6 +234,21 @@ function PostProcessing() {
 
 // ── Main Scene ──
 
+// ── Minimal Scene Ready Gate — counts frames then signals ready ──
+function HoloSceneReadyGate({ onReady }: { onReady: () => void }) {
+  const frameCount = useRef(0)
+  const signaled = useRef(false)
+  useFrame(() => {
+    if (signaled.current) return
+    frameCount.current++
+    if (frameCount.current >= 3) {
+      signaled.current = true
+      onReady()
+    }
+  })
+  return null
+}
+
 interface Props {
   projects: ProjectInfo[]
   listening: boolean
@@ -218,9 +256,12 @@ interface Props {
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
   layoutId?: string
   screenOpacity?: number
+  renderQuality?: number
+  showPerf?: boolean
+  onSceneReady?: () => void
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1 }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -239,10 +280,12 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
       camera={{ position: [0, 5, camZ], fov: 55, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      dpr={[1, 2]}
+      dpr={renderQuality ?? Math.min(window.devicePixelRatio, 2)}
     >
       <color attach="background" args={['#010104']} />
       <ThreeThemeProvider styleId="tactical" accentHex="#00d4ff">
+      {showPerf && <Perf position="top-left" deepAnalyze />}
+      <PerfStatsExporter />
       <ambientLight intensity={0.02} />
 
       <Starfield />
@@ -316,6 +359,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       />
 
       <PostProcessing />
+      {onSceneReady && <HoloSceneReadyGate onReady={onSceneReady} />}
       </ThreeThemeProvider>
     </Canvas>
   )

@@ -9,6 +9,11 @@ export const PHASES: Phase[] = [
   { id: 'extras', label: 'Extras', icon: '5' },
 ]
 
+/** Returns true when the user chose Quick Create mode (W5) */
+export function isQuickCreate(answers: Answers): boolean {
+  return answers['wizard-mode']?.value === 'quick'
+}
+
 function hasFrontend(answers: Answers): boolean {
   const stack = answers['tech-stack']?.value as string || ''
   const label = answers['tech-stack']?.label?.toLowerCase() || ''
@@ -33,6 +38,27 @@ function hasTypeScript(answers: Answers): boolean {
 }
 
 export const STEPS: StepDef[] = [
+  // ── Phase: Basics — Wizard mode selector (W5) ──
+  {
+    id: 'wizard-mode',
+    phase: 'basics',
+    question: 'How would you like to create the project?',
+    type: 'choice',
+    choices: [
+      {
+        id: 'full',
+        label: 'Full wizard',
+        icon: '☰',
+        description: '5-phase guided setup — stack, GitHub, Claude, extras',
+      },
+      {
+        id: 'quick',
+        label: 'Quick create',
+        icon: '⚡',
+        description: 'Name + auto-detect stack → create immediately with smart defaults',
+      },
+    ],
+  },
   // ── Phase: Basics ──
   {
     id: 'project-name',
@@ -78,7 +104,7 @@ export const STEPS: StepDef[] = [
   {
     id: 'stack-analysis',
     phase: 'stack',
-    question: 'Let me analyze your project...',
+    question: 'Let me analyze your project... *(uses ~1 API call)*',
     type: 'analysis' as StepType,
   },
   // Fallback manual steps (only shown if user clicks "Let me adjust" or analysis fails)
@@ -151,6 +177,8 @@ export const STEPS: StepDef[] = [
     phase: 'github',
     question: 'Create a GitHub repository?',
     type: 'choice',
+    // Skip in quick-create mode (W5)
+    condition: (a) => !isQuickCreate(a),
     choices: [
       { id: 'yes', label: 'Yes, create now', description: 'Creates repo on GitHub via gh CLI' },
       { id: 'no', label: 'No, just git init locally', description: 'Initialize git locally, push later' },
@@ -161,7 +189,7 @@ export const STEPS: StepDef[] = [
     phase: 'github',
     question: 'Under which account?',
     type: 'choice',
-    condition: (a) => a['github-create']?.value === 'yes',
+    condition: (a) => !isQuickCreate(a) && a['github-create']?.value === 'yes',
     choices: (answers) => {
       // Populated dynamically from _gh_user and _gh_orgs injected at app start
       const user = answers['_gh_user']?.value as string || ''
@@ -182,7 +210,7 @@ export const STEPS: StepDef[] = [
     phase: 'github',
     question: 'Repository visibility?',
     type: 'choice',
-    condition: (a) => a['github-create']?.value === 'yes',
+    condition: (a) => !isQuickCreate(a) && a['github-create']?.value === 'yes',
     choices: [
       { id: 'private', label: 'Private' },
       { id: 'public', label: 'Public' },
@@ -193,8 +221,10 @@ export const STEPS: StepDef[] = [
   {
     id: 'claude-md',
     phase: 'claude',
-    question: 'Set up **CLAUDE.md** with best practices from your tips repo?',
+    question: 'Set up **CLAUDE.md** with best practices from your tips repo? *(zero token cost)*',
     type: 'choice',
+    // Skip in quick-create mode — defaults to 'full' (W5)
+    condition: (a) => !isQuickCreate(a),
     choices: [
       { id: 'full', label: 'Yes, full setup', description: 'Session protocol, conventions, what NOT to do' },
       { id: 'minimal', label: 'Minimal', description: 'Just project overview + stack' },
@@ -209,9 +239,11 @@ export const STEPS: StepDef[] = [
       if (hasTypeScript(answers)) parts.push('TypeScript type-check after edits')
       if (hasPython(answers)) parts.push('pycache clearing after Python edits')
       const extra = parts.length ? `\n\nBased on your stack, I can also add: ${parts.join(', ')}` : ''
-      return `Which **hooks** should I configure?${extra}`
+      return `Which **hooks** should I configure? *(zero token cost)*${extra}`
     },
     type: 'multi-select',
+    // Skip in quick-create mode — smart defaults applied automatically (W5)
+    condition: (a) => !isQuickCreate(a),
     choices: (answers) => {
       const choices = [
         { id: 'session-start', label: 'SessionStart health check', description: 'Git status + ACTION line on startup' },
@@ -236,8 +268,10 @@ export const STEPS: StepDef[] = [
   {
     id: 'rules-setup',
     phase: 'claude',
-    question: 'Which **.claude/rules/** files should I create?',
+    question: 'Which **.claude/rules/** files should I create? *(zero token cost)*',
     type: 'multi-select',
+    // Skip in quick-create mode — smart defaults applied automatically (W5)
+    condition: (a) => !isQuickCreate(a),
     choices: (answers) => {
       const choices: { id: string; label: string; description?: string }[] = []
       if (hasFrontend(answers)) {
@@ -266,6 +300,9 @@ export const STEPS: StepDef[] = [
       if (/mobile|react-native|expo/i.test(stack)) {
         choices.push({ id: 'mobile', label: 'mobile.md', description: 'Mobile app conventions' })
       }
+      if (hasFrontend(answers) || /three|3d|game|canvas|webgl/i.test(stack)) {
+        choices.push({ id: 'profiling', label: 'profiling.md', description: 'Performance profiling guidelines and baseline protocol' })
+      }
       choices.push({ id: 'banned-techniques', label: 'banned-techniques.md', description: 'Dead ends log — never retry these' })
       return choices
     },
@@ -280,13 +317,14 @@ export const STEPS: StepDef[] = [
   {
     id: 'devlog',
     phase: 'claude',
-    question: 'Set up **`_devlog/`** folder?\n\nA top-level folder for daily summaries, hours tracking, architecture decisions, and experiment logs.',
+    question: 'Set up **`_devlog/`** folder? *(zero token cost)*\n\nA top-level folder for daily summaries, hours tracking, architecture decisions, and experiment logs.',
     type: 'multi-select',
     choices: [
       { id: 'summaries', label: 'summaries/', description: 'Daily session summaries (summary_YYYYMMDD.md)' },
       { id: 'hours', label: 'hours/', description: 'Human-equivalent hours tracking (hours_YYYYMMDD.md)' },
       { id: 'decisions', label: 'decisions/', description: 'Architecture decision records' },
       { id: 'experiments', label: 'experiments/', description: 'Trial/spike results before adopt or kill' },
+      { id: 'perf', label: 'perf/', description: 'Performance baselines — FPS, draw calls, GPU ms (perf_YYYYMMDD.md)' },
     ],
     defaultValue: ['summaries', 'hours', 'decisions', 'experiments'],
     allowSkip: true,
@@ -299,6 +337,8 @@ export const STEPS: StepDef[] = [
     phase: 'extras',
     question: 'Which extras should I set up?',
     type: 'multi-select',
+    // Skip in quick-create mode — smart defaults applied automatically (W5)
+    condition: (a) => !isQuickCreate(a),
     choices: (answers) => {
       const stack = answers['tech-stack']?.value as string || ''
       const profile = getProfile(stack)

@@ -33,19 +33,60 @@ jobs:
       - name: Download Electron binary (skipped by --ignore-scripts)
         run: node node_modules/electron/install.js
 
+      - name: Install Playwright Chromium (required by @playwright/test runner)
+        run: npx playwright install chromium
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
       - name: Build with electron-vite
         run: npx electron-vite build
 
       - name: Install Electron system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1
+          sudo apt-get install -y \
+            xvfb \
+            libgtk-3-0 \
+            libnss3 \
+            libgbm1 \
+            libasound2t64 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libxshmfence1 \
+            libxss1
 
-      # wizard-flow.spec.ts requires interactive app timing — run locally only
       - name: Run E2E smoke tests
-        run: xvfb-run --auto-servernum npx playwright test e2e/smoke.spec.ts
+        run: xvfb-run --auto-servernum npx playwright test e2e/smoke.spec.ts e2e/setup-fresh.spec.ts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Run E2E wizard-flow tests
+        run: xvfb-run --auto-servernum npx playwright test e2e/wizard-flow.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Run E2E voice-preview tests
+        # voice-preview verifies IPC contract but TTS binaries absent on CI — allowed to fail
+        run: xvfb-run --auto-servernum npx playwright test e2e/voice-preview.spec.ts
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
 
       - name: Upload test screenshots
         if: always()
@@ -83,14 +124,43 @@ jobs:
       - name: Download Electron binary (skipped by --ignore-scripts)
         run: node node_modules/electron/install.js
 
+      - name: Install Playwright Chromium (required by @playwright/test runner)
+        run: npx playwright install chromium
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+
       - name: Build with electron-vite
         run: npx electron-vite build
 
-      # wizard-flow.spec.ts requires interactive app timing — run locally only
       - name: Run E2E smoke tests
-        run: npx playwright test e2e/smoke.spec.ts
+        run: npx playwright test e2e/smoke.spec.ts e2e/setup-fresh.spec.ts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Run E2E wizard-flow tests
+        run: npx playwright test e2e/wizard-flow.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Run E2E voice-preview tests
+        # voice-preview verifies IPC contract but TTS binaries absent on CI — allowed to fail
+        run: npx playwright test e2e/voice-preview.spec.ts
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
 
       - name: Upload test screenshots
         if: always()

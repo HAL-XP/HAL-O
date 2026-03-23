@@ -33,6 +33,8 @@ interface Props {
   healthText?: string // status text shown in scrolling background layer (e.g. "SYNC OK", "3 BEHIND")
   demoStats?: ProjectStats // pre-baked stats for demo projects (bypasses IPC getProjectStats)
   onContextMenu?: (e: React.MouseEvent) => void
+  rulesOutdated?: boolean // show UPDATE badge when rules version is behind
+  isFavorite?: boolean // show gold star indicator on favorited projects
 }
 
 // Health-based edge glow colors
@@ -55,6 +57,19 @@ const HEALTH_EDGE_OPACITY: Record<HealthStatus, number> = {
 const _targetScale = new THREE.Vector3()
 const _screenNormal = new THREE.Vector3()
 const _toCamera = new THREE.Vector3()
+
+// Shared geometries — created once, reused across all ScreenPanel instances (PERF2)
+const PANEL_W = 2.8
+const PANEL_H = 1.8
+const _sharedFaceGeo = new THREE.PlaneGeometry(PANEL_W, PANEL_H)
+const _sharedEdgeHGeo = new THREE.PlaneGeometry(PANEL_W, 0.02)
+const _sharedEdgeVGeo = new THREE.PlaneGeometry(0.02, PANEL_H)
+const _sharedFramePositions = new Float32Array([
+  -PANEL_W / 2, -PANEL_H / 2, 0,  PANEL_W / 2, -PANEL_H / 2, 0,
+  PANEL_W / 2, PANEL_H / 2, 0,  -PANEL_W / 2, PANEL_H / 2, 0,
+])
+const _sharedFrameGeo = new THREE.BufferGeometry()
+_sharedFrameGeo.setAttribute('position', new THREE.BufferAttribute(_sharedFramePositions, 3))
 
 // Format epoch timestamp into relative "time ago" string
 function timeAgo(epoch: number): string {
@@ -90,7 +105,7 @@ export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
-  demoStats, onContextMenu,
+  demoStats, onContextMenu, rulesOutdated = false, isFavorite = false,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -165,33 +180,36 @@ export function ScreenPanel({
     return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)},`
   }, [theme.accent])
 
-  const W = 2.8
-  const H = 1.8
+  const W = PANEL_W
+  const H = PANEL_H
 
-  // Edge frame as a single line loop — clean from any angle
-  const framePoints = useMemo(() => {
-    const hw = W / 2, hh = H / 2
-    return new Float32Array([
-      -hw, -hh, 0,  hw, -hh, 0,  hw, hh, 0,  -hw, hh, 0,
-    ])
-  }, [])
+  const edgeMeshRefs = useRef<THREE.Mesh[]>([])
+
+  const wasFrontRef = useRef(false)
 
   useFrame(() => {
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
-      // Hide Html for back-facing screens via DOM opacity
+      // Back-face detection — only update DOM/visibility when state CHANGES (avoids per-frame DOM writes)
       _screenNormal.set(0, 0, 1)
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = _screenNormal.dot(_toCamera)
-      const isFront = dot > 0
-      if (htmlWrapRef.current) {
-        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
-        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
+      const isFront = dot > -0.1
+
+      if (isFront !== wasFrontRef.current) {
+        wasFrontRef.current = isFront
+        // Update edge glow visibility
+        for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
+        // Update Html overlay — only on change, not every frame
+        if (htmlWrapRef.current) {
+          htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+          htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
+        }
       }
-      // Trigger stats load once the panel faces the camera
+      // Trigger stats load once (never re-triggers)
       if (isFront && !visible) setVisible(true)
     }
   })
@@ -199,9 +217,8 @@ export function ScreenPanel({
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
 
-      {/* Screen face — flat dark panel with adjustable opacity */}
-      <mesh>
-        <planeGeometry args={[W, H]} />
+      {/* Screen face — shared geometry (PERF2) */}
+      <mesh geometry={_sharedFaceGeo}>
         <meshStandardMaterial
           color={theme.screenFaceHex}
           metalness={0.3}
@@ -214,11 +231,8 @@ export function ScreenPanel({
         />
       </mesh>
 
-      {/* Frame edge — single line loop, always clean */}
-      <lineLoop>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[framePoints, 3]} />
-        </bufferGeometry>
+      {/* Frame edge — shared geometry (PERF2), hidden when back-facing (PERF1) */}
+      <lineLoop geometry={_sharedFrameGeo}>
         <lineBasicMaterial
           color={edgeColor}
           toneMapped={false}
@@ -226,25 +240,17 @@ export function ScreenPanel({
         />
       </lineLoop>
 
-      {/* Emissive edge glow planes — thin strips on each edge for bloom */}
-      {/* Top */}
-      <mesh position={[0, H / 2, 0.001]}>
-        <planeGeometry args={[W, 0.02]} />
+      {/* Emissive edge glow — shared geometries (PERF2), hidden when back-facing (PERF1) */}
+      <mesh position={[0, H / 2, 0.001]} geometry={_sharedEdgeHGeo} ref={(el) => { if (el) edgeMeshRefs.current[0] = el }}>
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
-      {/* Bottom */}
-      <mesh position={[0, -H / 2, 0.001]}>
-        <planeGeometry args={[W, 0.02]} />
+      <mesh position={[0, -H / 2, 0.001]} geometry={_sharedEdgeHGeo} ref={(el) => { if (el) edgeMeshRefs.current[1] = el }}>
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
-      {/* Left */}
-      <mesh position={[-W / 2, 0, 0.001]}>
-        <planeGeometry args={[0.02, H]} />
+      <mesh position={[-W / 2, 0, 0.001]} geometry={_sharedEdgeVGeo} ref={(el) => { if (el) edgeMeshRefs.current[2] = el }}>
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
-      {/* Right */}
-      <mesh position={[W / 2, 0, 0.001]}>
-        <planeGeometry args={[0.02, H]} />
+      <mesh position={[W / 2, 0, 0.001]} geometry={_sharedEdgeVGeo} ref={(el) => { if (el) edgeMeshRefs.current[3] = el }}>
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
 
@@ -313,6 +319,21 @@ export function ScreenPanel({
             <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase' }}>
               {projectName}
             </span>
+            {rulesOutdated && (
+              <span style={{
+                fontSize: '7px', letterSpacing: '1px', color: '#fb923c',
+                background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
+                padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
+              }} title="HAL-O rules update available">
+                UPDATE
+              </span>
+            )}
+            {isFavorite && (
+              <span className="favorite-star" title="Favorite" style={{
+                fontSize: '10px', color: '#fbbf24', flexShrink: 0, lineHeight: 1,
+                textShadow: '0 0 6px rgba(251,191,36,0.6)',
+              }}>&#x2605;</span>
+            )}
           </div>
 
           {stack && (

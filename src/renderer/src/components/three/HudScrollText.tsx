@@ -49,10 +49,12 @@ function ScrollStrip({
   xPos,
   direction,
   lineCount = 40,
+  opacity = 0.14,
 }: {
   xPos: number
   direction: 1 | -1
   lineCount?: number
+  opacity?: number
 }) {
   const theme = useThreeTheme()
   const meshRef = useRef<THREE.Mesh>(null)
@@ -101,6 +103,7 @@ function ScrollStrip({
   useFrame((state) => {
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = state.clock.elapsedTime
+      matRef.current.uniforms.uOpacity.value = opacity
     }
   })
 
@@ -158,11 +161,11 @@ function ScrollStrip({
  * Two ambient scrolling HUD text strips on left and right edges of the 3D scene.
  * Very subtle, low opacity — ambient texture, not distracting.
  */
-export function HudScrollText() {
+export function HudScrollText({ opacity = 0.14 }: { opacity?: number }) {
   return (
     <group>
-      <ScrollStrip xPos={-14} direction={1} lineCount={48} />
-      <ScrollStrip xPos={14} direction={-1} lineCount={48} />
+      <ScrollStrip xPos={-14} direction={1} lineCount={48} opacity={opacity} />
+      <ScrollStrip xPos={14} direction={-1} lineCount={48} opacity={opacity} />
     </group>
   )
 }

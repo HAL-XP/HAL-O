@@ -5,6 +5,8 @@ import { useI18n } from '../i18n'
 interface Props {
   currentPhase: string
   answers: Answers
+  fontSize?: number
+  onFontSizeChange?: (size: number) => void
 }
 
 export function StepProgress({ currentPhase }: Props) {

@@ -8,6 +8,7 @@ import { join, normalize } from 'path'
 import { run } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames } from './platform'
 import { terminalManager } from './terminal-manager'
+import { RULES_VERSION } from './version'
 
 // ── Project stats cache (60s TTL) ──
 interface ProjectStats {
@@ -19,53 +20,92 @@ interface ProjectStats {
 const statsCache = new Map<string, { data: ProjectStats; ts: number }>()
 const STATS_TTL = 60_000
 
+// ── Concurrency limiter: max 3 concurrent getProjectStats calls ──
+let activeStats = 0
+const MAX_CONCURRENT_STATS = 3
+const statsQueue: Array<{ resolve: (v: ProjectStats) => void; path: string }> = []
+
+function getProjectStatsSync(projectPath: string): ProjectStats {
+  const now = Date.now()
+  const stats: ProjectStats = { lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }
+
+  if (!existsSync(join(projectPath, '.git'))) {
+    try {
+      const entries = readdirSync(projectPath)
+      stats.fileCount = entries.length
+    } catch { /* */ }
+    statsCache.set(projectPath, { data: stats, ts: now })
+    return stats
+  }
+
+  try {
+    stats.lastCommit = run('git log -1 --pretty=format:%s', projectPath)
+  } catch { /* no commits */ }
+
+  try {
+    const epoch = run('git log -1 --pretty=format:%ct', projectPath)
+    stats.lastCommitTime = parseInt(epoch, 10) * 1000
+  } catch { /* */ }
+
+  try {
+    const count = run('git rev-list --count --since="30 days ago" HEAD', projectPath)
+    stats.commitCount30d = parseInt(count, 10) || 0
+  } catch { /* */ }
+
+  try {
+    const countCmd = process.platform === 'win32'
+      ? 'git ls-files --cached | find /c /v ""'
+      : 'git ls-files --cached | wc -l'
+    const count = run(countCmd, projectPath)
+    stats.fileCount = parseInt(count.trim(), 10) || 0
+  } catch {
+    try {
+      stats.fileCount = readdirSync(projectPath).length
+    } catch { /* */ }
+  }
+
+  statsCache.set(projectPath, { data: stats, ts: now })
+  return stats
+}
+
+function processStatsQueue(): void {
+  while (statsQueue.length > 0 && activeStats < MAX_CONCURRENT_STATS) {
+    activeStats++
+    const { resolve, path } = statsQueue.shift()!
+    try {
+      const result = getProjectStatsSync(path)
+      resolve(result)
+    } catch {
+      resolve({ lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 })
+    }
+    activeStats--
+    // Recurse to fill slots freed by synchronous completions
+    processStatsQueue()
+  }
+}
+
 export function registerHubHandlers(): void {
-  // ── Get project git stats (cached 60s) ──
+  // ── Get project git stats (cached 60s, max 3 concurrent) ──
   ipcMain.handle('get-project-stats', async (_event, projectPath: string): Promise<ProjectStats> => {
     const now = Date.now()
     const cached = statsCache.get(projectPath)
     if (cached && now - cached.ts < STATS_TTL) return cached.data
 
-    const stats: ProjectStats = { lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }
-
-    // Check if it's a git repo
-    if (!existsSync(join(projectPath, '.git'))) {
+    // If under the concurrency limit, run immediately
+    if (activeStats < MAX_CONCURRENT_STATS) {
+      activeStats++
       try {
-        const entries = readdirSync(projectPath)
-        stats.fileCount = entries.length
-      } catch { /* */ }
-      statsCache.set(projectPath, { data: stats, ts: now })
-      return stats
+        return getProjectStatsSync(projectPath)
+      } finally {
+        activeStats--
+        processStatsQueue()
+      }
     }
 
-    try {
-      stats.lastCommit = run('git log -1 --pretty=format:%s', projectPath)
-    } catch { /* no commits */ }
-
-    try {
-      const epoch = run('git log -1 --pretty=format:%ct', projectPath)
-      stats.lastCommitTime = parseInt(epoch, 10) * 1000
-    } catch { /* */ }
-
-    try {
-      const count = run('git rev-list --count --since="30 days ago" HEAD', projectPath)
-      stats.commitCount30d = parseInt(count, 10) || 0
-    } catch { /* */ }
-
-    try {
-      const countCmd = process.platform === 'win32'
-        ? 'git ls-files --cached | find /c /v ""'
-        : 'git ls-files --cached | wc -l'
-      const count = run(countCmd, projectPath)
-      stats.fileCount = parseInt(count.trim(), 10) || 0
-    } catch {
-      try {
-        stats.fileCount = readdirSync(projectPath).length
-      } catch { /* */ }
-    }
-
-    statsCache.set(projectPath, { data: stats, ts: now })
-    return stats
+    // Otherwise queue and wait
+    return new Promise<ProjectStats>((resolve) => {
+      statsQueue.push({ resolve, path: projectPath })
+    })
   })
 
   ipcMain.handle('scan-projects', async () => {
@@ -108,6 +148,7 @@ export function registerHubHandlers(): void {
       hasHalOMeta: boolean; configLevel: 'bare' | 'claude-aware' | 'hal-o-enhanced'
       lastModified: number
       gitOwner: string; runCmd: string
+      rulesOutdated: boolean
     }> = []
     const seen = new Set<string>()
 
@@ -162,9 +203,20 @@ export function registerHubHandlers(): void {
           const hasBatchFiles = files.includes(newScript) || files.includes(resumeScript)
             || files.includes('_CLAUDE_CLI_NEW.bat') || files.includes('_CLAUDE_CLI_NEW.sh')
 
-          const hasHalOMeta = hasClaudeDir && existsSync(join(fullPath, '.claude', '.hal-o-meta.json'))
+          const metaFilePath = join(fullPath, '.claude', '.hal-o-meta.json')
+          const hasHalOMeta = hasClaudeDir && existsSync(metaFilePath)
           const configLevel: 'bare' | 'claude-aware' | 'hal-o-enhanced' =
             hasHalOMeta ? 'hal-o-enhanced' : (hasClaude || hasClaudeDir) ? 'claude-aware' : 'bare'
+
+          // Check if rules are outdated (meta rulesVersion < current RULES_VERSION)
+          let rulesOutdated = false
+          if (hasHalOMeta) {
+            try {
+              const meta = JSON.parse(readFileSync(metaFilePath, 'utf-8'))
+              const metaVersion = typeof meta.rulesVersion === 'number' ? meta.rulesVersion : 0
+              rulesOutdated = metaVersion < RULES_VERSION
+            } catch { /* ignore parse errors */ }
+          }
 
           // Minimum signal heuristic: must be a real project (has .git/, a build manifest, or is known to Claude)
           const hasGitDir = files.includes('.git')
@@ -239,7 +291,7 @@ export function registerHubHandlers(): void {
           projects.push({
             name, path: fullPath, stack,
             hasClaude, hasBatchFiles, hasClaudeDir, hasHalOMeta, configLevel,
-            lastModified: stat.mtimeMs, gitOwner, runCmd,
+            lastModified: stat.mtimeMs, gitOwner, runCmd, rulesOutdated,
           })
         } catch { continue }
       }

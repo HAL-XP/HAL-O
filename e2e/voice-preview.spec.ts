@@ -8,18 +8,16 @@ let page: Page
 test.beforeAll(async () => {
   ;({ app, page } = await launchApp())
 
-  // Wait for hub to render
-  const hub = page.locator('.project-hub, .hal-topbar, canvas').first()
-  await expect(hub).toBeVisible({ timeout: 10000 })
+  // Set setup-done flag so we skip setup screen
+  await page.evaluate(() => {
+    localStorage.setItem('hal-o-setup-done', '1')
+    localStorage.setItem('hal-o-demo-mode', 'true')
+  })
+  await page.reload()
 
-  // If setup screen shows, click through it first
-  const setupScreen = page.locator('.setup-screen')
-  const isSetup = await setupScreen.isVisible({ timeout: 3000 }).catch(() => false)
-  if (isSetup) {
-    const continueBtn = page.locator('.create-btn, .submit-btn').first()
-    await continueBtn.click()
-    await page.waitForTimeout(1000)
-  }
+  // Wait for hub to render (topbar or canvas)
+  const hub = page.locator('.project-hub, .hal-topbar, canvas').first()
+  await expect(hub).toBeVisible({ timeout: 15000 })
 })
 
 test.afterAll(async () => {

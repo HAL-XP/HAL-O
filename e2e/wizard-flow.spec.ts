@@ -176,9 +176,9 @@ test.describe('Import / Enlist Flow', () => {
     await app?.close()
   })
 
-  test('6. RECRUIT button exists in the hub topbar', async () => {
-    const recruitBtn = page.locator('.hal-cmd', { hasText: 'RECRUIT' })
-    await expect(recruitBtn).toBeVisible({ timeout: 5000 })
+  test('6. ADD PROJECT button exists in the hub topbar', async () => {
+    const addBtn = page.locator('.hal-cmd', { hasText: 'ADD PROJECT' })
+    await expect(addBtn).toBeVisible({ timeout: 5000 })
   })
 
   test('7. import screen renders when triggered via evaluate', async () => {
@@ -193,18 +193,18 @@ test.describe('Import / Enlist Flow', () => {
     expect(importRendered).toBe(true)
   })
 
-  test('8. import screen shows scanning state structure', async () => {
-    // Verify the ImportScreen component structure exists by checking the module
+  test('8. config screen shows scanning state structure', async () => {
+    // Verify the ProjectConfigScreen component structure exists by checking CSS
     // Since we can't easily trigger it without a real folder, verify the DOM classes are correct
-    const hasImportClasses = await page.evaluate(() => {
-      // Check that CSS classes used by import screen are defined
+    const hasConfigClasses = await page.evaluate(() => {
+      // Check that CSS classes used by config screen are defined
       const style = document.styleSheets
       let found = false
       try {
         for (const sheet of style) {
           try {
             for (const rule of sheet.cssRules) {
-              if (rule instanceof CSSStyleRule && rule.selectorText?.includes('.import-screen')) {
+              if (rule instanceof CSSStyleRule && rule.selectorText?.includes('.config-screen')) {
                 found = true
                 break
               }
@@ -215,8 +215,8 @@ test.describe('Import / Enlist Flow', () => {
       } catch { /* */ }
       return found
     })
-    // Import screen CSS should be bundled (it's always imported)
-    expect(hasImportClasses).toBe(true)
+    // Config screen CSS should be bundled (it's always imported)
+    expect(hasConfigClasses).toBe(true)
   })
 
   test('9-10. import screen structure verified via component props', async () => {
@@ -267,6 +267,18 @@ test.describe('Settings Panel', () => {
   test.afterAll(async () => {
     await app?.close()
   })
+
+  async function expandSection(sectionName: string) {
+    const panel = page.locator('.hal-settings-panel')
+    const header = panel.locator('.hal-settings-section-header', { hasText: sectionName })
+    if (await header.isVisible().catch(() => false)) {
+      const arrow = await header.locator('.hal-settings-section-arrow').textContent()
+      if (arrow?.trim() === '▶') {
+        await header.click()
+        await page.waitForTimeout(200)
+      }
+    }
+  }
 
   test('12. settings panel opens on gear click', async () => {
     const settingsBtn = page.locator('button[title="Settings"]')
@@ -364,6 +376,8 @@ test.describe('Settings Panel', () => {
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
 
+    await expandSection('VOICE')
+
     const voiceLabel = panel.locator('.hal-settings-label', { hasText: 'VOICE PROFILE' })
     await expect(voiceLabel).toBeVisible()
 
@@ -424,10 +438,12 @@ test.describe('Settings Panel', () => {
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
 
-    const opacityLabel = panel.locator('.hal-settings-label', { hasText: 'SCREEN OPACITY' })
+    await expandSection('3D SCENE')
+
+    const opacityLabel = panel.locator('.hal-settings-label', { hasText: 'SCREENS OPACITY' })
     await expect(opacityLabel).toBeVisible()
 
-    // Find the range input near SCREEN OPACITY
+    // Find the range input near SCREENS OPACITY
     const opacityRow = opacityLabel.locator('..')
     const slider = opacityRow.locator('input[type="range"]')
     await expect(slider).toBeVisible()
@@ -451,6 +467,8 @@ test.describe('Settings Panel', () => {
       await page.locator('button[title="Settings"]').click()
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
+
+    await expandSection('3D SCENE')
 
     const camLabel = panel.locator('.hal-settings-label', { hasText: 'CAMERA TWEAKING' })
     await expect(camLabel).toBeVisible()
@@ -491,9 +509,7 @@ test.describe('Settings Panel', () => {
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
 
-    // Scroll to DEMO MODE section
-    const demoTitle = panel.locator('.hal-settings-title', { hasText: 'DEMO MODE' })
-    await expect(demoTitle).toBeVisible({ timeout: 3000 })
+    await expandSection('DEMO MODE')
 
     // Find the ENABLED toggle
     const enabledLabel = panel.locator('.hal-settings-label', { hasText: 'ENABLED' })
@@ -533,6 +549,8 @@ test.describe('Settings Panel', () => {
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
 
+    await expandSection('DEMO MODE')
+
     // Enable demo mode
     const enabledLabel = panel.locator('.hal-settings-label', { hasText: 'ENABLED' })
     const enabledRow = enabledLabel.locator('..')
@@ -555,7 +573,7 @@ test.describe('Settings Panel', () => {
     const min = await slider.getAttribute('min')
     const max = await slider.getAttribute('max')
     expect(min).toBe('5')
-    expect(max).toBe('30')
+    expect(max).toBe('100')
 
     // Clean up: disable demo mode
     await toggleBtn.click()
@@ -594,6 +612,16 @@ test.describe('Demo Mode', () => {
     const panel = page.locator('.hal-settings-panel')
     await expect(panel).toBeVisible({ timeout: 3000 })
 
+    // Expand DEMO MODE section (collapsed by default)
+    const dmHeader21 = panel.locator('.hal-settings-section-header', { hasText: 'DEMO MODE' })
+    if (await dmHeader21.isVisible().catch(() => false)) {
+      const arrow21 = await dmHeader21.locator('.hal-settings-section-arrow').textContent()
+      if (arrow21?.trim() === '▶') {
+        await dmHeader21.click()
+        await page.waitForTimeout(200)
+      }
+    }
+
     // Enable demo
     const enabledLabel = panel.locator('.hal-settings-label', { hasText: 'ENABLED' })
     const enabledRow = enabledLabel.locator('..')
@@ -631,6 +659,15 @@ test.describe('Demo Mode', () => {
       await page.locator('button[title="Settings"]').click()
       const panel = page.locator('.hal-settings-panel')
       await expect(panel).toBeVisible({ timeout: 3000 })
+      // Expand DEMO MODE section (collapsed by default)
+      const dmHeader22 = panel.locator('.hal-settings-section-header', { hasText: 'DEMO MODE' })
+      if (await dmHeader22.isVisible().catch(() => false)) {
+        const arrow22 = await dmHeader22.locator('.hal-settings-section-arrow').textContent()
+        if (arrow22?.trim() === '▶') {
+          await dmHeader22.click()
+          await page.waitForTimeout(200)
+        }
+      }
       const enabledLabel = panel.locator('.hal-settings-label', { hasText: 'ENABLED' })
       const enabledRow = enabledLabel.locator('..')
       const toggleBtn = enabledRow.locator('button')
@@ -694,14 +731,14 @@ test.describe('3D Theme', () => {
   })
 
   test('25. 3D theme dropdown appears for PBR/Holo renderers', async () => {
-    // We start in PBR mode (set in beforeAll). The 3D THEME dropdown should be visible.
+    // We start in PBR mode (set in beforeAll). The 3D STYLE dropdown should be visible.
     // Open settings
     await page.locator('button[title="Settings"]').click()
     const panel = page.locator('.hal-settings-panel')
     await expect(panel).toBeVisible({ timeout: 3000 })
 
-    // 3D THEME label should be visible in PBR mode
-    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D THEME' })
+    // 3D STYLE label should be visible in PBR mode
+    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D STYLE' })
     await expect(themeLabel).toBeVisible({ timeout: 3000 })
 
     // Verify it would NOT be present in classic mode by checking localStorage
@@ -721,8 +758,8 @@ test.describe('3D Theme', () => {
       await expect(panel).toBeVisible({ timeout: 3000 })
     }
 
-    // Already in PBR mode — find the 3D THEME select by its label
-    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D THEME' })
+    // Already in PBR mode — find the 3D STYLE select by its label
+    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D STYLE' })
     await expect(themeLabel).toBeVisible({ timeout: 3000 })
     const themeSelect = themeLabel.locator('..').locator('.hal-settings-select').first()
     await expect(themeSelect).toBeVisible()
@@ -741,7 +778,7 @@ test.describe('3D Theme', () => {
     }
 
     // Already in PBR mode — find theme select by label
-    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D THEME' })
+    const themeLabel = panel.locator('.hal-settings-label', { hasText: '3D STYLE' })
     await expect(themeLabel).toBeVisible({ timeout: 3000 })
     const themeSelect = themeLabel.locator('..').locator('.hal-settings-select').first()
 
@@ -783,6 +820,15 @@ test.describe('Hub', () => {
     await page.locator('button[title="Settings"]').click()
     const panel = page.locator('.hal-settings-panel')
     await expect(panel).toBeVisible({ timeout: 3000 })
+    // Expand DEMO MODE section (collapsed by default)
+    const dmHeaderHub = panel.locator('.hal-settings-section-header', { hasText: 'DEMO MODE' })
+    if (await dmHeaderHub.isVisible().catch(() => false)) {
+      const arrowHub = await dmHeaderHub.locator('.hal-settings-section-arrow').textContent()
+      if (arrowHub?.trim() === '▶') {
+        await dmHeaderHub.click()
+        await page.waitForTimeout(200)
+      }
+    }
     const enabledLabel = panel.locator('.hal-settings-label', { hasText: 'ENABLED' })
     const enabledRow = enabledLabel.locator('..')
     const toggleBtn = enabledRow.locator('button')

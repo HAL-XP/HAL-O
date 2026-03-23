@@ -1,12 +1,16 @@
 services:
   test:
     build: .
-    # Override for live development iteration — mount source, keep node_modules separate
+    # Mount source for live iteration, but keep node_modules and out/ from the image
+    # so the Docker-built native modules and compiled app are not overwritten by the host.
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/out
+      - screenshots:/app/screenshots
     environment:
       - DISPLAY=:99
+      - CI=true
       - ANTHROPIC_API_KEY=
       - NODE_ENV=test
     command: >
@@ -18,6 +22,7 @@ services:
     build: .
     environment:
       - DISPLAY=:99
+      - CI=true
       - ANTHROPIC_API_KEY=
       - HOME=/tmp/fresh-user
       - NODE_ENV=test
@@ -32,8 +37,13 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/out
     environment:
       - DISPLAY=:99
+      - CI=true
     command: bash
     stdin_open: true
     tty: true
+
+volumes:
+  screenshots:

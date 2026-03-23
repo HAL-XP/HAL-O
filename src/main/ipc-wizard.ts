@@ -160,6 +160,14 @@ export interface EnlistConfig {
   techStack: string
   languages: string[]
   description: string
+  /** U2: modular feature picker — rules to create */
+  addRules?: string[]
+  /** U2: modular feature picker — devlog folders to create */
+  addDevlog?: string[]
+  /** U2: modular feature picker — create MEMORY.md seed */
+  addMemorySeed?: boolean
+  /** U2: modular feature picker — create .claude/agents/ templates */
+  addAgentTemplates?: boolean
 }
 
 export interface EnlistResult {
@@ -190,6 +198,7 @@ export function registerWizardHandlers(): void {
       description: string
       files: string[]
       readme: string
+      communityTools: string[]
     } = {
       name: projectPath.split(/[/\\]/).pop() || '',
       path: projectPath,
@@ -198,6 +207,7 @@ export function registerWizardHandlers(): void {
       hasHooks: false, hasRules: false, hasDevlog: false,
       rulesList: [], languages: [], halOMeta: null,
       stack: '', description: '', files: [], readme: '',
+      communityTools: [],
     }
 
     if (!existsSync(projectPath)) return result
@@ -287,6 +297,57 @@ export function registerWizardHandlers(): void {
           result.description = claudeMd
         } catch { /* */ }
       }
+
+      // ── S3: Community tool detection ──
+      // Detect files/dirs from other AI coding tools and report them (non-destructive)
+      const detected: string[] = []
+
+      // Cursor IDE: .cursorrules file or .cursor/ directory
+      if (files.some(f => f === '.cursorrules' || f.toLowerCase() === '.cursorrules')) detected.push('cursor')
+      if (files.some(f => f === '.cursor')) {
+        try {
+          const cursorStat = require('fs').statSync(join(projectPath, '.cursor'))
+          if (cursorStat.isDirectory() && !detected.includes('cursor')) detected.push('cursor')
+        } catch { /* */ }
+      }
+
+      // Aider: .aider* files
+      if (files.some(f => f.startsWith('.aider'))) detected.push('aider')
+
+      // GitHub Copilot: .github/copilot-instructions.md
+      if (existsSync(join(projectPath, '.github', 'copilot-instructions.md'))) detected.push('copilot')
+
+      // Windsurf: .windsurfrules
+      if (files.some(f => f === '.windsurfrules')) detected.push('windsurf')
+
+      // Existing CLAUDE.md not created by HAL-O: check if hasClaude but no halOMeta or file not in filesCreated
+      // (detect "foreign" CLAUDE.md = exists but no HAL-O meta, or meta doesn't list it as created)
+      if (result.hasClaude) {
+        const isHalOOwned = result.halOMeta?.filesCreated?.includes('CLAUDE.md') ?? false
+        const isHalOSection = (() => {
+          try {
+            const content = readFileSync(join(projectPath, 'CLAUDE.md'), 'utf-8')
+            return content.includes('HAL-O') || content.includes('HAL-O Best Practices')
+          } catch { return false }
+        })()
+        if (!isHalOOwned && !isHalOSection) {
+          // CLAUDE.md exists and appears to be from another tool or user — flag as foreign
+          detected.push('foreign-claude-md')
+        }
+      }
+
+      // Existing .claude/rules/ files not created by HAL-O
+      if (result.hasRules && result.rulesList.length > 0) {
+        const halOCreatedFiles = result.halOMeta?.filesCreated ?? []
+        const foreignRules = result.rulesList.filter(
+          f => !halOCreatedFiles.some(hf => hf.endsWith(f))
+        )
+        if (foreignRules.length > 0) {
+          detected.push('foreign-rules')
+        }
+      }
+
+      result.communityTools = detected
     } catch { /* */ }
 
     return result
@@ -327,7 +388,7 @@ export function registerWizardHandlers(): void {
       const claudeMdPath = join(projectPath, 'CLAUDE.md')
       if (config.addClaudeMd === 'create') {
         if (existsSync(claudeMdPath)) {
-          log.push('[SKIP] CLAUDE.md already exists')
+          log.push('[SKIP] CLAUDE.md already exists — preserved (use Enhance to append HAL-O section)')
         } else {
           const lines = [
             `# ${config.agentName}`,
@@ -351,11 +412,13 @@ export function registerWizardHandlers(): void {
       } else if (config.addClaudeMd === 'append') {
         if (existsSync(claudeMdPath)) {
           const existing = readFileSync(claudeMdPath, 'utf-8')
-          // Check if HAL-O section already appended
-          if (existing.includes('## HAL-O Best Practices (auto-generated)')) {
+          // Check if HAL-O section already appended (either marker)
+          if (existing.includes('<!-- HAL-O additions -->') || existing.includes('## HAL-O Best Practices (auto-generated)')) {
             log.push('[SKIP] CLAUDE.md already has HAL-O section')
           } else {
             const appendSection = [
+              '',
+              '<!-- HAL-O additions -->',
               '',
               '---',
               '',
@@ -366,6 +429,7 @@ export function registerWizardHandlers(): void {
               '- Messages prefixed with `[voice]` are spoken by the user via microphone',
               '- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)',
               '',
+              '<!-- /HAL-O additions -->',
             ].join('\n')
             writeFileSync(claudeMdPath, existing + appendSection, 'utf-8')
             filesCreated.push('CLAUDE.md')
@@ -460,7 +524,161 @@ export function registerWizardHandlers(): void {
         }
       }
 
-      // 5. Write .claude/.hal-o-meta.json (version tracking + created files)
+      // 5. Rules (.claude/rules/) — U2 modular feature picker
+      if (config.addRules && config.addRules.length > 0) {
+        // Ensure .claude/ and rules/ exist
+        mkdirSync(claudeDir, { recursive: true })
+        mkdirSync(rulesDir, { recursive: true })
+
+        // Build a minimal ProjectConfig to pass to generateRuleFiles
+        const fakeConfigForRules: ProjectConfig = {
+          name: config.agentName,
+          location: '',
+          description: config.description,
+          techStack: config.techStack,
+          languages: config.languages,
+          styling: 'none',
+          database: 'none',
+          githubCreate: false,
+          githubAccount: '',
+          githubVisibility: 'private',
+          claudeMd: 'skip',
+          hooksSetup: [],
+          rulesSetup: config.addRules,
+          devlog: [],
+          gitignore: false,
+          playwrightMcp: false,
+          frontendDesignPlugin: false,
+          agentTemplates: false,
+          memorySeed: false,
+          readme: false,
+          agentName: config.agentName,
+          sessionName: false,
+          conventions: [],
+          skipPermissions: false,
+        }
+        const ruleFiles = generateRuleFiles(fakeConfigForRules)
+        for (const [filename, content] of Object.entries(ruleFiles)) {
+          const rulePath = join(rulesDir, filename)
+          if (existsSync(rulePath)) {
+            log.push(`[SKIP] .claude/rules/${filename} already exists`)
+          } else {
+            writeFileSync(rulePath, content, 'utf-8')
+            filesCreated.push(`.claude/rules/${filename}`)
+            log.push(`[OK] Created .claude/rules/${filename}`)
+          }
+        }
+        // Also add hours tracking rule if not present
+        const hoursRulePath = join(rulesDir, 'hours-tracking.md')
+        if (!existsSync(hoursRulePath)) {
+          writeFileSync(hoursRulePath, generateHoursTrackingRule(), 'utf-8')
+          filesCreated.push('.claude/rules/hours-tracking.md')
+          log.push('[OK] Created .claude/rules/hours-tracking.md')
+        }
+      }
+
+      // 6. Devlog (_devlog/) — U2 modular feature picker
+      if (config.addDevlog && config.addDevlog.length > 0) {
+        const devlogDir = join(projectPath, '_devlog')
+        mkdirSync(devlogDir, { recursive: true })
+        log.push('[OK] Ensured _devlog/')
+        for (const folder of config.addDevlog) {
+          const folderPath = join(devlogDir, folder)
+          if (!existsSync(folderPath)) {
+            mkdirSync(folderPath, { recursive: true })
+            // Add .gitkeep so empty folders are tracked
+            writeFileSync(join(folderPath, '.gitkeep'), '', 'utf-8')
+            filesCreated.push(`_devlog/${folder}/`)
+            log.push(`[OK] Created _devlog/${folder}/`)
+          } else {
+            log.push(`[SKIP] _devlog/${folder}/ already exists`)
+          }
+        }
+      }
+
+      // 7. MEMORY.md seed — U2 modular feature picker
+      if (config.addMemorySeed) {
+        const memoryPath = join(projectPath, 'MEMORY.md')
+        if (existsSync(memoryPath)) {
+          log.push('[SKIP] MEMORY.md already exists')
+        } else {
+          const fakeConfigForMemory: ProjectConfig = {
+            name: config.agentName,
+            location: '',
+            description: config.description,
+            techStack: config.techStack,
+            languages: config.languages,
+            styling: 'none',
+            database: 'none',
+            githubCreate: false,
+            githubAccount: '',
+            githubVisibility: 'private',
+            claudeMd: 'skip',
+            hooksSetup: [],
+            rulesSetup: [],
+            devlog: [],
+            gitignore: false,
+            playwrightMcp: false,
+            frontendDesignPlugin: false,
+            agentTemplates: false,
+            memorySeed: true,
+            readme: false,
+            agentName: config.agentName,
+            sessionName: false,
+            conventions: [],
+            skipPermissions: false,
+          }
+          writeFileSync(memoryPath, generateMemorySeed(fakeConfigForMemory), 'utf-8')
+          filesCreated.push('MEMORY.md')
+          log.push('[OK] Created MEMORY.md')
+        }
+      }
+
+      // 8. Agent templates (.claude/agents/) — U2 modular feature picker
+      if (config.addAgentTemplates) {
+        const agentsDir = join(claudeDir, 'agents')
+        mkdirSync(claudeDir, { recursive: true })
+        mkdirSync(agentsDir, { recursive: true })
+        const fakeConfigForAgents: ProjectConfig = {
+          name: config.agentName,
+          location: '',
+          description: config.description,
+          techStack: config.techStack,
+          languages: config.languages,
+          styling: 'none',
+          database: 'none',
+          githubCreate: false,
+          githubAccount: '',
+          githubVisibility: 'private',
+          claudeMd: 'skip',
+          hooksSetup: [],
+          rulesSetup: config.addRules || [],
+          devlog: [],
+          gitignore: false,
+          playwrightMcp: false,
+          frontendDesignPlugin: false,
+          agentTemplates: true,
+          memorySeed: false,
+          readme: false,
+          agentName: config.agentName,
+          sessionName: false,
+          conventions: [],
+          skipPermissions: false,
+        }
+        const agentFiles = generateAgentTemplates(fakeConfigForAgents)
+        for (const [filename, content] of Object.entries(agentFiles)) {
+          const agentPath = join(agentsDir, filename)
+          if (existsSync(agentPath)) {
+            log.push(`[SKIP] .claude/agents/${filename} already exists`)
+          } else {
+            writeFileSync(agentPath, content, 'utf-8')
+            filesCreated.push(`.claude/agents/${filename}`)
+            log.push(`[OK] Created .claude/agents/${filename}`)
+          }
+        }
+      }
+
+      // 9. Write .claude/.hal-o-meta.json (version tracking + created files)
       mkdirSync(claudeDir, { recursive: true })
       const metaPath = join(claudeDir, '.hal-o-meta.json')
       filesCreated.push('.claude/.hal-o-meta.json')
@@ -487,36 +705,152 @@ export function registerWizardHandlers(): void {
     const folderDetections: string[] = []
     const fullPath = folderPath ? join(folderPath, name) : ''
 
+    // Structured detection result returned to renderer for instant pre-fill (U3)
+    interface FolderDetectionResult {
+      techStack: string
+      techStackLabel: string
+      languages: string[]
+      styling: string
+      hasTypeScript: boolean
+      hasPython: boolean
+      framework: string
+    }
+    let folderDetection: FolderDetectionResult | null = null
+
     if (fullPath && existsSync(fullPath)) {
       try {
         const files = readdirSync(fullPath)
+        const detection: FolderDetectionResult = {
+          techStack: '', techStackLabel: '', languages: [], styling: '', hasTypeScript: false, hasPython: false, framework: '',
+        }
+
+        // package.json — detect JS/TS frameworks
         if (files.includes('package.json')) {
           try {
             const pkg = JSON.parse(readFileSync(join(fullPath, 'package.json'), 'utf-8'))
             const allDeps = { ...pkg.dependencies, ...pkg.devDependencies }
             folderDetections.push(`package.json found. Dependencies: ${Object.keys(allDeps).join(', ')}`)
+            // Framework detection from deps
+            if (allDeps['next']) { detection.techStack = 'nextjs'; detection.techStackLabel = 'Next.js'; detection.framework = 'Next.js' }
+            else if (allDeps['electron']) { detection.techStack = 'electron'; detection.techStackLabel = 'Electron'; detection.framework = 'Electron' }
+            else if (allDeps['react-native'] || allDeps['expo']) { detection.techStack = 'react-native'; detection.techStackLabel = 'React Native'; detection.framework = 'React Native' }
+            else if (allDeps['@sveltejs/kit']) { detection.techStack = 'sveltekit'; detection.techStackLabel = 'SvelteKit'; detection.framework = 'SvelteKit' }
+            else if (allDeps['svelte']) { detection.techStack = 'sveltekit'; detection.techStackLabel = 'Svelte'; detection.framework = 'Svelte' }
+            else if (allDeps['@nuxt/core'] || allDeps['nuxt']) { detection.techStack = 'nuxt'; detection.techStackLabel = 'Nuxt'; detection.framework = 'Nuxt' }
+            else if (allDeps['astro']) { detection.techStack = 'astro'; detection.techStackLabel = 'Astro'; detection.framework = 'Astro' }
+            else if (allDeps['remix'] || allDeps['@remix-run/react']) { detection.techStack = 'remix'; detection.techStackLabel = 'Remix'; detection.framework = 'Remix' }
+            else if (allDeps['vue'] || allDeps['@vue/core']) { detection.techStack = 'sveltekit'; detection.techStackLabel = 'Vue'; detection.framework = 'Vue' }
+            else if (allDeps['react']) { detection.techStack = 'web-react'; detection.techStackLabel = 'React'; detection.framework = 'React' }
+            else if (allDeps['express'] || allDeps['fastify'] || allDeps['hono'] || allDeps['koa']) { detection.techStack = 'node-backend'; detection.techStackLabel = 'Node.js Backend'; detection.framework = allDeps['express'] ? 'Express' : allDeps['fastify'] ? 'Fastify' : allDeps['hono'] ? 'Hono' : 'Koa' }
+            else { detection.techStack = 'node-backend'; detection.techStackLabel = 'Node.js' }
+            // TypeScript
+            if (allDeps['typescript'] || allDeps['ts-node']) {
+              detection.hasTypeScript = true
+              if (!detection.languages.includes('TypeScript')) detection.languages.push('TypeScript')
+            } else {
+              if (!detection.languages.includes('JavaScript')) detection.languages.push('JavaScript')
+            }
+            // Styling
+            if (allDeps['tailwindcss']) detection.styling = 'tailwind'
+            else if (allDeps['styled-components']) detection.styling = 'styled-components'
           } catch {
             folderDetections.push('package.json found (could not parse)')
           }
         }
+
+        // tsconfig.json — TypeScript
+        if (files.includes('tsconfig.json')) {
+          folderDetections.push('tsconfig.json found (TypeScript)')
+          detection.hasTypeScript = true
+          if (!detection.languages.includes('TypeScript')) detection.languages.push('TypeScript')
+          // Remove JavaScript if TypeScript is confirmed
+          detection.languages = detection.languages.filter(l => l !== 'JavaScript')
+        }
+
+        // Python detection
         if (files.includes('requirements.txt')) {
           try {
             const reqs = readFileSync(join(fullPath, 'requirements.txt'), 'utf-8').slice(0, 500)
             folderDetections.push(`requirements.txt found: ${reqs}`)
+            detection.hasPython = true
+            if (!detection.languages.includes('Python')) detection.languages.push('Python')
+            if (!detection.techStack) {
+              if (/fastapi/i.test(reqs)) { detection.techStack = 'fullstack-python'; detection.techStackLabel = 'FastAPI'; detection.framework = 'FastAPI' }
+              else if (/django/i.test(reqs)) { detection.techStack = 'fullstack-python'; detection.techStackLabel = 'Django'; detection.framework = 'Django' }
+              else if (/flask/i.test(reqs)) { detection.techStack = 'python-backend'; detection.techStackLabel = 'Flask'; detection.framework = 'Flask' }
+              else { detection.techStack = 'python-backend'; detection.techStackLabel = 'Python Backend' }
+            }
           } catch {
             folderDetections.push('requirements.txt found')
           }
         }
-        if (files.includes('pyproject.toml')) folderDetections.push('pyproject.toml found (Python project)')
-        if (files.includes('Cargo.toml')) folderDetections.push('Cargo.toml found (Rust project)')
-        if (files.includes('go.mod')) folderDetections.push('go.mod found (Go project)')
-        if (files.includes('tsconfig.json')) folderDetections.push('tsconfig.json found (TypeScript)')
+        if (files.includes('pyproject.toml')) {
+          folderDetections.push('pyproject.toml found (Python project)')
+          detection.hasPython = true
+          if (!detection.languages.includes('Python')) detection.languages.push('Python')
+          if (!detection.techStack) {
+            try {
+              const pyproj = readFileSync(join(fullPath, 'pyproject.toml'), 'utf-8').slice(0, 1000)
+              if (/fastapi/i.test(pyproj)) { detection.techStack = 'fullstack-python'; detection.techStackLabel = 'FastAPI'; detection.framework = 'FastAPI' }
+              else if (/django/i.test(pyproj)) { detection.techStack = 'fullstack-python'; detection.techStackLabel = 'Django'; detection.framework = 'Django' }
+              else if (/flask/i.test(pyproj)) { detection.techStack = 'python-backend'; detection.techStackLabel = 'Flask'; detection.framework = 'Flask' }
+              else { detection.techStack = 'python-backend'; detection.techStackLabel = 'Python Backend' }
+            } catch { detection.techStack = 'python-backend'; detection.techStackLabel = 'Python Backend' }
+          }
+        }
+
+        // Rust
+        if (files.includes('Cargo.toml')) {
+          folderDetections.push('Cargo.toml found (Rust project)')
+          if (!detection.languages.includes('Rust')) detection.languages.push('Rust')
+          if (!detection.techStack) { detection.techStack = 'rust-backend'; detection.techStackLabel = 'Rust' }
+        }
+
+        // Go
+        if (files.includes('go.mod')) {
+          folderDetections.push('go.mod found (Go project)')
+          if (!detection.languages.includes('Go')) detection.languages.push('Go')
+          if (!detection.techStack) { detection.techStack = 'go-backend'; detection.techStackLabel = 'Go Backend' }
+        }
+
+        // Flutter/Dart
+        if (files.includes('pubspec.yaml')) {
+          folderDetections.push('pubspec.yaml found (Flutter/Dart project)')
+          if (!detection.languages.includes('Dart')) detection.languages.push('Dart')
+          if (!detection.techStack) { detection.techStack = 'react-native'; detection.techStackLabel = 'Flutter'; detection.framework = 'Flutter' }
+        }
+
+        // Godot
+        if (files.includes('.godot') || files.some(f => f.endsWith('.godot'))) {
+          folderDetections.push('Godot project detected')
+          if (!detection.techStack) { detection.techStack = 'godot'; detection.techStackLabel = 'Godot' }
+        }
+
+        // Ruby
+        if (files.includes('Gemfile')) {
+          folderDetections.push('Gemfile found (Ruby project)')
+          if (!detection.languages.includes('Ruby')) detection.languages.push('Ruby')
+          if (!detection.techStack) { detection.techStack = 'node-backend'; detection.techStackLabel = 'Ruby' }
+        }
+
+        // Build config markers
         if (files.includes('vite.config.ts') || files.includes('vite.config.js')) folderDetections.push('Vite config found')
         if (files.includes('next.config.js') || files.includes('next.config.ts') || files.includes('next.config.mjs')) folderDetections.push('Next.js config found')
         if (files.includes('electron.vite.config.ts') || files.includes('electron-builder.yml')) folderDetections.push('Electron project detected')
-        if (files.includes('.csproj') || files.some(f => f.endsWith('.csproj'))) folderDetections.push('C# project detected')
-        if (files.includes('tailwind.config.ts') || files.includes('tailwind.config.js')) folderDetections.push('Tailwind CSS configured')
+        if (files.includes('.csproj') || files.some(f => f.endsWith('.csproj'))) {
+          folderDetections.push('C# project detected')
+          if (!detection.languages.includes('C#')) detection.languages.push('C#')
+        }
+        if (files.includes('tailwind.config.ts') || files.includes('tailwind.config.js')) {
+          folderDetections.push('Tailwind CSS configured')
+          detection.styling = 'tailwind'
+        }
         if (files.includes('CLAUDE.md')) folderDetections.push('CLAUDE.md already exists')
+
+        // Only expose as folderDetection if we confidently detected a stack
+        if (detection.techStack) {
+          folderDetection = detection
+        }
       } catch { /* folder doesn't exist yet, that's fine */ }
     }
 
@@ -524,14 +858,18 @@ export function registerWizardHandlers(): void {
 
     if (!apiKey) {
       return {
-        techStack: '', techStackLabel: '', languages: [], styling: '', database: '',
+        techStack: folderDetection?.techStack || '', techStackLabel: folderDetection?.techStackLabel || '',
+        languages: folderDetection?.languages || [], styling: folderDetection?.styling || '', database: '',
         agentName: name, conventions: [],
-        reasoning: 'No ANTHROPIC_API_KEY found. To enable smart analysis, set it in one of:\n'
-          + '  - Environment variable: ANTHROPIC_API_KEY\n'
-          + '  - .env file in project folder or home directory\n'
-          + '  - ~/.claude_credentials (export ANTHROPIC_API_KEY="sk-ant-...")\n'
-          + 'Falling back to manual stack selection.',
+        reasoning: folderDetection?.techStack
+          ? `Detected from existing files: ${folderDetection.techStackLabel}. No API key — using detected stack.`
+          : 'No ANTHROPIC_API_KEY found. To enable smart analysis, set it in one of:\n'
+            + '  - Environment variable: ANTHROPIC_API_KEY\n'
+            + '  - .env file in project folder or home directory\n'
+            + '  - ~/.claude_credentials (export ANTHROPIC_API_KEY="sk-ant-...")\n'
+            + 'Falling back to manual stack selection.',
         folderDetected: folderDetections.length > 0,
+        folderDetection,
       }
     }
 
@@ -585,13 +923,16 @@ After researching, respond with ONLY valid JSON (no markdown, no code fences):
         conventions: Array.isArray(parsed.conventions) ? parsed.conventions : [],
         reasoning: parsed.reasoning || '',
         folderDetected: folderDetections.length > 0,
+        folderDetection,
       }
     } catch (e: any) {
       return {
-        techStack: '', techStackLabel: '', languages: [], styling: '', database: '',
+        techStack: folderDetection?.techStack || '', techStackLabel: folderDetection?.techStackLabel || '',
+        languages: folderDetection?.languages || [], styling: folderDetection?.styling || '', database: '',
         agentName: name, conventions: [],
-        reasoning: `Analysis failed: ${e.message}. Using manual mode.`,
+        reasoning: `Analysis failed: ${e.message}. ${folderDetection?.techStack ? `Detected from files: ${folderDetection.techStackLabel}.` : 'Using manual mode.'}`,
         folderDetected: folderDetections.length > 0,
+        folderDetection,
       }
     }
   })

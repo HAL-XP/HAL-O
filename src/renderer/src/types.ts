@@ -8,6 +8,8 @@ export interface Choice {
 export interface Answer {
   value: string | string[]
   label: string
+  /** True when this answer was pre-filled by folder detection (U3) */
+  preDetected?: boolean
 }
 
 export type StepType = 'choice' | 'text' | 'textarea' | 'folder' | 'multi-select' | 'analysis'
@@ -71,6 +73,17 @@ export interface ProjectConfig {
   skipPermissions: boolean
 }
 
+/** Structured detection result from existing folder files (U3) */
+export interface FolderDetectionResult {
+  techStack: string
+  techStackLabel: string
+  languages: string[]
+  styling: string
+  hasTypeScript: boolean
+  hasPython: boolean
+  framework: string
+}
+
 export interface ProjectAnalysis {
   techStack: string
   techStackLabel: string
@@ -81,6 +94,8 @@ export interface ProjectAnalysis {
   conventions: string[]
   reasoning: string
   folderDetected: boolean
+  /** Present when confident stack was detected from existing files */
+  folderDetection?: FolderDetectionResult | null
 }
 
 export interface TerminalSession {
@@ -103,6 +118,8 @@ export interface ProjectInfo {
   lastModified: number
   gitOwner: string
   runCmd: string
+  /** True when .hal-o-meta.json rulesVersion is below the current RULES_VERSION */
+  rulesOutdated?: boolean
   /** Pre-baked stats for demo projects (bypasses IPC getProjectStats) */
   demoStats?: ProjectStats
 }
@@ -150,6 +167,11 @@ export interface EnlistConfig {
   techStack: string
   languages: string[]
   description: string
+  /** U2: modular feature picker additions */
+  addRules?: string[]
+  addDevlog?: string[]
+  addMemorySeed?: boolean
+  addAgentTemplates?: boolean
 }
 
 export interface EnlistResult {
@@ -189,6 +211,7 @@ export interface ElectronAPI {
     rulesList: string[]; languages: string[]
     halOMeta: { enlistedAt: string; halOVersion: string; rulesVersion: number } | null
     stack: string; description: string; files: string[]; readme: string
+    communityTools: string[]
   }>
   enlistProject: (config: EnlistConfig) => Promise<EnlistResult>
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => Promise<ProjectAnalysis>

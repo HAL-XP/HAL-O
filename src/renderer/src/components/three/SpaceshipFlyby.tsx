@@ -13,35 +13,103 @@ const _up = new THREE.Vector3(0, 1, 0)
 const _lookTarget = new THREE.Vector3()
 const _quat = new THREE.Quaternion()
 const _mat4 = new THREE.Matrix4()
-const _shakeOffset = new THREE.Vector3()
+const _prevPos = new THREE.Vector3()
+const _curPos = new THREE.Vector3()
 
-// Flight path: a CatmullRom curve that enters from far left,
-// sweeps through the scene near the sphere, and exits far right.
+// A9: Wider arc — Star Destroyer takes a much heavier, grander sweep through the scene.
+// Entry from deeper left/behind, sweeps wide past the sphere, exits right.
 const FLIGHT_POINTS = [
-  new THREE.Vector3(-30, 3.5, 8),     // entry — far left, slightly behind
-  new THREE.Vector3(-12, 2.5, 4),     // approach
-  new THREE.Vector3(-3, 1.8, -1),     // close pass near sphere
-  new THREE.Vector3(4, 2.2, -2),      // curve through
-  new THREE.Vector3(12, 3.0, 5),      // pull away
-  new THREE.Vector3(30, 5.0, 10),     // exit — far right, climbing
+  new THREE.Vector3(-50, 6.0, 18),    // entry — far left, high and deep
+  new THREE.Vector3(-22, 4.0, 8),     // approach from distance
+  new THREE.Vector3(-8, 2.5, -2),     // close pass near sphere
+  new THREE.Vector3(6, 3.0, -4),      // curve through
+  new THREE.Vector3(20, 4.5, 8),      // pull away
+  new THREE.Vector3(50, 8.0, 18),     // exit — far right, climbing
 ]
 
 const FLIGHT_CURVE = new THREE.CatmullRomCurve3(FLIGHT_POINTS, false, 'catmullrom', 0.5)
-const FLYBY_DURATION = 7.0 // seconds — slow enough to see the ship
 
-// ── Engine trail particle pool ──
-const TRAIL_COUNT = 60
+// A9: Slower — capital ship feel
+const FLYBY_DURATION = 11.0 // seconds
+
+// A9: Larger trail to match the bigger ship
+const TRAIL_COUNT = 120
+
+// ── Pre-compute triangular hull Shape (Star Destroyer wedge, XY plane) ──
+// The shape is in local XY; mesh rotation Rx(-π/2) maps shape +Y → world -Z.
+// So nose (at +Y) ends up pointing -Z in shipGroupRef — correct for Three.js lookAt.
+// Stern is at +Z; all engine/bridge positions use positive Z.
+function makeHullShape(): THREE.Shape {
+  const shape = new THREE.Shape()
+  const W = 1.0   // half-width at stern
+  const L = 2.2   // length nose→stern
+  // Triangular plan view — nose tip at +Y (maps to -Z after Rx(-π/2))
+  shape.moveTo(0, L)         // nose tip (forward)
+  shape.lineTo(W, -L)        // starboard stern corner
+  shape.lineTo(-W, -L)       // port stern corner
+  shape.closePath()
+  return shape
+}
+
+const HULL_SHAPE = makeHullShape()
+const HULL_EXTRUDE: THREE.ExtrudeGeometryOptions = {
+  depth: 0.28,       // vertical thickness of the wedge hull
+  bevelEnabled: true,
+  bevelThickness: 0.04,
+  bevelSize: 0.04,
+  bevelSegments: 2,
+}
+
+// Materials — defined once, shared across all ship instances
+const MAT_HULL = new THREE.MeshStandardMaterial({
+  color: '#0d1117',
+  metalness: 0.85,
+  roughness: 0.25,
+  emissive: '#0a1628',
+  emissiveIntensity: 0.4,
+})
+const MAT_TOWER = new THREE.MeshStandardMaterial({
+  color: '#111820',
+  metalness: 0.8,
+  roughness: 0.3,
+  emissive: '#0a1628',
+  emissiveIntensity: 0.35,
+})
+const MAT_TRENCH = new THREE.MeshStandardMaterial({
+  color: '#060a10',
+  metalness: 0.6,
+  roughness: 0.6,
+})
+const MAT_ENGINE = new THREE.MeshBasicMaterial({
+  color: '#00e5ff',
+  toneMapped: false,
+})
+const MAT_ENGINE_OUTER = new THREE.MeshBasicMaterial({
+  color: '#0066cc',
+  transparent: true,
+  opacity: 0.6,
+  toneMapped: false,
+})
+const MAT_RUNNING_RED = new THREE.MeshBasicMaterial({
+  color: '#ff2020',
+  toneMapped: false,
+})
+
+interface SpaceshipFlybyProps {
+  enabled?: boolean
+}
 
 /**
- * A small spaceship built from basic Three.js geometry.
- * Triggered via ref.trigger() — flies through the scene in ~3 seconds
- * with engine trail, camera shake, and bloom-friendly emissive materials.
+ * Star Destroyer style capital ship flyby.
+ * A9 — heavier movement: 11s duration, wider arc, 2.2x scale, Z-banking.
+ * Triggered via ref.trigger(). Pass enabled=false to make trigger() a no-op.
  */
-export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function SpaceshipFlyby(_, ref) {
+export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyProps>(function SpaceshipFlyby({ enabled = true }, ref) {
   const shipGroupRef = useRef<THREE.Group>(null)
   const trailRef = useRef<THREE.Points>(null)
-  const engineGlowRef = useRef<THREE.PointLight>(null)
-  const engineSphereRef = useRef<THREE.Mesh>(null)
+  const engine1GlowRef = useRef<THREE.PointLight>(null)
+  const engine2GlowRef = useRef<THREE.PointLight>(null)
+  const engine3GlowRef = useRef<THREE.PointLight>(null)
   const { controls } = useThree()
 
   // Animation state — kept in refs to avoid re-renders
@@ -51,14 +119,13 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
   const originalTargetRef = useRef<THREE.Vector3 | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Track whether we've ever been active (for cleanup)
   const [visible, setVisible] = useState(false)
 
   const trigger = useCallback(() => {
-    if (activeRef.current) return // don't stack flybys
-    console.log('[Flyby] trigger() — starting new flyby')
+    if (!enabled) return
+    if (activeRef.current) return
+    console.log('[Flyby] trigger() — Star Destroyer flyby starting')
 
-    // Cancel any pending hide timer from a previous flyby
     if (hideTimerRef.current !== null) {
       clearTimeout(hideTimerRef.current)
       hideTimerRef.current = null
@@ -69,12 +136,11 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
     trailIdxRef.current = 0
     setVisible(true)
 
-    // Store original orbit target for shake restoration
     if (controls && 'target' in controls) {
       originalTargetRef.current = (controls as any).target.clone()
     }
 
-    // Reset trail positions AND opacities offscreen
+    // Reset trail offscreen
     if (trailRef.current) {
       const posArr = trailRef.current.geometry.attributes.position.array as Float32Array
       const opArr = trailRef.current.geometry.attributes.aOpacity.array as Float32Array
@@ -83,11 +149,10 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
       trailRef.current.geometry.attributes.position.needsUpdate = true
       trailRef.current.geometry.attributes.aOpacity.needsUpdate = true
     }
-  }, [controls])
+  }, [controls, enabled])
 
   useImperativeHandle(ref, () => ({ trigger }), [trigger])
 
-  // Trail geometry — reused buffer
   const trailPositions = useMemo(() => new Float32Array(TRAIL_COUNT * 3).fill(-999), [])
   const trailOpacities = useMemo(() => new Float32Array(TRAIL_COUNT).fill(0), [])
 
@@ -95,190 +160,225 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
     if (!activeRef.current || !shipGroupRef.current) return
 
     progressRef.current += delta / FLYBY_DURATION
-
     const t = Math.min(progressRef.current, 1)
-    // Ease-in-out for smooth motion
+
+    // Ease-in-out — smooth entry and exit
     const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
 
-    // Position ship along curve
+    // Position ship
     FLIGHT_CURVE.getPointAt(eased, _pos)
     shipGroupRef.current.position.copy(_pos)
 
-    // Orient ship along tangent
-    const tNext = Math.min(eased + 0.01, 1)
-    FLIGHT_CURVE.getPointAt(tNext, _tangent)
-    _lookTarget.copy(_tangent)
+    // Orient along tangent
+    const tNext = Math.min(eased + 0.008, 1)
+    FLIGHT_CURVE.getPointAt(tNext, _lookTarget)
     shipGroupRef.current.lookAt(_lookTarget)
 
-    // Engine glow pulsing
-    if (engineGlowRef.current) {
-      const pulse = 2 + Math.sin(state.clock.elapsedTime * 25) * 1
-      engineGlowRef.current.intensity = pulse
-    }
-    if (engineSphereRef.current) {
-      const s = 0.12 + Math.sin(state.clock.elapsedTime * 30) * 0.04
-      engineSphereRef.current.scale.setScalar(s)
-    }
+    // A9: Subtle banking — compute lateral curvature for roll feel
+    // Sample a small segment to estimate turn direction
+    const tPrev = Math.max(eased - 0.008, 0)
+    FLIGHT_CURVE.getPointAt(tPrev, _prevPos)
+    FLIGHT_CURVE.getPointAt(tNext, _curPos)
+    // Cross product of forward and the lateral offset gives us side direction
+    const dX = _curPos.x - _prevPos.x
+    const dZ = _curPos.z - _prevPos.z
+    // Bank angle: proportional to lateral curve, max ±25°
+    const bankAngle = -dX * 0.55
+    const clampedBank = Math.max(-0.44, Math.min(0.44, bankAngle))
+    shipGroupRef.current.rotateOnWorldAxis(_up, 0) // no-op to keep rotation chain clean
+    // Apply Z-roll on top of the lookAt rotation
+    shipGroupRef.current.rotateZ(clampedBank)
 
-    // Engine trail — deposit particles at ship's rear
+    // Engine glow pulsing (3 engines)
+    const pulse = 3.5 + Math.sin(state.clock.elapsedTime * 20) * 1.2
+    if (engine1GlowRef.current) engine1GlowRef.current.intensity = pulse
+    if (engine2GlowRef.current) engine2GlowRef.current.intensity = pulse * 0.95
+    if (engine3GlowRef.current) engine3GlowRef.current.intensity = pulse * 0.9
+
+    // Engine trail — deposit particles at ship's stern (3 exhaust points)
     if (trailRef.current) {
       const posArr = trailRef.current.geometry.attributes.position.array as Float32Array
       const opArr = trailRef.current.geometry.attributes.aOpacity.array as Float32Array
 
-      // Place a new trail particle every other frame
-      const idx = trailIdxRef.current % TRAIL_COUNT
-      const i3 = idx * 3
-      // Ship's rear is behind it along negative Z in local space
-      _v3Trail.set(0, 0, -0.8)
-      shipGroupRef.current.localToWorld(_v3Trail)
-      posArr[i3] = _v3Trail.x + (Math.random() - 0.5) * 0.1
-      posArr[i3 + 1] = _v3Trail.y + (Math.random() - 0.5) * 0.1
-      posArr[i3 + 2] = _v3Trail.z + (Math.random() - 0.5) * 0.1
-      opArr[idx] = 1.0
-      trailIdxRef.current++
+      // Deposit 3 particles per frame (one per engine)
+      // Stern is at +Z (nose at -Z), so exhaust spawns at positive Z offsets
+      const exhaustOffsets = [
+        new THREE.Vector3(-0.55, -0.1, 2.0),
+        new THREE.Vector3(0, -0.1, 2.3),
+        new THREE.Vector3(0.55, -0.1, 2.0),
+      ]
+      for (let e = 0; e < 3; e++) {
+        const idx = trailIdxRef.current % TRAIL_COUNT
+        const i3 = idx * 3
+        _v3Trail.copy(exhaustOffsets[e])
+        shipGroupRef.current.localToWorld(_v3Trail)
+        posArr[i3]     = _v3Trail.x + (Math.random() - 0.5) * 0.3
+        posArr[i3 + 1] = _v3Trail.y + (Math.random() - 0.5) * 0.3
+        posArr[i3 + 2] = _v3Trail.z + (Math.random() - 0.5) * 0.3
+        opArr[idx] = 1.0
+        trailIdxRef.current++
+      }
 
-      // Fade all trail particles
+      // Fade all trail particles — slower fade for longer trail
       for (let i = 0; i < TRAIL_COUNT; i++) {
-        opArr[i] = Math.max(0, opArr[i] - delta * 1.5)
+        opArr[i] = Math.max(0, opArr[i] - delta * 0.7)
       }
 
       trailRef.current.geometry.attributes.position.needsUpdate = true
       trailRef.current.geometry.attributes.aOpacity.needsUpdate = true
     }
 
-    // Camera shake — tiny offset on orbit target
-    if (controls && 'target' in controls && originalTargetRef.current) {
-      const shakeIntensity = t < 0.2 ? t / 0.2 : t > 0.8 ? (1 - t) / 0.2 : 1
-      const shake = 0.03 * shakeIntensity
-      _shakeOffset.set(
-        (Math.random() - 0.5) * shake,
-        (Math.random() - 0.5) * shake * 0.5,
-        (Math.random() - 0.5) * shake
-      )
-      ;(controls as any).target.copy(originalTargetRef.current).add(_shakeOffset)
-    }
-
     // Flyby complete
     if (t >= 1) {
-      console.log('[Flyby] flyby complete — deactivating, hide in 2s')
+      console.log('[Flyby] Star Destroyer flyby complete — deactivating')
       activeRef.current = false
 
-      // Restore orbit target
       if (controls && 'target' in controls && originalTargetRef.current) {
         ;(controls as any).target.copy(originalTargetRef.current)
       }
 
-      // Fade out trail then hide (but keep mounted for re-trigger)
       hideTimerRef.current = setTimeout(() => {
         setVisible(false)
         hideTimerRef.current = null
         console.log('[Flyby] hidden — ready for next trigger')
-      }, 2000)
+      }, 2500)
     }
   })
 
   return (
     <group visible={visible}>
-      {/* Ship group */}
-      <group ref={shipGroupRef} scale={1.2}>
-        {/* Hull — elongated cone */}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.25, 2.0, 6]} />
-          <meshStandardMaterial
-            color="#1a1a2e"
-            metalness={0.9}
-            roughness={0.2}
-            emissive="#0a1628"
-            emissiveIntensity={0.3}
-          />
+      {/* ── Star Destroyer — A9 scale 2.2x ── */}
+      <group ref={shipGroupRef} scale={2.2}>
+        {/* === Main wedge hull === */}
+        {/* ExtrudeGeometry in XY plane; nose tip is at +Y.
+            Rx(-π/2) maps +Y→-Z, so nose faces -Z (Three.js lookAt convention — no wrapper needed) */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
+          <extrudeGeometry args={[HULL_SHAPE, HULL_EXTRUDE]} />
+          <primitive object={MAT_HULL} attach="material" />
         </mesh>
 
-        {/* Cockpit dome */}
-        <mesh position={[0, 0, -0.6]}>
-          <sphereGeometry args={[0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
-            emissiveIntensity={1.5}
-            metalness={0.8}
-            roughness={0.1}
-            toneMapped={false}
-          />
+        {/* Underside reinforcement slab */}
+        <mesh position={[0, -0.06, 0]} rotation={[0, 0, 0]}>
+          <boxGeometry args={[1.5, 0.06, 3.6]} />
+          <primitive object={MAT_HULL} attach="material" />
         </mesh>
 
-        {/* Wings — thin flat boxes */}
-        <mesh position={[0.9, 0, 0.2]} rotation={[0, 0, -0.15]}>
-          <boxGeometry args={[1.4, 0.03, 0.6]} />
-          <meshStandardMaterial
-            color="#0d1117"
-            metalness={0.85}
-            roughness={0.3}
-            emissive="#001830"
-            emissiveIntensity={0.2}
-          />
+        {/* === Bridge tower === */}
+        {/* Stern is at +Z (opposite nose at -Z) — bridge sits near stern */}
+        <group position={[0, 0.32, 1.4]}>
+          {/* Lower block */}
+          <mesh>
+            <boxGeometry args={[0.35, 0.28, 0.55]} />
+            <primitive object={MAT_TOWER} attach="material" />
+          </mesh>
+          {/* Upper bridge deck */}
+          <mesh position={[0, 0.22, 0.04]}>
+            <boxGeometry args={[0.28, 0.18, 0.38]} />
+            <primitive object={MAT_TOWER} attach="material" />
+          </mesh>
+          {/* Command dome */}
+          <mesh position={[0, 0.35, 0.04]}>
+            <sphereGeometry args={[0.1, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+            <primitive object={MAT_TOWER} attach="material" />
+          </mesh>
+          {/* Sensor array — vertical fin */}
+          <mesh position={[0, 0.45, 0]}>
+            <boxGeometry args={[0.04, 0.24, 0.12]} />
+            <primitive object={MAT_TOWER} attach="material" />
+          </mesh>
+        </group>
+
+        {/* === Surface trench details === */}
+        {/* Central spine trench — runs nose(-Z) to stern(+Z), centered slightly toward stern */}
+        <mesh position={[0, 0.26, 0.2]}>
+          <boxGeometry args={[0.06, 0.02, 3.2]} />
+          <primitive object={MAT_TRENCH} attach="material" />
         </mesh>
-        <mesh position={[-0.9, 0, 0.2]} rotation={[0, 0, 0.15]}>
-          <boxGeometry args={[1.4, 0.03, 0.6]} />
-          <meshStandardMaterial
-            color="#0d1117"
-            metalness={0.85}
-            roughness={0.3}
-            emissive="#001830"
-            emissiveIntensity={0.2}
-          />
+        {/* Port lateral trench */}
+        <mesh position={[-0.42, 0.26, 0.2]}>
+          <boxGeometry args={[0.04, 0.02, 2.0]} />
+          <primitive object={MAT_TRENCH} attach="material" />
+        </mesh>
+        {/* Starboard lateral trench */}
+        <mesh position={[0.42, 0.26, 0.2]}>
+          <boxGeometry args={[0.04, 0.02, 2.0]} />
+          <primitive object={MAT_TRENCH} attach="material" />
+        </mesh>
+        {/* Cross trench near mid-ship */}
+        <mesh position={[0, 0.26, 0.3]}>
+          <boxGeometry args={[0.9, 0.02, 0.05]} />
+          <primitive object={MAT_TRENCH} attach="material" />
+        </mesh>
+        {/* Cross trench near stern */}
+        <mesh position={[0, 0.26, 1.3]}>
+          <boxGeometry args={[1.6, 0.02, 0.05]} />
+          <primitive object={MAT_TRENCH} attach="material" />
         </mesh>
 
-        {/* Wing tips — emissive accents */}
-        <mesh position={[1.55, 0, 0.2]}>
-          <boxGeometry args={[0.08, 0.05, 0.5]} />
-          <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
-            emissiveIntensity={3}
-            toneMapped={false}
-          />
+        {/* === Three engine glows at stern (+Z) === */}
+        {/* Engine housings */}
+        <mesh position={[-0.55, -0.05, 2.2]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.14, 0.18, 0.22, 10]} />
+          <primitive object={MAT_HULL} attach="material" />
         </mesh>
-        <mesh position={[-1.55, 0, 0.2]}>
-          <boxGeometry args={[0.08, 0.05, 0.5]} />
-          <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
-            emissiveIntensity={3}
-            toneMapped={false}
-          />
+        <mesh position={[0, -0.05, 2.4]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.17, 0.22, 0.22, 10]} />
+          <primitive object={MAT_HULL} attach="material" />
+        </mesh>
+        <mesh position={[0.55, -0.05, 2.2]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.14, 0.18, 0.22, 10]} />
+          <primitive object={MAT_HULL} attach="material" />
         </mesh>
 
-        {/* Engine nacelles — two small cylinders at wing roots */}
-        <mesh position={[0.45, -0.05, 0.5]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.08, 0.12, 0.4, 8]} />
-          <meshStandardMaterial color="#0d1117" metalness={0.9} roughness={0.2} />
+        {/* Engine glow discs (emissive face at exhaust) */}
+        <mesh position={[-0.55, -0.05, 2.31]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.13, 10]} />
+          <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
-        <mesh position={[-0.45, -0.05, 0.5]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.08, 0.12, 0.4, 8]} />
-          <meshStandardMaterial color="#0d1117" metalness={0.9} roughness={0.2} />
+        <mesh position={[0, -0.05, 2.52]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.16, 10]} />
+          <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
-
-        {/* Engine exhaust glow — sphere at rear */}
-        <mesh ref={engineSphereRef} position={[0, 0, 0.9]} scale={0.12}>
-          <sphereGeometry args={[1, 8, 8]} />
-          <meshBasicMaterial
-            color="#00d4ff"
-            toneMapped={false}
-          />
+        <mesh position={[0.55, -0.05, 2.31]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.13, 10]} />
+          <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
 
-        {/* Engine point light */}
-        <pointLight
-          ref={engineGlowRef}
-          position={[0, 0, 0.9]}
-          color="#00d4ff"
-          intensity={2}
-          distance={5}
-          decay={2}
-        />
-      </group>
+        {/* Engine outer halo discs */}
+        <mesh position={[-0.55, -0.05, 2.32]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.2, 10]} />
+          <primitive object={MAT_ENGINE_OUTER} attach="material" />
+        </mesh>
+        <mesh position={[0, -0.05, 2.54]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.24, 10]} />
+          <primitive object={MAT_ENGINE_OUTER} attach="material" />
+        </mesh>
+        <mesh position={[0.55, -0.05, 2.32]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.2, 10]} />
+          <primitive object={MAT_ENGINE_OUTER} attach="material" />
+        </mesh>
 
-      {/* Engine trail particles */}
+        {/* Engine point lights */}
+        <pointLight ref={engine1GlowRef} position={[-0.55, -0.05, 2.4]}
+          color="#00e5ff" intensity={3.5} distance={6} decay={2} />
+        <pointLight ref={engine2GlowRef} position={[0, -0.05, 2.6]}
+          color="#00e5ff" intensity={4} distance={7} decay={2} />
+        <pointLight ref={engine3GlowRef} position={[0.55, -0.05, 2.4]}
+          color="#00e5ff" intensity={3.5} distance={6} decay={2} />
+
+        {/* === Running lights — red at stern wing edges === */}
+        <mesh position={[-0.96, 0.1, 1.9]}>
+          <sphereGeometry args={[0.04, 6, 6]} />
+          <primitive object={MAT_RUNNING_RED} attach="material" />
+        </mesh>
+        <mesh position={[0.96, 0.1, 1.9]}>
+          <sphereGeometry args={[0.04, 6, 6]} />
+          <primitive object={MAT_RUNNING_RED} attach="material" />
+        </mesh>
+
+      </group>{/* end shipGroupRef */}
+
+      {/* ── Engine trail particles — 3 exhaust streams ── */}
       <points ref={trailRef}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[trailPositions, 3]} />
@@ -299,7 +399,8 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
             void main() {
               vOpacity = aOpacity;
               vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = aOpacity * 4.0 * uPixelRatio * (150.0 / -mvPos.z);
+              // A9: larger point size for bigger ship trail
+              gl_PointSize = aOpacity * 8.0 * uPixelRatio * (200.0 / -mvPos.z);
               gl_Position = projectionMatrix * mvPos;
             }
           `}
@@ -310,9 +411,9 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
               float d = length(gl_PointCoord - vec2(0.5));
               if (d > 0.5) discard;
               float alpha = smoothstep(0.5, 0.0, d) * vOpacity;
-              // Cyan core fading to white
-              vec3 color = mix(vec3(0.0, 0.83, 1.0), vec3(1.0), vOpacity * 0.3);
-              gl_FragColor = vec4(color, alpha * 0.7);
+              // Bright cyan core → blue-white fade
+              vec3 color = mix(vec3(0.0, 0.9, 1.0), vec3(0.8, 1.0, 1.0), vOpacity * 0.4);
+              gl_FragColor = vec4(color, alpha * 0.85);
             }
           `}
         />

@@ -5,5 +5,10 @@ dist/
 .claude/
 test-results/
 playwright-report/
-*.png
+# Exclude screenshot output directories (not source assets)
+screenshots/
+_screenshots/
+# Exclude video output
 *.mp4
+# NOTE: do NOT exclude *.png globally — src/renderer/public/ and resources/ contain
+# required PNG assets (ring_platform.png, app icons) needed at build time.

@@ -41,6 +41,7 @@
     "canvas": "^3.2.2",
     "node-pty": "^1.1.0",
     "postprocessing": "^6.39.0",
+    "r3f-perf": "^7.2.3",
     "three": "^0.183.2"
   }
 }

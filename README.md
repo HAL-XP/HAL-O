@@ -4,46 +4,49 @@
 
 <h1 align="center">HAL-O</h1>
 
-<p align="center">Holographic Adaptive Layer for Claude Code projects.</p>
+<p align="center">
+  <b>Holographic Adaptive Layer for Claude Code</b><br>
+  A 3D command center that works with any project.
+</p>
 
 <p align="center">
   <img src="screenshots/readme-demo-default.png" alt="HAL-O — PBR Holographic view with demo projects" width="800" />
 </p>
 
+## What is HAL-O?
+
+HAL-O is a desktop dashboard for [Claude Code](https://claude.ai/code) projects. It wraps your existing projects in a holographic 3D hub with embedded terminals, voice control, and multi-agent orchestration — without changing your code or workflow.
+
+**It works with any project.** New or existing. Python, Node, Go, Rust, games, data science, or anything else. HAL-O detects what you have and adds just what's missing — it never overwrites your existing `CLAUDE.md`, rules, or configuration.
+
 ## Why HAL-O?
 
-Most developer dashboards give you a file tree and a terminal. HAL-O gives you a command center.
+| | Without HAL-O | With HAL-O |
+|---|---|---|
+| **Project view** | File tree + terminal | 3D holographic dashboard with live git stats |
+| **Multi-agent** | Separate terminal windows | Split panes in one app, coordinated via Telegram |
+| **Voice** | None | 20 voice personalities, push-to-talk, auto-speak output |
+| **Onboarding** | Manual CLAUDE.md + hooks setup | Wizard auto-detects stack, generates best practices |
+| **Session resilience** | Lost on crash | Auto-save, restore, absorb external sessions |
+| **Best practices** | Copy-paste from docs | Generated rules, hooks, and conventions per stack |
 
-🎛️ **Multi-Agent Command Center** — Run multiple Claude agents side-by-side in split terminals. Dispatch work from Telegram while you're away. HAL-O bridges agents that normally can't talk to each other, turning isolated sessions into a coordinated workforce.
+## Getting Started
 
-🎙️ **Voice-Controlled Development** — Push-to-talk with 20 cloned voice personalities, from a calm narrator to a drill sergeant. Say "Zog zog" and an orc grunt reports your build status. Terminal output auto-speaks so you can code eyes-free.
+### Use with existing projects (recommended)
 
-🌐 **Holographic Project Dashboard** — Your projects orbit a 3D sphere with live git stats, PBR lighting, bloom post-processing, and a reflective floor. Choose from 10 layouts, 6 visual styles, and 28 color palettes. This is not a sidebar.
+1. Install and launch HAL-O
+2. Click **+ ADD PROJECT** and select your project folder
+3. HAL-O scans it, shows what it found, lets you pick what to add
+4. Your existing config stays untouched — HAL-O only adds what's missing
 
-⚡ **Zero-Friction Onboarding** — Import existing Claude Code projects in one click. The setup wizard auto-detects and installs git, Python, Claude CLI, and more. Nothing is overwritten — your existing config stays untouched.
+### Create a new project
 
-🛡️ **Session Resilience** — Terminals survive renderer crashes with automatic reload. Sessions save and restore across relaunches with full scrollback. External Claude sessions can be absorbed back into the app seamlessly.
+1. Click **+ NEW** in the hub
+2. The wizard auto-detects your stack or lets you pick
+3. It generates `CLAUDE.md`, hooks, rules, devlog templates, and launch scripts
+4. Your project is ready with best-in-class Claude Code configuration
 
-🎬 **Demo Mode** — Spin up 30 fake projects with scripted terminal feeds for presentations and screenshots. No real data, no real repos — just the full HAL-O experience without exposing anything private.
-
-## Features
-
-- **3 Renderers** — Classic (CSS cards + Three.js background), Holographic, and PBR Holographic (full 3D with bloom, chromatic aberration, reflective floor)
-- **10 Holographic Layouts** — Default, dual-ring, stacked-rings, spiral, hemisphere, arena, grid-wall, DNA helix, cascade, constellation
-- **6 3D Styles + 28 Color Palettes** — Tactical, holographic, neon, minimal, ember, arctic
-- **Embedded Terminal** — xterm.js + node-pty with split panes, drag-to-dock tabs (bottom/right/left), scrollback persistence
-- **Voice System** — 20 voice profiles, push-to-talk (Ctrl+Space), auto-speak terminal output
-- **Project Wizard** — Create new projects or import existing ones with zero-friction enlistment
-- **Setup Screen** — Auto-detect and install git, Python, Claude CLI, ffmpeg, GitHub CLI
-- **Custom Project Groups** — Color-coded groups with group-aware 3D layouts
-- **Demo Mode** — 30 simulated projects with scripted terminal feeds
-- **16 Languages** — EN, FR, ES, DE, PT, IT, NL, PL, RU, TR, AR, HI, JA, ZH, KO, VI
-- **Docker Testing** — Containerized test framework
-- **CI** — GitHub Actions on Linux and Windows
-
-## Quick Start
-
-**Prerequisites:** Node.js 18+
+### Quick install
 
 ```bash
 git clone https://github.com/HAL-XP/hal-o.git
@@ -58,15 +61,43 @@ chmod +x _scripts/unix/_RUN_WIZARD.sh && ./_scripts/unix/_RUN_WIZARD.sh
 
 The script auto-installs dependencies on first run.
 
-## Development
+## Features
 
-```bash
-npm install
-npm run dev          # Start in dev mode (hot reload)
-npm run build        # Production build
-npm run test         # Playwright E2E tests
-npm run test:docker  # Run tests in Docker
-```
+### 3D Holographic Dashboard
+- **3 renderers** — Classic (CSS cards), Holographic, PBR Holographic (bloom, reflections, post-processing)
+- **10 layouts** — Default ring, dual-ring, spiral, hemisphere, arena, grid-wall, DNA helix, cascade, constellation, stacked-rings
+- **6 visual styles + 28 color palettes** — Tactical, holographic, neon, minimal, ember, arctic
+- **Live project stats** — Git activity, file counts, health indicators on each screen panel
+
+### Embedded Terminal
+- **xterm.js + node-pty** with split panes, drag-to-dock tabs (bottom/right/left)
+- **Session persistence** — Scrollback survives reloads, sessions restore across relaunches
+- **Crash recovery** — Renderer crashes auto-reload without losing terminal state
+
+### Voice System
+- **20 voice profiles** — From calm narrator to drill sergeant, each with sentiment-aware sample selection
+- **Push-to-talk** (Ctrl+Space) with live transcription via faster-whisper
+- **Auto-speak** terminal output with configurable voice personality
+
+### Project Wizard & Best Practices
+- **Auto-detect** stack from project files (package.json, pyproject.toml, go.mod, Cargo.toml, etc.)
+- **Smart defaults** per stack — generates CLAUDE.md, hooks, domain-specific rules, devlog templates
+- **10+ rule files** — Frontend, UX, Python API, Node API, Go, Rust, game dev, data science, mobile, banned techniques
+- **Hours tracking** with human-equivalent estimation methodology
+- **Agent templates** — Frontend, backend, and QA verifier agents ready to use
+- **Non-destructive import** — Never overwrites existing config, only adds what's missing
+
+### Multi-Agent & Telegram
+- Run multiple Claude agents in split terminal panes
+- Telegram notifications for permission prompts and idle updates
+- Session absorption — bring external Claude sessions back into the app
+
+### Everything Else
+- **Setup screen** — Auto-detect and one-click install git, Python, Claude CLI, ffmpeg, GitHub CLI
+- **Custom project groups** — Color-coded groups with group-aware 3D layouts
+- **Demo mode** — 30 simulated projects with scripted terminal feeds for presentations
+- **16 languages** — EN, FR, ES, DE, PT, IT, NL, PL, RU, TR, AR, HI, JA, ZH, KO, VI
+- **Docker testing** and **GitHub Actions CI** (Linux + Windows)
 
 ## Screenshots
 
@@ -81,6 +112,16 @@ npm run test:docker  # Run tests in Docker
 <p align="center">
   <img src="screenshots/readme-demo-neon.png" alt="Neon style — accent-colored sphere core with intensified bloom" width="800" />
 </p>
+
+## Development
+
+```bash
+npm install
+npm run dev          # Start in dev mode (hot reload)
+npm run build        # Production build
+npm run test         # Playwright E2E tests
+npm run test:docker  # Run tests in Docker
+```
 
 ## Architecture
 
@@ -106,6 +147,13 @@ src/
 | Terminal | xterm.js + node-pty |
 | Voice | faster-whisper (STT), Chatterbox/Voicebox/Edge TTS (TTS) |
 | Tests | Playwright, Docker Compose |
+
+## Community Compatibility
+
+HAL-O plays nicely with other Claude Code setups. If you already use:
+- **Existing CLAUDE.md** — HAL-O won't overwrite it. Import adds alongside, not on top.
+- **Custom rules** — Your `.claude/rules/` files are preserved. HAL-O only adds missing ones.
+- **Other tools** (Cursor, aider, etc.) — HAL-O detects existing configs and skips over them.
 
 ## License
 

@@ -81,6 +81,12 @@ function hasFrontend(config: ProjectConfig): boolean {
   return /react|vue|svelte|next|nuxt|angular|frontend|vite/i.test(config.techStack)
 }
 
+function hasProfiling(config: ProjectConfig): boolean {
+  if (['electron', 'web-react', 'pygame', 'godot'].includes(config.techStack)) return true
+  return /three|3d|game|canvas|webgl/i.test(config.techStack) ||
+    /three|3d|game|canvas|webgl/i.test(config.description)
+}
+
 function hasPython(config: ProjectConfig): boolean {
   if (['python-backend', 'fullstack-python'].includes(config.techStack)) return true
   if (config.languages.some(l => /python/i.test(l))) return true
@@ -134,12 +140,23 @@ export function generateClaudeMd(config: ProjectConfig): string {
   lines.push('- NEVER kill processes by name -- always by PID from `.claude/.pids`')
   lines.push('- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)')
   lines.push('- Messages prefixed with `[voice]` are spoken by the user via microphone — respond concisely and conversationally')
+  lines.push('- Long-running commands (builds, installs, generation) should use `run_in_background: true` -- never block the terminal for more than ~5 seconds')
+  lines.push('- Always propose the best-quality solution first — do not rank options by implementation effort. You write code at machine speed.')
+  if (hasFrontend(config)) {
+    lines.push('- All React hooks (useState, useEffect, useRef) MUST be placed BEFORE any conditional return -- violating this causes silent crashes')
+  }
   // LLM-suggested conventions
   if (config.conventions && config.conventions.length > 0) {
     for (const conv of config.conventions) {
       lines.push(`- ${conv}`)
     }
   }
+  lines.push('')
+
+  // Performance tip
+  lines.push('## Performance')
+  lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
+  lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
   lines.push('')
 
   if (config.claudeMd === 'full') {
@@ -202,6 +219,22 @@ export function generateClaudeMd(config: ProjectConfig): string {
       }
       if (config.devlog.includes('experiments')) {
         lines.push('**Experiments**: Record trial results in `_devlog/experiments/YYYYMMDD_topic.md`. Verdict: adopt or kill.')
+        lines.push('')
+      }
+      if (config.devlog.includes('perf')) {
+        lines.push('**Performance**: Log baselines to `_devlog/perf/perf_YYYYMMDD.md` before and after optimization work.')
+        lines.push('')
+        lines.push('Format:')
+        lines.push('```markdown')
+        lines.push('| Metric | 10 items | 20 items | 30 items |')
+        lines.push('|--------|----------|----------|----------|')
+        lines.push('| FPS | 60 | 58 | 42 |')
+        lines.push('| Draw calls | 124 | 248 | 372 |')
+        lines.push('| Triangles | 45K | 89K | 134K |')
+        lines.push('| GPU ms | 4.2 | 8.1 | 14.3 |')
+        lines.push('```')
+        lines.push('')
+        lines.push('When to log: before/after PERF tasks, after adding 3D features or visual effects, when adding significant new UI.')
         lines.push('')
       }
     }
@@ -323,9 +356,49 @@ export function generateHooksSettings(config: ProjectConfig): object {
         }],
       },
     ]
+
+    // Channel-mode enforcement: detect Telegram vs terminal, block cross-channel replies
+    // Sticky afk: once set, channel stays "telegram" until a real terminal message clears it
+    const channelModeCmd = `bash -c 'INPUT=$(cat); if echo "$INPUT" | grep -q "<channel source"; then echo "telegram" > /tmp/claude_channel_mode.txt; rm -f /tmp/claude_afk_sticky.txt; elif echo "$INPUT" | grep -qi "afk"; then echo "telegram" > /tmp/claude_channel_mode.txt; echo "1" > /tmp/claude_afk_sticky.txt; elif echo "$INPUT" | grep -q "task-notification\\|command-name\\|local-command\\|system-reminder"; then true; elif [ -f /tmp/claude_afk_sticky.txt ]; then true; else echo "terminal" > /tmp/claude_channel_mode.txt; rm -f /tmp/claude_afk_sticky.txt; fi'`
+
+    const blockCrossChannelCmd = `bash -c 'MODE=$(cat /tmp/claude_channel_mode.txt 2>/dev/null || echo "telegram"); if [ "$MODE" = "terminal" ]; then echo "{\\"decision\\":\\"block\\",\\"reason\\":\\"User is at terminal. Reply here, not Telegram.\\"}"; fi'`
+
+    hooks.UserPromptSubmit = [{
+      matcher: '',
+      hooks: [{
+        type: 'command',
+        command: channelModeCmd,
+        timeout: 5,
+      }],
+    }]
+
+    if (!hooks.PreToolUse) hooks.PreToolUse = []
+    hooks.PreToolUse.push({
+      matcher: 'mcp__plugin_telegram_telegram__reply',
+      hooks: [{
+        type: 'command',
+        command: blockCrossChannelCmd,
+        timeout: 5,
+      }],
+    })
   }
 
-  return { hooks }
+  // PreCompact hook — save state before context compaction
+  const preCompactCmd = `bash -c 'echo "COMPACTION IMMINENT. You MUST immediately: 1) Update MEMORY.md with current task, PIDs, log paths, next steps. 2) Commit and push any unsaved work. Do these NOW before context is lost."'`
+  hooks.PreCompact = [{
+    matcher: '',
+    hooks: [{
+      type: 'command',
+      command: preCompactCmd,
+    }],
+  }]
+
+  // Environment — set compaction threshold
+  const env: Record<string, string> = {
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '80',
+  }
+
+  return { hooks, env }
 }
 
 // ── Rule Files ──
@@ -523,6 +596,45 @@ Include the date and context. This file is auto-loaded every session.
 `
   }
 
+  if (config.rulesSetup.includes('profiling')) {
+    files['profiling.md'] = `# Performance Profiling
+
+## Tools by Stack
+
+### Three.js / React Three Fiber
+- **r3f-perf**: \`npm install r3f-perf\` → \`<Perf position="top-left" deepAnalyze />\` inside Canvas
+- **renderer.info**: \`gl.info.render.calls\`, \`gl.info.render.triangles\`, \`gl.info.memory.geometries\`
+- **Spector.js**: Capture every WebGL draw call in a single frame — browser extension or npm
+- Set \`gl.info.autoReset = false\` to accumulate stats per frame, call \`gl.info.reset()\` after reading
+
+### General Web
+- **Chrome DevTools Performance tab**: Frame timing, JS flame chart
+- **Chrome DevTools Memory tab**: Heap snapshots, allocation timeline
+- **\`performance.memory.usedJSHeapSize\`**: JS heap in Chrome/Electron (check periodically)
+- **PerformanceObserver**: Detect long tasks (>50ms) that cause frame drops
+
+### Python Backend
+- **cProfile**: \`python -m cProfile -s cumtime script.py\`
+- **line_profiler**: Per-line timing for hot functions
+- **memory_profiler**: \`@profile\` decorator for memory usage per line
+
+## Baseline Protocol
+1. Measure BEFORE optimization (save to \`_devlog/perf/perf_YYYYMMDD.md\`)
+2. Change one thing at a time
+3. Measure AFTER — same conditions, same data
+4. Log the delta: what changed, how much, was it worth it
+
+## Key Metrics
+| Metric | Target | Tool |
+|--------|--------|------|
+| FPS | ≥60 (vsync) | requestAnimationFrame counter |
+| Draw calls | Minimize | renderer.info |
+| JS Heap | Stable (no growth) | performance.memory |
+| Frame budget | <16.6ms | useFrame timing |
+| IPC round-trip | <50ms | console.time/timeEnd |
+`
+  }
+
   return files
 }
 
@@ -532,27 +644,36 @@ export function generateHoursTrackingRule(): string {
   return `# Hours Tracking
 
 ## Format
-After each significant piece of work, estimate the equivalent human hours and log them.
-
-Append to \`_devlog/hours/hours_YYYYMMDD.md\` (one file per day, matching summaries pattern):
+Append to \`_devlog/hours/hours_YYYYMMDD.md\` (one file per day):
 
 \`\`\`markdown
 # Hours Log -- YYYY-MM-DD
 
-| Task | Claude Time | Human Equiv. | Notes |
-|------|-------------|--------------|-------|
-| Description | Xmin | Xh | Context |
+| Task | Type | Claude Time | Human Equiv. | Multiplier | Notes |
+|------|------|-------------|--------------|------------|-------|
+| Fix auth middleware | bug | 12min | 3h | 15x | CORS + token refresh edge case |
+| Add user dashboard | feat | 45min | 8h | 10.7x | React + API + tests |
+| Upgrade to React 19 | refactor | 8min | 2h | 15x | Breaking changes research |
+| **TOTAL** | | **65min** | **13h** | **12x** | |
 \`\`\`
 
+## Estimation by Task Type
+| Type | Typical Multiplier | Why |
+|------|-------------------|-----|
+| **bug** (debugging) | 10-20x | Humans spend most time reproducing + bisecting |
+| **feat** (new feature) | 8-12x | Design decisions, wiring, testing |
+| **refactor** | 10-15x | Understanding existing code, safe migration |
+| **research** | 5-8x | Reading docs, comparing options (Claude has instant recall) |
+| **config/devops** | 15-25x | Humans fight tooling issues, env differences |
+| **test** | 8-12x | Writing assertions, covering edge cases |
+| **docs** | 3-5x | Lowest multiplier — writing is less compressible |
+
 ## Guidelines
-- "Human Equiv." = how long a senior full-stack dev (8h/day) would take for the same task
-- Think about: research time, trial-and-error, context switching, testing, debugging
-- A 30min Claude task might be 4-8h human work (native module compilation, shader debugging, etc.)
-- A 5min Claude task might be 30min human work (simple config change with research)
-- Include context: was it a bug fix, new feature, refactor, research?
-- Be honest about complexity — don't inflate or deflate estimates
-- At session end, include a TOTAL row with the multiplier (e.g., "8-10x compression")
-- Update the log at natural milestones, not after every tiny change
+- "Human Equiv." = how long a senior full-stack dev (8h/day, no AI tools) would take
+- Factor in: research, trial-and-error, context switching, testing, debugging, code review
+- Be honest — don't inflate to impress or deflate to seem humble
+- Update at natural milestones (after a feature, after a fix), not after every tiny change
+- Include a TOTAL row with the session multiplier at session end
 - Create a new file each day (same pattern as summaries)
 `
 }

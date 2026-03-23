@@ -3,13 +3,14 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
-/** Density multipliers: NONE=0, LOW=0.3, MED=1, HIGH=2, MAX=3 */
-const DENSITY_MULTIPLIERS = [0, 0.3, 1, 2, 3] as const
+/** Density multipliers: NONE=0, MINIMAL=0.1, VERY LOW=0.2, LOW=0.3, LOW-MED=0.5, MED=1.0, MED-HIGH=1.5, HIGH=2.0, VERY HIGH=2.5, ULTRA=3.0, MAX=4.0 */
+const DENSITY_MULTIPLIERS = [0, 0.1, 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0] as const
 
 interface Props {
   projectCount: number
   hideDist?: number
-  densityLevel?: number  // 0-4 index into DENSITY_MULTIPLIERS
+  densityLevel?: number  // 0-10 index into DENSITY_MULTIPLIERS
+  fadeMultiplier?: number // 0-1, external fade control for staged scene loading
 }
 
 // Pre-allocated scratch vectors — never allocate in useFrame
@@ -21,11 +22,11 @@ const _v3 = new THREE.Vector3()
  * Particle count scales with project count and density setting.
  * Colors are derived from the active 3D theme.
  */
-export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2 }: Props) {
+export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2, fadeMultiplier = 1 }: Props) {
   const theme = useThreeTheme()
   const pointsRef = useRef<THREE.Points>(null)
 
-  const densityMultiplier = DENSITY_MULTIPLIERS[Math.max(0, Math.min(4, densityLevel))] ?? 1
+  const densityMultiplier = DENSITY_MULTIPLIERS[Math.max(0, Math.min(10, densityLevel))] ?? 1
   const baseCount = 200 + projectCount * 10
   const count = Math.round(baseCount * densityMultiplier)
 
@@ -75,6 +76,7 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2 }: 
       uTime: { value: 0 },
       uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
       uHideDist: { value: 4.0 },
+      uFade: { value: 1.0 },
     },
     vertexShader: /* glsl */ `
       attribute float aSeed;
@@ -84,12 +86,13 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2 }: 
       uniform float uTime;
       uniform float uPixelRatio;
       uniform float uHideDist;
+      uniform float uFade;
 
       void main() {
         vColor = color;
         // Streams are brighter; normal particles shimmer
         float shimmer = sin(uTime * 1.5 + position.x * 3.0 + position.z * 2.0) * 0.3 + 0.7;
-        vOpacity = aStream > 0.5 ? 0.6 : shimmer * 0.35;
+        vOpacity = (aStream > 0.5 ? 0.6 : shimmer * 0.35) * uFade;
 
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
@@ -140,6 +143,7 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 2 }: 
     if (mat.uniforms) {
       mat.uniforms.uTime.value = elapsed
       mat.uniforms.uHideDist.value = hideDist
+      mat.uniforms.uFade.value = fadeMultiplier
     }
 
     for (let i = 0; i < count; i++) {

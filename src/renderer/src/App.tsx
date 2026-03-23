@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useI18n } from './i18n'
 import type { Answers, ProjectConfig, ProjectAnalysis } from './types'
-import { getActiveSteps } from './steps'
+import { getActiveSteps, isQuickCreate } from './steps'
 import { useSettings } from './hooks/useSettings'
 import { useDemoSettings } from './hooks/useDemoSettings'
 import { useTerminalSessions } from './hooks/useTerminalSessions'
@@ -34,30 +34,75 @@ function answersToConfig(answers: Answers): ProjectConfig {
     const v = answers[id]?.value
     return Array.isArray(v) ? v : []
   }
-  const getBool = (id: string) => answers[id]?.value === 'yes'
   const extras = getArr('extras')
+  const quickMode = isQuickCreate(answers)
+
+  // Quick-create: derive smart defaults from detected/selected stack
+  const stack = get('tech-stack')
+  const langs = getArr('languages')
+
+  // Smart hook defaults for quick-create
+  let hooksSetup = getArr('hooks-setup')
+  if (quickMode && hooksSetup.length === 0) {
+    hooksSetup = ['session-start']
+    if (langs.some(l => /typescript/i.test(l))) hooksSetup.push('post-tool-tsc')
+    if (langs.some(l => /python/i.test(l))) hooksSetup.push('post-tool-pycache')
+    hooksSetup.push('telegram-notify')
+  }
+
+  // Smart rules defaults for quick-create
+  let rulesSetup = getArr('rules-setup')
+  if (quickMode && rulesSetup.length === 0) {
+    const hasFe = ['web-react', 'fullstack-node', 'fullstack-python', 'electron', 'nextjs', 'sveltekit', 'nuxt', 'remix'].includes(stack) ||
+      /react|vue|svelte|next|nuxt|angular|frontend/.test(stack)
+    const hasPy = ['python-backend', 'fullstack-python'].includes(stack) || langs.some(l => /python/i.test(l))
+    if (hasFe) rulesSetup.push('frontend', 'ux')
+    if (hasPy) rulesSetup.push('python-api')
+    if (/node|express|nestjs/i.test(stack) || ['fullstack-node', 'node-backend'].includes(stack)) rulesSetup.push('node-api')
+    if (/go/i.test(stack) || stack === 'go-backend') rulesSetup.push('go-api')
+    if (/rust/i.test(stack) || stack === 'rust-backend') rulesSetup.push('rust-api')
+    rulesSetup.push('banned-techniques')
+  }
+
+  // Devlog: always all folders for quick-create
+  let devlog = getArr('devlog')
+  if (quickMode && devlog.length === 0) {
+    devlog = ['summaries', 'hours', 'decisions', 'experiments']
+  }
+
+  // Quick-create extras: memory seed + agent templates (no readme, no GitHub)
+  const hasFrontendStack = ['web-react', 'fullstack-node', 'fullstack-python', 'electron', 'nextjs', 'sveltekit'].includes(stack) ||
+    /react|vue|svelte|next|nuxt|angular|frontend/.test(stack)
+  const hasPyStack = ['python-backend', 'fullstack-python'].includes(stack) || langs.some(l => /python/i.test(l))
+  const memorySeed = quickMode ? true : extras.includes('memory-seed')
+  const agentTemplates = quickMode
+    ? (hasFrontendStack || hasPyStack)
+    : extras.includes('agent-templates')
+  const playwrightMcp = quickMode ? hasFrontendStack : extras.includes('playwright-mcp')
 
   return {
     name: get('project-name'),
     location: get('project-location'),
     description: get('project-description'),
-    techStack: get('tech-stack'),
-    languages: getArr('languages'),
+    techStack: stack,
+    languages: langs,
     styling: get('styling'),
     database: get('database'),
-    githubCreate: answers['github-create']?.value === 'yes',
+    // Quick-create: always git init locally
+    githubCreate: quickMode ? false : answers['github-create']?.value === 'yes',
     githubAccount: get('github-account'),
     githubVisibility: get('github-visibility', 'private'),
-    claudeMd: get('claude-md', 'full'),
-    hooksSetup: getArr('hooks-setup'),
-    rulesSetup: getArr('rules-setup'),
-    devlog: getArr('devlog'),
+    // Quick-create: always full CLAUDE.md
+    claudeMd: quickMode ? 'full' : get('claude-md', 'full'),
+    hooksSetup,
+    rulesSetup,
+    devlog,
     gitignore: true,
-    playwrightMcp: extras.includes('playwright-mcp'),
+    playwrightMcp,
     frontendDesignPlugin: extras.includes('plugin-frontend-design'),
-    agentTemplates: extras.includes('agent-templates'),
-    memorySeed: extras.includes('memory-seed'),
-    readme: extras.includes('readme'),
+    agentTemplates,
+    memorySeed,
+    readme: quickMode ? false : extras.includes('readme'),
     agentName: get('agent-name') || get('project-name'),
     sessionName: true,
     skipPermissions: extras.includes('skip-permissions'),
@@ -79,7 +124,7 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
   return active[idx - 1].id
 }
 
-const FIRST_STEP_ID = 'project-name'
+const FIRST_STEP_ID = 'wizard-mode'
 
 type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'configure'
 
@@ -97,10 +142,16 @@ export function App() {
   })
 
   const [configurePath, setConfigurePath] = useState<string | null>(null)
+  const [wizardFontSize, setWizardFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-wizard-font') || '14'))
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled } = useSettings()
+
+  const updateWizardFont = useCallback((size: number) => {
+    setWizardFontSize(size)
+    localStorage.setItem('hal-o-wizard-font', String(size))
+  }, [])
 
   // Camera sync: orbit/zoom -> sliders (only when tweaking is enabled)
   // Use a ref to avoid stale closures and prevent render loops
@@ -324,18 +375,20 @@ export function App() {
             onScreenOpacityChange={updateScreenOpacity}
             particleDensity={particleDensity}
             onParticleDensityChange={updateParticleDensity}
+            renderQuality={renderQuality}
+            onRenderQualityChange={updateRenderQuality}
             camera={camera}
-            cameraTweaking={cameraTweaking}
             onCameraChange={updateCamera}
-            onCameraTweakingChange={updateCameraTweaking}
             onCameraReset={resetCamera}
-            onCameraMove={cameraTweaking ? handleCameraMove : undefined}
+            onCameraMove={handleCameraMove}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}
             onLayoutChange={updateLayout}
             threeTheme={threeTheme}
             onThreeThemeChange={updateThreeTheme}
+            shipVfxEnabled={shipVfxEnabled}
+            onShipVfxEnabledChange={updateShipVfxEnabled}
             halSessionId={demo.enabled ? 'demo-hal' : getHalSessionId()}
             terminalCount={demo.enabled ? demo.terminalCount : termSessions.length}
             demo={demo}
@@ -399,14 +452,45 @@ export function App() {
     const newAnswers: Answers = {
       ...state.answers,
       'stack-analysis': { value: '__accepted__', label: analysis.techStackLabel || analysis.techStack },
-      'tech-stack': { value: analysis.techStack, label: analysis.techStackLabel || analysis.techStack },
-      'languages': { value: analysis.languages, label: analysis.languages.join(', ') },
+      'tech-stack': { value: analysis.techStack, label: analysis.techStackLabel || analysis.techStack, preDetected: !!analysis.folderDetection },
+      'languages': { value: analysis.languages, label: analysis.languages.join(', '), preDetected: !!analysis.folderDetection },
       'styling': { value: analysis.styling || 'none', label: analysis.styling || 'none' },
       'database': { value: analysis.database || 'none', label: analysis.database || 'none' },
     }
     // Store conventions for richer CLAUDE.md generation
     if (analysis.conventions.length > 0) {
       newAnswers['_conventions'] = { value: analysis.conventions, label: analysis.conventions.join('; ') }
+    }
+
+    // In quick-create mode: skip to creation immediately after stack is confirmed
+    if (isQuickCreate(newAnswers)) {
+      setState((prev) => ({
+        ...prev,
+        answers: newAnswers,
+        isCreating: true,
+        creationLog: ['Starting quick create...'],
+        showReview: false,
+      }))
+      const config = answersToConfig(newAnswers)
+      window.api.createProject(config as unknown as Record<string, unknown>)
+        .then((result) => {
+          setState((prev) => ({
+            ...prev,
+            isCreating: false,
+            creationLog: result.log,
+            creationDone: true,
+            createdPath: result.path || null,
+          }))
+        })
+        .catch((err) => {
+          setState((prev) => ({
+            ...prev,
+            isCreating: false,
+            creationLog: [...prev.creationLog, `[ERROR] ${err}`],
+            creationDone: true,
+          }))
+        })
+      return
     }
 
     // Jump to GitHub phase (skip manual stack steps since they have condition: __manual__)
@@ -497,8 +581,8 @@ export function App() {
 
   if (state.isCreating || state.creationDone) {
     return (
-      <div className="app">
-        <StepProgress currentPhase="review" answers={state.answers} />
+      <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
+        <StepProgress currentPhase="review" answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
         <div className="chat-area">
           <CreationProgress
             log={state.creationLog}
@@ -517,8 +601,8 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <StepProgress currentPhase={state.showReview ? 'review' : currentPhase} answers={state.answers} />
+    <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
+      <StepProgress currentPhase={state.showReview ? 'review' : currentPhase} answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
 
       <div className="chat-area">
         {/* Welcome message */}

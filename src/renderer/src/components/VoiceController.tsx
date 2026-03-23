@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ProjectInfo } from '../types'
+import { connectAudioElement } from '../utils/audioAnalyser'
 
 interface Props {
   projects: ProjectInfo[]
@@ -49,6 +50,8 @@ export function VoiceController({ projects, onSearch, onNewProject, onConvertPro
         audioRef.current = audio
         audio.onended = () => setState((s) => ({ ...s, speaking: false }))
         audio.onerror = () => setState((s) => ({ ...s, speaking: false }))
+        // Connect to global analyser so sphere reacts to this audio too
+        connectAudioElement(audio)
         await audio.play()
       } else {
         setState((s) => ({ ...s, speaking: false }))

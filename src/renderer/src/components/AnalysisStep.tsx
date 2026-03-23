@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Answers, ProjectAnalysis } from '../types'
 import { useI18n } from '../i18n'
 import { Logo } from './Logo'
+import { isQuickCreate } from '../steps'
 
 interface Props {
   answers: Answers
@@ -28,6 +29,7 @@ export function AnalysisStep({ answers, onAccept, onManual, onBack, canGoBack }:
   const [error, setError] = useState<string | null>(null)
   const [progressIdx, setProgressIdx] = useState(0)
   const [elapsed, setElapsed] = useState(0)
+  const quickMode = isQuickCreate(answers)
 
   const name = String(answers['project-name']?.value || '')
   const description = String(answers['project-description']?.value || '')
@@ -141,13 +143,23 @@ export function AnalysisStep({ answers, onAccept, onManual, onBack, canGoBack }:
         <div className="message-avatar"><Logo size={22} /></div>
         <div className="message-content">
           <strong>{t('analysis.suggestion')}</strong>
-          {analysis.folderDetected && (
+          {analysis.folderDetection && (
+            <span className="analysis-detected-badge">
+              Auto-detected from files
+            </span>
+          )}
+          {!analysis.folderDetection && analysis.folderDetected && (
             <span style={{ color: 'var(--success)', fontSize: 12, marginLeft: 8 }}>
               ({t('analysis.detectedFiles')})
             </span>
           )}
           <br />
           <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{analysis.reasoning}</span>
+          {quickMode && (
+            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)' }}>
+              Quick create: full CLAUDE.md + smart hooks + devlog + memory seed will be set up automatically.
+            </div>
+          )}
         </div>
       </div>
 
@@ -176,7 +188,7 @@ export function AnalysisStep({ answers, onAccept, onManual, onBack, canGoBack }:
             <span className="analysis-value">{analysis.database}</span>
           </div>
         )}
-        {analysis.conventions.length > 0 && (
+        {!quickMode && analysis.conventions.length > 0 && (
           <div className="analysis-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
             <span className="analysis-label">Conventions</span>
             <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
@@ -191,7 +203,7 @@ export function AnalysisStep({ answers, onAccept, onManual, onBack, canGoBack }:
       <div className="choices-grid" style={{ marginTop: 12 }}>
         <button className="choice-btn selected" onClick={() => onAccept(analysis)}
           style={{ flex: 1, textAlign: 'center', justifyContent: 'center' }}>
-          {t('analysis.looksGood')}
+          {quickMode ? 'Create project now' : t('analysis.looksGood')}
         </button>
         <button className="choice-btn" onClick={onManual}
           style={{ textAlign: 'center', justifyContent: 'center' }}>
