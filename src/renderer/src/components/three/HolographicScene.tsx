@@ -17,7 +17,7 @@ const CYAN_DIM = '#006688'
 const RED = '#ff2200'
 
 // ── Dark Platform Floor ──
-function HoloFloor() {
+function HoloFloor({ radius = 15 }: { radius?: number }) {
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
   useFrame((_, delta) => {
@@ -26,13 +26,14 @@ function HoloFloor() {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-      <circleGeometry args={[15, 128]} />
+      <circleGeometry args={[radius, 128]} />
       <shaderMaterial
         ref={matRef}
         transparent
         depthWrite={false}
         uniforms={{
           uTime: { value: 0 },
+          uRadius: { value: radius },
         }}
         vertexShader={`
           varying vec2 vUv;
@@ -46,6 +47,7 @@ function HoloFloor() {
         `}
         fragmentShader={`
           uniform float uTime;
+          uniform float uRadius;
           varying vec2 vUv;
           varying vec3 vWorldPos;
 
@@ -58,7 +60,7 @@ function HoloFloor() {
             float line = 1.0 - min(min(g.x, g.y), 1.0);
 
             // Edge fade
-            float edge = smoothstep(15.0, 12.0, dist);
+            float edge = smoothstep(uRadius, uRadius - 3.0, dist);
             float centerFade = smoothstep(0.0, 3.0, dist);
 
             // Dark surface
@@ -228,6 +230,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
 
   // Scale camera and zoom limits with project count (match PBR approach)
   const screenRadius = Math.max(8, projects.length * 0.55)
+  const floorRadius = Math.max(20, screenRadius * 1.8)
   const maxCamDistance = Math.max(40, screenRadius * 2.5)
   const camZ = Math.max(11, screenRadius * 1.3)
 
@@ -243,7 +246,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       <ambientLight intensity={0.02} />
 
       <Starfield />
-      <HoloFloor />
+      <HoloFloor radius={floorRadius} />
       <RingPlatform />
       <AtmosphericGlow />
 
@@ -306,7 +309,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
         minDistance={6}
         maxDistance={maxCamDistance}
         minPolarAngle={0.3}
-        maxPolarAngle={Math.PI / 2.2}
+        maxPolarAngle={Math.PI / 2 - 0.03}
         autoRotate
         autoRotateSpeed={0.15}
         target={[0, 0.3, 0]}

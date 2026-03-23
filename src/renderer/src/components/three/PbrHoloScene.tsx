@@ -19,7 +19,7 @@ import { StackIndicatorPanel } from './StackIndicatorPanel'
 import { ThreeThemeProvider, useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 // ── Reflective Floor Platform ──
-function ReflectiveFloor() {
+function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
   const theme = useThreeTheme()
   // Derive a dark floor color from the screen face
   const floorColor = useMemo(() => {
@@ -28,7 +28,7 @@ function ReflectiveFloor() {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-      <circleGeometry args={[16, 128]} />
+      <circleGeometry args={[radius, 128]} />
       <MeshReflectorMaterial
         mirror={0.15}
         resolution={512}
@@ -44,7 +44,7 @@ function ReflectiveFloor() {
 }
 
 // ── Grid Lines (separate mesh on top of reflective floor) ──
-function GridOverlay() {
+function GridOverlay({ radius = 16 }: { radius?: number }) {
   const theme = useThreeTheme()
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
@@ -61,11 +61,12 @@ function GridOverlay() {
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uGridColor: { value: new THREE.Vector3(gridRGB[0], gridRGB[1], gridRGB[2]) },
-  }), [gridRGB])
+    uRadius: { value: radius },
+  }), [gridRGB, radius])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
-      <circleGeometry args={[16, 128]} />
+      <circleGeometry args={[radius, 128]} />
       <shaderMaterial
         ref={matRef}
         transparent
@@ -82,13 +83,14 @@ function GridOverlay() {
         fragmentShader={`
           uniform float uTime;
           uniform vec3 uGridColor;
+          uniform float uRadius;
           varying vec3 vWorldPos;
           void main() {
             float dist = length(vWorldPos.xz);
             float gs = 1.5;
             vec2 g = abs(fract(vWorldPos.xz / gs - 0.5) - 0.5) / fwidth(vWorldPos.xz / gs);
             float line = 1.0 - min(min(g.x, g.y), 1.0);
-            float edge = smoothstep(16.0, 10.0, dist);
+            float edge = smoothstep(uRadius, uRadius - 6.0, dist);
             vec3 color = uGridColor * line * 0.5;
             float alpha = line * 0.1 * edge;
             gl_FragColor = vec4(color, alpha);
@@ -100,7 +102,7 @@ function GridOverlay() {
 }
 
 // ── Textured Platform Disc ──
-function TexturedPlatform() {
+function TexturedPlatform({ radius = 12 }: { radius?: number }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null)
 
   useMemo(() => {
@@ -120,7 +122,7 @@ function TexturedPlatform() {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <circleGeometry args={[12, 128]} />
+      <circleGeometry args={[radius, 128]} />
       <meshStandardMaterial
         map={texture}
         emissiveMap={texture}
@@ -135,9 +137,11 @@ function TexturedPlatform() {
 }
 
 // ── Concentric Ring Platform with PBR materials ──
-function PbrRingPlatform() {
+function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
+  // Scale factor relative to original 8.5 radius
+  const s = radius / 8.5
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.015
   })
@@ -156,7 +160,7 @@ function PbrRingPlatform() {
     <group ref={groupRef} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       {/* Shader ring lines — concentric rings with theme colors */}
       <mesh position={[0, 0, -0.01]}>
-        <ringGeometry args={[1.0, 8.5, 128]} />
+        <ringGeometry args={[1.0, radius, 128]} />
         <shaderMaterial
           transparent
           side={THREE.DoubleSide}
@@ -230,7 +234,7 @@ function PbrRingPlatform() {
 
       {Array.from({ length: 32 }, (_, i) => {
         const a = (i / 32) * Math.PI * 2
-        const r = 7.0
+        const r = 7.0 * s
         return (
           <mesh key={`dot-${i}`} position={[Math.cos(a) * r, Math.sin(a) * r, -0.03]}>
             <sphereGeometry args={[0.05, 8, 8]} />
@@ -606,9 +610,10 @@ interface Props {
   blockedInput?: boolean
   onProjectContextMenu?: (x: number, y: number, projectPath: string, projectName: string) => void
   screenOpacity?: number
+  particleDensity?: number
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, screenOpacity = 1 }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, screenOpacity = 1, particleDensity = 2 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -697,6 +702,9 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
 
   // Scale camera max distance with screen ring radius so users can always zoom out to see the full ring
   const screenRadius = Math.max(8, projects.length * 0.55)
+  const floorRadius = Math.max(20, screenRadius * 1.8)
+  const platformRadius = Math.max(12, screenRadius * 1.2)
+  const ringPlatformRadius = Math.max(8.5, screenRadius * 1.0)
   const maxCamDistance = Math.max(40, screenRadius * 2.5)
 
   // Compute camera position from settings
@@ -716,14 +724,14 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
 
         <SceneLights />
         {/* No starfield in PBR — pure dark cinematic */}
-        <ReflectiveFloor />
-        <GridOverlay />
-        <TexturedPlatform />
-        <PbrRingPlatform />
+        <ReflectiveFloor radius={floorRadius} />
+        <GridOverlay radius={floorRadius} />
+        <TexturedPlatform radius={platformRadius} />
+        <PbrRingPlatform radius={ringPlatformRadius} />
         <PbrHalSphere blockedInput={blockedInput} />
 
         {/* Ambient data particles */}
-        <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} />
+        <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} />
 
         {/* Scrolling HUD text strips — left and right edges */}
         <HudScrollText />
@@ -787,7 +795,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           minDistance={6}
           maxDistance={maxCamDistance}
           minPolarAngle={0.3}
-          maxPolarAngle={Math.PI / 2.2}
+          maxPolarAngle={Math.PI / 2 - 0.03}
           autoRotate
           autoRotateSpeed={0.12}
           target={[0, 0.3, 0]}
