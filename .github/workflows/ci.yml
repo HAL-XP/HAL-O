@@ -30,6 +30,9 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
 
+      - name: Download Electron binary (skipped by --ignore-scripts)
+        run: node node_modules/electron/install.js
+
       - name: Build with electron-vite
         run: npx electron-vite build
 
@@ -76,6 +79,9 @@ jobs:
         run: npm ci --ignore-scripts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
+
+      - name: Download Electron binary (skipped by --ignore-scripts)
+        run: node node_modules/electron/install.js
 
       - name: Build with electron-vite
         run: npx electron-vite build
