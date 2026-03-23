@@ -36,10 +36,10 @@ jobs:
       - name: Install Electron system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libxshmfence1
 
       - name: Run E2E smoke tests
-        run: xvfb-run --auto-servernum npx playwright test e2e/smoke.spec.ts
+        run: xvfb-run --auto-servernum npx playwright test e2e/smoke.spec.ts e2e/wizard-flow.spec.ts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
 
@@ -80,7 +80,7 @@ jobs:
         run: npx electron-vite build
 
       - name: Run E2E smoke tests
-        run: npx playwright test e2e/smoke.spec.ts
+        run: npx playwright test e2e/smoke.spec.ts e2e/wizard-flow.spec.ts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
 
