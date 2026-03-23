@@ -142,7 +142,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     })
   }, [filteredUnsorted, groups, assignments])
 
-  const isFullySetup = (p: ProjectInfo) => p.hasClaude && p.hasBatchFiles && p.hasClaudeDir
+  // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
+  const isFullySetup = (p: ProjectInfo) => p.hasClaude || p.hasClaudeDir
   const readyCount = projects.filter(isFullySetup).length
 
   // Layout positioning
