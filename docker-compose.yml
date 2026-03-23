@@ -1,0 +1,39 @@
+services:
+  test:
+    build: .
+    # Override for live development iteration — mount source, keep node_modules separate
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - DISPLAY=:99
+      - ANTHROPIC_API_KEY=
+      - NODE_ENV=test
+    command: >
+      xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24"
+      npx playwright test --reporter=line
+
+  # Fresh install simulation — no API key, no gh auth, no Python extras
+  test-fresh:
+    build: .
+    environment:
+      - DISPLAY=:99
+      - ANTHROPIC_API_KEY=
+      - HOME=/tmp/fresh-user
+      - NODE_ENV=test
+    command: >
+      bash -c "mkdir -p /tmp/fresh-user &&
+      xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24'
+      npx playwright test --reporter=line"
+
+  # Interactive — opens a shell for manual testing
+  shell:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - DISPLAY=:99
+    command: bash
+    stdin_open: true
+    tty: true

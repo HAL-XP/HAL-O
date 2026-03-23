@@ -10,7 +10,10 @@
     "preview": "electron-vite preview",
     "start": "electron .",
     "test": "npx playwright test",
-    "test:e2e": "electron-vite build && npx playwright test"
+    "test:e2e": "electron-vite build && npx playwright test",
+    "test:docker": "docker compose run --rm --build test",
+    "test:fresh": "docker compose run --rm --build test-fresh",
+    "test:shell": "docker compose run --rm --build shell"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",

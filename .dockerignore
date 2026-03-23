@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+.git/
+.claude/
+test-results/
+playwright-report/
+*.png
+*.mp4
