@@ -100,7 +100,38 @@ export function runLaunchScript(projectPath: string, scriptName: string): void {
   }
 }
 
-// ── gh CLI install command ──
+// ── Tool install commands ──
+
+export function getGitInstallInfo(): { command: string; label: string } {
+  if (isWin) {
+    return { command: 'winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements', label: 'Install via winget' }
+  } else if (isMac) {
+    return { command: 'xcode-select --install', label: 'Install via Xcode tools' }
+  }
+  return { command: 'sudo apt install git || sudo dnf install git', label: 'Install via package manager' }
+}
+
+export function getPythonInstallInfo(): { command: string; label: string } {
+  if (isWin) {
+    return { command: 'winget install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements', label: 'Install via winget' }
+  } else if (isMac) {
+    return { command: 'brew install python', label: 'Install via Homebrew' }
+  }
+  return { command: 'sudo apt install python3 python3-pip || sudo dnf install python3 python3-pip', label: 'Install via package manager' }
+}
+
+export function getClaudeCliInstallInfo(): { command: string; label: string } {
+  return { command: 'npm install -g @anthropic-ai/claude-code', label: 'Install via npm' }
+}
+
+export function getFfmpegInstallInfo(): { command: string; label: string } {
+  if (isWin) {
+    return { command: 'winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements', label: 'Install via winget' }
+  } else if (isMac) {
+    return { command: 'brew install ffmpeg', label: 'Install via Homebrew' }
+  }
+  return { command: 'sudo apt install ffmpeg || sudo dnf install ffmpeg', label: 'Install via package manager' }
+}
 
 export function getGhInstallInfo(): { command: string; label: string } {
   if (isWin) {

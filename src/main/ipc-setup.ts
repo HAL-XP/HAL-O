@@ -5,7 +5,7 @@ import { ipcMain, dialog } from 'electron'
 import { writeFileSync, existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { run, findApiKey } from './ipc-shared'
-import { openTerminalAt, getGhInstallInfo, getCommonProjectDirs } from './platform'
+import { openTerminalAt, getGhInstallInfo, getPythonInstallInfo, getClaudeCliInstallInfo, getFfmpegInstallInfo, getGitInstallInfo, getCommonProjectDirs } from './platform'
 
 export function registerSetupHandlers(): void {
   ipcMain.handle('check-prerequisites', async () => {
@@ -43,14 +43,55 @@ export function registerSetupHandlers(): void {
       }
     }
 
+    // git
+    let gitInstalled = false
+    let gitVersion = ''
+    try {
+      gitVersion = run('git --version').replace('git version ', '').trim()
+      gitInstalled = true
+    } catch { /* */ }
+
+    // Python
+    let pythonInstalled = false
+    let pythonVersion = ''
+    for (const cmd of ['python3 --version', 'python --version']) {
+      try {
+        pythonVersion = run(cmd).replace('Python ', '').trim()
+        pythonInstalled = true
+        break
+      } catch { /* try next */ }
+    }
+
+    // Claude CLI
+    let claudeCliInstalled = false
+    let claudeCliVersion = ''
+    try {
+      claudeCliVersion = run('claude --version 2>&1').trim()
+      claudeCliInstalled = true
+    } catch { /* */ }
+
+    // ffmpeg (optional, for voice)
+    let ffmpegInstalled = false
+    try {
+      run('ffmpeg -version')
+      ffmpegInstalled = true
+    } catch { /* */ }
+
     // API key
     const apiKeyResult = findApiKey()
 
     return {
       nodeVersion,
+      gitInstalled,
+      gitVersion,
       ghInstalled,
       ghAuthenticated,
       ghUser,
+      pythonInstalled,
+      pythonVersion,
+      claudeCliInstalled,
+      claudeCliVersion,
+      ffmpegInstalled,
       apiKeyFound: !!apiKeyResult.key,
       apiKeySource: apiKeyResult.source,
       apiKeyPreview: apiKeyResult.key ? apiKeyResult.key.slice(0, 12) + '...' : '',
@@ -112,8 +153,58 @@ export function registerSetupHandlers(): void {
     }
   })
 
+  ipcMain.handle('install-git', async () => {
+    try {
+      const { command } = getGitInstallInfo()
+      run(command)
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('install-python', async () => {
+    try {
+      const { command } = getPythonInstallInfo()
+      run(command)
+      return { success: true, needsRestart: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('install-claude-cli', async () => {
+    try {
+      const { command } = getClaudeCliInstallInfo()
+      run(command)
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('install-ffmpeg', async () => {
+    try {
+      const { command } = getFfmpegInstallInfo()
+      run(command)
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
   ipcMain.handle('get-gh-install-label', async () => {
     return getGhInstallInfo().label
+  })
+
+  ipcMain.handle('get-install-labels', async () => {
+    return {
+      git: getGitInstallInfo().label,
+      gh: getGhInstallInfo().label,
+      python: getPythonInstallInfo().label,
+      claudeCli: getClaudeCliInstallInfo().label,
+      ffmpeg: getFfmpegInstallInfo().label,
+    }
   })
 
   ipcMain.handle('auth-gh-cli', async () => {

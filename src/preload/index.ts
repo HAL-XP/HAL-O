@@ -6,7 +6,12 @@ const api = {
   getGhInstallLabel: () => ipcRenderer.invoke('get-gh-install-label'),
   checkPrerequisites: () => ipcRenderer.invoke('check-prerequisites'),
   saveApiKey: (key: string, location: string) => ipcRenderer.invoke('save-api-key', key, location),
+  getInstallLabels: () => ipcRenderer.invoke('get-install-labels'),
+  installGit: () => ipcRenderer.invoke('install-git'),
   installGhCli: () => ipcRenderer.invoke('install-gh-cli'),
+  installPython: () => ipcRenderer.invoke('install-python'),
+  installClaudeCli: () => ipcRenderer.invoke('install-claude-cli'),
+  installFfmpeg: () => ipcRenderer.invoke('install-ffmpeg'),
   authGhCli: () => ipcRenderer.invoke('auth-gh-cli'),
 
   // Hub

@@ -103,21 +103,41 @@ export interface ProjectInfo {
 
 export interface PrerequisiteStatus {
   nodeVersion: string
+  gitInstalled: boolean
+  gitVersion: string
   ghInstalled: boolean
   ghAuthenticated: boolean
   ghUser: string
+  pythonInstalled: boolean
+  pythonVersion: string
+  claudeCliInstalled: boolean
+  claudeCliVersion: string
+  ffmpegInstalled: boolean
   apiKeyFound: boolean
   apiKeySource: string
   apiKeyPreview: string
+}
+
+export interface InstallLabels {
+  git: string
+  gh: string
+  python: string
+  claudeCli: string
+  ffmpeg: string
 }
 
 export interface ElectronAPI {
   // Setup
   getPlatform: () => Promise<string>
   getGhInstallLabel: () => Promise<string>
+  getInstallLabels: () => Promise<InstallLabels>
   checkPrerequisites: () => Promise<PrerequisiteStatus>
   saveApiKey: (key: string, location: string) => Promise<{ success: boolean; path?: string; error?: string }>
+  installGit: () => Promise<{ success: boolean; error?: string }>
   installGhCli: () => Promise<{ success: boolean; error?: string }>
+  installPython: () => Promise<{ success: boolean; needsRestart?: boolean; error?: string }>
+  installClaudeCli: () => Promise<{ success: boolean; error?: string }>
+  installFfmpeg: () => Promise<{ success: boolean; error?: string }>
   authGhCli: () => Promise<{ success: boolean }>
 
   // Hub
