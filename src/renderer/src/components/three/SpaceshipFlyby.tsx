@@ -27,7 +27,7 @@ const FLIGHT_POINTS = [
 ]
 
 const FLIGHT_CURVE = new THREE.CatmullRomCurve3(FLIGHT_POINTS, false, 'catmullrom', 0.5)
-const FLYBY_DURATION = 3.0 // seconds
+const FLYBY_DURATION = 7.0 // seconds — slow enough to see the ship
 
 // ── Engine trail particle pool ──
 const TRAIL_COUNT = 60
@@ -165,7 +165,7 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle>(function Spaceshi
   return (
     <group>
       {/* Ship group */}
-      <group ref={shipGroupRef} scale={0.5}>
+      <group ref={shipGroupRef} scale={1.2}>
         {/* Hull — elongated cone */}
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <coneGeometry args={[0.25, 2.0, 6]} />

@@ -347,19 +347,18 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                   </div>
 
                   <div className="hal-settings-row">
-                    <span className="hal-settings-label">FLYBY FX</span>
-                    <div className="hal-settings-control">
-                      <button
-                        onClick={() => demo.setFlybyFx(!demo.flybyFx)}
-                        style={{
-                          width: 'auto',
-                          padding: '2px 8px',
-                          color: demo.flybyFx ? '#22d3ee' : 'var(--text-dim)',
-                          borderColor: demo.flybyFx ? '#22d3ee55' : undefined,
-                        }}
-                      >
-                        {demo.flybyFx ? 'ON' : 'OFF'}
-                      </button>
+                    <span className="hal-settings-label">VFX SPAWN FREQUENCY</span>
+                    <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        step="1"
+                        value={demo.vfxFrequency}
+                        onChange={(e) => demo.setVfxFrequency(parseInt(e.target.value))}
+                        style={{ flex: 1, accentColor: '#22d3ee' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 30 }}>{demo.vfxFrequency === 0 ? 'OFF' : `${demo.vfxFrequency}s`}</span>
                     </div>
                   </div>
 

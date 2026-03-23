@@ -275,6 +275,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           halOnline={!!halSessionId}
           layoutId={layoutId}
           terminalCount={terminalCount}
+          vfxFrequency={demo?.vfxFrequency}
           groups={groups}
           assignments={assignments}
         />

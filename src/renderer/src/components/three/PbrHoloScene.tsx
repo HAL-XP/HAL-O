@@ -411,11 +411,12 @@ interface Props {
   halOnline?: boolean
   layoutId?: string
   terminalCount?: number
+  vfxFrequency?: number // seconds between auto-spawns, 0 = only on terminal open
   groups?: ProjectGroup[]
   assignments?: Record<string, string>
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, groups = [], assignments = {} }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {} }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
@@ -459,6 +460,15 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
     }
     prevTermCountRef.current = terminalCount
   }, [terminalCount])
+
+  // Periodic VFX spawns (demo mode frequency slider)
+  useEffect(() => {
+    if (!vfxFrequency || vfxFrequency <= 0) return
+    const interval = setInterval(() => {
+      flybyRef.current?.trigger()
+    }, vfxFrequency * 1000)
+    return () => clearInterval(interval)
+  }, [vfxFrequency])
 
   return (
     <Canvas

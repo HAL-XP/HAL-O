@@ -7,7 +7,7 @@ export interface DemoSettings {
   terminalCount: number
   tabsMin: number
   tabsMax: number
-  flybyFx: boolean
+  vfxFrequency: number // seconds between spawns, 0 = disabled
   demoText: string
   demoVoice: VoiceProfileId
   setEnabled: (v: boolean) => void
@@ -15,7 +15,7 @@ export interface DemoSettings {
   setTerminalCount: (v: number) => void
   setTabsMin: (v: number) => void
   setTabsMax: (v: number) => void
-  setFlybyFx: (v: boolean) => void
+  setVfxFrequency: (v: number) => void
   setDemoText: (v: string) => void
   setDemoVoice: (v: VoiceProfileId) => void
 }
@@ -32,7 +32,7 @@ export function useDemoSettings(): DemoSettings {
   const [terminalCount, _setTerminalCount] = useState(() => parseInt(ls('hal-o-demo-terminals', '2')))
   const [tabsMin, _setTabsMin] = useState(() => parseInt(ls('hal-o-demo-tabs-min', '1')))
   const [tabsMax, _setTabsMax] = useState(() => parseInt(ls('hal-o-demo-tabs-max', '3')))
-  const [flybyFx, _setFlybyFx] = useState(() => ls('hal-o-demo-fx', 'false') === 'true')
+  const [vfxFrequency, _setVfxFrequency] = useState(() => parseInt(ls('hal-o-demo-vfx-freq', '0')))
   const [demoText, _setDemoText] = useState(() => ls('hal-o-demo-text', DEFAULT_DEMO_TEXT))
   const [demoVoice, _setDemoVoice] = useState<VoiceProfileId>(() => (ls('hal-o-demo-voice', 'narrator') as VoiceProfileId))
 
@@ -41,12 +41,12 @@ export function useDemoSettings(): DemoSettings {
   const setTerminalCount = useCallback((v: number) => { _setTerminalCount(v); localStorage.setItem('hal-o-demo-terminals', String(v)) }, [])
   const setTabsMin = useCallback((v: number) => { _setTabsMin(v); localStorage.setItem('hal-o-demo-tabs-min', String(v)) }, [])
   const setTabsMax = useCallback((v: number) => { _setTabsMax(v); localStorage.setItem('hal-o-demo-tabs-max', String(v)) }, [])
-  const setFlybyFx = useCallback((v: boolean) => { _setFlybyFx(v); localStorage.setItem('hal-o-demo-fx', String(v)) }, [])
+  const setVfxFrequency = useCallback((v: number) => { _setVfxFrequency(v); localStorage.setItem('hal-o-demo-vfx-freq', String(v)) }, [])
   const setDemoText = useCallback((v: string) => { _setDemoText(v); localStorage.setItem('hal-o-demo-text', v) }, [])
   const setDemoVoice = useCallback((v: VoiceProfileId) => { _setDemoVoice(v); localStorage.setItem('hal-o-demo-voice', v) }, [])
 
   return {
-    enabled, cardCount, terminalCount, tabsMin, tabsMax, flybyFx, demoText, demoVoice,
-    setEnabled, setCardCount, setTerminalCount, setTabsMin, setTabsMax, setFlybyFx, setDemoText, setDemoVoice,
+    enabled, cardCount, terminalCount, tabsMin, tabsMax, vfxFrequency, demoText, demoVoice,
+    setEnabled, setCardCount, setTerminalCount, setTabsMin, setTabsMax, setVfxFrequency, setDemoText, setDemoVoice,
   }
 }
