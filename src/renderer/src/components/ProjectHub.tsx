@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
 import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
+import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { GroupContextMenu } from './GroupContextMenu'
+import { ProjectContextMenu } from './ProjectContextMenu'
 import { PreviewGrid } from './PreviewGrid'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
@@ -68,7 +70,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string; projectName: string } | null>(null)
   const [preview2d, setPreview2d] = useState(false)
   const [voiceBlocked, setVoiceBlocked] = useState(false)
   const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -92,6 +94,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     groups, assignments, getProjectGroup, assignProject,
     createGroup, deleteGroup, renameGroup, reorderGroups, applyPreset,
   } = useProjectGroups()
+
+  // Hidden projects
+  const { hiddenPaths, hideProject, unhideProject, isHidden } = useHiddenProjects()
 
   useEffect(() => {
     if (demo?.enabled) {
@@ -131,13 +136,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
+  // Filter out hidden projects first, then apply search
+  const visibleProjects = useMemo(() => projects.filter((p) => !isHidden(p.path)), [projects, isHidden])
+
   const filteredUnsorted = search
-    ? projects.filter((p) =>
+    ? visibleProjects.filter((p) =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.path.toLowerCase().includes(search.toLowerCase()) ||
         p.stack.toLowerCase().includes(search.toLowerCase())
       )
-    : projects
+    : visibleProjects
 
   // Sort by group (group order first, ungrouped last), then by lastModified within each group
   const filtered = useMemo(() => {
@@ -153,8 +161,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }, [filteredUnsorted, groups, assignments])
 
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
-  const isFullySetup = (p: ProjectInfo) => p.hasClaude || p.hasClaudeDir
-  const readyCount = projects.filter(isFullySetup).length
+  const isFullySetup = (p: ProjectInfo) => (p as any).configLevel ? (p as any).configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
+  const readyCount = visibleProjects.filter(isFullySetup).length
 
   // Layout positioning
   const layoutFn = LAYOUT_FNS[layoutId] || LAYOUT_FNS['dual-arc']
@@ -188,6 +196,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
   const renderCard = (project: ProjectInfo, globalIndex: number) => {
     const ready = isFullySetup(project)
+    const isBare = (project as any).configLevel === 'bare'
     const pos = layoutFn(globalIndex, { w: dims.w, h: dims.h, total: filtered.length, cardW })
     const isHovered = hovered === project.path
     const extSession = getExternalSession(project.path)
@@ -198,7 +207,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return (
       <div
         key={project.path}
-        className={`hal-arc-card ${ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''} ${extSession ? 'has-external' : ''}`}
+        className={`hal-arc-card ${isBare ? 'bare' : ready ? 'ready' : 'pending'} ${isHovered ? 'hovered' : ''} ${extSession ? 'has-external' : ''}`}
         style={{ left: pos.left, top: pos.top, transform: pos.transform, transition: 'left 0.5s, top 0.5s, transform 0.5s' }}
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
@@ -217,7 +226,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
               boxShadow: `0 0 4px ${projGroup.color}`, flexShrink: 0,
             }} />
           )}
-          <span className={`hal-dot ${ready ? 'green' : 'amber'}`} />
+          <span className={`hal-dot ${isBare ? 'dim' : ready ? 'green' : 'amber'}`} />
           <span className="hal-arc-name">{project.name}</span>
           {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
           {extSession && <span className="hal-external-badge">EXT</span>}
@@ -262,6 +271,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     const cardCenterX = pos.left + cardW / 2
     const cardCenterY = pos.top + 18
     const ready = isFullySetup(project)
+    const bare = (project as any).configLevel === 'bare'
     const isActive = hovered === project.path
 
     const midX = (centerX + cardCenterX) / 2
@@ -269,12 +279,14 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     const dx = cardCenterX - centerX
     const controlOffset = dx > 0 ? -30 : 30
 
+    const dotColor = bare ? '#4a5568' : ready ? '#84cc16' : '#fbbf24'
+
     return (
       <g key={project.path}>
         <path
           d={`M ${centerX} ${centerY} Q ${midX + controlOffset} ${midY} ${cardCenterX} ${cardCenterY}`}
           fill="none"
-          stroke={isActive ? (ready ? '#84cc16' : '#fbbf24') : 'rgba(132,204,22,0.1)'}
+          stroke={isActive ? dotColor : 'rgba(132,204,22,0.1)'}
           strokeWidth={isActive ? 1.5 : 0.5}
           strokeDasharray={isActive ? 'none' : '4,6'}
           style={{ transition: 'all 0.5s' }}
@@ -283,7 +295,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           cx={cardCenterX}
           cy={cardCenterY}
           r={isActive ? 5 : 3}
-          fill={ready ? '#84cc16' : '#fbbf24'}
+          fill={dotColor}
           opacity={isActive ? 0.8 : 0.4}
           style={{ transition: 'cx 0.5s, cy 0.5s' }}
         />

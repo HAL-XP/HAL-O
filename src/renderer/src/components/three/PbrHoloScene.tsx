@@ -717,7 +717,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
               runCmd={project.runCmd}
               onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
               groupColor={projectGroupColors[i]}
-              healthStatus={!isFullySetup(project) ? 'warning' : 'ok'}
+              healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
               demoStats={project.demoStats}
             />
           )

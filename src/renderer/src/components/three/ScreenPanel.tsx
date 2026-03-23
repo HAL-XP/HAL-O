@@ -11,7 +11,7 @@ interface ProjectStats {
   fileCount: number
 }
 
-export type HealthStatus = 'ok' | 'warning' | 'outdated' | 'error'
+export type HealthStatus = 'ok' | 'warning' | 'outdated' | 'error' | 'neutral'
 
 interface Props {
   position: [number, number, number]
@@ -40,12 +40,14 @@ const HEALTH_COLORS: Record<HealthStatus, string> = {
   warning: '#fbbf24',   // amber
   outdated: '#fb923c',  // dim orange
   error: '#f87171',     // red
+  neutral: '#4a5568',   // dim gray — bare projects, not broken
 }
 const HEALTH_EDGE_OPACITY: Record<HealthStatus, number> = {
   ok: 0.5,
   warning: 0.6,
   outdated: 0.3,
   error: 0.7,
+  neutral: 0.2,
 }
 
 // Scratch vectors — reused every frame to avoid GC pressure
@@ -114,6 +116,7 @@ export function ScreenPanel({
 
   // Derive effective health from prop + stats (stats can upgrade 'ok' to 'outdated')
   const effectiveHealth: HealthStatus = useMemo(() => {
+    if (healthStatus === 'neutral') return 'neutral' // bare projects stay neutral, no upgrade
     if (healthStatus !== 'ok') return healthStatus
     if (stats && stats.commitCount30d === 0) return 'outdated'
     return 'ok'
@@ -122,6 +125,7 @@ export function ScreenPanel({
   // Derive health text from status + stats
   const effectiveHealthText: string | undefined = useMemo(() => {
     if (healthText) return healthText
+    if (effectiveHealth === 'neutral') return undefined // bare projects — no scrolling text
     if (effectiveHealth === 'warning') return 'SETUP INCOMPLETE'
     if (effectiveHealth === 'outdated') return 'NO COMMITS 30D'
     if (effectiveHealth === 'error') return 'ERROR'
