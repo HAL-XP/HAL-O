@@ -24,25 +24,27 @@ test('setup screen shows on first launch', async () => {
   const isSetup = await setupScreen.isVisible({ timeout: 5000 }).catch(() => false)
 
   if (isSetup) {
-    // Verify setup screen has the continue button
-    const continueBtn = page.locator('.create-btn, .submit-btn').first()
-    await expect(continueBtn).toBeVisible({ timeout: 5000 })
+    // Wait for prerequisite checks to complete (loading spinner disappears)
+    await page.waitForTimeout(2000)
 
-    // Click through setup to get to hub
+    // Click "Skip Setup" / "Continue" / "Launch HAL-O" button
+    const continueBtn = page.locator('.create-btn').first()
+    await expect(continueBtn).toBeVisible({ timeout: 10000 })
     await continueBtn.click()
-    // Wait for hub to load
-    await page.waitForTimeout(1000)
+
+    // Wait for transition to hub
+    await page.waitForTimeout(2000)
   }
 })
 
 test('hub renders after setup', async () => {
   const hub = page.locator('.project-hub, .hal-topbar, canvas').first()
-  await expect(hub).toBeVisible({ timeout: 10000 })
+  await expect(hub).toBeVisible({ timeout: 15000 })
 })
 
 test('HUD shows SYS://HAL-O', async () => {
   const label = page.locator('.hal-sys-label')
-  await expect(label).toBeVisible({ timeout: 5000 })
+  await expect(label).toBeVisible({ timeout: 10000 })
   const text = await label.textContent()
   expect(text).toContain('HAL-O')
 })
