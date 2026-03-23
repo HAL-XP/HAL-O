@@ -14,7 +14,8 @@ import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
 import { DEFAULT_CAMERA, type CameraSettings } from '../../hooks/useSettings'
-import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../../layouts3d'
+import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
+import { StackIndicatorPanel } from './StackIndicatorPanel'
 
 const CYAN = new THREE.Color('#00d4ff')
 const RED = new THREE.Color('#ff2200')
@@ -459,6 +460,20 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
     return layoutFn(projects.length)
   }, [projects.length, layoutId, groupIndices, groups.length])
 
+  // Compute stack info for group-aware layouts (hide overflow, show stack indicators)
+  const stackInfo = useMemo(() => {
+    const isGroupLayout = !!GROUP_LAYOUT_3D_FNS[layoutId]
+    if (!isGroupLayout || groups.length === 0) return null
+    return computeStackInfo(groupIndices, groups.length, screenPositions, 6)
+  }, [layoutId, groupIndices, groups.length, screenPositions])
+
+  // Build group index -> group name map for stack indicator labels
+  const groupNameMap = useMemo(() => {
+    const m = new Map<number, string>()
+    groups.forEach((g, i) => m.set(i, g.name))
+    return m
+  }, [groups])
+
   // Trigger spaceship flyby when a new terminal opens
   useEffect(() => {
     if (terminalCount > prevTermCountRef.current) {
@@ -510,10 +525,12 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       {/* Sonar pulse — HAL heartbeat */}
       {halOnline && <SonarPulse />}
 
-      {/* Screens */}
+      {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {
         const sp = screenPositions[i]
         if (!sp) return null
+        // If stack info exists and this project is not in the visible set, skip it
+        if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
         return (
           <ScreenPanel
             key={project.path}
@@ -531,9 +548,22 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
             runCmd={project.runCmd}
             onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
             groupColor={projectGroupColors[i]}
+            healthStatus={!isFullySetup(project) ? 'warning' : 'ok'}
           />
         )
       })}
+
+      {/* Stack indicator panels — shown when groups overflow */}
+      {stackInfo?.stacks.map((stack) => (
+        <StackIndicatorPanel
+          key={`stack-${stack.groupIndex}`}
+          position={stack.position}
+          rotation={stack.rotation}
+          count={stack.hiddenCount}
+          groupColor={groups[stack.groupIndex]?.color}
+          groupName={groupNameMap.get(stack.groupIndex)}
+        />
+      ))}
 
       <OrbitControls
         enablePan={false}

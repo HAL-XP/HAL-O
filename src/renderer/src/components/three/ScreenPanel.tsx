@@ -10,6 +10,8 @@ interface ProjectStats {
   fileCount: number
 }
 
+export type HealthStatus = 'ok' | 'warning' | 'outdated' | 'error'
+
 interface Props {
   position: [number, number, number]
   rotation: [number, number, number]
@@ -26,9 +28,25 @@ interface Props {
   onRunApp?: () => void
   screenOpacity?: number // 0-1, default 1 (opaque). Lower = more see-through
   groupColor?: string    // override edge color with group color
+  healthStatus?: HealthStatus // visual health indicator — changes edge glow color
+  healthText?: string // status text shown in scrolling background layer (e.g. "SYNC OK", "3 BEHIND")
 }
 
 const CYAN = '#00d4ff'
+
+// Health-based edge glow colors
+const HEALTH_COLORS: Record<HealthStatus, string> = {
+  ok: '',       // empty = use default (cyan or groupColor)
+  warning: '#fbbf24',   // amber
+  outdated: '#fb923c',  // dim orange
+  error: '#f87171',     // red
+}
+const HEALTH_EDGE_OPACITY: Record<HealthStatus, number> = {
+  ok: 0.5,
+  warning: 0.6,
+  outdated: 0.3,
+  error: 0.7,
+}
 
 // Scratch vectors — reused every frame to avoid GC pressure
 const _targetScale = new THREE.Vector3()
@@ -62,9 +80,8 @@ function activityBars(commitCount: number): number[] {
 export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
-  screenOpacity = 1, groupColor,
+  screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
 }: Props) {
-  const edgeColor = groupColor || CYAN
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
@@ -80,6 +97,28 @@ export function ScreenPanel({
     }).catch(() => { /* ignore */ })
     return () => { cancelled = true }
   }, [visible, projectPath])
+
+  // Derive effective health from prop + stats (stats can upgrade 'ok' to 'outdated')
+  const effectiveHealth: HealthStatus = useMemo(() => {
+    if (healthStatus !== 'ok') return healthStatus
+    if (stats && stats.commitCount30d === 0) return 'outdated'
+    return 'ok'
+  }, [healthStatus, stats])
+
+  // Derive health text from status + stats
+  const effectiveHealthText: string | undefined = useMemo(() => {
+    if (healthText) return healthText
+    if (effectiveHealth === 'warning') return 'SETUP INCOMPLETE'
+    if (effectiveHealth === 'outdated') return 'NO COMMITS 30D'
+    if (effectiveHealth === 'error') return 'ERROR'
+    if (stats && stats.commitCount30d > 0) return `SYNC OK // ${stats.commitCount30d} COMMITS`
+    return undefined
+  }, [healthText, effectiveHealth, stats])
+
+  // Health status overrides edge color (except 'ok' which uses default)
+  const healthColor = HEALTH_COLORS[effectiveHealth]
+  const edgeColor = healthColor || groupColor || CYAN
+  const edgeBaseOpacity = HEALTH_EDGE_OPACITY[effectiveHealth]
 
   const W = 2.8
   const H = 1.8
@@ -146,22 +185,22 @@ export function ScreenPanel({
       {/* Top */}
       <mesh position={[0, H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
       {/* Bottom */}
       <mesh position={[0, -H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
       {/* Left */}
       <mesh position={[-W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
       {/* Right */}
       <mesh position={[W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : 0.5} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
 
       {/* HTML content */}
@@ -184,7 +223,41 @@ export function ScreenPanel({
           color: '#c8dce8',
           transition: 'opacity 0.3s ease',
           willChange: 'opacity',
+          position: 'relative',
         }}>
+          {/* Scrolling background status text — very low opacity, behind content */}
+          {effectiveHealthText && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+              zIndex: 0,
+              opacity: effectiveHealth === 'ok' ? 0.08 : 0.12,
+            }}>
+              <div style={{
+                fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+                fontSize: '9px',
+                letterSpacing: '2px',
+                color: edgeColor,
+                whiteSpace: 'nowrap',
+                lineHeight: '14px',
+                animation: 'healthScrollY 8s linear infinite',
+              }}>
+                {/* Repeat text to fill vertical space */}
+                {Array.from({ length: 12 }, (_, i) => (
+                  <div key={i}>{effectiveHealthText}</div>
+                ))}
+              </div>
+              <style>{`
+                @keyframes healthScrollY {
+                  0% { transform: translateY(0); }
+                  100% { transform: translateY(-50%); }
+                }
+              `}</style>
+            </div>
+          )}
+          <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
             <span style={{
               width: 7, height: 7, borderRadius: '50%',
@@ -269,6 +342,7 @@ export function ScreenPanel({
             {runCmd && onRunApp && <button onClick={onRunApp} style={{ ...btnGhost, color: '#22d3ee', borderColor: 'rgba(34,211,238,0.3)' }}>RUN</button>}
             <button onClick={onFiles} style={btnGhost}>FILES</button>
           </div>
+          </div>{/* close zIndex:1 content wrapper */}
         </div>
       </Html>
     </group>

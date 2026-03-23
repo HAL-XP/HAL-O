@@ -207,6 +207,76 @@ function layoutStackedGroups(count: number, groupIndices: number[], groupCount: 
   return result
 }
 
+// ── Stack Info (A4: overflow compression for large groups) ──
+
+/** Describes overflow stacking when a group exceeds maxVisible panels. */
+export interface StackInfo {
+  /** Project indices that should be rendered as normal ScreenPanels */
+  visibleIndices: Set<number>
+  /** Per-group overflow: group index -> { count of hidden projects, stack indicator position/rotation } */
+  stacks: Array<{
+    groupIndex: number
+    hiddenCount: number
+    position: [number, number, number]
+    rotation: [number, number, number]
+  }>
+}
+
+/**
+ * Compute stack info for group-aware layouts.
+ * Groups with more than `maxVisible` projects will show only the first `maxVisible - 1`
+ * as normal panels, and the last slot becomes a stack indicator showing "+ N more".
+ *
+ * @param groupIndices per-project group index array (-1 = ungrouped)
+ * @param groupCount total number of distinct groups
+ * @param screenPositions positions already computed by the layout function
+ * @param maxVisible max panels shown per group before stacking (default 6)
+ */
+export function computeStackInfo(
+  groupIndices: number[],
+  groupCount: number,
+  screenPositions: Screen3DPosition[],
+  maxVisible = 6,
+): StackInfo {
+  const visibleIndices = new Set<number>()
+  const stacks: StackInfo['stacks'] = []
+
+  // Bucket project indices by group
+  const buckets = new Map<number, number[]>()
+  for (let i = 0; i < groupIndices.length; i++) {
+    const g = groupIndices[i]
+    if (!buckets.has(g)) buckets.set(g, [])
+    buckets.get(g)!.push(i)
+  }
+
+  for (const [gIdx, members] of buckets) {
+    if (members.length <= maxVisible) {
+      // All visible
+      for (const idx of members) visibleIndices.add(idx)
+    } else {
+      // Show first (maxVisible - 1), stack the rest
+      const showCount = maxVisible - 1
+      for (let j = 0; j < showCount; j++) {
+        visibleIndices.add(members[j])
+      }
+      const hiddenCount = members.length - showCount
+      // Stack indicator takes the position of the last visible slot (the maxVisible-th position)
+      const stackSlotIdx = members[showCount] // first hidden project's original position
+      const sp = screenPositions[stackSlotIdx]
+      if (sp) {
+        stacks.push({
+          groupIndex: gIdx,
+          hiddenCount,
+          position: sp.position,
+          rotation: sp.rotation,
+        })
+      }
+    }
+  }
+
+  return { visibleIndices, stacks }
+}
+
 // ── Layout Registry ──
 
 export const LAYOUT_3D_FNS: Record<string, Layout3DFn> = {
