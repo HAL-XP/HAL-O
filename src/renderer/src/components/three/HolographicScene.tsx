@@ -9,6 +9,7 @@ import { Starfield } from './Starfield'
 import { ScreenPanel } from './ScreenPanel'
 import type { ProjectInfo } from '../../types'
 import { LAYOUT_3D_FNS } from '../../layouts3d'
+import { ThreeThemeProvider } from '../../contexts/ThreeThemeContext'
 
 // ── Holographic colors (cyan, not green) ──
 const CYAN = '#00d4ff'
@@ -233,6 +234,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       dpr={[1, 2]}
     >
       <color attach="background" args={['#010104']} />
+      <ThreeThemeProvider styleId="tactical" accentHex="#00d4ff">
       <ambientLight intensity={0.02} />
 
       <Starfield />
@@ -306,6 +308,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       />
 
       <PostProcessing />
+      </ThreeThemeProvider>
     </Canvas>
   )
 }
