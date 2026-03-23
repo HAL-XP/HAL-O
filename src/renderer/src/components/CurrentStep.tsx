@@ -134,8 +134,14 @@ export function CurrentStep({ step, answers, onAnswer, onSkip, onBack, canGoBack
   }
 
   const handleFolderSubmit = () => {
-    if (!folderPath.trim()) return
-    onAnswer(folderPath.trim(), folderPath.trim())
+    const val = folderPath.trim()
+    if (!val) { setError('Project location is required'); return }
+    if (step.validate) {
+      const err = step.validate(val)
+      if (err) { setError(err); return }
+    }
+    setError(null)
+    onAnswer(val, val)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -275,18 +281,19 @@ export function CurrentStep({ step, answers, onAnswer, onSkip, onBack, canGoBack
                 <input
                   className="folder-path"
                   value={folderPath}
-                  onChange={(e) => setFolderPath(e.target.value)}
+                  onChange={(e) => { setFolderPath(e.target.value); setError(null) }}
                   onKeyDown={handleKeyDown}
                 />
                 <button className="browse-btn" onClick={() => {
                   window.api.selectFolder(folderPath || '').then((path) => {
-                    if (path) setFolderPath(path)
+                    if (path) { setFolderPath(path); setError(null) }
                   })
                 }}>
                   {t('ui.browse')}
                 </button>
                 <button className="submit-btn" onClick={handleFolderSubmit}>{t('ui.ok')}</button>
               </div>
+              {error && <div className="validation-error">{error}</div>}
             </div>
           )}
 

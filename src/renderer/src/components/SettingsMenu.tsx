@@ -18,7 +18,7 @@
  *   FONTS
  *   ├── HUB FONT SIZE      [7px — 18px]   (moved from DISPLAY)
  *   ├── TERMINAL FONT SIZE [8px — 24px]   (moved from TERMINAL section)
- *   └── WIZARD FONT SIZE   [10px — 20px]  (new — previously only in toolbar)
+ *   └── WIZARD FONT SIZE   [10px — 22px]  (new — previously only in toolbar)
  *
  * Rationale:
  *   1. One place for all font controls = zero hunting.
@@ -27,15 +27,6 @@
  *   4. Future: could add a "GLOBAL SCALE" multiplier that proportionally scales
  *      all three values at once for accessibility use cases.
  *
- * Implementation steps (NOT done here — fix scaling first):
- *   a) Remove <div className="font-size-toggle"> block from main.tsx toolbar
- *   b) Remove .font-size-toggle/.font-size-btn CSS rules (or keep for compat)
- *   c) Add wizardFontSize + onWizardFontSize to SettingsMenu Props
- *   d) Add secFonts state + SectionHeader "FONTS" between TERMINAL and VOICE
- *   e) Move HUB FONT SIZE row into FONTS section (remove from DISPLAY)
- *   f) Move TERMINAL FONT SIZE row into FONTS section (remove from TERMINAL,
- *      or keep a "TERMINAL DOCK" row in TERMINAL if dockPosition stays there)
- *   g) Add WIZARD FONT SIZE row with range [10, 20]
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -101,9 +92,33 @@ const PROFILE_SAMPLE_TEXTS: Record<string, string> = {
   italian_chef: 'Bellissimo! This code is magnifico!',
 }
 
+// ── Preset types ──
+
+const PRESET_KEYS = ['rendererId', 'layoutId', 'threeTheme', 'screenOpacity', 'particleDensity', 'renderQuality', 'hubFontSize', 'termFontSize', 'dockPosition'] as const
+type PresetKey = typeof PRESET_KEYS[number]
+type PresetValues = { [K in PresetKey]: number | string }
+
+interface SavedPresets {
+  [name: string]: PresetValues
+}
+
+function loadPresets(): SavedPresets {
+  try {
+    return JSON.parse(localStorage.getItem('hal-o-presets') || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function savePresets(presets: SavedPresets) {
+  localStorage.setItem('hal-o-presets', JSON.stringify(presets))
+}
+
 interface Props {
   hubFontSize: number
   termFontSize: number
+  wizardFontSize: number
+  onWizardFontSize: (size: number) => void
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
@@ -182,19 +197,77 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Section collapse state — Display + Terminal expanded by default
+  // ── Search ──
+  const [search, setSearch] = useState('')
+  const searchActive = search.trim().length > 0
+  const searchLower = search.toLowerCase()
+
+  // ── Section collapse state — Display + Terminal expanded by default ──
+  const [secPresets, setSecPresets] = useState(false)
   const [secDisplay, setSecDisplay] = useState(true)
   const [secTerminal, setSecTerminal] = useState(true)
+  const [secFonts, setSecFonts] = useState(true)
   const [secVoice, setSecVoice] = useState(false)
   const [secScene, setSecScene] = useState(false)
   const [secHidden, setSecHidden] = useState(false)
   const [secDemo, setSecDemo] = useState(false)
+
+  // When searching, sections auto-expand; when cleared, collapse state is restored by saved flags
+  const isExpanded = (flag: boolean) => searchActive || flag
+
+  // ── Presets ──
+  const [presets, setPresets] = useState<SavedPresets>(loadPresets)
+  const [presetNameInput, setPresetNameInput] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
+
+  const currentSettings: PresetValues = {
+    rendererId,
+    layoutId,
+    threeTheme,
+    screenOpacity,
+    particleDensity,
+    renderQuality,
+    hubFontSize,
+    termFontSize,
+    dockPosition,
+  }
+
+  const handleSavePreset = () => {
+    const name = presetNameInput.trim()
+    if (!name) return
+    const updated = { ...presets, [name]: { ...currentSettings } }
+    setPresets(updated)
+    savePresets(updated)
+    setPresetNameInput('')
+    setShowNameInput(false)
+  }
+
+  const handleLoadPreset = (name: string) => {
+    const p = presets[name]
+    if (!p) return
+    onRendererChange(p.rendererId as RendererId)
+    onLayoutChange(p.layoutId as string)
+    onThreeThemeChange(p.threeTheme as string)
+    onScreenOpacityChange(p.screenOpacity as number)
+    onParticleDensityChange(p.particleDensity as number)
+    onRenderQualityChange(p.renderQuality as number)
+    onHubFontSize(p.hubFontSize as number)
+    onTermFontSize(p.termFontSize as number)
+    onDockPositionChange(p.dockPosition as DockPosition)
+  }
+
+  const handleDeletePreset = (name: string) => {
+    const updated = { ...presets }
+    delete updated[name]
+    setPresets(updated)
+    savePresets(updated)
+  }
 
   const previewProfile = useCallback((profileId: string) => {
     if (profileId === 'auto' || previewing) return
@@ -210,6 +283,21 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
   }, [open])
+
+  // ── Search match helpers ──
+  const match = (label: string) => !searchActive || label.toLowerCase().includes(searchLower)
+
+  // Collect which sections have at least one visible row when searching
+  const presetsLabels = ['SAVE PRESET', 'LOAD PRESET']
+  const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE']
+  const terminalLabels = ['TERMINAL DOCK']
+  const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
+  const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE']
+  const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
+  const hiddenLabels = ['HIDDEN PROJECTS']
+  const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
+
+  const sectionVisible = (labels: string[]) => !searchActive || labels.some((l) => l.toLowerCase().includes(searchLower))
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -228,258 +316,437 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
         <div className="hal-settings-panel">
           <div className="hal-settings-title">SETTINGS</div>
 
-          {/* ── DISPLAY section ── */}
-          <SectionHeader label="DISPLAY" expanded={secDisplay} onToggle={() => setSecDisplay(!secDisplay)} />
-          {secDisplay && (
-            <div className="hal-settings-section-body">
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">HUB FONT SIZE</span>
-                <div className="hal-settings-control">
-                  <button onClick={() => onHubFontSize(Math.max(7, hubFontSize - 1))}>-</button>
-                  <span>{hubFontSize}px</span>
-                  <button onClick={() => onHubFontSize(Math.min(18, hubFontSize + 1))}>+</button>
-                </div>
-              </div>
+          {/* ── SEARCH BAR ── */}
+          <div style={{ marginBottom: 8 }}>
+            <input
+              type="text"
+              className="hal-settings-select"
+              placeholder="SEARCH SETTINGS..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '5px 8px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', boxSizing: 'border-box' }}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
 
-              <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                <span className="hal-settings-label">RENDERER</span>
-                <select
-                  className="hal-settings-select"
-                  value={rendererId}
-                  onChange={(e) => {
-                    const newRenderer = e.target.value as RendererId
-                    onRendererChange(newRenderer)
-                    // Auto-switch to first valid layout if current one doesn't exist in new renderer
-                    const validLayouts = RENDERER_LAYOUTS[newRenderer] || LAYOUTS_CLASSIC
-                    if (!validLayouts.some((l) => l.id === layoutId)) {
-                      onLayoutChange(validLayouts[0].id as LayoutId)
-                    }
-                  }}
-                >
-                  {RENDERERS.map((r) => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+          {/* ── PRESETS section ── */}
+          {sectionVisible(presetsLabels) && (
+            <>
+              <SectionHeader label="PRESETS" expanded={isExpanded(secPresets)} onToggle={() => setSecPresets(!secPresets)} />
+              {isExpanded(secPresets) && (
+                <div className="hal-settings-section-body">
+                  {/* Save preset */}
+                  {match('SAVE PRESET') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      {!showNameInput ? (
+                        <button
+                          className="hal-settings-preview-btn"
+                          onClick={() => setShowNameInput(true)}
+                          style={{ width: 'auto', padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', color: 'var(--primary)', borderColor: 'var(--primary-dim)' }}
+                        >
+                          + SAVE PRESET
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                          <input
+                            type="text"
+                            className="hal-settings-select"
+                            placeholder="PRESET NAME..."
+                            value={presetNameInput}
+                            onChange={(e) => setPresetNameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSavePreset()
+                              if (e.key === 'Escape') { setShowNameInput(false); setPresetNameInput('') }
+                            }}
+                            style={{ flex: 1, padding: '4px 6px', fontSize: 'calc(var(--hub-font, 10px) - 1px)' }}
+                            autoFocus
+                          />
+                          <button
+                            className="hal-settings-preview-btn"
+                            onClick={handleSavePreset}
+                            disabled={!presetNameInput.trim()}
+                            style={{ width: 'auto', padding: '3px 8px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', color: '#4ade80', borderColor: '#4ade8055' }}
+                          >
+                            SAVE
+                          </button>
+                          <button
+                            className="hal-settings-preview-btn"
+                            onClick={() => { setShowNameInput(false); setPresetNameInput('') }}
+                            style={{ width: 'auto', padding: '3px 8px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', color: 'var(--text-dim)' }}
+                          >
+                            X
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                <span className="hal-settings-label">LAYOUT</span>
-                <select
-                  className="hal-settings-select"
-                  value={layoutId}
-                  onChange={(e) => onLayoutChange(e.target.value as LayoutId)}
-                >
-                  {(RENDERER_LAYOUTS[rendererId] || LAYOUTS_CLASSIC).map((l) => (
-                    <option key={l.id} value={l.id}>{l.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {(rendererId === 'pbr-holo' || rendererId === 'holographic') && (
-                <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                  <span className="hal-settings-label">3D STYLE</span>
-                  <select
-                    className="hal-settings-select"
-                    value={threeTheme}
-                    onChange={(e) => onThreeThemeChange(e.target.value)}
-                  >
-                    {THREE_STYLES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
+                  {/* Preset list */}
+                  {match('LOAD PRESET') && (
+                    <>
+                      {Object.keys(presets).length === 0 ? (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label" style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>(no presets saved)</span>
+                        </div>
+                      ) : (
+                        Object.keys(presets).map((name) => (
+                          <div key={name} className="hal-settings-row" style={{ marginBottom: 4 }}>
+                            <span
+                              className="hal-settings-label"
+                              style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={`Load preset: ${name}`}
+                              onClick={() => handleLoadPreset(name)}
+                            >
+                              {name}
+                            </span>
+                            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                              <button
+                                className="hal-settings-preview-btn"
+                                onClick={() => handleLoadPreset(name)}
+                                style={{ width: 'auto', padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', color: 'var(--primary)', borderColor: 'var(--primary-dim)' }}
+                                title={`Load "${name}"`}
+                              >
+                                LOAD
+                              </button>
+                              <button
+                                className="hal-settings-preview-btn"
+                                onClick={() => handleDeletePreset(name)}
+                                style={{ width: 'auto', padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', color: '#f87171', borderColor: '#f8717155' }}
+                                title={`Delete "${name}"`}
+                              >
+                                DEL
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
                 </div>
               )}
-            </div>
+            </>
+          )}
+
+          {/* ── DISPLAY section ── */}
+          {sectionVisible(displayLabels) && (
+            <>
+              <SectionHeader label="DISPLAY" expanded={isExpanded(secDisplay)} onToggle={() => setSecDisplay(!secDisplay)} />
+              {isExpanded(secDisplay) && (
+                <div className="hal-settings-section-body">
+                  {match('RENDERER') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label">RENDERER</span>
+                      <select
+                        className="hal-settings-select"
+                        value={rendererId}
+                        onChange={(e) => {
+                          const newRenderer = e.target.value as RendererId
+                          onRendererChange(newRenderer)
+                          // Auto-switch to first valid layout if current one doesn't exist in new renderer
+                          const validLayouts = RENDERER_LAYOUTS[newRenderer] || LAYOUTS_CLASSIC
+                          if (!validLayouts.some((l) => l.id === layoutId)) {
+                            onLayoutChange(validLayouts[0].id as LayoutId)
+                          }
+                        }}
+                      >
+                        {RENDERERS.map((r) => (
+                          <option key={r.id} value={r.id}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {match('LAYOUT') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label">LAYOUT</span>
+                      <select
+                        className="hal-settings-select"
+                        value={layoutId}
+                        onChange={(e) => onLayoutChange(e.target.value as LayoutId)}
+                      >
+                        {(RENDERER_LAYOUTS[rendererId] || LAYOUTS_CLASSIC).map((l) => (
+                          <option key={l.id} value={l.id}>{l.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {(rendererId === 'pbr-holo' || rendererId === 'holographic') && match('3D STYLE') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label">3D STYLE</span>
+                      <select
+                        className="hal-settings-select"
+                        value={threeTheme}
+                        onChange={(e) => onThreeThemeChange(e.target.value)}
+                      >
+                        {THREE_STYLES.map((t) => (
+                          <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* ── TERMINAL section ── */}
-          <SectionHeader label="TERMINAL" expanded={secTerminal} onToggle={() => setSecTerminal(!secTerminal)} />
-          {secTerminal && (
-            <div className="hal-settings-section-body">
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">TERMINAL FONT SIZE</span>
-                <div className="hal-settings-control">
-                  <button onClick={() => onTermFontSize(Math.max(8, termFontSize - 1))}>-</button>
-                  <span>{termFontSize}px</span>
-                  <button onClick={() => onTermFontSize(Math.min(24, termFontSize + 1))}>+</button>
+          {sectionVisible(terminalLabels) && (
+            <>
+              <SectionHeader label="TERMINAL" expanded={isExpanded(secTerminal)} onToggle={() => setSecTerminal(!secTerminal)} />
+              {isExpanded(secTerminal) && (
+                <div className="hal-settings-section-body">
+                  {match('TERMINAL DOCK') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">TERMINAL DOCK</span>
+                      <div className="hal-settings-control">
+                        <select
+                          className="hal-settings-select"
+                          value={dockPosition}
+                          onChange={(e) => onDockPositionChange(e.target.value as DockPosition)}
+                        >
+                          {DOCK_POSITIONS.map((d) => (
+                            <option key={d.id} value={d.id}>{d.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+            </>
+          )}
 
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">TERMINAL DOCK</span>
-                <div className="hal-settings-control">
-                  <select
-                    className="hal-settings-select"
-                    value={dockPosition}
-                    onChange={(e) => onDockPositionChange(e.target.value as DockPosition)}
-                  >
-                    {DOCK_POSITIONS.map((d) => (
-                      <option key={d.id} value={d.id}>{d.label}</option>
-                    ))}
-                  </select>
+          {/* ── FONTS section ── */}
+          {sectionVisible(fontsLabels) && (
+            <>
+              <SectionHeader label="FONTS" expanded={isExpanded(secFonts)} onToggle={() => setSecFonts(!secFonts)} />
+              {isExpanded(secFonts) && (
+                <div className="hal-settings-section-body">
+                  {match('HUB FONT SIZE') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">HUB FONT SIZE</span>
+                      <div className="hal-settings-control">
+                        <button onClick={() => onHubFontSize(Math.max(7, hubFontSize - 1))}>-</button>
+                        <span>{hubFontSize}px</span>
+                        <button onClick={() => onHubFontSize(Math.min(18, hubFontSize + 1))}>+</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('TERMINAL FONT SIZE') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">TERMINAL FONT SIZE</span>
+                      <div className="hal-settings-control">
+                        <button onClick={() => onTermFontSize(Math.max(8, termFontSize - 1))}>-</button>
+                        <span>{termFontSize}px</span>
+                        <button onClick={() => onTermFontSize(Math.min(24, termFontSize + 1))}>+</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('WIZARD FONT SIZE') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">WIZARD FONT SIZE</span>
+                      <div className="hal-settings-control">
+                        <button onClick={() => onWizardFontSize(Math.max(10, wizardFontSize - 1))}>-</button>
+                        <span>{wizardFontSize}px</span>
+                        <button onClick={() => onWizardFontSize(Math.min(22, wizardFontSize + 1))}>+</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* ── VOICE section ── */}
-          <SectionHeader label="VOICE" expanded={secVoice} onToggle={() => setSecVoice(!secVoice)} />
-          {secVoice && (
-            <div className="hal-settings-section-body">
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">VOICE OUTPUT</span>
-                <div className="hal-settings-control">
-                  <button
-                    onClick={() => onVoiceOut(!voiceOut)}
-                    style={{
-                      width: 'auto',
-                      padding: '2px 8px',
-                      color: voiceOut ? 'var(--primary)' : 'var(--text-dim)',
-                      borderColor: voiceOut ? 'var(--primary-dim)' : undefined,
-                    }}
-                  >
-                    {voiceOut ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-              </div>
+          {sectionVisible(voiceLabels) && (
+            <>
+              <SectionHeader label="VOICE" expanded={isExpanded(secVoice)} onToggle={() => setSecVoice(!secVoice)} />
+              {isExpanded(secVoice) && (
+                <div className="hal-settings-section-body">
+                  {match('VOICE OUTPUT') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">VOICE OUTPUT</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => onVoiceOut(!voiceOut)}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: voiceOut ? 'var(--primary)' : 'var(--text-dim)',
+                            borderColor: voiceOut ? 'var(--primary-dim)' : undefined,
+                          }}
+                        >
+                          {voiceOut ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                <span className="hal-settings-label">VOICE PROFILE</span>
-                <div style={{ display: 'flex', gap: 4, width: '100%' }}>
-                  <select
-                    className="hal-settings-select"
-                    style={{ flex: 1 }}
-                    value={voiceProfile}
-                    onChange={(e) => onVoiceProfileChange(e.target.value as VoiceProfileId)}
-                  >
-                    {VOICE_PROFILES.map((p) => (
-                      <option key={p.id} value={p.id}>{p.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="hal-settings-preview-btn"
-                    onClick={() => previewProfile(voiceProfile === 'auto' ? 'narrator' : voiceProfile)}
-                    disabled={!!previewing}
-                    title={previewing ? `Playing ${previewing}...` : 'Preview voice'}
-                  >
-                    {previewing ? '...' : '\u25B6'}
-                  </button>
+                  {match('VOICE PROFILE') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label">VOICE PROFILE</span>
+                      <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                        <select
+                          className="hal-settings-select"
+                          style={{ flex: 1 }}
+                          value={voiceProfile}
+                          onChange={(e) => onVoiceProfileChange(e.target.value as VoiceProfileId)}
+                        >
+                          {VOICE_PROFILES.map((p) => (
+                            <option key={p.id} value={p.id}>{p.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          className="hal-settings-preview-btn"
+                          onClick={() => previewProfile(voiceProfile === 'auto' ? 'narrator' : voiceProfile)}
+                          disabled={!!previewing}
+                          title={previewing ? `Playing ${previewing}...` : 'Preview voice'}
+                        >
+                          {previewing ? '...' : '\u25B6'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* ── 3D SCENE section ── */}
-          <SectionHeader label="3D SCENE" expanded={secScene} onToggle={() => setSecScene(!secScene)} />
-          {secScene && (
-            <div className="hal-settings-section-body">
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">SCREENS OPACITY</span>
-                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.05"
-                    value={screenOpacity}
-                    onChange={(e) => onScreenOpacityChange(parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--primary)' }}
-                  />
-                  <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
-                </div>
-              </div>
+          {sectionVisible(sceneLabels) && (
+            <>
+              <SectionHeader label="3D SCENE" expanded={isExpanded(secScene)} onToggle={() => setSecScene(!secScene)} />
+              {isExpanded(secScene) && (
+                <div className="hal-settings-section-body">
+                  {match('SCREENS OPACITY') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">SCREENS OPACITY</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1"
+                          step="0.05"
+                          value={screenOpacity}
+                          onChange={(e) => onScreenOpacityChange(parseFloat(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">PARTICLE DENSITY</span>
-                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="1"
-                    value={particleDensity}
-                    onChange={(e) => onParticleDensityChange(parseInt(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--primary)' }}
-                  />
-                  <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{PARTICLE_DENSITY_LABELS[particleDensity]}</span>
-                </div>
-              </div>
+                  {match('PARTICLE DENSITY') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">PARTICLE DENSITY</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="1"
+                          value={particleDensity}
+                          onChange={(e) => onParticleDensityChange(parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{PARTICLE_DENSITY_LABELS[particleDensity]}</span>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">RENDER QUALITY</span>
-                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max={window.devicePixelRatio}
-                    step="0.25"
-                    value={renderQuality}
-                    onChange={(e) => onRenderQualityChange(parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--primary)' }}
-                  />
-                  <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 42 }}>
-                    {renderQuality >= window.devicePixelRatio ? 'NATIVE' : `${renderQuality.toFixed(2).replace(/\.?0+$/, '')}x`}
-                  </span>
-                </div>
-              </div>
+                  {match('RENDER QUALITY') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">RENDER QUALITY</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max={window.devicePixelRatio}
+                          step="0.25"
+                          value={renderQuality}
+                          onChange={(e) => onRenderQualityChange(parseFloat(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 42 }}>
+                          {renderQuality >= window.devicePixelRatio ? 'NATIVE' : `${renderQuality.toFixed(2).replace(/\.?0+$/, '')}x`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">SHIP VFX</span>
-                <div className="hal-settings-control">
-                  <button
-                    onClick={() => onShipVfxEnabledChange(!shipVfxEnabled)}
-                    style={{
-                      width: 'auto',
-                      padding: '2px 8px',
-                      color: shipVfxEnabled ? 'var(--primary)' : 'var(--text-dim)',
-                      borderColor: shipVfxEnabled ? 'var(--primary-dim)' : undefined,
-                    }}
-                  >
-                    {shipVfxEnabled ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-              </div>
+                  {match('SHIP VFX') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">SHIP VFX</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => onShipVfxEnabledChange(!shipVfxEnabled)}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: shipVfxEnabled ? 'var(--primary)' : 'var(--text-dim)',
+                            borderColor: shipVfxEnabled ? 'var(--primary-dim)' : undefined,
+                          }}
+                        >
+                          {shipVfxEnabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row">
-                <span className="hal-settings-label">PARTICLE HIDE DIST</span>
-                <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input type="range" min="1" max="15" step="0.5" value={camera.particleHideDist}
-                    onChange={(e) => onCameraChange({ ...camera, particleHideDist: parseFloat(e.target.value) })}
-                    style={{ flex: 1, accentColor: 'var(--primary)' }} />
-                  <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{camera.particleHideDist}u</span>
-                </div>
-              </div>
+                  {match('PARTICLE HIDE DIST') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">PARTICLE HIDE DIST</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min="1" max="15" step="0.5" value={camera.particleHideDist}
+                          onChange={(e) => onCameraChange({ ...camera, particleHideDist: parseFloat(e.target.value) })}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }} />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{camera.particleHideDist}u</span>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="hal-settings-row" style={{ justifyContent: 'flex-end', gap: 6 }}>
-                <button
-                  className="hal-settings-preview-btn"
-                  onClick={() => {
-                    onCameraChange(camera)
-                    setCameraSaved(true)
-                    setTimeout(() => setCameraSaved(false), 1200)
-                  }}
-                  title="Save current orbit position to settings"
-                  style={{
-                    padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', width: 'auto',
-                    color: cameraSaved ? '#0f1117' : '#4ade80',
-                    borderColor: cameraSaved ? '#4ade80' : '#4ade8055',
-                    background: cameraSaved ? '#4ade80' : 'transparent',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {cameraSaved ? 'SAVED' : 'SAVE CURRENT VIEW'}
-                </button>
-                <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to default view"
-                  style={{ padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', width: 'auto', color: 'var(--text-dim)', borderColor: 'var(--border-dim, #333)' }}>RESET VIEW</button>
-              </div>
-            </div>
+                  {(match('SAVE CURRENT VIEW') || match('RESET VIEW')) && (
+                    <div className="hal-settings-row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                      {match('SAVE CURRENT VIEW') && (
+                        <button
+                          className="hal-settings-preview-btn"
+                          onClick={() => {
+                            onCameraChange(camera)
+                            setCameraSaved(true)
+                            setTimeout(() => setCameraSaved(false), 1200)
+                          }}
+                          title="Save current orbit position to settings"
+                          style={{
+                            padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', width: 'auto',
+                            color: cameraSaved ? '#0f1117' : '#4ade80',
+                            borderColor: cameraSaved ? '#4ade80' : '#4ade8055',
+                            background: cameraSaved ? '#4ade80' : 'transparent',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {cameraSaved ? 'SAVED' : 'SAVE CURRENT VIEW'}
+                        </button>
+                      )}
+                      {match('RESET VIEW') && (
+                        <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to default view"
+                          style={{ padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', width: 'auto', color: 'var(--text-dim)', borderColor: 'var(--border-dim, #333)' }}>RESET VIEW</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* ── HIDDEN PROJECTS section ── */}
-          {onUnhide && (
+          {onUnhide && sectionVisible(hiddenLabels) && (
             <>
-              <SectionHeader label="HIDDEN PROJECTS" expanded={secHidden} onToggle={() => setSecHidden(!secHidden)} />
-              {secHidden && (
+              <SectionHeader label="HIDDEN PROJECTS" expanded={isExpanded(secHidden)} onToggle={() => setSecHidden(!secHidden)} />
+              {isExpanded(secHidden) && (
                 <div className="hal-settings-section-body">
                   {hiddenPaths.length === 0 ? (
                     <div className="hal-settings-row">
@@ -510,156 +777,172 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
           )}
 
           {/* ── DEMO MODE section (collapsed by default, at the bottom) ── */}
-          {demo && (
+          {demo && sectionVisible(demoLabels) && (
             <>
-              <SectionHeader label="DEMO MODE" expanded={secDemo} onToggle={() => setSecDemo(!secDemo)} />
-              {secDemo && (
+              <SectionHeader label="DEMO MODE" expanded={isExpanded(secDemo)} onToggle={() => setSecDemo(!secDemo)} />
+              {isExpanded(secDemo) && (
                 <div className="hal-settings-section-body">
-                  <div className="hal-settings-row">
-                    <span className="hal-settings-label">ENABLED</span>
-                    <div className="hal-settings-control">
-                      <button
-                        onClick={() => demo.setEnabled(!demo.enabled)}
-                        style={{
-                          width: 'auto',
-                          padding: '2px 8px',
-                          color: demo.enabled ? '#22d3ee' : 'var(--text-dim)',
-                          borderColor: demo.enabled ? '#22d3ee55' : undefined,
-                        }}
-                      >
-                        {demo.enabled ? 'ON' : 'OFF'}
-                      </button>
+                  {match('ENABLED') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">ENABLED</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => demo.setEnabled(!demo.enabled)}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: demo.enabled ? '#22d3ee' : 'var(--text-dim)',
+                            borderColor: demo.enabled ? '#22d3ee55' : undefined,
+                          }}
+                        >
+                          {demo.enabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {demo.enabled && (
                     <>
-                      <div className="hal-settings-row">
-                        <span className="hal-settings-label">PROJECT CARDS</span>
-                        <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="range"
-                            min="5"
-                            max="100"
-                            step="1"
-                            value={demo.cardCount}
-                            onChange={(e) => demo.setCardCount(parseInt(e.target.value))}
-                            style={{ flex: 1, accentColor: '#22d3ee' }}
-                          />
-                          <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 20 }}>{demo.cardCount}</span>
+                      {match('PROJECT CARDS') && (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label">PROJECT CARDS</span>
+                          <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="range"
+                              min="5"
+                              max="100"
+                              step="1"
+                              value={demo.cardCount}
+                              onChange={(e) => demo.setCardCount(parseInt(e.target.value))}
+                              style={{ flex: 1, accentColor: '#22d3ee' }}
+                            />
+                            <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 20 }}>{demo.cardCount}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="hal-settings-row">
-                        <span className="hal-settings-label">TERMINAL AREAS</span>
-                        <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="range"
-                            min="1"
-                            max="4"
-                            step="1"
-                            value={demo.terminalCount}
-                            onChange={(e) => demo.setTerminalCount(parseInt(e.target.value))}
-                            style={{ flex: 1, accentColor: '#22d3ee' }}
-                          />
-                          <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.terminalCount}</span>
+                      {match('TERMINAL AREAS') && (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label">TERMINAL AREAS</span>
+                          <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="range"
+                              min="1"
+                              max="4"
+                              step="1"
+                              value={demo.terminalCount}
+                              onChange={(e) => demo.setTerminalCount(parseInt(e.target.value))}
+                              style={{ flex: 1, accentColor: '#22d3ee' }}
+                            />
+                            <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.terminalCount}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="hal-settings-row">
-                        <span className="hal-settings-label">MIN TABS</span>
-                        <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="range"
-                            min="1"
-                            max="5"
-                            step="1"
-                            value={demo.tabsMin}
-                            onChange={(e) => {
-                              const v = parseInt(e.target.value)
-                              demo.setTabsMin(v)
-                              if (v > demo.tabsMax) demo.setTabsMax(v)
-                            }}
-                            style={{ flex: 1, accentColor: '#22d3ee' }}
-                          />
-                          <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMin}</span>
+                      {match('MIN TABS') && (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label">MIN TABS</span>
+                          <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="range"
+                              min="1"
+                              max="5"
+                              step="1"
+                              value={demo.tabsMin}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value)
+                                demo.setTabsMin(v)
+                                if (v > demo.tabsMax) demo.setTabsMax(v)
+                              }}
+                              style={{ flex: 1, accentColor: '#22d3ee' }}
+                            />
+                            <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMin}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="hal-settings-row">
-                        <span className="hal-settings-label">MAX TABS</span>
-                        <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="range"
-                            min="1"
-                            max="5"
-                            step="1"
-                            value={demo.tabsMax}
-                            onChange={(e) => {
-                              const v = parseInt(e.target.value)
-                              demo.setTabsMax(v)
-                              if (v < demo.tabsMin) demo.setTabsMin(v)
-                            }}
-                            style={{ flex: 1, accentColor: '#22d3ee' }}
-                          />
-                          <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMax}</span>
+                      {match('MAX TABS') && (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label">MAX TABS</span>
+                          <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="range"
+                              min="1"
+                              max="5"
+                              step="1"
+                              value={demo.tabsMax}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value)
+                                demo.setTabsMax(v)
+                                if (v < demo.tabsMin) demo.setTabsMin(v)
+                              }}
+                              style={{ flex: 1, accentColor: '#22d3ee' }}
+                            />
+                            <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 14 }}>{demo.tabsMax}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="hal-settings-row">
-                        <span className="hal-settings-label">VFX SPAWN FREQUENCY</span>
-                        <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="range"
-                            min="0"
-                            max="30"
-                            step="1"
-                            value={demo.vfxFrequency}
-                            onChange={(e) => demo.setVfxFrequency(parseInt(e.target.value))}
-                            style={{ flex: 1, accentColor: '#22d3ee' }}
-                          />
-                          <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{demo.vfxFrequency === 0 ? 'OFF' : `${demo.vfxFrequency}s`}</span>
+                      {match('VFX SPAWN FREQUENCY') && (
+                        <div className="hal-settings-row">
+                          <span className="hal-settings-label">VFX SPAWN FREQUENCY</span>
+                          <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="range"
+                              min="0"
+                              max="30"
+                              step="1"
+                              value={demo.vfxFrequency}
+                              onChange={(e) => demo.setVfxFrequency(parseInt(e.target.value))}
+                              style={{ flex: 1, accentColor: '#22d3ee' }}
+                            />
+                            <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{demo.vfxFrequency === 0 ? 'OFF' : `${demo.vfxFrequency}s`}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                        <span className="hal-settings-label">DEMO TEXT</span>
-                        <input
-                          type="text"
-                          className="hal-settings-select"
-                          style={{ width: '100%', padding: '4px 6px', fontSize: 'calc(var(--hub-font, 10px) - 1px)' }}
-                          value={demo.demoText}
-                          onChange={(e) => demo.setDemoText(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                        <span className="hal-settings-label">DEMO VOICE</span>
-                        <div style={{ display: 'flex', gap: 4, width: '100%' }}>
-                          <select
+                      {match('DEMO TEXT') && (
+                        <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          <span className="hal-settings-label">DEMO TEXT</span>
+                          <input
+                            type="text"
                             className="hal-settings-select"
-                            style={{ flex: 1 }}
-                            value={demo.demoVoice}
-                            onChange={(e) => demo.setDemoVoice(e.target.value as VoiceProfileId)}
-                          >
-                            {VOICE_PROFILES.filter((p) => p.id !== 'auto').map((p) => (
-                              <option key={p.id} value={p.id}>{p.label}</option>
-                            ))}
-                          </select>
-                          <button
-                            className="hal-settings-preview-btn"
-                            onClick={() => {
-                              if (previewing) return
-                              const text = demo.demoText || 'Hello, this is a demo voice test.'
-                              playOrGenerate(text, demo.demoVoice, setPreviewing)
-                            }}
-                            disabled={!!previewing}
-                            title={previewing ? `Playing...` : 'Play Demo Voice'}
-                          >
-                            {previewing ? '...' : '\u25B6'}
-                          </button>
+                            style={{ width: '100%', padding: '4px 6px', fontSize: 'calc(var(--hub-font, 10px) - 1px)' }}
+                            value={demo.demoText}
+                            onChange={(e) => demo.setDemoText(e.target.value)}
+                          />
                         </div>
-                      </div>
+                      )}
+
+                      {match('DEMO VOICE') && (
+                        <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          <span className="hal-settings-label">DEMO VOICE</span>
+                          <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                            <select
+                              className="hal-settings-select"
+                              style={{ flex: 1 }}
+                              value={demo.demoVoice}
+                              onChange={(e) => demo.setDemoVoice(e.target.value as VoiceProfileId)}
+                            >
+                              {VOICE_PROFILES.filter((p) => p.id !== 'auto').map((p) => (
+                                <option key={p.id} value={p.id}>{p.label}</option>
+                              ))}
+                            </select>
+                            <button
+                              className="hal-settings-preview-btn"
+                              onClick={() => {
+                                if (previewing) return
+                                const text = demo.demoText || 'Hello, this is a demo voice test.'
+                                playOrGenerate(text, demo.demoVoice, setPreviewing)
+                              }}
+                              disabled={!!previewing}
+                              title={previewing ? `Playing...` : 'Play Demo Voice'}
+                            >
+                              {previewing ? '...' : '\u25B6'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

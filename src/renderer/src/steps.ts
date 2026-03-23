@@ -68,7 +68,8 @@ export const STEPS: StepDef[] = [
     placeholder: 'MyAwesomeProject',
     validate: (v) => {
       if (!v.trim()) return 'Project name is required'
-      if (/[^a-zA-Z0-9_-]/.test(v)) return 'Use only letters, numbers, hyphens, underscores'
+      if (v.length > 50) return `Name too long (${v.length}/50 chars)`
+      if (/[^a-zA-Z0-9_-]/.test(v)) return 'Use only letters, numbers, hyphens, underscores (no spaces)'
       return null
     },
   },
@@ -98,6 +99,10 @@ export const STEPS: StepDef[] = [
     placeholder: 'A task management app with real-time collaboration and notifications...',
     allowSkip: true,
     skipLabel: 'Skip for now',
+    validate: (v) => {
+      if (v.length > 500) return `Description too long (${v.length}/500 chars)`
+      return null
+    },
   },
 
   // ── Phase: Stack (LLM-analyzed) ──

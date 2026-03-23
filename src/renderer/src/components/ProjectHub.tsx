@@ -24,6 +24,8 @@ interface Props {
   onVoiceFocusHub?: () => void
   hubFontSize: number
   termFontSize: number
+  wizardFontSize: number
+  onWizardFontSize: (size: number) => void
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
@@ -65,7 +67,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -380,7 +382,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
           camera={camera}
@@ -435,7 +437,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
           camera={camera}
@@ -492,7 +494,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
           camera={camera}
@@ -551,7 +553,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
         voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
         projectCount={projects.length} readyCount={readyCount}
-        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+        hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
         particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
         renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
         camera={camera}

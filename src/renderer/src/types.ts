@@ -258,6 +258,9 @@ export interface ElectronAPI {
 
   // Dev
   onToggle2dPreview: (callback: (enabled: boolean) => void) => () => void
+
+  // Perf
+  onWindowFocusChange: (callback: (focused: boolean) => void) => () => void
 }
 
 declare global {

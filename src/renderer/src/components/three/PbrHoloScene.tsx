@@ -256,6 +256,36 @@ function TexturedPlatform({ radius = 12, onLoad }: { radius?: number; onLoad?: (
   )
 }
 
+// ── Instanced marker dots — renders N dots as a single draw call ──
+const _dotGeo = new THREE.SphereGeometry(0.05, 6, 6)
+const _dotMat = new THREE.MeshStandardMaterial({ metalness: 1, roughness: 0, toneMapped: false })
+const _dotMatrix = new THREE.Matrix4()
+
+function InstancedDots({ radius, count, accentHex, accentDim }: { radius: number; count: number; accentHex: string; accentDim: string }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+
+  useEffect(() => {
+    const im = meshRef.current
+    if (!im) return
+    im.material = new THREE.MeshStandardMaterial({
+      color: accentDim,
+      emissive: accentHex,
+      emissiveIntensity: 3,
+      metalness: 1,
+      roughness: 0,
+      toneMapped: false,
+    })
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2
+      _dotMatrix.setPosition(Math.cos(a) * radius, Math.sin(a) * radius, -0.03)
+      im.setMatrixAt(i, _dotMatrix)
+    }
+    im.instanceMatrix.needsUpdate = true
+  }, [radius, count, accentHex, accentDim])
+
+  return <instancedMesh ref={meshRef} args={[_dotGeo, _dotMat, count]} />
+}
+
 // ── Concentric Ring Platform with PBR materials ──
 function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
   const theme = useThreeTheme()
@@ -352,16 +382,8 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
         />
       </mesh>
 
-      {Array.from({ length: 32 }, (_, i) => {
-        const a = (i / 32) * Math.PI * 2
-        const r = 7.0 * s
-        return (
-          <mesh key={`dot-${i}`} position={[Math.cos(a) * r, Math.sin(a) * r, -0.03]}>
-            <sphereGeometry args={[0.05, 8, 8]} />
-            <meshStandardMaterial emissive={theme.accentHex} emissiveIntensity={3} toneMapped={false} color={theme.def.accentDim} metalness={1} roughness={0} />
-          </mesh>
-        )
-      })}
+      {/* 32 marker dots as InstancedMesh — 1 draw call instead of 32 */}
+      <InstancedDots radius={7.0 * s} count={32} accentHex={theme.accentHex} accentDim={theme.def.accentDim} />
     </group>
   )
 }
@@ -636,7 +658,7 @@ function PulseRing({ cycleOffset = 0, baseCycle = 3 }: { cycleOffset?: number; b
 
   return (
     <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-      <ringGeometry args={[0.8, 1.0, 128]} />
+      <ringGeometry args={[0.8, 1.0, 64]} />
       <meshBasicMaterial
         ref={matRef}
         color={theme.accentHex}
@@ -693,7 +715,7 @@ function SonarPulse() {
       <PulseRing cycleOffset={0} baseCycle={3} />
       {/* Second staggered ring */}
       <mesh ref={ring2Ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <ringGeometry args={[0.8, 1.0, 128]} />
+        <ringGeometry args={[0.8, 1.0, 64]} />
         <meshBasicMaterial
           ref={mat2Ref}
           color={theme.accentHex}
@@ -706,7 +728,7 @@ function SonarPulse() {
       </mesh>
       {/* Third ring — speaking only, creates rapid triple-heartbeat */}
       <mesh ref={ring3Ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <ringGeometry args={[0.8, 1.0, 128]} />
+        <ringGeometry args={[0.8, 1.0, 64]} />
         <meshBasicMaterial
           ref={mat3Ref}
           color={theme.accentHex}
@@ -750,7 +772,7 @@ function PostFXInner() {
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur />
+      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur width={512} height={512} />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
@@ -783,20 +805,20 @@ function SceneLights() {
   return (
     <>
       <ambientLight intensity={0.008} color="#080818" />
-      {/* Overhead spot lights illuminating the screens */}
-      {Array.from({ length: 8 }, (_, i) => {
-        const a = (i / 8) * Math.PI * 2
+      {/* Overhead spot lights illuminating the screens — 4 lights (45° apart) cover full ring */}
+      {Array.from({ length: 4 }, (_, i) => {
+        const a = (i / 4) * Math.PI * 2
         const r = 7
         return (
           <spotLight
             key={i}
             position={[Math.cos(a) * r, 6, Math.sin(a) * r]}
             target-position={[Math.cos(a) * r, 0, Math.sin(a) * r]}
-            angle={0.4}
-            penumbra={0.8}
-            intensity={0.5}
+            angle={0.6}
+            penumbra={0.9}
+            intensity={0.9}
             color={spotColor}
-            distance={12}
+            distance={14}
           />
         )
       })}
@@ -1165,6 +1187,16 @@ function PbrSceneInner({
   )
 }
 
+// ── InvalidateExporter — wires R3F invalidate() to a ref accessible outside Canvas ──
+function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRefObject<(() => void) | null> }) {
+  const { invalidate } = useThree()
+  useEffect(() => {
+    invalidateRef.current = invalidate
+    return () => { invalidateRef.current = null }
+  }, [invalidate, invalidateRef])
+  return null
+}
+
 export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 2, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
@@ -1209,14 +1241,46 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
   const camY = Math.sin(angleRad) * camera.cameraDistance
   const camZ = Math.cos(angleRad) * camera.cameraDistance
 
+  // ── Blur throttle: switch to demand frameloop when window loses focus ──
+  // On blur: frameloop→demand + 5fps invalidate timer. On focus: frameloop→always.
+  const [frameloop, setFrameloop] = useState<'always' | 'demand'>('always')
+  const blurTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const invalidateRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    const startThrottle = () => {
+      setFrameloop('demand')
+      if (!blurTimerRef.current) {
+        blurTimerRef.current = setInterval(() => { invalidateRef.current?.() }, 200)
+      }
+    }
+    const stopThrottle = () => {
+      if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
+      setFrameloop('always')
+    }
+    const off = window.api.onWindowFocusChange?.((focused) => {
+      if (focused) stopThrottle(); else startThrottle()
+    })
+    const onVisible = () => {
+      if (document.hidden) startThrottle(); else stopThrottle()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      stopThrottle()
+      off?.()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
   return (
     <Canvas
       key={canvasKey}
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
       camera={{ position: [0, camY, camZ], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      frameloop={frameloop}
       dpr={typeof window !== 'undefined' && localStorage.getItem('hal-o-dpr-override') ? Number(localStorage.getItem('hal-o-dpr-override')) : (renderQuality ?? Math.min(window.devicePixelRatio, 2))}
     >
+      <InvalidateExporter invalidateRef={invalidateRef} />
       <ThreeThemeProvider styleId={themeId} accentHex={accentHex}>
         <PbrSceneInner
           projects={projects}

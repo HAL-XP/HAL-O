@@ -95,33 +95,6 @@ function SoundToggle() {
   )
 }
 
-function FontSizeToggle() {
-  const MIN = 10, MAX = 22
-  const [size, setSize] = useState(() => parseInt(localStorage.getItem('hal-o-wizard-font') || '14'))
-
-  const update = (s: number) => {
-    setSize(s)
-    localStorage.setItem('hal-o-wizard-font', String(s))
-    // Apply to all wizard views via CSS variable on root
-    document.documentElement.style.setProperty('--wizard-font-size', `${s}px`)
-  }
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--wizard-font-size', `${size}px`)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="font-size-toggle" title={`Font size: ${size}px`}>
-      <button className="toolbar-toggle font-size-btn" onClick={() => update(Math.max(MIN, size - 1))} disabled={size <= MIN}>
-        <span style={{ fontSize: 10, fontWeight: 700, lineHeight: 1 }}>A</span>
-      </button>
-      <span className="font-size-value">{size}</span>
-      <button className="toolbar-toggle font-size-btn" onClick={() => update(Math.min(MAX, size + 1))} disabled={size >= MAX}>
-        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>A</span>
-      </button>
-    </div>
-  )
-}
 
 function FontToggle({ fontId, setFontId }: { fontId: string; setFontId: (id: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -233,8 +206,7 @@ function Root() {
         <SoundToggle />
         {/* Separator */}
         <div className="toolbar-separator" />
-        {/* Right group: Appearance (Font Size, Font Family, Color, Dark/Light) */}
-        <FontSizeToggle />
+        {/* Right group: Appearance (Font Family, Color, Dark/Light) */}
         <FontToggle fontId={fontTheme} setFontId={setFontTheme} />
         <ColorThemeToggle themeId={colorTheme} setThemeId={setColorTheme} />
         <DarkLightToggle dark={dark} setDark={setDark} />

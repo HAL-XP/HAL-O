@@ -1,5 +1,53 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+// ── Local type aliases (mirror src/renderer/src/types.ts — keep in sync) ──
+
+interface EnlistConfig {
+  projectPath: string
+  agentName: string
+  addLaunchScripts: boolean
+  addClaudeDir: boolean
+  addClaudeMd: 'skip' | 'create' | 'append'
+  addHooks: boolean
+  hooksSetup: string[]
+  techStack: string
+  languages: string[]
+  description: string
+  addRules?: string[]
+  addDevlog?: string[]
+  addMemorySeed?: boolean
+  addAgentTemplates?: boolean
+}
+
+interface ProjectStats {
+  lastCommit: string
+  lastCommitTime: number
+  commitCount30d: number
+  fileCount: number
+}
+
+interface ProjectInfo {
+  name: string
+  path: string
+  stack: string
+  hasClaude: boolean
+  hasBatchFiles: boolean
+  hasClaudeDir: boolean
+  hasHalOMeta: boolean
+  configLevel: 'bare' | 'claude-aware' | 'hal-o-enhanced'
+  lastModified: number
+  gitOwner: string
+  runCmd: string
+  rulesOutdated?: boolean
+  demoStats?: ProjectStats
+}
+
+interface EnlistResult {
+  success: boolean
+  log: string[]
+  path: string
+}
+
 const api = {
   // Setup
   getPlatform: () => ipcRenderer.invoke('get-platform'),
@@ -15,10 +63,10 @@ const api = {
   authGhCli: () => ipcRenderer.invoke('auth-gh-cli'),
 
   // Hub
-  scanProjects: () => ipcRenderer.invoke('scan-projects'),
+  scanProjects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke('scan-projects'),
   launchProject: (path: string, resume: boolean) => ipcRenderer.invoke('launch-project', path, resume),
   getLaunchArgs: () => ipcRenderer.invoke('get-launch-args'),
-  getProjectStats: (path: string) => ipcRenderer.invoke('get-project-stats', path),
+  getProjectStats: (path: string): Promise<ProjectStats | null> => ipcRenderer.invoke('get-project-stats', path),
 
   // Wizard
   getDefaultProjectPath: () => ipcRenderer.invoke('get-default-project-path'),
@@ -26,9 +74,9 @@ const api = {
   getGitHubUser: () => ipcRenderer.invoke('get-github-user'),
   getGitHubOrgs: () => ipcRenderer.invoke('get-github-orgs'),
   scanExistingProject: (projectPath: string) => ipcRenderer.invoke('scan-existing-project', projectPath),
-  enlistProject: (config: any) => ipcRenderer.invoke('enlist-project', config),
+  enlistProject: (config: EnlistConfig): Promise<EnlistResult> => ipcRenderer.invoke('enlist-project', config),
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => ipcRenderer.invoke('analyze-project', name, description, folderPath, lang),
-  createProject: (config: Record<string, unknown>) => ipcRenderer.invoke('create-project', config),
+  createProject: (config: Record<string, unknown>): Promise<{ success: boolean; path?: string; log: string[] }> => ipcRenderer.invoke('create-project', config),
   openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),
   runApp: (projectPath: string, runCmd: string) => ipcRenderer.invoke('run-app', projectPath, runCmd),
   openInClaude: (path: string) => ipcRenderer.invoke('open-in-claude', path),
@@ -91,6 +139,13 @@ const api = {
     const listener = (_: unknown, enabled: boolean) => callback(enabled)
     ipcRenderer.on('toggle-2d-preview', listener)
     return () => ipcRenderer.removeListener('toggle-2d-preview', listener)
+  },
+
+  // Perf: window focus/blur — renderer uses this to throttle frame rate
+  onWindowFocusChange: (callback: (focused: boolean) => void) => {
+    const listener = (_: unknown, focused: boolean) => callback(focused)
+    ipcRenderer.on('window-focus-change', listener)
+    return () => ipcRenderer.removeListener('window-focus-change', listener)
   },
 }
 

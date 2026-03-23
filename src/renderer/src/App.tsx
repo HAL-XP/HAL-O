@@ -17,6 +17,7 @@ import { CreationProgress } from './components/CreationProgress'
 import { ProjectConfigScreen } from './components/ProjectConfigScreen'
 import { TerminalView } from './components/TerminalView'
 import { DemoTerminalView } from './components/DemoTerminalView'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 interface AppState {
   currentStepId: string
@@ -151,7 +152,13 @@ export function App() {
   const updateWizardFont = useCallback((size: number) => {
     setWizardFontSize(size)
     localStorage.setItem('hal-o-wizard-font', String(size))
+    document.documentElement.style.setProperty('--wizard-font-size', `${size}px`)
   }, [])
+
+  // Apply wizard font CSS variable on mount
+  useEffect(() => {
+    document.documentElement.style.setProperty('--wizard-font-size', `${wizardFontSize}px`)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Camera sync: orbit/zoom -> sliders (only when tweaking is enabled)
   // Use a ref to avoid stale closures and prevent render loops
@@ -299,25 +306,29 @@ export function App() {
 
   if (viewMode === 'setup') {
     return (
-      <div className="app">
-        <div className="chat-area">
-          <SetupScreen onReady={() => setViewMode('hub')} />
+      <ErrorBoundary>
+        <div className="app">
+          <div className="chat-area">
+            <SetupScreen onReady={() => setViewMode('hub')} />
+          </div>
         </div>
-      </div>
+      </ErrorBoundary>
     )
   }
 
   if (viewMode === 'configure' && configurePath) {
     return (
-      <ProjectConfigScreen
-        projectPath={configurePath}
-        onBackToHub={() => { setConfigurePath(null); setViewMode('hub') }}
-        onOpenInHub={(path, name) => {
-          setConfigurePath(null)
-          openTerminal(path, name, false)
-          setViewMode('hub')
-        }}
-      />
+      <ErrorBoundary>
+        <ProjectConfigScreen
+          projectPath={configurePath}
+          onBackToHub={() => { setConfigurePath(null); setViewMode('hub') }}
+          onOpenInHub={(path, name) => {
+            setConfigurePath(null)
+            openTerminal(path, name, false)
+            setViewMode('hub')
+          }}
+        />
+      </ErrorBoundary>
     )
   }
 
@@ -337,6 +348,7 @@ export function App() {
       : { flex: `0 0 ${termSize}%`, minHeight: 100, overflow: 'hidden' }
 
     return (
+      <ErrorBoundary>
       <div className="app" style={{ display: 'flex', flexDirection: flexDir, height: '100vh' }}>
         <div style={hubStyle}>
           <ProjectHub
@@ -363,6 +375,8 @@ export function App() {
             onVoiceFocusHub={() => setVoiceFocus('hub')}
             hubFontSize={hubFontSize}
             termFontSize={termFontSize}
+            wizardFontSize={wizardFontSize}
+            onWizardFontSize={updateWizardFont}
             voiceOut={voiceOut}
             voiceProfile={voiceProfile}
             dockPosition={dockPosition}
@@ -423,6 +437,7 @@ export function App() {
           </div>
         )}
       </div>
+      </ErrorBoundary>
     )
   }
 
@@ -581,26 +596,29 @@ export function App() {
 
   if (state.isCreating || state.creationDone) {
     return (
-      <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
-        <StepProgress currentPhase="review" answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
-        <div className="chat-area">
-          <CreationProgress
-            log={state.creationLog}
-            done={state.creationDone}
-            createdPath={state.createdPath}
-            onBackToHub={() => setViewMode('hub')}
-            onOpenTerminal={(path) => {
-              const name = path.split(/[/\\]/).pop() || 'Project'
-              openTerminal(path, name, false)
-              setViewMode('hub')
-            }}
-          />
+      <ErrorBoundary>
+        <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
+          <StepProgress currentPhase="review" answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
+          <div className="chat-area">
+            <CreationProgress
+              log={state.creationLog}
+              done={state.creationDone}
+              createdPath={state.createdPath}
+              onBackToHub={() => setViewMode('hub')}
+              onOpenTerminal={(path) => {
+                const name = path.split(/[/\\]/).pop() || 'Project'
+                openTerminal(path, name, false)
+                setViewMode('hub')
+              }}
+            />
+          </div>
         </div>
-      </div>
+      </ErrorBoundary>
     )
   }
 
   return (
+    <ErrorBoundary>
     <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
       <StepProgress currentPhase={state.showReview ? 'review' : currentPhase} answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
 
@@ -677,5 +695,6 @@ export function App() {
         <div ref={chatEndRef} />
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

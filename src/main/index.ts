@@ -119,6 +119,14 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // ── Frame-rate throttle: notify renderer when window loses/gains focus ──
+  mainWindow.on('blur', () => {
+    mainWindow?.webContents.send('window-focus-change', false)
+  })
+  mainWindow.on('focus', () => {
+    mainWindow?.webContents.send('window-focus-change', true)
+  })
+
   // Auto-reload on renderer crash — ptys survive in main process
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error(`[HAL-O] Renderer crashed (${details.reason}). Auto-reloading in 1s...`)

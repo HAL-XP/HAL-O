@@ -18,6 +18,8 @@ interface HudTopbarProps {
   readyCount: number
   hubFontSize: number
   termFontSize: number
+  wizardFontSize: number
+  onWizardFontSize: (size: number) => void
   voiceOut: boolean
   voiceProfile: VoiceProfileId
   dockPosition: DockPosition
@@ -61,7 +63,7 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
+  hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
@@ -127,7 +129,8 @@ export function HudTopbar({
           />
         )}
         <SettingsMenu
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize}
+          voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
           camera={camera}
