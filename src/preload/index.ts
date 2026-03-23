@@ -18,6 +18,7 @@ const api = {
   scanProjects: () => ipcRenderer.invoke('scan-projects'),
   launchProject: (path: string, resume: boolean) => ipcRenderer.invoke('launch-project', path, resume),
   getLaunchArgs: () => ipcRenderer.invoke('get-launch-args'),
+  getProjectStats: (path: string) => ipcRenderer.invoke('get-project-stats', path),
 
   // Wizard
   getDefaultProjectPath: () => ipcRenderer.invoke('get-default-project-path'),

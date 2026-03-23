@@ -1,12 +1,20 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
+
+interface ProjectStats {
+  lastCommit: string
+  lastCommitTime: number
+  commitCount30d: number
+  fileCount: number
+}
 
 interface Props {
   position: [number, number, number]
   rotation: [number, number, number]
   projectName: string
+  projectPath: string
   stack: string
   ready: boolean
   isHovered: boolean
@@ -25,13 +33,49 @@ const _targetScale = new THREE.Vector3()
 const _screenNormal = new THREE.Vector3()
 const _toCamera = new THREE.Vector3()
 
+// Format epoch timestamp into relative "time ago" string
+function timeAgo(epoch: number): string {
+  if (!epoch) return ''
+  const diff = Date.now() - epoch
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
+}
+
+// Generate 7 activity bars from commit count (visual intensity mapping)
+function activityBars(commitCount: number): number[] {
+  const intensity = Math.min(commitCount / 50, 1)
+  return Array.from({ length: 7 }, (_, i) => {
+    const base = intensity * (0.4 + 0.6 * Math.sin((i + 1) * 1.3 + commitCount * 0.7))
+    return Math.max(0.08, Math.min(1, base))
+  })
+}
+
 export function ScreenPanel({
-  position, rotation, projectName, stack, ready,
+  position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
 }: Props) {
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
+  const [stats, setStats] = useState<ProjectStats | null>(null)
+  const [visible, setVisible] = useState(false)
+
+  // Lazy-load stats when screen becomes visible (front-facing)
+  useEffect(() => {
+    if (!visible || !projectPath) return
+    let cancelled = false
+    window.api.getProjectStats(projectPath).then((s) => {
+      if (!cancelled) setStats(s)
+    }).catch(() => { /* ignore */ })
+    return () => { cancelled = true }
+  }, [visible, projectPath])
 
   const W = 2.8
   const H = 1.8
@@ -54,10 +98,13 @@ export function ScreenPanel({
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = _screenNormal.dot(_toCamera)
+      const isFront = dot > 0
       if (htmlWrapRef.current) {
-        htmlWrapRef.current.style.opacity = dot > 0 ? '1' : '0'
-        htmlWrapRef.current.style.pointerEvents = dot > 0 ? 'auto' : 'none'
+        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
       }
+      // Trigger stats load once the panel faces the camera
+      if (isFront && !visible) setVisible(true)
     }
   })
 
@@ -145,7 +192,7 @@ export function ScreenPanel({
           </div>
 
           {stack && (
-            <div style={{ marginBottom: '8px' }}>
+            <div style={{ marginBottom: '6px' }}>
               <span style={{
                 fontSize: '8px', color: CYAN,
                 background: 'rgba(0,212,255,0.1)',
@@ -154,6 +201,59 @@ export function ScreenPanel({
               }}>
                 {stack}
               </span>
+            </div>
+          )}
+
+          {/* ── Project Stats ── */}
+          {stats && (
+            <div style={{ marginBottom: '6px', fontSize: '8px', lineHeight: '1.5' }}>
+              {/* Last commit */}
+              {stats.lastCommit && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#6b7a8d' }}>
+                  <span style={{
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    maxWidth: '160px', color: '#8b9bb0',
+                  }} title={stats.lastCommit}>
+                    {stats.lastCommit.length > 30 ? stats.lastCommit.slice(0, 28) + '..' : stats.lastCommit}
+                  </span>
+                  <span style={{ flexShrink: 0, color: '#4a5568', fontSize: '7px' }}>
+                    {timeAgo(stats.lastCommitTime)}
+                  </span>
+                </div>
+              )}
+
+              {/* Activity bar + file count row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                {/* 7-bar activity indicator */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '12px' }} title={`${stats.commitCount30d} commits (30d)`}>
+                  {activityBars(stats.commitCount30d).map((v, i) => (
+                    <div key={i} style={{
+                      width: '3px',
+                      height: `${Math.max(3, v * 12)}px`,
+                      borderRadius: '1px',
+                      background: v > 0.6
+                        ? `rgba(0, 212, 255, ${0.4 + v * 0.5})`
+                        : `rgba(100, 130, 160, ${0.2 + v * 0.4})`,
+                      transition: 'height 0.3s ease',
+                    }} />
+                  ))}
+                  <span style={{ fontSize: '7px', color: '#4a5568', marginLeft: '3px' }}>
+                    {stats.commitCount30d > 0 ? `${stats.commitCount30d}` : '0'}
+                  </span>
+                </div>
+
+                {/* File count badge */}
+                {stats.fileCount > 0 && (
+                  <span style={{
+                    fontSize: '7px', color: '#4a5568',
+                    background: 'rgba(255,255,255,0.04)',
+                    padding: '1px 5px', borderRadius: '2px',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    {stats.fileCount} files
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

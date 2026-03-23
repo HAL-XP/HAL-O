@@ -7,7 +7,62 @@ import { join } from 'path'
 import { run } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames } from './platform'
 
+// ── Project stats cache (60s TTL) ──
+interface ProjectStats {
+  lastCommit: string
+  lastCommitTime: number
+  commitCount30d: number
+  fileCount: number
+}
+const statsCache = new Map<string, { data: ProjectStats; ts: number }>()
+const STATS_TTL = 60_000
+
 export function registerHubHandlers(): void {
+  // ── Get project git stats (cached 60s) ──
+  ipcMain.handle('get-project-stats', async (_event, projectPath: string): Promise<ProjectStats> => {
+    const now = Date.now()
+    const cached = statsCache.get(projectPath)
+    if (cached && now - cached.ts < STATS_TTL) return cached.data
+
+    const stats: ProjectStats = { lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }
+
+    // Check if it's a git repo
+    if (!existsSync(join(projectPath, '.git'))) {
+      try {
+        const entries = readdirSync(projectPath)
+        stats.fileCount = entries.length
+      } catch { /* */ }
+      statsCache.set(projectPath, { data: stats, ts: now })
+      return stats
+    }
+
+    try {
+      stats.lastCommit = run('git log -1 --pretty=format:%s', projectPath)
+    } catch { /* no commits */ }
+
+    try {
+      const epoch = run('git log -1 --pretty=format:%ct', projectPath)
+      stats.lastCommitTime = parseInt(epoch, 10) * 1000
+    } catch { /* */ }
+
+    try {
+      const count = run('git rev-list --count --since="30 days ago" HEAD', projectPath)
+      stats.commitCount30d = parseInt(count, 10) || 0
+    } catch { /* */ }
+
+    try {
+      const count = run('git ls-files --cached | find /c /v ""', projectPath)
+      stats.fileCount = parseInt(count.trim(), 10) || 0
+    } catch {
+      try {
+        stats.fileCount = readdirSync(projectPath).length
+      } catch { /* */ }
+    }
+
+    statsCache.set(projectPath, { data: stats, ts: now })
+    return stats
+  })
+
   ipcMain.handle('scan-projects', async () => {
     const dirs = getCommonProjectDirs()
 

@@ -126,6 +126,13 @@ export interface InstallLabels {
   ffmpeg: string
 }
 
+export interface ProjectStats {
+  lastCommit: string
+  lastCommitTime: number
+  commitCount30d: number
+  fileCount: number
+}
+
 export interface ElectronAPI {
   // Setup
   getPlatform: () => Promise<string>
@@ -143,6 +150,7 @@ export interface ElectronAPI {
   // Hub
   scanProjects: () => Promise<ProjectInfo[]>
   launchProject: (path: string, resume: boolean) => Promise<void>
+  getProjectStats: (path: string) => Promise<ProjectStats>
 
   // Wizard
   getDefaultProjectPath: () => Promise<string>

@@ -268,6 +268,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             position={sp.position}
             rotation={sp.rotation}
             projectName={project.name}
+            projectPath={project.path}
             stack={project.stack}
             ready={isFullySetup(project)}
             isHovered={hoveredId === project.path}
