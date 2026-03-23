@@ -2,8 +2,8 @@
 // Owner: Agent D (Wizard + UX)
 
 import { ipcMain } from 'electron'
-import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync, statSync } from 'fs'
+import { join, extname } from 'path'
 import Anthropic from '@anthropic-ai/sdk'
 import { run, findApiKey, type ProjectConfig } from './ipc-shared'
 import {
@@ -21,6 +21,112 @@ import {
   generateAgentTemplates,
   generateHoursTrackingRule,
 } from './generators'
+import { HAL_O_VERSION, RULES_VERSION } from './version'
+
+// ── Language detection from file extensions + manifest files ──
+
+const EXT_LANG_MAP: Record<string, string> = {
+  '.ts': 'TypeScript', '.tsx': 'TypeScript',
+  '.js': 'JavaScript', '.jsx': 'JavaScript', '.mjs': 'JavaScript',
+  '.py': 'Python',
+  '.go': 'Go',
+  '.rs': 'Rust',
+  '.java': 'Java',
+  '.rb': 'Ruby',
+  '.php': 'PHP',
+  '.swift': 'Swift',
+  '.kt': 'Kotlin', '.kts': 'Kotlin',
+  '.cs': 'C#',
+  '.cpp': 'C++', '.cc': 'C++', '.cxx': 'C++', '.hpp': 'C++',
+  '.c': 'C', '.h': 'C',
+  '.lua': 'Lua',
+  '.dart': 'Dart',
+  '.ex': 'Elixir', '.exs': 'Elixir',
+  '.zig': 'Zig',
+  '.scala': 'Scala',
+}
+
+const MANIFEST_LANG_MAP: Record<string, string> = {
+  'package.json': 'JavaScript',
+  'tsconfig.json': 'TypeScript',
+  'pyproject.toml': 'Python',
+  'requirements.txt': 'Python',
+  'setup.py': 'Python',
+  'Cargo.toml': 'Rust',
+  'go.mod': 'Go',
+  'Gemfile': 'Ruby',
+  'composer.json': 'PHP',
+  'Package.swift': 'Swift',
+  'build.gradle': 'Java',
+  'build.gradle.kts': 'Kotlin',
+  'pom.xml': 'Java',
+  'pubspec.yaml': 'Dart',
+  'mix.exs': 'Elixir',
+}
+
+/** Detect languages from top-level files and one level of subdirectories */
+function detectLanguages(projectPath: string, topFiles: string[]): string[] {
+  const langs = new Set<string>()
+
+  // From manifest files
+  for (const file of topFiles) {
+    const lang = MANIFEST_LANG_MAP[file]
+    if (lang) langs.add(lang)
+  }
+
+  // From file extensions in the top level
+  for (const file of topFiles) {
+    const ext = extname(file).toLowerCase()
+    const lang = EXT_LANG_MAP[ext]
+    if (lang) langs.add(lang)
+  }
+
+  // Scan one level of common source directories for extensions
+  const srcDirs = ['src', 'lib', 'app', 'pkg', 'cmd', 'internal']
+  for (const dir of srcDirs) {
+    const dirPath = join(projectPath, dir)
+    try {
+      if (!existsSync(dirPath)) continue
+      const stat = statSync(dirPath)
+      if (!stat.isDirectory()) continue
+      const subFiles = readdirSync(dirPath)
+      for (const f of subFiles) {
+        const ext = extname(f).toLowerCase()
+        const lang = EXT_LANG_MAP[ext]
+        if (lang) langs.add(lang)
+      }
+    } catch { /* skip */ }
+  }
+
+  return Array.from(langs).sort()
+}
+
+/** HAL-O meta info stored in .claude/.hal-o-meta.json */
+interface HalOMeta {
+  enlistedAt: string
+  halOVersion: string
+  rulesVersion: number
+}
+
+/** Enlist config for importing an existing project into HAL-O */
+export interface EnlistConfig {
+  projectPath: string
+  agentName: string
+  addLaunchScripts: boolean
+  addClaudeDir: boolean
+  addClaudeMd: 'skip' | 'create' | 'append'
+  addHooks: boolean
+  hooksSetup: string[]
+  techStack: string
+  languages: string[]
+  description: string
+}
+
+export interface EnlistResult {
+  success: boolean
+  log: string[]
+  path: string
+}
 
 export function registerWizardHandlers(): void {
   // ── Scan existing project for import/recruit ──
@@ -34,6 +140,12 @@ export function registerWizardHandlers(): void {
       hasClaude: boolean
       hasClaudeDir: boolean
       hasBatchFiles: boolean
+      hasHooks: boolean
+      hasRules: boolean
+      hasDevlog: boolean
+      rulesList: string[]
+      languages: string[]
+      halOMeta: HalOMeta | null
       stack: string
       description: string
       files: string[]
@@ -43,6 +155,8 @@ export function registerWizardHandlers(): void {
       path: projectPath,
       hasGit: false, gitRemote: '', gitBranch: '',
       hasClaude: false, hasClaudeDir: false, hasBatchFiles: false,
+      hasHooks: false, hasRules: false, hasDevlog: false,
+      rulesList: [], languages: [], halOMeta: null,
       stack: '', description: '', files: [], readme: '',
     }
 
@@ -62,6 +176,46 @@ export function registerWizardHandlers(): void {
       result.hasClaudeDir = files.includes('.claude')
       const { newScript } = getLaunchScriptNames()
       result.hasBatchFiles = files.includes(newScript) || files.includes('_CLAUDE_CLI_NEW.bat') || files.includes('_CLAUDE_CLI_NEW.sh')
+
+      // Check _devlog/ existence
+      result.hasDevlog = files.includes('_devlog') && existsSync(join(projectPath, '_devlog'))
+
+      // Check .claude/ contents: hooks, rules, hal-o-meta
+      if (result.hasClaudeDir) {
+        const claudeDir = join(projectPath, '.claude')
+
+        // Hooks: .claude/settings.json exists
+        const settingsPath = join(claudeDir, 'settings.json')
+        if (existsSync(settingsPath)) {
+          result.hasHooks = true
+        }
+
+        // Rules: .claude/rules/ exists and has files
+        const rulesDir = join(claudeDir, 'rules')
+        try {
+          if (existsSync(rulesDir)) {
+            const ruleFiles = readdirSync(rulesDir).filter(f => !f.startsWith('.'))
+            result.rulesList = ruleFiles
+            result.hasRules = ruleFiles.length > 0
+          }
+        } catch { /* */ }
+
+        // HAL-O meta: .claude/.hal-o-meta.json
+        const metaPath = join(claudeDir, '.hal-o-meta.json')
+        try {
+          if (existsSync(metaPath)) {
+            const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+            result.halOMeta = {
+              enlistedAt: meta.enlistedAt || '',
+              halOVersion: meta.halOVersion || '',
+              rulesVersion: typeof meta.rulesVersion === 'number' ? meta.rulesVersion : 0,
+            }
+          }
+        } catch { /* */ }
+      }
+
+      // Detect languages from file extensions + manifest files
+      result.languages = detectLanguages(projectPath, files)
 
       if (files.includes('package.json')) {
         try {
@@ -96,6 +250,188 @@ export function registerWizardHandlers(): void {
     } catch { /* */ }
 
     return result
+  })
+
+  // ── Enlist existing project (non-destructive import) ──
+  ipcMain.handle('enlist-project', async (_event, config: EnlistConfig) => {
+    const log: string[] = []
+    const projectPath = config.projectPath
+
+    try {
+      if (!existsSync(projectPath)) {
+        log.push(`[ERROR] Project path does not exist: ${projectPath}`)
+        return { success: false, log, path: projectPath }
+      }
+
+      const claudeDir = join(projectPath, '.claude')
+      const rulesDir = join(claudeDir, 'rules')
+
+      // 1. Create .claude/ directory structure (if requested)
+      if (config.addClaudeDir) {
+        if (!existsSync(claudeDir)) {
+          mkdirSync(claudeDir, { recursive: true })
+          log.push('[OK] Created .claude/')
+        } else {
+          log.push('[SKIP] .claude/ already exists')
+        }
+        if (!existsSync(rulesDir)) {
+          mkdirSync(rulesDir, { recursive: true })
+          log.push('[OK] Created .claude/rules/')
+        } else {
+          log.push('[SKIP] .claude/rules/ already exists')
+        }
+      }
+
+      // 2. CLAUDE.md
+      const claudeMdPath = join(projectPath, 'CLAUDE.md')
+      if (config.addClaudeMd === 'create') {
+        if (existsSync(claudeMdPath)) {
+          log.push('[SKIP] CLAUDE.md already exists')
+        } else {
+          const lines = [
+            `# ${config.agentName}`,
+            '',
+            config.description || '',
+            '',
+            '## Stack',
+            `- **Primary**: ${config.techStack || 'Not specified'}`,
+            config.languages.length > 0 ? `- **Languages**: ${config.languages.join(', ')}` : '',
+            '',
+            '## Key Conventions',
+            '- API keys in `~/.claude_credentials` (bash-sourceable), never in repo',
+            '- NEVER kill processes by name -- always by PID',
+            '- Messages prefixed with `[voice]` are spoken by the user via microphone',
+            '',
+          ].filter(l => l !== '').join('\n') + '\n'
+          writeFileSync(claudeMdPath, lines, 'utf-8')
+          log.push('[OK] Created CLAUDE.md')
+        }
+      } else if (config.addClaudeMd === 'append') {
+        if (existsSync(claudeMdPath)) {
+          const existing = readFileSync(claudeMdPath, 'utf-8')
+          // Check if HAL-O section already appended
+          if (existing.includes('## HAL-O Best Practices (auto-generated)')) {
+            log.push('[SKIP] CLAUDE.md already has HAL-O section')
+          } else {
+            const appendSection = [
+              '',
+              '---',
+              '',
+              '## HAL-O Best Practices (auto-generated)',
+              '',
+              '- API keys in `~/.claude_credentials` (bash-sourceable), never in repo',
+              '- NEVER kill processes by name -- always by PID',
+              '- Messages prefixed with `[voice]` are spoken by the user via microphone',
+              '- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)',
+              '',
+            ].join('\n')
+            writeFileSync(claudeMdPath, existing + appendSection, 'utf-8')
+            log.push('[OK] Appended HAL-O section to CLAUDE.md')
+          }
+        } else {
+          // Append mode but file doesn't exist — create it instead
+          const lines = [
+            `# ${config.agentName}`,
+            '',
+            config.description || '',
+            '',
+            '## HAL-O Best Practices (auto-generated)',
+            '',
+            '- API keys in `~/.claude_credentials` (bash-sourceable), never in repo',
+            '- NEVER kill processes by name -- always by PID',
+            '- Messages prefixed with `[voice]` are spoken by the user via microphone',
+            '',
+          ].filter(l => l !== '').join('\n') + '\n'
+          writeFileSync(claudeMdPath, lines, 'utf-8')
+          log.push('[OK] Created CLAUDE.md (append mode, file did not exist)')
+        }
+      } else {
+        log.push('[SKIP] CLAUDE.md (skipped by config)')
+      }
+
+      // 3. Hooks (.claude/settings.json)
+      if (config.addHooks && config.hooksSetup.length > 0) {
+        const settingsPath = join(claudeDir, 'settings.json')
+        if (existsSync(settingsPath)) {
+          log.push('[SKIP] .claude/settings.json already exists')
+        } else {
+          // Ensure .claude/ exists
+          mkdirSync(claudeDir, { recursive: true })
+          const fakeConfig: ProjectConfig = {
+            name: config.agentName,
+            location: '',
+            description: config.description,
+            techStack: config.techStack,
+            languages: config.languages,
+            styling: 'none',
+            database: 'none',
+            githubCreate: false,
+            githubAccount: '',
+            githubVisibility: 'private',
+            claudeMd: 'skip',
+            hooksSetup: config.hooksSetup,
+            rulesSetup: [],
+            devlog: [],
+            gitignore: false,
+            playwrightMcp: false,
+            frontendDesignPlugin: false,
+            agentTemplates: false,
+            memorySeed: false,
+            readme: false,
+            agentName: config.agentName,
+            sessionName: false,
+            conventions: [],
+            skipPermissions: false,
+          }
+          const hooks = generateHooksSettings(fakeConfig)
+          writeFileSync(settingsPath, JSON.stringify(hooks, null, 2), 'utf-8')
+          log.push(`[OK] Created .claude/settings.json with hooks: ${config.hooksSetup.join(', ')}`)
+        }
+      }
+
+      // 4. Launch scripts
+      if (config.addLaunchScripts) {
+        const newScript = generateLaunchScript(config.agentName, false, false)
+        const resumeScript = generateLaunchScript(config.agentName, true, false)
+
+        const newPath = join(projectPath, newScript.filename)
+        if (existsSync(newPath)) {
+          log.push(`[SKIP] ${newScript.filename} already exists`)
+        } else {
+          writeFileSync(newPath, newScript.content, 'utf-8')
+          makeExecutable(newPath)
+          log.push(`[OK] Created ${newScript.filename}`)
+        }
+
+        const resumePath = join(projectPath, resumeScript.filename)
+        if (existsSync(resumePath)) {
+          log.push(`[SKIP] ${resumeScript.filename} already exists`)
+        } else {
+          writeFileSync(resumePath, resumeScript.content, 'utf-8')
+          makeExecutable(resumePath)
+          log.push(`[OK] Created ${resumeScript.filename}`)
+        }
+      }
+
+      // 5. Write .claude/.hal-o-meta.json (version tracking)
+      mkdirSync(claudeDir, { recursive: true })
+      const metaPath = join(claudeDir, '.hal-o-meta.json')
+      const meta: HalOMeta = {
+        enlistedAt: new Date().toISOString(),
+        halOVersion: HAL_O_VERSION,
+        rulesVersion: RULES_VERSION,
+      }
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+      log.push('[OK] Written .claude/.hal-o-meta.json')
+
+      log.push('')
+      log.push(`[OK] Project "${config.agentName}" enlisted in HAL-O!`)
+
+      return { success: true, log, path: projectPath }
+    } catch (e: any) {
+      log.push(`[ERROR] ${e.message}`)
+      return { success: false, log, path: projectPath }
+    }
   })
 
   ipcMain.handle('analyze-project', async (_event, name: string, description: string, folderPath: string, lang?: string) => {

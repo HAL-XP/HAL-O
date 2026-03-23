@@ -133,6 +133,25 @@ export interface ProjectStats {
   fileCount: number
 }
 
+export interface EnlistConfig {
+  projectPath: string
+  agentName: string
+  addLaunchScripts: boolean
+  addClaudeDir: boolean
+  addClaudeMd: 'skip' | 'create' | 'append'
+  addHooks: boolean
+  hooksSetup: string[]
+  techStack: string
+  languages: string[]
+  description: string
+}
+
+export interface EnlistResult {
+  success: boolean
+  log: string[]
+  path: string
+}
+
 export interface ElectronAPI {
   // Setup
   getPlatform: () => Promise<string>
@@ -160,8 +179,12 @@ export interface ElectronAPI {
   scanExistingProject: (projectPath: string) => Promise<{
     name: string; path: string; hasGit: boolean; gitRemote: string; gitBranch: string
     hasClaude: boolean; hasClaudeDir: boolean; hasBatchFiles: boolean
+    hasHooks: boolean; hasRules: boolean; hasDevlog: boolean
+    rulesList: string[]; languages: string[]
+    halOMeta: { enlistedAt: string; halOVersion: string; rulesVersion: number } | null
     stack: string; description: string; files: string[]; readme: string
   }>
+  enlistProject: (config: EnlistConfig) => Promise<EnlistResult>
   analyzeProject: (name: string, description: string, folderPath: string, lang?: string) => Promise<ProjectAnalysis>
   createProject: (config: Record<string, unknown>) => Promise<{ success: boolean; path?: string; log: string[] }>
   openFolder: (path: string) => Promise<void>
