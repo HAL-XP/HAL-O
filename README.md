@@ -7,7 +7,7 @@
 <p align="center">Holographic Adaptive Layer for Claude Code projects.</p>
 
 <p align="center">
-  <img src="screenshots/e2e-hub.png" alt="HAL-O Hub" width="700" />
+  <img src="screenshots/readme-demo-default.png" alt="HAL-O — PBR Holographic view with demo projects" width="800" />
 </p>
 
 ## Features
@@ -51,6 +51,20 @@ npm run build        # Production build
 npm run test         # Playwright E2E tests
 npm run test:docker  # Run tests in Docker
 ```
+
+## Screenshots
+
+### Spiral Layout
+
+<p align="center">
+  <img src="screenshots/readme-demo-spiral.png" alt="Spiral layout — projects arranged in a rising helix" width="800" />
+</p>
+
+### Neon 3D Style
+
+<p align="center">
+  <img src="screenshots/readme-demo-neon.png" alt="Neon style — accent-colored sphere core with intensified bloom" width="800" />
+</p>
 
 ## Architecture
 
