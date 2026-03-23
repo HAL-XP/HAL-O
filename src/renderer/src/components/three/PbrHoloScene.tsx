@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
 import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
@@ -7,6 +7,10 @@ import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
 import { ScreenPanel } from './ScreenPanel'
+import { DataParticles } from './DataParticles'
+import { HudScrollText } from './HudScrollText'
+import { SpaceshipFlyby } from './SpaceshipFlyby'
+import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import type { ProjectInfo } from '../../types'
 import { LAYOUT_3D_FNS } from '../../layouts3d'
 
@@ -402,15 +406,27 @@ interface Props {
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
   halOnline?: boolean
   layoutId?: string
+  terminalCount?: number
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default' }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const flybyRef = useRef<SpaceshipFlybyHandle>(null)
+  const prevTermCountRef = useRef(terminalCount)
 
+  // ALL hooks before any conditional return
   const screenPositions = useMemo(() => {
     const layoutFn = LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default']
     return layoutFn(projects.length)
   }, [projects.length, layoutId])
+
+  // Trigger spaceship flyby when a new terminal opens
+  useEffect(() => {
+    if (terminalCount > prevTermCountRef.current) {
+      flybyRef.current?.trigger()
+    }
+    prevTermCountRef.current = terminalCount
+  }, [terminalCount])
 
   return (
     <Canvas
@@ -429,6 +445,15 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       <PbrRingPlatform />
       <PbrHalSphere />
 
+      {/* Ambient data particles */}
+      <DataParticles projectCount={projects.length} />
+
+      {/* Scrolling HUD text strips — left and right edges */}
+      <HudScrollText />
+
+      {/* Spaceship flyby — triggered on new terminal open */}
+      <SpaceshipFlyby ref={flybyRef} />
+
       {/* Sonar pulse — HAL heartbeat */}
       {halOnline && <SonarPulse />}
 
@@ -442,6 +467,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
             position={sp.position}
             rotation={sp.rotation}
             projectName={project.name}
+            projectPath={project.path}
             stack={project.stack}
             ready={isFullySetup(project)}
             isHovered={hoveredId === project.path}

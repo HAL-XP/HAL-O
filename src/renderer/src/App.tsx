@@ -246,6 +246,7 @@ export function App() {
             layoutId={layoutId}
             onLayoutChange={updateLayout}
             halSessionId={getHalSessionId()}
+            terminalCount={termSessions.length}
           />
         </div>
         {hasTerminals && (

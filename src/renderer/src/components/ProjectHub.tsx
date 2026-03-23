@@ -28,6 +28,7 @@ interface Props {
   layoutId: string
   onLayoutChange: (id: string) => void
   halSessionId?: string | null
+  terminalCount?: number
 }
 
 function timeAgo(ms: number): string {
@@ -40,7 +41,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -169,6 +170,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenTerminal={onOpenTerminal}
           halOnline={!!halSessionId}
           layoutId={layoutId}
+          terminalCount={terminalCount}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
