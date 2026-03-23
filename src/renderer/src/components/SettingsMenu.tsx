@@ -83,15 +83,15 @@ interface Props {
   demo?: DemoSettings
 }
 
-// Per-voice audio cache: { profileId -> { text, audioPath } }
-const voiceCache = new Map<string, { text: string; audioPath: string }>()
+// Per-voice audio cache: { profileId -> { text, audioDataUrl } }
+const voiceCache = new Map<string, { text: string; audioDataUrl: string }>()
 
 function playOrGenerate(text: string, profileId: string, setPreviewing: (v: string | null) => void) {
   const cached = voiceCache.get(profileId)
   if (cached && cached.text === text) {
     // Play from cache
     setPreviewing(profileId)
-    const audio = new Audio(`file://${cached.audioPath}`)
+    const audio = new Audio(cached.audioDataUrl)
     audio.onended = () => setPreviewing(null)
     audio.onerror = () => setPreviewing(null)
     audio.play().catch(() => setPreviewing(null))
@@ -100,9 +100,9 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   // Generate new + cache
   setPreviewing(profileId)
   window.api.voiceSpeak(text, profileId, 'en').then((result) => {
-    if (result.success && result.audioPath) {
-      voiceCache.set(profileId, { text, audioPath: result.audioPath })
-      const audio = new Audio(`file://${result.audioPath}`)
+    if (result.success && result.audioDataUrl) {
+      voiceCache.set(profileId, { text, audioDataUrl: result.audioDataUrl })
+      const audio = new Audio(result.audioDataUrl)
       audio.onended = () => setPreviewing(null)
       audio.onerror = () => setPreviewing(null)
       audio.play().catch(() => setPreviewing(null))

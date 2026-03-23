@@ -213,7 +213,7 @@ export interface ElectronAPI {
 
   // Voice
   voiceTranscribe: (audioBuffer: ArrayBuffer) => Promise<{ success: boolean; text: string; error?: string }>
-  voiceSpeak: (text: string, profile?: string, lang?: string) => Promise<{ success: boolean; audioPath?: string; error?: string }>
+  voiceSpeak: (text: string, profile?: string, lang?: string) => Promise<{ success: boolean; audioPath?: string; audioDataUrl?: string; error?: string }>
 }
 
 declare global {

@@ -2,7 +2,7 @@
 // Owner: Agent C (Audio/Voice)
 
 import { ipcMain } from 'electron'
-import { writeFileSync, unlinkSync } from 'fs'
+import { writeFileSync, readFileSync, unlinkSync } from 'fs'
 import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { execSync, spawn } from 'child_process'
@@ -30,7 +30,7 @@ export function registerVoiceHandlers(): void {
 
   ipcMain.handle('voice-speak', async (_e, text: string, profile: string = 'narrator', lang: string = 'en') => {
     const outPath = join(tmpdir(), `halo_tts_${Date.now()}.ogg`)
-    return new Promise<{ success: boolean; audioPath?: string; error?: string }>((resolve) => {
+    return new Promise<{ success: boolean; audioPath?: string; audioDataUrl?: string; error?: string }>((resolve) => {
       const proc = spawn('python', [ttsScript, text, outPath, profile, lang], {
         timeout: 120000,
       })
@@ -38,7 +38,13 @@ export function registerVoiceHandlers(): void {
       proc.stderr.on('data', (d) => { stderr += d.toString() })
       proc.on('close', (code) => {
         if (code === 0) {
-          resolve({ success: true, audioPath: outPath })
+          try {
+            const audioData = readFileSync(outPath)
+            const audioDataUrl = 'data:audio/ogg;base64,' + audioData.toString('base64')
+            resolve({ success: true, audioPath: outPath, audioDataUrl })
+          } catch {
+            resolve({ success: true, audioPath: outPath })
+          }
         } else {
           resolve({ success: false, error: stderr || `Exit code ${code}` })
         }

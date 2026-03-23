@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
@@ -190,8 +190,13 @@ function AtmosphericGlow() {
 // ── Post Processing ──
 function PostProcessing() {
   const { gl } = useThree()
+  const [ready, setReady] = useState(false)
   const offset = useMemo(() => new Vector2(0.0008, 0.0008), [])
-  if (!gl?.domElement) return null
+
+  // Delay one frame so the WebGL context is fully initialized after Canvas remount
+  useEffect(() => { setReady(true) }, [])
+
+  if (!ready || !gl?.domElement) return null
   return (
     <EffectComposer>
       <Bloom luminanceThreshold={0.1} luminanceSmoothing={0.8} intensity={3.5} radius={0.95} mipmapBlur />
