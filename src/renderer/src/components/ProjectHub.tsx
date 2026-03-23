@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ProjectInfo } from '../types'
+import type { VoiceProfileId } from '../hooks/useSettings'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
@@ -15,9 +16,11 @@ interface Props {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  voiceProfile: VoiceProfileId
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  onVoiceProfileChange: (id: VoiceProfileId) => void
   rendererId: string
   onRendererChange: (id: string) => void
   layoutId: string
@@ -35,7 +38,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, onHubFontSize, onTermFontSize, onVoiceOut, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -168,8 +171,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
@@ -191,8 +194,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={projects.length} readyCount={readyCount}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { VOICE_PROFILES, type VoiceProfileId } from '../hooks/useSettings'
 
 export const RENDERERS = [
   { id: 'classic', label: 'CLASSIC' },
@@ -23,22 +24,64 @@ export const LAYOUTS = [
 
 export type LayoutId = typeof LAYOUTS[number]['id']
 
+const PROFILE_SAMPLE_TEXTS: Record<string, string> = {
+  buddy: 'Hey there, just checking in. Everything looks good.',
+  orc: 'Work work! Me ready for battle, Warchief!',
+  narrator: 'In a world of code, one system stands above the rest.',
+  soft: 'Take your time. Everything is going to be just fine.',
+  asmr: 'Shh, everything is quiet and peaceful right now.',
+  movie_trailer: 'This summer, one developer will change everything.',
+  gollum: 'My precious code, we must protect it!',
+  pirate: 'Arrr, the deployment be complete, captain!',
+  wizard: 'Heed my words carefully, young developer.',
+  drill_sergeant: 'Drop and give me twenty test cases, NOW!',
+  glados: 'Oh, you broke the tests again. How surprising.',
+  news_anchor: 'Breaking news: all systems are operational.',
+  sports_commentator: 'And the build succeeds! What a play!',
+  surfer: 'Dude, the vibes are totally chill right now.',
+  santa: 'Ho ho ho! Checking the naughty and nice list.',
+  irish: 'Ah sure, it will be grand, no worries at all.',
+  australian: 'No worries mate, she will be right.',
+  butler: 'Very good, sir. The deployment is ready.',
+  russian: 'System is secure. No unauthorized access detected.',
+  italian_chef: 'Bellissimo! This code is magnifico!',
+}
+
 interface Props {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  voiceProfile: VoiceProfileId
   rendererId: RendererId
   layoutId: LayoutId
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  onVoiceProfileChange: (id: VoiceProfileId) => void
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onRendererChange, onLayoutChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onRendererChange, onLayoutChange }: Props) {
   const [open, setOpen] = useState(false)
+  const [previewing, setPreviewing] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+
+  const previewProfile = useCallback((profileId: string) => {
+    if (profileId === 'auto' || previewing) return
+    setPreviewing(profileId)
+    const text = PROFILE_SAMPLE_TEXTS[profileId] || 'Hello, this is a voice test.'
+    window.api.voiceSpeak(text, profileId, 'en').then((result) => {
+      if (result.success && result.audioPath) {
+        const audio = new Audio(`file://${result.audioPath}`)
+        audio.onended = () => setPreviewing(null)
+        audio.onerror = () => setPreviewing(null)
+        audio.play().catch(() => setPreviewing(null))
+      } else {
+        setPreviewing(null)
+      }
+    }).catch(() => setPreviewing(null))
+  }, [previewing])
 
   useEffect(() => {
     if (!open) return
@@ -123,6 +166,30 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, rendererId, 
                 }}
               >
                 {voiceOut ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+
+          <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <span className="hal-settings-label">VOICE PROFILE</span>
+            <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+              <select
+                className="hal-settings-select"
+                style={{ flex: 1 }}
+                value={voiceProfile}
+                onChange={(e) => onVoiceProfileChange(e.target.value as VoiceProfileId)}
+              >
+                {VOICE_PROFILES.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+              <button
+                className="hal-settings-preview-btn"
+                onClick={() => previewProfile(voiceProfile === 'auto' ? 'narrator' : voiceProfile)}
+                disabled={!!previewing}
+                title={previewing ? `Playing ${previewing}...` : 'Preview voice'}
+              >
+                {previewing ? '...' : '\u25B6'}
               </button>
             </div>
           </div>

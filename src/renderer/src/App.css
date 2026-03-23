@@ -1881,6 +1881,32 @@ textarea.text-input {
   color: var(--text);
 }
 
+.hal-settings-preview-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.hal-settings-preview-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.hal-settings-preview-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Markdown-like rendering ── */
 .md-text {
   white-space: pre-wrap;

@@ -1,5 +1,6 @@
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
+import type { VoiceProfileId } from '../hooks/useSettings'
 
 interface HudTopbarProps {
   search: string
@@ -14,11 +15,13 @@ interface HudTopbarProps {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  voiceProfile: VoiceProfileId
   rendererId: string
   layoutId: string
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
+  onVoiceProfileChange: (id: VoiceProfileId) => void
   onRendererChange: (id: string) => void
   onLayoutChange: (id: string) => void
 }
@@ -27,8 +30,8 @@ export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount,
-  hubFontSize, termFontSize, voiceOut, rendererId, layoutId,
-  onHubFontSize, onTermFontSize, onVoiceOut, onRendererChange, onLayoutChange,
+  hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId,
+  onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onRendererChange, onLayoutChange,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -67,10 +70,10 @@ export function HudTopbar({
       </div>
       <div className="hal-topbar-right">
         <SettingsMenu
-          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile}
           rendererId={rendererId as any} layoutId={layoutId as any}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
-          onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
+          onVoiceProfileChange={onVoiceProfileChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>

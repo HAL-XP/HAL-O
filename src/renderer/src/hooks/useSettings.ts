@@ -1,14 +1,42 @@
 import { useState, useCallback } from 'react'
 
+export const VOICE_PROFILES = [
+  { id: 'auto', label: 'AUTO (CONTEXT)' },
+  { id: 'buddy', label: 'BUDDY' },
+  { id: 'orc', label: 'ORC' },
+  { id: 'narrator', label: 'NARRATOR' },
+  { id: 'soft', label: 'SOFT' },
+  { id: 'asmr', label: 'ASMR' },
+  { id: 'movie_trailer', label: 'MOVIE TRAILER' },
+  { id: 'gollum', label: 'GOLLUM' },
+  { id: 'pirate', label: 'PIRATE' },
+  { id: 'wizard', label: 'WIZARD' },
+  { id: 'drill_sergeant', label: 'DRILL SERGEANT' },
+  { id: 'glados', label: 'GLADOS' },
+  { id: 'news_anchor', label: 'NEWS ANCHOR' },
+  { id: 'sports_commentator', label: 'SPORTS COMMENTATOR' },
+  { id: 'surfer', label: 'SURFER' },
+  { id: 'santa', label: 'SANTA' },
+  { id: 'irish', label: 'IRISH' },
+  { id: 'australian', label: 'AUSTRALIAN' },
+  { id: 'butler', label: 'BUTLER' },
+  { id: 'russian', label: 'RUSSIAN' },
+  { id: 'italian_chef', label: 'ITALIAN CHEF' },
+] as const
+
+export type VoiceProfileId = typeof VOICE_PROFILES[number]['id']
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
   voiceOut: boolean
+  voiceProfile: VoiceProfileId
   rendererId: string
   layoutId: string
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
+  updateVoiceProfile: (id: VoiceProfileId) => void
   updateRenderer: (id: string) => void
   updateLayout: (id: string) => void
 }
@@ -17,6 +45,7 @@ export function useSettings(): SettingsState {
   const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-hub-font') || '10'))
   const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-term-font') || '13'))
   const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('hal-o-voice-out') === 'true')
+  const [voiceProfile, setVoiceProfile] = useState<VoiceProfileId>(() => (localStorage.getItem('hal-o-voice-profile') as VoiceProfileId) || 'auto')
   const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
 
@@ -40,9 +69,13 @@ export function useSettings(): SettingsState {
     setVoiceOut(enabled)
     localStorage.setItem('hal-o-voice-out', String(enabled))
   }, [])
+  const updateVoiceProfile = useCallback((id: VoiceProfileId) => {
+    setVoiceProfile(id)
+    localStorage.setItem('hal-o-voice-profile', id)
+  }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, rendererId, layoutId,
-    updateHubFont, updateTermFont, updateVoiceOut, updateRenderer, updateLayout,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateRenderer, updateLayout,
   }
 }

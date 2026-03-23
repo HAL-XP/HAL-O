@@ -95,7 +95,7 @@ export function App() {
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
-  const { hubFontSize, termFontSize, voiceOut, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateRenderer, updateLayout } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateRenderer, updateLayout } = useSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
@@ -218,9 +218,11 @@ export function App() {
             hubFontSize={hubFontSize}
             termFontSize={termFontSize}
             voiceOut={voiceOut}
+            voiceProfile={voiceProfile}
             onHubFontSize={updateHubFont}
             onTermFontSize={updateTermFont}
             onVoiceOut={updateVoiceOut}
+            onVoiceProfileChange={updateVoiceProfile}
             rendererId={rendererId}
             onRendererChange={updateRenderer}
             layoutId={layoutId}
