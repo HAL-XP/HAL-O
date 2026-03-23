@@ -20,6 +20,11 @@ interface Props {
 
 const CYAN = '#00d4ff'
 
+// Scratch vectors — reused every frame to avoid GC pressure
+const _targetScale = new THREE.Vector3()
+const _screenNormal = new THREE.Vector3()
+const _toCamera = new THREE.Vector3()
+
 export function ScreenPanel({
   position, rotation, projectName, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
@@ -42,14 +47,13 @@ export function ScreenPanel({
   useFrame(() => {
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
-      groupRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.08)
+      groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
       // Hide Html for back-facing screens via DOM opacity
-      const screenNormal = new THREE.Vector3(0, 0, 1)
-      screenNormal.applyQuaternion(groupRef.current.quaternion)
-      const toCamera = new THREE.Vector3()
-      toCamera.subVectors(camera.position, groupRef.current.position).normalize()
-      const dot = screenNormal.dot(toCamera)
+      _screenNormal.set(0, 0, 1)
+      _screenNormal.applyQuaternion(groupRef.current.quaternion)
+      _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
+      const dot = _screenNormal.dot(_toCamera)
       if (htmlWrapRef.current) {
         htmlWrapRef.current.style.opacity = dot > 0 ? '1' : '0'
         htmlWrapRef.current.style.pointerEvents = dot > 0 ? 'auto' : 'none'

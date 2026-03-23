@@ -19,7 +19,7 @@ function ReflectiveFloor() {
       <circleGeometry args={[16, 128]} />
       <MeshReflectorMaterial
         mirror={0.15}
-        resolution={1024}
+        resolution={512}
         mixBlur={10}
         mixStrength={0.4}
         roughness={0.92}
@@ -114,29 +114,6 @@ function PbrRingPlatform() {
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.015
   })
-
-  const ringDefs = [
-    // Inner — red zone (thin, etched into surface)
-    { r: 1.5, tube: 0.03, color: '#220000', emissive: '#ff2200', ei: 1.0 },
-    { r: 1.9, tube: 0.015, color: '#110000', emissive: '#ff1100', ei: 0.6 },
-    { r: 2.3, tube: 0.05, color: '#110808', emissive: '#991100', ei: 0.4 },
-    { r: 2.7, tube: 0.02, color: '#110000', emissive: '#cc1100', ei: 0.5 },
-    // Middle — transition zone
-    { r: 3.2, tube: 0.025, color: '#001a2e', emissive: '#006699', ei: 0.8 },
-    { r: 3.6, tube: 0.06, color: '#001222', emissive: '#003355', ei: 0.3 },
-    { r: 4.0, tube: 0.02, color: '#003355', emissive: '#00bbee', ei: 1.0 },
-    { r: 4.4, tube: 0.04, color: '#001522', emissive: '#004466', ei: 0.35 },
-    { r: 4.8, tube: 0.015, color: '#004466', emissive: '#00ccee', ei: 0.7 },
-    // Outer — screen zone
-    { r: 5.3, tube: 0.05, color: '#001a33', emissive: '#004466', ei: 0.3 },
-    { r: 5.7, tube: 0.02, color: '#005577', emissive: '#00d4ff', ei: 1.0 },
-    { r: 6.1, tube: 0.04, color: '#001a2e', emissive: '#004466', ei: 0.35 },
-    { r: 6.5, tube: 0.025, color: '#006688', emissive: '#00d4ff', ei: 0.9 },
-    // Edge rings
-    { r: 6.9, tube: 0.05, color: '#001122', emissive: '#003355', ei: 0.25 },
-    { r: 7.3, tube: 0.02, color: '#005577', emissive: '#00ccdd', ei: 0.7 },
-    { r: 7.7, tube: 0.03, color: '#001a2e', emissive: '#003355', ei: 0.3 },
-  ]
 
   return (
     <group ref={groupRef} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -235,10 +212,10 @@ function PbrHalSphere() {
   const wireRef = useRef<THREE.Mesh>(null)
   const coreRef = useRef<THREE.Mesh>(null)
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (wireRef.current) wireRef.current.rotation.y += delta * 0.15
     if (coreRef.current) {
-      const s = 0.38 + Math.sin(Date.now() * 0.002) * 0.03
+      const s = 0.38 + Math.sin(state.clock.elapsedTime * 2) * 0.03
       coreRef.current.scale.setScalar(s)
     }
   })
@@ -447,7 +424,6 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       camera={{ position: [0, 10, 16], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
-      shadows
     >
       <color attach="background" args={['#010104']} />
 
