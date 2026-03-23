@@ -3,8 +3,17 @@ import { join } from 'path'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
 import { execSync, spawn } from 'child_process'
 import { registerIpcHandlers } from './ipc-handlers'
-import { getIconFilename, openTerminalAt, escapeCmdArg } from './platform'
+import { getIconFilename, openTerminalAt, escapeCmdArg, isWin } from './platform'
 import { terminalManager } from './terminal-manager'
+
+/** Normalize cwd to a proper Windows path (handles Git Bash /d/... style) */
+function getWinCwd(): string {
+  let cwd = process.cwd()
+  if (isWin && /^\/[a-zA-Z]\//.test(cwd)) {
+    cwd = cwd[1].toUpperCase() + ':' + cwd.slice(2)
+  }
+  return cwd.replace(/\//g, '\\')
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -54,7 +63,7 @@ function createMenu(): void {
         {
           label: 'Run Tests (local)',
           click: () => {
-            const cwd = process.cwd().replace(/\//g, '\\')
+            const cwd = getWinCwd()
             spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm test')}`], {
               cwd, detached: true, stdio: 'ignore',
             })
@@ -63,7 +72,7 @@ function createMenu(): void {
         {
           label: 'Run Tests (Docker)',
           click: () => {
-            const cwd = process.cwd().replace(/\//g, '\\')
+            const cwd = getWinCwd()
             spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:docker')}`], {
               cwd, detached: true, stdio: 'ignore',
             })
@@ -72,7 +81,7 @@ function createMenu(): void {
         {
           label: 'Test Fresh Install (Docker)',
           click: () => {
-            const cwd = process.cwd().replace(/\//g, '\\')
+            const cwd = getWinCwd()
             spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:fresh')}`], {
               cwd, detached: true, stdio: 'ignore',
             })
@@ -81,7 +90,7 @@ function createMenu(): void {
         {
           label: 'Docker Shell',
           click: () => {
-            const cwd = process.cwd().replace(/\//g, '\\')
+            const cwd = getWinCwd()
             spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:shell')}`], {
               cwd, detached: true, stdio: 'ignore',
             })
