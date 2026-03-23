@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
-import { THREE_THEMES } from '../data/three-themes'
+import { THREE_STYLES } from '../data/three-styles'
 
 export const RENDERERS = [
   { id: 'classic', label: 'CLASSIC' },
@@ -207,13 +207,13 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
 
           {(rendererId === 'pbr-holo' || rendererId === 'holographic') && (
             <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-              <span className="hal-settings-label">3D THEME</span>
+              <span className="hal-settings-label">3D STYLE</span>
               <select
                 className="hal-settings-select"
                 value={threeTheme}
                 onChange={(e) => onThreeThemeChange(e.target.value)}
               >
-                {THREE_THEMES.map((t) => (
+                {THREE_STYLES.map((t) => (
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>
