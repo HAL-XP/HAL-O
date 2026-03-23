@@ -226,10 +226,15 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
     return layoutFn(projects.length)
   }, [projects.length, layoutId])
 
+  // Scale camera and zoom limits with project count (match PBR approach)
+  const screenRadius = Math.max(8, projects.length * 0.55)
+  const maxCamDistance = Math.max(40, screenRadius * 2.5)
+  const camZ = Math.max(11, screenRadius * 1.3)
+
   return (
     <Canvas
       style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-      camera={{ position: [0, 5, 11], fov: 55, near: 0.1, far: 1000 }}
+      camera={{ position: [0, 5, camZ], fov: 55, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
     >
@@ -298,9 +303,9 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       <OrbitControls
         enablePan={false}
         enableZoom={true}
-        minDistance={5}
-        maxDistance={20}
-        minPolarAngle={0.4}
+        minDistance={6}
+        maxDistance={maxCamDistance}
+        minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 2.2}
         autoRotate
         autoRotateSpeed={0.15}
