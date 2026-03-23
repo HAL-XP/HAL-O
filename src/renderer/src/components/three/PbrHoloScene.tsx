@@ -363,7 +363,10 @@ function SonarPulse() {
 
 // ── Post Processing ──
 function PostFX() {
+  const { gl } = useThree()
   const offset = useMemo(() => new Vector2(0.0006, 0.0006), [])
+  // Guard: EffectComposer crashes if WebGL context isn't fully ready (canvas remount race)
+  if (!gl?.domElement) return null
   return (
     <EffectComposer>
       <Bloom luminanceThreshold={0.3} luminanceSmoothing={0.8} intensity={1.8} radius={0.7} mipmapBlur />
