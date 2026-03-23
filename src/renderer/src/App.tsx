@@ -13,6 +13,7 @@ import { CurrentStep } from './components/CurrentStep'
 import { AnalysisStep } from './components/AnalysisStep'
 import { ReviewScreen } from './components/ReviewScreen'
 import { CreationProgress } from './components/CreationProgress'
+import { ImportScreen } from './components/ImportScreen'
 import { TerminalView } from './components/TerminalView'
 
 interface AppState {
@@ -78,7 +79,7 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
 
 const FIRST_STEP_ID = 'project-name'
 
-type ViewMode = 'setup' | 'hub' | 'wizard' | 'creating'
+type ViewMode = 'setup' | 'hub' | 'wizard' | 'creating' | 'import'
 
 export function App() {
   const { t } = useI18n()
@@ -93,6 +94,7 @@ export function App() {
     createdPath: null,
   })
 
+  const [importPath, setImportPath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateRenderer, updateLayout } = useSettings()
@@ -182,6 +184,20 @@ export function App() {
     )
   }
 
+  if (viewMode === 'import' && importPath) {
+    return (
+      <ImportScreen
+        projectPath={importPath}
+        onBackToHub={() => { setImportPath(null); setViewMode('hub') }}
+        onOpenInHub={(path, name) => {
+          setImportPath(null)
+          openTerminal(path, name, false)
+          setViewMode('hub')
+        }}
+      />
+    )
+  }
+
   if (viewMode === 'hub') {
     const hasTerminals = termSessions.length > 0
     const isHorizontal = dockPosition === 'left' || dockPosition === 'right'
@@ -212,21 +228,8 @@ export function App() {
               setViewMode('wizard')
             }}
             onConvertProject={(path) => {
-              const folderName = path.split(/[/\\]/).pop() || ''
-              const parentDir = path.substring(0, path.length - folderName.length - 1)
-              setState({
-                currentStepId: 'project-description',
-                answers: {
-                  'project-name': { value: folderName, label: folderName },
-                  'project-location': { value: parentDir, label: parentDir },
-                },
-                showReview: false,
-                isCreating: false,
-                creationLog: [],
-                creationDone: false,
-                createdPath: null,
-              })
-              setViewMode('wizard')
+              setImportPath(path)
+              setViewMode('import')
             }}
             onOpenTerminal={openTerminal}
             voiceFocus={voiceFocus}
