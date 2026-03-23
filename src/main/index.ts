@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
+import { execSync, spawn } from 'child_process'
 import { registerIpcHandlers } from './ipc-handlers'
 import { getIconFilename, openTerminalAt } from './platform'
 import { terminalManager } from './terminal-manager'
@@ -45,6 +46,48 @@ function createMenu(): void {
       label: 'View',
       submenu: [
         { role: 'toggleDevTools', label: 'Developer Tools' },
+      ],
+    },
+    {
+      label: 'Dev',
+      submenu: [
+        {
+          label: 'Run Tests (local)',
+          click: () => {
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm test`], {
+              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            })
+          },
+        },
+        {
+          label: 'Run Tests (Docker)',
+          click: () => {
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:docker`], {
+              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            })
+          },
+        },
+        {
+          label: 'Test Fresh Install (Docker)',
+          click: () => {
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:fresh`], {
+              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            })
+          },
+        },
+        {
+          label: 'Docker Shell',
+          click: () => {
+            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${process.cwd()}" && npm run test:shell`], {
+              cwd: process.cwd(), detached: true, stdio: 'ignore',
+            })
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Open Project Folder',
+          click: () => shell.openPath(process.cwd()),
+        },
       ],
     },
   ]
