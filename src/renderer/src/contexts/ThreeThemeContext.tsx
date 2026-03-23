@@ -1,24 +1,40 @@
 import { createContext, useContext, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ReactNode } from 'react'
+import { getThemeDef, type ThreeThemeDef } from '../data/three-themes'
 
 /**
- * Palette of THREE.Color objects derived from CSS custom properties.
- * Used by Three.js / R3F components to stay in sync with the app theme.
+ * Palette of THREE.Color objects derived from the active 3D theme.
+ * Used by Three.js / R3F components to stay in sync with the visual style.
  */
 export interface ThreeThemePalette {
-  accent: THREE.Color      // --primary (#84cc16)
-  accentDim: THREE.Color   // derived, 50% intensity version of accent
-  sphere: THREE.Color      // red/orange for HAL core
-  sphereGlow: THREE.Color  // brighter sphere emissive
-  background: THREE.Color  // --bg-base
+  accent: THREE.Color      // screen edges, UI elements
+  accentDim: THREE.Color   // dimmer version
+  sphere: THREE.Color      // HAL sphere core
+  sphereGlow: THREE.Color  // sphere outer glow
+  background: THREE.Color  // scene background
   gridLine: THREE.Color    // subtle grid color
-  screenEdge: THREE.Color  // --primary for screen frame edges
-  screenFace: THREE.Color  // dark panel face
+  screenEdge: THREE.Color  // screen panel edges
+  screenFace: THREE.Color  // screen panel face
+  particleA: THREE.Color   // primary particle color
+  particleB: THREE.Color   // secondary particle color
   success: THREE.Color     // --success
   warning: THREE.Color     // --warning
   error: THREE.Color       // --error
-  cyan: THREE.Color        // accent blue (#00d4ff)
+  // Raw hex strings for use in HTML/CSS contexts (e.g. Html overlays inside R3F)
+  accentHex: string
+  screenEdgeHex: string
+  particleAHex: string
+  particleBHex: string
+  sphereHex: string
+  sphereGlowHex: string
+  backgroundHex: string
+  gridLineHex: string
+  screenFaceHex: string
+  // Bloom settings
+  bloom: { threshold: number; intensity: number; radius: number }
+  // Theme definition reference
+  def: ThreeThemeDef
 }
 
 /** Read a CSS custom property from the document root, with a fallback. */
@@ -28,41 +44,45 @@ function cssVar(name: string, fallback: string): string {
   return val || fallback
 }
 
-/** Build the full palette by reading CSS vars + deriving extra colours. */
-function buildPalette(): ThreeThemePalette {
-  const primary = cssVar('--primary', '#84cc16')
-  const bgBase = cssVar('--bg-base', '#0f1117')
+/** Build the full palette from a theme definition. */
+function buildPalette(themeId: string): ThreeThemePalette {
+  const def = getThemeDef(themeId)
   const success = cssVar('--success', '#4ade80')
   const warning = cssVar('--warning', '#fbbf24')
   const error = cssVar('--error', '#f87171')
 
-  const accent = new THREE.Color(primary)
-
-  // accentDim: same hue/saturation but halved lightness
-  const accentDim = accent.clone()
-  const hsl = { h: 0, s: 0, l: 0 }
-  accentDim.getHSL(hsl)
-  accentDim.setHSL(hsl.h, hsl.s, hsl.l * 0.5)
-
   return {
-    accent,
-    accentDim,
-    sphere: new THREE.Color('#ff2200'),
-    sphereGlow: new THREE.Color('#ff4400'),
-    background: new THREE.Color(bgBase),
-    gridLine: new THREE.Color('#004466'),
-    screenEdge: new THREE.Color(primary),
-    screenFace: new THREE.Color('#040608'),
+    accent: new THREE.Color(def.accent),
+    accentDim: new THREE.Color(def.accentDim),
+    sphere: new THREE.Color(def.sphere),
+    sphereGlow: new THREE.Color(def.sphereGlow),
+    background: new THREE.Color(def.background),
+    gridLine: new THREE.Color(def.gridLine),
+    screenEdge: new THREE.Color(def.screenEdge),
+    screenFace: new THREE.Color(def.screenFace),
+    particleA: new THREE.Color(def.particleA),
+    particleB: new THREE.Color(def.particleB),
     success: new THREE.Color(success),
     warning: new THREE.Color(warning),
     error: new THREE.Color(error),
-    cyan: new THREE.Color('#00d4ff'),
+    accentHex: def.accent,
+    screenEdgeHex: def.screenEdge,
+    particleAHex: def.particleA,
+    particleBHex: def.particleB,
+    sphereHex: def.sphere,
+    sphereGlowHex: def.sphereGlow,
+    backgroundHex: def.background,
+    gridLineHex: def.gridLine,
+    screenFaceHex: def.screenFace,
+    bloom: def.bloom,
+    def,
   }
 }
 
 const ThreeThemeContext = createContext<ThreeThemePalette | null>(null)
 
 interface ProviderProps {
+  themeId: string
   children: ReactNode
 }
 
@@ -70,10 +90,10 @@ interface ProviderProps {
  * Wrap this around your `<Canvas>` components so that any R3F component
  * inside can call `useThreeTheme()` to get the current colour palette.
  *
- * The palette is computed once on mount (CSS vars are read from the DOM).
+ * The palette is recomputed when the themeId changes.
  */
-export function ThreeThemeProvider({ children }: ProviderProps) {
-  const palette = useMemo(() => buildPalette(), [])
+export function ThreeThemeProvider({ themeId, children }: ProviderProps) {
+  const palette = useMemo(() => buildPalette(themeId), [themeId])
 
   return (
     <ThreeThemeContext.Provider value={palette}>

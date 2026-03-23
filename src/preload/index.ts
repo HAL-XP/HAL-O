@@ -71,6 +71,13 @@ const api = {
   // Voice
   voiceTranscribe: (audioBuffer: ArrayBuffer) => ipcRenderer.invoke('voice-transcribe', audioBuffer),
   voiceSpeak: (text: string, profile?: string, lang?: string) => ipcRenderer.invoke('voice-speak', text, profile, lang),
+
+  // Dev: 2D Preview Mode toggle
+  onToggle2dPreview: (callback: (enabled: boolean) => void) => {
+    const listener = (_: unknown, enabled: boolean) => callback(enabled)
+    ipcRenderer.on('toggle-2d-preview', listener)
+    return () => ipcRenderer.removeListener('toggle-2d-preview', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

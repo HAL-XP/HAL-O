@@ -57,6 +57,7 @@ export interface SettingsState {
   cameraTweaking: boolean
   rendererId: string
   layoutId: string
+  threeTheme: string
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -68,6 +69,7 @@ export interface SettingsState {
   resetCamera: () => void
   updateRenderer: (id: string) => void
   updateLayout: (id: string) => void
+  updateThreeTheme: (id: string) => void
 }
 
 export function useSettings(): SettingsState {
@@ -83,6 +85,7 @@ export function useSettings(): SettingsState {
   const [cameraTweaking, setCameraTweaking] = useState(() => localStorage.getItem('hal-o-camera-tweaking') === 'true')
   const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
+  const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
 
   const updateRenderer = useCallback((id: string) => {
     setRendererId(id)
@@ -91,6 +94,10 @@ export function useSettings(): SettingsState {
   const updateLayout = useCallback((id: string) => {
     setLayoutId(id)
     localStorage.setItem('hal-o-layout', id)
+  }, [])
+  const updateThreeTheme = useCallback((id: string) => {
+    setThreeTheme(id)
+    localStorage.setItem('hal-o-3d-theme', id)
   }, [])
   const updateHubFont = useCallback((size: number) => {
     setHubFontSize(size)
@@ -130,7 +137,7 @@ export function useSettings(): SettingsState {
   }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme,
   }
 }

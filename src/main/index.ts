@@ -85,6 +85,13 @@ function createMenu(): void {
         },
         { type: 'separator' },
         {
+          label: '2D Preview Mode',
+          type: 'checkbox',
+          click: (item) => {
+            mainWindow?.webContents.send('toggle-2d-preview', item.checked)
+          },
+        },
+        {
           label: 'Open Project Folder',
           click: () => shell.openPath(process.cwd()),
         },

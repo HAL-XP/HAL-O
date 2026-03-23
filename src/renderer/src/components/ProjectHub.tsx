@@ -5,11 +5,13 @@ import { useProjectGroups } from '../hooks/useProjectGroups'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { GroupContextMenu } from './GroupContextMenu'
+import { PreviewGrid } from './PreviewGrid'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
 import { PbrHoloScene } from './three/PbrHoloScene'
 import { DEMO_PROJECTS } from '../data/demo-projects'
 import type { DemoSettings } from '../hooks/useDemoSettings'
+// ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
   onNewProject: () => void
@@ -38,6 +40,8 @@ interface Props {
   onRendererChange: (id: string) => void
   layoutId: string
   onLayoutChange: (id: string) => void
+  threeTheme: string
+  onThreeThemeChange: (id: string) => void
   halSessionId?: string | null
   terminalCount?: number
   demo?: DemoSettings
@@ -53,7 +57,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -64,6 +68,14 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string } | null>(null)
+  const [preview2d, setPreview2d] = useState(false)
+
+  // Listen for 2D preview toggle from Dev menu
+  useEffect(() => {
+    if (!window.api.onToggle2dPreview) return
+    const unsub = window.api.onToggle2dPreview((enabled: boolean) => setPreview2d(enabled))
+    return unsub
+  }, [])
 
   // Project groups
   const {
@@ -268,6 +280,32 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     )
   })
 
+  // 2D Preview Mode — flat grid of all project cards (triggered via Dev menu)
+  if (preview2d) {
+    return (
+      <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
+        <PreviewGrid
+          projects={filtered}
+          isFullySetup={isFullySetup}
+          onOpenTerminal={onOpenTerminal}
+        />
+        <HudTopbar
+          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
+          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
+          projectCount={projects.length} readyCount={readyCount}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+          camera={camera} cameraTweaking={cameraTweaking}
+          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+          onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
+          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
+          demo={demo}
+        />
+      </div>
+    )
+  }
+
   // PBR Holographic renderer — reference-quality 3D
   if (rendererId === 'pbr-holo') {
     return (
@@ -284,6 +322,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           groups={groups}
           assignments={assignments}
           camera={camera}
+          themeId={threeTheme}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
@@ -291,10 +330,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectCount={projects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           camera={camera} cameraTweaking={cameraTweaking}
-          rendererId={rendererId} layoutId={layoutId}
+          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
           onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
         />
@@ -321,10 +360,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectCount={projects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           camera={camera} cameraTweaking={cameraTweaking}
-          rendererId={rendererId} layoutId={layoutId}
+          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
           onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
         />
@@ -357,10 +396,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         projectCount={projects.length} readyCount={readyCount}
         hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
         camera={camera} cameraTweaking={cameraTweaking}
-        rendererId={rendererId} layoutId={layoutId}
+        rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
         onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
         onCameraChange={onCameraChange} onCameraTweakingChange={onCameraTweakingChange} onCameraReset={onCameraReset}
-        onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
       />

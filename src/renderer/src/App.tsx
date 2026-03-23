@@ -81,11 +81,11 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
 
 const FIRST_STEP_ID = 'project-name'
 
-type ViewMode = 'setup' | 'hub' | 'wizard' | 'creating' | 'import'
+type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'import'
 
 export function App() {
   const { t } = useI18n()
-  const [viewMode, setViewMode] = useState<ViewMode>('setup')
+  const [viewMode, setViewMode] = useState<ViewMode>('loading')
   const [state, setState] = useState<AppState>({
     currentStepId: FIRST_STEP_ID,
     answers: {},
@@ -99,7 +99,7 @@ export function App() {
   const [importPath, setImportPath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
   const demo = useDemoSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
@@ -142,6 +142,24 @@ export function App() {
 
   // ALL hooks must be above any conditional return — React requires stable hook order
 
+  // On mount: check prerequisites and skip to hub if returning user with core tools
+  useEffect(() => {
+    if (viewMode !== 'loading') return
+    const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
+    if (!hasSeenSetup) {
+      setViewMode('setup')
+      return
+    }
+    // Returning user — check prerequisites silently
+    window.api.checkPrerequisites().then((status) => {
+      const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
+      setViewMode(coreGood ? 'hub' : 'setup')
+    }).catch(() => {
+      // If check fails, fall through to setup
+      setViewMode('setup')
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch dynamic defaults when entering wizard
   useEffect(() => {
     if (viewMode !== 'wizard' || !window.api) return
@@ -176,6 +194,11 @@ export function App() {
   }, [viewMode, state.currentStepId, state.showReview])
 
   // --- Conditional returns AFTER all hooks ---
+
+  if (viewMode === 'loading') {
+    // Render nothing visible — just a dark background matching the app
+    return <div className="app" style={{ background: 'var(--bg-base)' }} />
+  }
 
   if (viewMode === 'setup') {
     return (
@@ -262,6 +285,8 @@ export function App() {
             onRendererChange={updateRenderer}
             layoutId={layoutId}
             onLayoutChange={updateLayout}
+            threeTheme={threeTheme}
+            onThreeThemeChange={updateThreeTheme}
             halSessionId={demo.enabled ? 'demo-hal' : getHalSessionId()}
             terminalCount={demo.enabled ? demo.terminalCount : termSessions.length}
             demo={demo}

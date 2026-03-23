@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
+import { THREE_THEMES } from '../data/three-themes'
 
 export const RENDERERS = [
   { id: 'classic', label: 'CLASSIC' },
@@ -67,6 +68,7 @@ interface Props {
   screenOpacity: number
   rendererId: RendererId
   layoutId: LayoutId
+  threeTheme: string
   onHubFontSize: (size: number) => void
   onTermFontSize: (size: number) => void
   onVoiceOut: (enabled: boolean) => void
@@ -80,6 +82,7 @@ interface Props {
   onCameraReset: () => void
   onRendererChange: (id: RendererId) => void
   onLayoutChange: (id: LayoutId) => void
+  onThreeThemeChange: (id: string) => void
   demo?: DemoSettings
 }
 
@@ -112,7 +115,7 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   }).catch(() => setPreviewing(null))
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -200,6 +203,21 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
               ))}
             </select>
           </div>
+
+          {(rendererId === 'pbr-holo' || rendererId === 'holographic') && (
+            <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              <span className="hal-settings-label">3D THEME</span>
+              <select
+                className="hal-settings-select"
+                value={threeTheme}
+                onChange={(e) => onThreeThemeChange(e.target.value)}
+              >
+                {THREE_THEMES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="hal-settings-row">
             <span className="hal-settings-label">VOICE OUTPUT</span>

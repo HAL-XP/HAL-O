@@ -1862,7 +1862,10 @@ textarea.text-input {
   top: 100%;
   right: 0;
   margin-top: 6px;
-  width: 220px;
+  /* Adaptive width: scales with hub font (--hub-font is Npx), clamped 260–420px */
+  width: clamp(260px, calc(var(--hub-font, 10px) * 26), min(420px, 90vw));
+  min-width: 260px;
+  max-width: min(420px, 90vw);
   max-height: 80vh;
   overflow-y: auto;
   background: rgba(10, 15, 20, 0.95);
@@ -1984,6 +1987,44 @@ textarea.text-input {
 .hal-settings-preview-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── 2D Preview Grid ── */
+.preview-grid-container {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-base);
+  overflow-y: auto;
+  z-index: 10;
+  padding: 16px;
+}
+
+.preview-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px 16px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.preview-grid-card {
+  background: rgba(5, 8, 16, 0.9);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.preview-grid-card:hover {
+  border-color: rgba(0, 212, 255, 0.4);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.1);
 }
 
 /* ── Markdown-like rendering ── */
