@@ -111,10 +111,13 @@ jobs:
     steps:
       - name: Send Telegram notification
         run: |
+          MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          printf -v TEXT '🔴 CI FAILED: %s\nmaster · %s\n%s' "$MSG" "$SHORT_SHA" "$RUN_URL"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d parse_mode="MarkdownV2" \
-            -d text="🔴 *CI FAILED* on \`master\`%0A%0ACommit: \`${{ github.sha }}\`%0ARun: [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            -d text="${TEXT}"
 
   notify-success:
     needs: [test-linux, test-windows]
@@ -123,6 +126,9 @@ jobs:
     steps:
       - name: Send Telegram notification
         run: |
+          MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          printf -v TEXT '✅ %s\nmaster · %s' "$MSG" "$SHORT_SHA"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="✅ CI passed on master (${{ github.sha }})"
+            -d text="${TEXT}"
