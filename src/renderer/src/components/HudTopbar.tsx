@@ -92,7 +92,7 @@ export function HudTopbar({
         <span className="hal-sys-label">SYS://HAL-O</span>
         <span className="hal-sys-ver">v1.0</span>
         <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
-        <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ RECRUIT</button>
+        <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ ADD PROJECT</button>
       </div>
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>

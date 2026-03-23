@@ -24,7 +24,7 @@ interface ScanResult {
   readme: string
 }
 
-type Phase = 'scanning' | 'summary' | 'enlisting' | 'done'
+type Phase = 'scanning' | 'summary' | 'configuring' | 'done'
 
 interface Props {
   projectPath: string
@@ -32,23 +32,23 @@ interface Props {
   onOpenInHub: (path: string, name: string) => void
 }
 
-const ESTIMATED_ENLIST_STEPS = 8
+const ESTIMATED_CONFIG_STEPS = 8
 
-export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
+export function ProjectConfigScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
   const [phase, setPhase] = useState<Phase>('scanning')
   const [scan, setScan] = useState<ScanResult | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
 
-  // Enlistment options (checkboxes for missing items)
+  // Configuration options (checkboxes for missing items)
   const [addClaudeMd, setAddClaudeMd] = useState(true)
   const [enhanceClaudeMd, setEnhanceClaudeMd] = useState(false)
   const [addClaudeDir, setAddClaudeDir] = useState(true)
   const [addLaunchScripts, setAddLaunchScripts] = useState(true)
   const [addHooks, setAddHooks] = useState(true)
 
-  // Enlistment progress
-  const [enlistLog, setEnlistLog] = useState<string[]>([])
-  const [enlistResult, setEnlistResult] = useState<EnlistResult | null>(null)
+  // Configuration progress
+  const [configLog, setConfigLog] = useState<string[]>([])
+  const [configResult, setConfigResult] = useState<EnlistResult | null>(null)
 
   const soundPlayed = useRef(false)
   const logEndRef = useRef<HTMLDivElement>(null)
@@ -76,21 +76,21 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
   // Auto-scroll log
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [enlistLog])
+  }, [configLog])
 
   // Sound on completion
   useEffect(() => {
     if (phase === 'done' && !soundPlayed.current) {
       soundPlayed.current = true
-      if (enlistResult?.success) playSuccess()
+      if (configResult?.success) playSuccess()
       else playError()
     }
-  }, [phase, enlistResult])
+  }, [phase, configResult])
 
-  const handleEnlist = async () => {
+  const handleApplyConfig = async () => {
     if (!scan) return
-    setPhase('enlisting')
-    setEnlistLog(['Initiating enlistment sequence...'])
+    setPhase('configuring')
+    setConfigLog(['Applying configuration...'])
 
     const config: EnlistConfig = {
       projectPath: scan.path,
@@ -109,12 +109,12 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
 
     try {
       const result = await window.api.enlistProject(config)
-      setEnlistLog(result.log)
-      setEnlistResult(result)
+      setConfigLog(result.log)
+      setConfigResult(result)
       setPhase('done')
     } catch (err) {
-      setEnlistLog((prev) => [...prev, `[ERROR] ${err}`])
-      setEnlistResult({ success: false, log: [], path: scan.path })
+      setConfigLog((prev) => [...prev, `[ERROR] ${err}`])
+      setConfigResult({ success: false, log: [], path: scan.path })
       setPhase('done')
     }
   }
@@ -138,11 +138,11 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
     return (
       <div className="app">
         <div className="chat-area">
-          <div className="import-screen">
-            <div className="import-scanning">
-              <div className="import-scanner-ring" />
-              <div className="import-scanner-text">SCANNING TARGET</div>
-              <div className="import-scanner-path">{projectPath}</div>
+          <div className="config-screen">
+            <div className="config-scanning">
+              <div className="config-scanner-ring" />
+              <div className="config-scanner-text">SCANNING PROJECT</div>
+              <div className="config-scanner-path">{projectPath}</div>
             </div>
           </div>
         </div>
@@ -155,16 +155,16 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
     return (
       <div className="app">
         <div className="chat-area">
-          <div className="import-screen">
-            <div className="import-header">
-              <div className="import-header-icon">!</div>
-              <h2>RECONNAISSANCE FAILED</h2>
+          <div className="config-screen">
+            <div className="config-header">
+              <div className="config-header-icon">!</div>
+              <h2>SCAN FAILED</h2>
             </div>
-            <div className="import-error-box">
+            <div className="config-error-box">
               {scanError || 'Unknown scan error'}
             </div>
-            <div className="import-actions">
-              <button className="import-cancel-btn" onClick={onBackToHub}>ABORT</button>
+            <div className="config-actions">
+              <button className="config-cancel-btn" onClick={onBackToHub}>ABORT</button>
             </div>
           </div>
         </div>
@@ -172,18 +172,18 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
     )
   }
 
-  // --- ENLISTING ---
-  if (phase === 'enlisting') {
-    const completedSteps = enlistLog.filter((l) => l.startsWith('[OK]')).length
-    const progress = Math.min(95, Math.round((completedSteps / ESTIMATED_ENLIST_STEPS) * 100))
+  // --- CONFIGURING ---
+  if (phase === 'configuring') {
+    const completedSteps = configLog.filter((l) => l.startsWith('[OK]')).length
+    const progress = Math.min(95, Math.round((completedSteps / ESTIMATED_CONFIG_STEPS) * 100))
 
     return (
       <div className="app">
         <div className="chat-area">
-          <div className="import-screen">
-            <div className="import-header">
-              <div className="import-header-icon import-header-pulse">&#x25C8;</div>
-              <h2>ENLISTING PROJECT</h2>
+          <div className="config-screen">
+            <div className="config-header">
+              <div className="config-header-icon config-header-pulse">&#x25C8;</div>
+              <h2>APPLYING CONFIGURATION</h2>
             </div>
 
             <div className="progress-bar-track" style={{ marginTop: 16 }}>
@@ -192,7 +192,7 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
             <span className="progress-label">{progress}%</span>
 
             <div className="creation-log" style={{ marginTop: 12 }}>
-              {enlistLog.map((line, i) => {
+              {configLog.map((line, i) => {
                 const isOk = line.startsWith('[OK]')
                 const isErr = line.startsWith('[ERROR]')
                 return (
@@ -211,21 +211,21 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
 
   // --- DONE ---
   if (phase === 'done') {
-    const success = enlistResult?.success
+    const success = configResult?.success
     return (
       <div className="app">
         <div className="chat-area">
-          <div className="import-screen">
+          <div className="config-screen">
             {success && <Confetti />}
-            <div className="import-header">
-              <div className={`import-header-icon ${success ? 'import-header-success' : 'import-header-error'}`}>
+            <div className="config-header">
+              <div className={`config-header-icon ${success ? 'config-header-success' : 'config-header-error'}`}>
                 {success ? '\u2713' : '!'}
               </div>
-              <h2>{success ? 'ENLISTMENT COMPLETE' : 'ENLISTMENT FAILED'}</h2>
+              <h2>{success ? 'CONFIGURATION COMPLETE' : 'CONFIGURATION FAILED'}</h2>
             </div>
 
             <div className="creation-log" style={{ marginTop: 16 }}>
-              {enlistLog.map((line, i) => {
+              {configLog.map((line, i) => {
                 const isOk = line.startsWith('[OK]')
                 const isErr = line.startsWith('[ERROR]')
                 return (
@@ -236,16 +236,16 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
               })}
             </div>
 
-            <div className="import-actions" style={{ marginTop: 24 }}>
+            <div className="config-actions" style={{ marginTop: 24 }}>
               {success && (
                 <button
-                  className="import-enlist-btn"
+                  className="config-apply-btn"
                   onClick={() => onOpenInHub(scan.path, scan.name)}
                 >
                   OPEN IN HUB
                 </button>
               )}
-              <button className="import-cancel-btn" onClick={onBackToHub}>
+              <button className="config-cancel-btn" onClick={onBackToHub}>
                 {success ? 'BACK TO HUB' : 'DISMISS'}
               </button>
             </div>
@@ -299,59 +299,59 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
   return (
     <div className="app">
       <div className="chat-area">
-        <div className="import-screen">
+        <div className="config-screen">
 
           {/* ── HEADER ── */}
-          <div className="import-header">
-            <div className="import-header-icon">&#x25C8;</div>
+          <div className="config-header">
+            <div className="config-header-icon">&#x25C8;</div>
             <div>
-              <h2>PROJECT RECONNAISSANCE</h2>
-              <div className="import-header-sub">Target assessment complete</div>
+              <h2>PROJECT CONFIGURATION</h2>
+              <div className="config-header-sub">Configuration summary</div>
             </div>
           </div>
 
           {/* ── SECTION 1: PROJECT IDENTITY ── */}
-          <div className="import-section">
-            <div className="import-section-label">PROJECT IDENTITY</div>
-            <div className="import-identity-card">
-              <div className="import-identity-name">{scan.name}</div>
-              <div className="import-identity-path">{scan.path}</div>
+          <div className="config-section">
+            <div className="config-section-label">PROJECT IDENTITY</div>
+            <div className="config-identity-card">
+              <div className="config-identity-name">{scan.name}</div>
+              <div className="config-identity-path">{scan.path}</div>
               {scan.stack && (
-                <div className="import-identity-row">
-                  <span className="import-identity-label">STACK</span>
-                  <span className="import-identity-value">{scan.stack}</span>
+                <div className="config-identity-row">
+                  <span className="config-identity-label">STACK</span>
+                  <span className="config-identity-value">{scan.stack}</span>
                 </div>
               )}
               {scan.languages.length > 0 && (
-                <div className="import-identity-row">
-                  <span className="import-identity-label">LANGUAGES</span>
-                  <div className="import-lang-badges">
+                <div className="config-identity-row">
+                  <span className="config-identity-label">LANGUAGES</span>
+                  <div className="config-lang-badges">
                     {scan.languages.map((lang) => (
-                      <span key={lang} className="import-lang-badge">{lang}</span>
+                      <span key={lang} className="config-lang-badge">{lang}</span>
                     ))}
                   </div>
                 </div>
               )}
               {scan.description && (
-                <div className="import-identity-row import-identity-desc-row">
-                  <span className="import-identity-label">DESCRIPTION</span>
-                  <span className="import-identity-desc">{scan.description}</span>
+                <div className="config-identity-row config-identity-desc-row">
+                  <span className="config-identity-label">DESCRIPTION</span>
+                  <span className="config-identity-desc">{scan.description}</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* ── SECTION 2: CURRENT STATUS ── */}
-          <div className="import-section">
-            <div className="import-section-label">CURRENT STATUS</div>
-            <div className="import-status-grid">
+          <div className="config-section">
+            <div className="config-section-label">CURRENT STATUS</div>
+            <div className="config-status-grid">
               {statusItems.map((item) => (
-                <div key={item.label} className="import-status-row">
-                  <span className={`import-status-icon ${item.ok ? 'ok' : 'missing'}`}>
+                <div key={item.label} className="config-status-row">
+                  <span className={`config-status-icon ${item.ok ? 'ok' : 'missing'}`}>
                     {item.ok ? '\u2713' : '\u25CF'}
                   </span>
-                  <span className="import-status-label">{item.label}</span>
-                  <span className={`import-status-detail ${item.ok ? '' : 'dim'}`}>{item.detail}</span>
+                  <span className="config-status-label">{item.label}</span>
+                  <span className={`config-status-detail ${item.ok ? '' : 'dim'}`}>{item.detail}</span>
                 </div>
               ))}
             </div>
@@ -359,43 +359,43 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
 
           {/* ── SECTION 3: WHAT WILL BE ADDED ── */}
           {hasMissing && (
-            <div className="import-section">
-              <div className="import-section-label">ENLISTMENT PLAN</div>
-              <div className="import-note">Existing files will NOT be modified</div>
-              <div className="import-checklist">
+            <div className="config-section">
+              <div className="config-section-label">OPTIONAL ADDITIONS</div>
+              <div className="config-note">Existing files will NOT be modified</div>
+              <div className="config-checklist">
                 {!scan.hasClaude && (
-                  <label className="import-check-item">
+                  <label className="config-check-item">
                     <input type="checkbox" checked={addClaudeMd} onChange={(e) => setAddClaudeMd(e.target.checked)} />
-                    <span className="import-check-label">Create CLAUDE.md</span>
-                    <span className="import-check-desc">Agent instructions and project context</span>
+                    <span className="config-check-label">Create CLAUDE.md</span>
+                    <span className="config-check-desc">Agent instructions and project context</span>
                   </label>
                 )}
                 {scan.hasClaude && (
-                  <label className="import-check-item">
+                  <label className="config-check-item">
                     <input type="checkbox" checked={enhanceClaudeMd} onChange={(e) => setEnhanceClaudeMd(e.target.checked)} />
-                    <span className="import-check-label">Enhance existing CLAUDE.md</span>
-                    <span className="import-check-desc">Append HAL-O best practices (original content preserved)</span>
+                    <span className="config-check-label">Enhance existing CLAUDE.md</span>
+                    <span className="config-check-desc">Append HAL-O best practices (original content preserved)</span>
                   </label>
                 )}
                 {!scan.hasClaudeDir && (
-                  <label className="import-check-item">
+                  <label className="config-check-item">
                     <input type="checkbox" checked={addClaudeDir} onChange={(e) => setAddClaudeDir(e.target.checked)} />
-                    <span className="import-check-label">Create .claude/ directory</span>
-                    <span className="import-check-desc">Settings, commands, and MCP config</span>
+                    <span className="config-check-label">Create .claude/ directory</span>
+                    <span className="config-check-desc">Settings, commands, and MCP config</span>
                   </label>
                 )}
                 {!scan.hasBatchFiles && (
-                  <label className="import-check-item">
+                  <label className="config-check-item">
                     <input type="checkbox" checked={addLaunchScripts} onChange={(e) => setAddLaunchScripts(e.target.checked)} />
-                    <span className="import-check-label">Add launch scripts</span>
-                    <span className="import-check-desc">Quick-start batch/shell scripts for Claude</span>
+                    <span className="config-check-label">Add launch scripts</span>
+                    <span className="config-check-desc">Quick-start batch/shell scripts for Claude</span>
                   </label>
                 )}
                 {!scan.hasHooks && (
-                  <label className="import-check-item">
+                  <label className="config-check-item">
                     <input type="checkbox" checked={addHooks} onChange={(e) => setAddHooks(e.target.checked)} />
-                    <span className="import-check-label">Configure hooks</span>
-                    <span className="import-check-desc">Pre-commit lint and pre-push test hooks</span>
+                    <span className="config-check-label">Configure hooks</span>
+                    <span className="config-check-desc">Pre-commit lint and pre-push test hooks</span>
                   </label>
                 )}
               </div>
@@ -404,45 +404,45 @@ export function ImportScreen({ projectPath, onBackToHub, onOpenInHub }: Props) {
 
           {/* ── SECTION 4: VERSION (if halOMeta) ── */}
           {scan.halOMeta && (
-            <div className="import-section">
-              <div className="import-section-label">HAL-O STATUS</div>
-              <div className="import-status-grid">
-                <div className="import-status-row">
-                  <span className="import-status-icon ok">{'\u2713'}</span>
-                  <span className="import-status-label">Enlisted</span>
-                  <span className="import-status-detail">
+            <div className="config-section">
+              <div className="config-section-label">HAL-O STATUS</div>
+              <div className="config-status-grid">
+                <div className="config-status-row">
+                  <span className="config-status-icon ok">{'\u2713'}</span>
+                  <span className="config-status-label">Configured</span>
+                  <span className="config-status-detail">
                     {new Date(scan.halOMeta.enlistedAt).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="import-status-row">
-                  <span className="import-status-icon ok">{'\u2713'}</span>
-                  <span className="import-status-label">HAL-O version</span>
-                  <span className="import-status-detail">{scan.halOMeta.halOVersion}</span>
+                <div className="config-status-row">
+                  <span className="config-status-icon ok">{'\u2713'}</span>
+                  <span className="config-status-label">HAL-O version</span>
+                  <span className="config-status-detail">{scan.halOMeta.halOVersion}</span>
                 </div>
-                <div className="import-status-row">
-                  <span className="import-status-icon ok">{'\u2713'}</span>
-                  <span className="import-status-label">Rules version</span>
-                  <span className="import-status-detail">v{scan.halOMeta.rulesVersion}</span>
+                <div className="config-status-row">
+                  <span className="config-status-icon ok">{'\u2713'}</span>
+                  <span className="config-status-label">Rules version</span>
+                  <span className="config-status-detail">v{scan.halOMeta.rulesVersion}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* ── ACTIONS ── */}
-          <div className="import-actions">
+          <div className="config-actions">
             <button
-              className="import-enlist-btn"
-              onClick={handleEnlist}
+              className="config-apply-btn"
+              onClick={handleApplyConfig}
               disabled={getAddCount() === 0 && !scan.halOMeta}
             >
               {getAddCount() > 0
-                ? `ENLIST THIS PROJECT (${getAddCount()} change${getAddCount() !== 1 ? 's' : ''})`
+                ? `APPLY CONFIGURATION (${getAddCount()} change${getAddCount() !== 1 ? 's' : ''})`
                 : scan.halOMeta
-                  ? 'RE-ENLIST PROJECT'
-                  : 'NOTHING TO ADD'
+                  ? 'RE-CONFIGURE'
+                  : 'FULLY CONFIGURED'
               }
             </button>
-            <button className="import-cancel-btn" onClick={onBackToHub}>CANCEL</button>
+            <button className="config-cancel-btn" onClick={onBackToHub}>CANCEL</button>
           </div>
 
         </div>

@@ -2584,10 +2584,10 @@ textarea.text-input {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   IMPORT SCREEN — Project Reconnaissance
+   CONFIG SCREEN — Project Configuration
    ══════════════════════════════════════════════════════════════════ */
 
-.import-screen {
+.config-screen {
   max-width: 640px;
   margin: 0 auto;
   padding: 24px 0;
@@ -2595,14 +2595,14 @@ textarea.text-input {
 }
 
 /* ── Header ── */
-.import-header {
+.config-header {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
 }
 
-.import-header h2 {
+.config-header h2 {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -2611,7 +2611,7 @@ textarea.text-input {
   font-family: 'Cascadia Code', 'Fira Code', monospace;
 }
 
-.import-header-sub {
+.config-header-sub {
   font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 1.5px;
@@ -2619,7 +2619,7 @@ textarea.text-input {
   margin-top: 2px;
 }
 
-.import-header-icon {
+.config-header-icon {
   width: 42px;
   height: 42px;
   border-radius: 10px;
@@ -2634,29 +2634,29 @@ textarea.text-input {
   box-shadow: 0 0 12px rgba(132, 204, 22, 0.15);
 }
 
-.import-header-icon.import-header-pulse {
-  animation: importPulse 1.5s ease-in-out infinite;
+.config-header-icon.config-header-pulse {
+  animation: configPulse 1.5s ease-in-out infinite;
 }
 
-.import-header-icon.import-header-success {
+.config-header-icon.config-header-success {
   color: var(--success);
   border-color: var(--success);
   box-shadow: 0 0 16px rgba(74, 222, 128, 0.25);
 }
 
-.import-header-icon.import-header-error {
+.config-header-icon.config-header-error {
   color: var(--error);
   border-color: var(--error);
   box-shadow: 0 0 16px rgba(248, 113, 113, 0.25);
 }
 
-@keyframes importPulse {
+@keyframes configPulse {
   0%, 100% { box-shadow: 0 0 12px rgba(132, 204, 22, 0.15); }
   50% { box-shadow: 0 0 24px rgba(132, 204, 22, 0.4); }
 }
 
 /* ── Scanning spinner ── */
-.import-scanning {
+.config-scanning {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2665,7 +2665,7 @@ textarea.text-input {
   padding: 80px 0;
 }
 
-.import-scanner-ring {
+.config-scanner-ring {
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -2676,7 +2676,7 @@ textarea.text-input {
   box-shadow: 0 0 20px rgba(132, 204, 22, 0.2), inset 0 0 20px rgba(132, 204, 22, 0.05);
 }
 
-.import-scanner-text {
+.config-scanner-text {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -2685,7 +2685,7 @@ textarea.text-input {
   animation: scanPulse 1.5s ease-in-out infinite;
 }
 
-.import-scanner-path {
+.config-scanner-path {
   font-size: 11px;
   color: var(--text-dim);
   font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -2701,11 +2701,11 @@ textarea.text-input {
 }
 
 /* ── Sections ── */
-.import-section {
+.config-section {
   margin-bottom: 16px;
 }
 
-.import-section-label {
+.config-section-label {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 2.5px;
@@ -2716,7 +2716,7 @@ textarea.text-input {
   position: relative;
 }
 
-.import-section-label::before {
+.config-section-label::before {
   content: '\u25B8';
   margin-right: 6px;
   color: var(--primary-dim);
@@ -2724,7 +2724,7 @@ textarea.text-input {
 }
 
 /* ── Project Identity Card ── */
-.import-identity-card {
+.config-identity-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2732,7 +2732,7 @@ textarea.text-input {
   border-left: 3px solid var(--primary);
 }
 
-.import-identity-name {
+.config-identity-name {
   font-size: 20px;
   font-weight: 700;
   color: var(--primary-hover);
@@ -2740,7 +2740,7 @@ textarea.text-input {
   letter-spacing: 0.5px;
 }
 
-.import-identity-path {
+.config-identity-path {
   font-size: 11px;
   color: var(--text-dim);
   font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -2748,7 +2748,7 @@ textarea.text-input {
   word-break: break-all;
 }
 
-.import-identity-row {
+.config-identity-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2756,17 +2756,17 @@ textarea.text-input {
   border-top: 1px solid rgba(42, 45, 66, 0.5);
 }
 
-.import-identity-row:first-of-type {
+.config-identity-row:first-of-type {
   margin-top: 4px;
 }
 
-.import-identity-desc-row {
+.config-identity-desc-row {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
 }
 
-.import-identity-label {
+.config-identity-label {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -2776,26 +2776,26 @@ textarea.text-input {
   font-family: 'Cascadia Code', 'Fira Code', monospace;
 }
 
-.import-identity-value {
+.config-identity-value {
   font-size: 13px;
   color: var(--text);
   font-weight: 500;
 }
 
-.import-identity-desc {
+.config-identity-desc {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
 /* ── Language Badges ── */
-.import-lang-badges {
+.config-lang-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.import-lang-badge {
+.config-lang-badge {
   padding: 2px 10px;
   background: rgba(132, 204, 22, 0.1);
   border: 1px solid rgba(132, 204, 22, 0.2);
@@ -2807,14 +2807,14 @@ textarea.text-input {
 }
 
 /* ── Status Grid ── */
-.import-status-grid {
+.config-status-grid {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
 }
 
-.import-status-row {
+.config-status-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2823,15 +2823,15 @@ textarea.text-input {
   transition: background 0.15s;
 }
 
-.import-status-row:last-child {
+.config-status-row:last-child {
   border-bottom: none;
 }
 
-.import-status-row:hover {
+.config-status-row:hover {
   background: var(--bg-surface-hover);
 }
 
-.import-status-icon {
+.config-status-icon {
   width: 20px;
   height: 20px;
   display: flex;
@@ -2842,38 +2842,38 @@ textarea.text-input {
   border-radius: 50%;
 }
 
-.import-status-icon.ok {
+.config-status-icon.ok {
   color: var(--success);
   background: rgba(74, 222, 128, 0.12);
   font-weight: 700;
 }
 
-.import-status-icon.missing {
+.config-status-icon.missing {
   color: var(--warning);
   background: rgba(251, 191, 36, 0.12);
   font-size: 8px;
 }
 
-.import-status-label {
+.config-status-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
   flex: 1;
 }
 
-.import-status-detail {
+.config-status-detail {
   font-size: 12px;
   color: var(--text-secondary);
   font-family: 'Cascadia Code', 'Fira Code', monospace;
   text-align: right;
 }
 
-.import-status-detail.dim {
+.config-status-detail.dim {
   color: var(--text-dim);
 }
 
 /* ── Note ── */
-.import-note {
+.config-note {
   font-size: 11px;
   color: var(--success);
   letter-spacing: 0.5px;
@@ -2884,13 +2884,13 @@ textarea.text-input {
   gap: 6px;
 }
 
-.import-note::before {
+.config-note::before {
   content: '\u2591';
   font-size: 10px;
 }
 
 /* ── Checklist ── */
-.import-checklist {
+.config-checklist {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2900,7 +2900,7 @@ textarea.text-input {
   overflow: hidden;
 }
 
-.import-check-item {
+.config-check-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -2910,15 +2910,15 @@ textarea.text-input {
   border-bottom: 1px solid rgba(42, 45, 66, 0.3);
 }
 
-.import-check-item:last-child {
+.config-check-item:last-child {
   border-bottom: none;
 }
 
-.import-check-item:hover {
+.config-check-item:hover {
   background: var(--bg-surface-hover);
 }
 
-.import-check-item input[type="checkbox"] {
+.config-check-item input[type="checkbox"] {
   margin-top: 2px;
   accent-color: var(--primary);
   width: 16px;
@@ -2927,14 +2927,14 @@ textarea.text-input {
   cursor: pointer;
 }
 
-.import-check-label {
+.config-check-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
   display: block;
 }
 
-.import-check-desc {
+.config-check-desc {
   font-size: 11px;
   color: var(--text-secondary);
   display: block;
@@ -2942,7 +2942,7 @@ textarea.text-input {
 }
 
 /* ── Error Box ── */
-.import-error-box {
+.config-error-box {
   background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.3);
   border-radius: var(--radius);
@@ -2955,14 +2955,14 @@ textarea.text-input {
 }
 
 /* ── Actions ── */
-.import-actions {
+.config-actions {
   display: flex;
   gap: 12px;
   margin-top: 20px;
   justify-content: center;
 }
 
-.import-enlist-btn {
+.config-apply-btn {
   padding: 12px 36px;
   background: var(--primary);
   color: #fff;
@@ -2977,20 +2977,20 @@ textarea.text-input {
   text-transform: uppercase;
 }
 
-.import-enlist-btn:hover:not(:disabled) {
+.config-apply-btn:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 20px rgba(132, 204, 22, 0.35);
 }
 
-.import-enlist-btn:disabled {
+.config-apply-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.import-cancel-btn {
+.config-cancel-btn {
   padding: 12px 28px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -3004,7 +3004,7 @@ textarea.text-input {
   letter-spacing: 0.5px;
 }
 
-.import-cancel-btn:hover {
+.config-cancel-btn:hover {
   border-color: var(--text-secondary);
   color: var(--text);
 }

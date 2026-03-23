@@ -14,7 +14,7 @@ import { CurrentStep } from './components/CurrentStep'
 import { AnalysisStep } from './components/AnalysisStep'
 import { ReviewScreen } from './components/ReviewScreen'
 import { CreationProgress } from './components/CreationProgress'
-import { ImportScreen } from './components/ImportScreen'
+import { ProjectConfigScreen } from './components/ProjectConfigScreen'
 import { TerminalView } from './components/TerminalView'
 import { DemoTerminalView } from './components/DemoTerminalView'
 
@@ -81,7 +81,7 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
 
 const FIRST_STEP_ID = 'project-name'
 
-type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'import'
+type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'configure'
 
 export function App() {
   const { t } = useI18n()
@@ -96,7 +96,7 @@ export function App() {
     createdPath: null,
   })
 
-  const [importPath, setImportPath] = useState<string | null>(null)
+  const [configurePath, setConfigurePath] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateRenderer, updateLayout, updateThreeTheme } = useSettings()
@@ -256,13 +256,13 @@ export function App() {
     )
   }
 
-  if (viewMode === 'import' && importPath) {
+  if (viewMode === 'configure' && configurePath) {
     return (
-      <ImportScreen
-        projectPath={importPath}
-        onBackToHub={() => { setImportPath(null); setViewMode('hub') }}
+      <ProjectConfigScreen
+        projectPath={configurePath}
+        onBackToHub={() => { setConfigurePath(null); setViewMode('hub') }}
         onOpenInHub={(path, name) => {
-          setImportPath(null)
+          setConfigurePath(null)
           openTerminal(path, name, false)
           setViewMode('hub')
         }}
@@ -304,8 +304,8 @@ export function App() {
             }}
             onConvertProject={(path) => {
               if (demo.enabled) return // Disable in demo mode
-              setImportPath(path)
-              setViewMode('import')
+              setConfigurePath(path)
+              setViewMode('configure')
             }}
             onOpenTerminal={demo.enabled ? undefined : openTerminal}
             voiceFocus={voiceFocus}
