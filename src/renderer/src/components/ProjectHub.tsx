@@ -32,6 +32,8 @@ interface Props {
   onVoiceProfileChange: (id: VoiceProfileId) => void
   onDockPositionChange: (pos: DockPosition) => void
   onScreenOpacityChange: (opacity: number) => void
+  particleDensity: number
+  onParticleDensityChange: (v: number) => void
   camera: CameraSettings
   cameraTweaking: boolean
   onCameraChange: (cam: CameraSettings) => void
@@ -59,7 +61,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, camera, cameraTweaking, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -172,7 +174,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Layout positioning
   const layoutFn = LAYOUT_FNS[layoutId] || LAYOUT_FNS['dual-arc']
   const layoutCenter = getLayoutCenter(layoutId, dims.w, dims.h)
-  const cardW = 200
+  const cardW = 220
 
   // Check if a project has an external session running
   const getExternalSession = (projectPath: string) => {
@@ -232,7 +234,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             }} />
           )}
           <span className={`hal-dot ${isBare ? 'dim' : ready ? 'green' : 'amber'}`} />
-          <span className="hal-arc-name">{project.name}</span>
+          <span className="hal-arc-name" title={project.name}>{project.name}</span>
           {project.stack && <span className="hal-arc-stack">{project.stack}</span>}
           {extSession && <span className="hal-external-badge">EXT</span>}
         </div>

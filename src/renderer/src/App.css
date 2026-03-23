@@ -2064,7 +2064,7 @@ textarea.text-input {
 
 .hal-arc-card {
   position: absolute;
-  width: 200px;
+  width: 220px;
   background: rgba(5, 12, 18, 0.55);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2111,9 +2111,14 @@ textarea.text-input {
   font-weight: 600;
   letter-spacing: 1px;
   color: var(--text);
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.2;
+  max-height: 2.4em;
+  word-break: break-word;
 }
 
 .hal-arc-stack {

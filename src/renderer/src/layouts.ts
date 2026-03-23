@@ -10,7 +10,7 @@ interface LayoutContext {
   w: number       // container width
   h: number       // container height
   total: number   // total cards
-  cardW: number   // card width (~200)
+  cardW: number   // card width (~220)
 }
 
 type LayoutFn = (index: number, ctx: LayoutContext) => CardPosition
@@ -19,7 +19,32 @@ type LayoutFn = (index: number, ctx: LayoutContext) => CardPosition
 const dualArc: LayoutFn = (index, { w, h, total, cardW }) => {
   const cx = w / 2
   const cy = h * 0.5
-  const radius = Math.min(h * 0.35, w * 0.3, 350)
+  const baseRadius = Math.min(h * 0.35, w * 0.3, 350)
+
+  // When many projects, split into outer + inner rings to avoid overlap
+  if (total > 16) {
+    const outerCount = Math.ceil(total * 0.6)
+    const isOuter = index < outerCount
+    const ringTotal = isOuter ? outerCount : total - outerCount
+    const ringIndex = isOuter ? index : index - outerCount
+    const radius = isOuter ? baseRadius : baseRadius * 0.6
+    const half = Math.ceil(ringTotal / 2)
+    const isLeft = ringIndex < half
+    const i = isLeft ? ringIndex : ringIndex - half
+    const count = isLeft ? half : ringTotal - half
+    const startAngle = isLeft ? Math.PI * 0.6 : -Math.PI * 0.4
+    const endAngle = isLeft ? Math.PI * 1.4 : Math.PI * 0.4
+    const t = count <= 1 ? 0.5 : i / (count - 1)
+    const angle = startAngle + t * (endAngle - startAngle)
+    const px = cx + Math.cos(angle) * radius
+    const py = cy + Math.sin(angle) * radius
+    return {
+      left: isLeft ? px - cardW - 15 : px + 15,
+      top: py - 20,
+    }
+  }
+
+  const radius = baseRadius
   const half = Math.ceil(total / 2)
   const isLeft = index < half
   const i = isLeft ? index : index - half
@@ -51,10 +76,36 @@ const dualArc3d: LayoutFn = (index, ctx) => {
 const jarvisRadial: LayoutFn = (index, { w, h, total, cardW }) => {
   const cx = w / 2
   const cy = h * 0.5
-  const radius = Math.min(h * 0.38, w * 0.35, 380)
+  const baseRadius = Math.min(h * 0.38, w * 0.35, 380)
+
+  // Max cards per ring before they overlap (approximate: circumference / cardWidth)
+  const maxPerRing = Math.max(8, Math.floor((2 * Math.PI * baseRadius) / (cardW + 20)))
+  if (total > maxPerRing) {
+    const ringCount = Math.ceil(total / maxPerRing)
+    let remaining = total
+    let offset = 0
+    for (let ring = 0; ring < ringCount; ring++) {
+      const ringSize = ring < ringCount - 1 ? maxPerRing : remaining
+      if (index < offset + ringSize) {
+        const i = index - offset
+        const radius = baseRadius - ring * (baseRadius * 0.3 / ringCount)
+        const angle = (i / ringSize) * Math.PI * 2 - Math.PI / 2
+        const px = cx + Math.cos(angle) * radius
+        const py = cy + Math.sin(angle) * radius
+        return {
+          left: px - cardW / 2,
+          top: py - 18,
+          transform: `rotateY(${Math.cos(angle) * 5}deg)`,
+        }
+      }
+      offset += ringSize
+      remaining -= ringSize
+    }
+  }
+
   const angle = (index / total) * Math.PI * 2 - Math.PI / 2
-  const px = cx + Math.cos(angle) * radius
-  const py = cy + Math.sin(angle) * radius
+  const px = cx + Math.cos(angle) * baseRadius
+  const py = cy + Math.sin(angle) * baseRadius
   return {
     left: px - cardW / 2,
     top: py - 18,
@@ -79,23 +130,31 @@ const jarvisPanels: LayoutFn = (index, { w, h, total }) => {
 
 // ── Holographic Stack ──
 const holoStack: LayoutFn = (index, { w, h, total, cardW }) => {
-  const half = Math.ceil(total / 2)
-  const isLeft = index < half
-  const i = isLeft ? index : index - half
-  const count = isLeft ? half : total - half
-  const colX = isLeft ? w * 0.15 : w * 0.85 - cardW
+  // Determine how many columns we need so cards don't overflow vertically
+  const maxPerCol = Math.max(4, Math.floor((h * 0.85) / 50))
+  const numCols = Math.max(2, Math.ceil(total / maxPerCol))
+  const colIndex = index % numCols
+  const rowIndex = Math.floor(index / numCols)
+  const count = Math.ceil(total / numCols)
+  // Distribute columns evenly across width
+  const colSpacing = Math.min(cardW + 30, (w * 0.7) / numCols)
+  const startX = (w - numCols * colSpacing) / 2
+  const colX = startX + colIndex * colSpacing
   const startY = h * 0.08
   const spacing = Math.min(50, (h * 0.85) / count)
+  const isLeft = colIndex < numCols / 2
   return {
-    left: colX + i * 3, // slight offset for depth
-    top: startY + i * spacing,
-    transform: `perspective(800px) translateZ(${-i * 8}px) rotateY(${isLeft ? 3 : -3}deg)`,
+    left: colX + rowIndex * 3, // slight offset for depth
+    top: startY + rowIndex * spacing,
+    transform: `perspective(800px) translateZ(${-rowIndex * 8}px) rotateY(${isLeft ? 3 : -3}deg)`,
   }
 }
 
 // ── Command Grid ──
 const commandGrid: LayoutFn = (index, { w, h, total, cardW }) => {
-  const cols = Math.min(4, Math.ceil(Math.sqrt(total)))
+  // Allow more columns when container is wide enough and there are many cards
+  const maxCols = Math.max(4, Math.floor(w / (cardW + 20)))
+  const cols = Math.min(maxCols, Math.ceil(Math.sqrt(total * 1.5)))
   const col = index % cols
   const row = Math.floor(index / cols)
   const gapX = 12
@@ -110,13 +169,19 @@ const commandGrid: LayoutFn = (index, { w, h, total, cardW }) => {
 }
 
 // ── Data Hack ──
-const dataHack: LayoutFn = (index, { w, h, total }) => {
+const dataHack: LayoutFn = (index, { w, h, total, cardW }) => {
   // Cards stacked on the right side, terminal-style
+  // Split into multiple columns if too many cards for one column
+  const maxPerCol = Math.max(4, Math.floor((h * 0.9) / 42))
+  const numCols = Math.ceil(total / maxPerCol)
+  const col = Math.floor(index / maxPerCol)
+  const row = index % maxPerCol
+  const colCount = col < numCols - 1 ? maxPerCol : total - col * maxPerCol
   const startY = h * 0.06
-  const spacing = Math.min(42, (h * 0.9) / total)
+  const spacing = Math.min(42, (h * 0.9) / colCount)
   return {
-    left: w * 0.65,
-    top: startY + index * spacing,
+    left: w * 0.65 - col * (cardW + 15),
+    top: startY + row * spacing,
   }
 }
 
@@ -162,11 +227,17 @@ const hexagonal: LayoutFn = (index, { w, h, total, cardW }) => {
 }
 
 // ── Cinematic Widescreen ──
-const cinematic: LayoutFn = (index, { w, h, total }) => {
-  const spacing = Math.min(46, (h * 0.88) / total)
+const cinematic: LayoutFn = (index, { w, h, total, cardW }) => {
+  // Split into multiple columns if too many cards for one column
+  const maxPerCol = Math.max(4, Math.floor((h * 0.88) / 46))
+  const numCols = Math.ceil(total / maxPerCol)
+  const col = Math.floor(index / maxPerCol)
+  const row = index % maxPerCol
+  const colCount = col < numCols - 1 ? maxPerCol : total - col * maxPerCol
+  const spacing = Math.min(46, (h * 0.88) / colCount)
   return {
-    left: w * 0.58,
-    top: h * 0.06 + index * spacing,
+    left: w * 0.58 - col * (cardW + 15),
+    top: h * 0.06 + row * spacing,
   }
 }
 
