@@ -471,6 +471,29 @@ function SceneBackground() {
   return <color attach="background" args={[theme.backgroundHex]} />
 }
 
+// ── Camera Driver — pushes settings changes into the actual Three.js camera + OrbitControls ──
+function CameraDriver({ distance, angle }: { distance: number; angle: number }) {
+  const { camera, controls } = useThree()
+  const prevDist = useRef(distance)
+  const prevAngle = useRef(angle)
+
+  useEffect(() => {
+    // Only drive camera when settings changed (not from orbit sync)
+    if (Math.abs(distance - prevDist.current) > 0.3 || Math.abs(angle - prevAngle.current) > 0.5) {
+      const angleRad = (angle * Math.PI) / 180
+      const y = Math.sin(angleRad) * distance
+      const z = Math.cos(angleRad) * distance
+      camera.position.set(0, y, z)
+      camera.lookAt(0, 0, 0)
+      if (controls && 'update' in controls) (controls as any).update()
+      prevDist.current = distance
+      prevAngle.current = angle
+    }
+  }, [distance, angle, camera, controls])
+
+  return null
+}
+
 // ── Camera Sync — reads orbit/zoom and reports back to settings sliders ──
 function CameraSync({ onCameraMove }: { onCameraMove: (distance: number, angle: number) => void }) {
   const { camera } = useThree()
@@ -667,6 +690,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           target={[0, 0.3, 0]}
         />
 
+        <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
         {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
 
         <PostFX />

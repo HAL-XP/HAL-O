@@ -118,6 +118,7 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
 export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraTweakingChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
+  const [cameraSaved, setCameraSaved] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const previewProfile = useCallback((profileId: string) => {
@@ -340,9 +341,27 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
                 </div>
               </div>
 
-              <div className="hal-settings-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              <div className="hal-settings-row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                <button
+                  className="hal-settings-preview-btn"
+                  onClick={() => {
+                    onCameraChange(camera)
+                    setCameraSaved(true)
+                    setTimeout(() => setCameraSaved(false), 1200)
+                  }}
+                  title="Save current camera settings"
+                  style={{
+                    padding: '3px 10px', fontSize: 9, width: 'auto',
+                    color: cameraSaved ? '#0f1117' : '#4ade80',
+                    borderColor: cameraSaved ? '#4ade80' : '#4ade8055',
+                    background: cameraSaved ? '#4ade80' : 'transparent',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {cameraSaved ? 'SAVED' : 'APPLY'}
+                </button>
                 <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to defaults"
-                  style={{ padding: '3px 10px', fontSize: 9 }}>RESET</button>
+                  style={{ padding: '3px 10px', fontSize: 9, width: 'auto' }}>RESET</button>
               </div>
             </>
           )}
