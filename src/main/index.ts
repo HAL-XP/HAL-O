@@ -62,39 +62,19 @@ function createMenu(): void {
       submenu: [
         {
           label: 'Run Tests (local)',
-          click: () => {
-            const cwd = getWinCwd()
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm test')}`], {
-              cwd, detached: true, stdio: 'ignore',
-            })
-          },
+          click: () => openTerminalAt(getWinCwd(), 'npm test'),
         },
         {
           label: 'Run Tests (Docker)',
-          click: () => {
-            const cwd = getWinCwd()
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:docker')}`], {
-              cwd, detached: true, stdio: 'ignore',
-            })
-          },
+          click: () => openTerminalAt(getWinCwd(), 'npm run test:docker'),
         },
         {
           label: 'Test Fresh Install (Docker)',
-          click: () => {
-            const cwd = getWinCwd()
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:fresh')}`], {
-              cwd, detached: true, stdio: 'ignore',
-            })
-          },
+          click: () => openTerminalAt(getWinCwd(), 'npm run test:fresh'),
         },
         {
           label: 'Docker Shell',
-          click: () => {
-            const cwd = getWinCwd()
-            spawn('cmd', ['/c', 'start', '""', 'cmd', '/k', `cd /d "${cwd}" && ${escapeCmdArg('npm run test:shell')}`], {
-              cwd, detached: true, stdio: 'ignore',
-            })
-          },
+          click: () => openTerminalAt(getWinCwd(), 'npm run test:shell'),
         },
         { type: 'separator' },
         {
