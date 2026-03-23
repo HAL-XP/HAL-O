@@ -161,7 +161,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }, [filteredUnsorted, groups, assignments])
 
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
-  const isFullySetup = (p: ProjectInfo) => (p as any).configLevel ? (p as any).configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
+  const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
   const readyCount = visibleProjects.filter(isFullySetup).length
 
   // Layout positioning
@@ -212,9 +212,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
         onContextMenu={(e) => {
-          if (groups.length > 0) {
+          {
             e.preventDefault()
-            setCtxMenu({ x: e.clientX, y: e.clientY, projectPath: project.path })
+            setCtxMenu({ x: e.clientX, y: e.clientY, projectPath: project.path, projectName: project.name })
           }
         }}
       >
@@ -315,7 +315,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={projects.length} readyCount={readyCount}
+          projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
@@ -349,11 +349,12 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           themeId={threeTheme}
           onCameraMove={onCameraMove}
           blockedInput={voiceBlocked}
+          onProjectContextMenu={(x, y, path, name) => setCtxMenu({ x, y, projectPath: path, projectName: name })}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={projects.length} readyCount={readyCount}
+          projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
@@ -365,6 +366,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onVoiceBlocked={handleVoiceBlocked}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        {ctxMenu && (
+          <ProjectContextMenu
+            x={ctxMenu.x} y={ctxMenu.y}
+            projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
+            onHide={hideProject} onConfigure={onConvertProject}
+            groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
+            onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+            onClose={() => setCtxMenu(null)}
+          />
+        )}
       </div>
     )
   }
@@ -384,7 +395,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={projects.length} readyCount={readyCount}
+          projectCount={visibleProjects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           camera={camera} cameraTweaking={cameraTweaking}
           rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
@@ -397,6 +408,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        {ctxMenu && (
+          <ProjectContextMenu
+            x={ctxMenu.x} y={ctxMenu.y}
+            projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
+            onHide={hideProject} onConfigure={onConvertProject}
+            groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
+            onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+            onClose={() => setCtxMenu(null)}
+          />
+        )}
       </div>
     )
   }
@@ -404,7 +425,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Classic renderer — CSS cards + Three.js background
   return (
     <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
-      <SceneRoot projectCount={projects.length} listening={isListening && voiceFocus === 'hub'} />
+      <SceneRoot projectCount={visibleProjects.length} listening={isListening && voiceFocus === 'hub'} />
 
       {/* SVG connection lines */}
       <svg className="hal-connections" viewBox={`0 0 ${dims.w} ${dims.h}`}>
@@ -448,14 +469,18 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
       {/* Command bar removed — integrated into top bar */}
 
-      {/* Right-click group assignment context menu */}
+      {/* Right-click project context menu */}
       {ctxMenu && (
-        <GroupContextMenu
+        <ProjectContextMenu
           x={ctxMenu.x}
           y={ctxMenu.y}
+          projectPath={ctxMenu.projectPath}
+          projectName={ctxMenu.projectName}
+          onHide={hideProject}
+          onConfigure={onConvertProject}
           groups={groups}
           currentGroupId={assignments[ctxMenu.projectPath]}
-          onAssign={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+          onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
           onClose={() => setCtxMenu(null)}
         />
       )}

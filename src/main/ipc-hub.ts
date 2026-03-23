@@ -104,10 +104,42 @@ export function registerHubHandlers(): void {
 
     const projects: Array<{
       name: string; path: string; stack: string
-      hasClaude: boolean; hasBatchFiles: boolean; hasClaudeDir: boolean; lastModified: number
+      hasClaude: boolean; hasBatchFiles: boolean; hasClaudeDir: boolean
+      hasHalOMeta: boolean; configLevel: 'bare' | 'claude-aware' | 'hal-o-enhanced'
+      lastModified: number
       gitOwner: string; runCmd: string
     }> = []
     const seen = new Set<string>()
+
+    // Build set of known Claude project paths from ~/.claude/projects/ cache
+    const knownClaudePaths = new Set<string>()
+    if (existsSync(claudeProjectsDir)) {
+      try {
+        const cached = readdirSync(claudeProjectsDir)
+        for (const entry of cached) {
+          const driveMatch = entry.match(/^([A-Za-z])--(.+)$/)
+          if (!driveMatch) continue
+          const drive = driveMatch[1].toUpperCase()
+          const rest = driveMatch[2]
+          const segments = rest.split('--')
+          // Try the most common encoding: segments joined by backslash
+          const tryPath = `${drive}:\\${segments.join('\\')}`
+          if (existsSync(tryPath)) { knownClaudePaths.add(normalize(tryPath)); continue }
+          // Fallback: dashes replaced with underscores
+          const tryPath2 = `${drive}:\\${segments.map(s => s.replace(/-/g, '_')).join('\\')}`
+          if (existsSync(tryPath2)) { knownClaudePaths.add(normalize(tryPath2)); continue }
+          // Fallback: all dashes to backslashes
+          const tryPath3 = `${drive}:\\${rest.replace(/-/g, '\\')}`
+          if (existsSync(tryPath3)) { knownClaudePaths.add(normalize(tryPath3)); continue }
+        }
+      } catch { /* */ }
+    }
+
+    // Project marker files — if a dir has at least one, it's probably a real project
+    const PROJECT_MARKERS = [
+      'package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'pom.xml',
+      'build.gradle', 'Makefile', 'CMakeLists.txt',
+    ]
 
     for (const parentDir of dirs) {
       if (!existsSync(parentDir)) continue
@@ -130,7 +162,15 @@ export function registerHubHandlers(): void {
           const hasBatchFiles = files.includes(newScript) || files.includes(resumeScript)
             || files.includes('_CLAUDE_CLI_NEW.bat') || files.includes('_CLAUDE_CLI_NEW.sh')
 
-          if (!hasClaude && !hasClaudeDir && !hasBatchFiles) continue
+          const hasHalOMeta = hasClaudeDir && existsSync(join(fullPath, '.claude', '.hal-o-meta.json'))
+          const configLevel: 'bare' | 'claude-aware' | 'hal-o-enhanced' =
+            hasHalOMeta ? 'hal-o-enhanced' : (hasClaude || hasClaudeDir) ? 'claude-aware' : 'bare'
+
+          // Minimum signal heuristic: must be a real project (has .git/, a build manifest, or is known to Claude)
+          const hasGitDir = files.includes('.git')
+          const hasProjectMarker = PROJECT_MARKERS.some(m => files.includes(m))
+          const isKnownClaude = knownClaudePaths.has(normalize(fullPath))
+          if (!hasGitDir && !hasProjectMarker && !isKnownClaude && !hasClaude && !hasClaudeDir && !hasBatchFiles) continue
 
           let stack = ''
           if (hasClaude) {
@@ -198,7 +238,7 @@ export function registerHubHandlers(): void {
 
           projects.push({
             name, path: fullPath, stack,
-            hasClaude, hasBatchFiles, hasClaudeDir,
+            hasClaude, hasBatchFiles, hasClaudeDir, hasHalOMeta, configLevel,
             lastModified: stat.mtimeMs, gitOwner, runCmd,
           })
         } catch { continue }

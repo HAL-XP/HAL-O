@@ -145,6 +145,7 @@ interface HalOMeta {
   enlistedAt: string
   halOVersion: string
   rulesVersion: number
+  filesCreated?: string[]
 }
 
 /** Enlist config for importing an existing project into HAL-O */
@@ -294,6 +295,7 @@ export function registerWizardHandlers(): void {
   // ── Enlist existing project (non-destructive import) ──
   ipcMain.handle('enlist-project', async (_event, config: EnlistConfig) => {
     const log: string[] = []
+    const filesCreated: string[] = []
     const projectPath = config.projectPath
 
     try {
@@ -343,6 +345,7 @@ export function registerWizardHandlers(): void {
             '',
           ].filter(l => l !== '').join('\n') + '\n'
           writeFileSync(claudeMdPath, lines, 'utf-8')
+          filesCreated.push('CLAUDE.md')
           log.push('[OK] Created CLAUDE.md')
         }
       } else if (config.addClaudeMd === 'append') {
@@ -365,6 +368,7 @@ export function registerWizardHandlers(): void {
               '',
             ].join('\n')
             writeFileSync(claudeMdPath, existing + appendSection, 'utf-8')
+            filesCreated.push('CLAUDE.md')
             log.push('[OK] Appended HAL-O section to CLAUDE.md')
           }
         } else {
@@ -382,6 +386,7 @@ export function registerWizardHandlers(): void {
             '',
           ].filter(l => l !== '').join('\n') + '\n'
           writeFileSync(claudeMdPath, lines, 'utf-8')
+          filesCreated.push('CLAUDE.md')
           log.push('[OK] Created CLAUDE.md (append mode, file did not exist)')
         }
       } else {
@@ -424,6 +429,7 @@ export function registerWizardHandlers(): void {
           }
           const hooks = generateHooksSettings(fakeConfig)
           writeFileSync(settingsPath, JSON.stringify(hooks, null, 2), 'utf-8')
+          filesCreated.push('.claude/settings.json')
           log.push(`[OK] Created .claude/settings.json with hooks: ${config.hooksSetup.join(', ')}`)
         }
       }
@@ -439,6 +445,7 @@ export function registerWizardHandlers(): void {
         } else {
           writeFileSync(newPath, newScript.content, 'utf-8')
           makeExecutable(newPath)
+          filesCreated.push(newScript.filename)
           log.push(`[OK] Created ${newScript.filename}`)
         }
 
@@ -448,17 +455,20 @@ export function registerWizardHandlers(): void {
         } else {
           writeFileSync(resumePath, resumeScript.content, 'utf-8')
           makeExecutable(resumePath)
+          filesCreated.push(resumeScript.filename)
           log.push(`[OK] Created ${resumeScript.filename}`)
         }
       }
 
-      // 5. Write .claude/.hal-o-meta.json (version tracking)
+      // 5. Write .claude/.hal-o-meta.json (version tracking + created files)
       mkdirSync(claudeDir, { recursive: true })
       const metaPath = join(claudeDir, '.hal-o-meta.json')
+      filesCreated.push('.claude/.hal-o-meta.json')
       const meta: HalOMeta = {
         enlistedAt: new Date().toISOString(),
         halOVersion: HAL_O_VERSION,
         rulesVersion: RULES_VERSION,
+        filesCreated,
       }
       writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
       log.push('[OK] Written .claude/.hal-o-meta.json')

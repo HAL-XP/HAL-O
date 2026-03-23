@@ -89,6 +89,8 @@ export interface TerminalSession {
   projectPath: string
 }
 
+export type ConfigLevel = 'bare' | 'claude-aware' | 'hal-o-enhanced'
+
 export interface ProjectInfo {
   name: string
   path: string
@@ -96,6 +98,8 @@ export interface ProjectInfo {
   hasClaude: boolean
   hasBatchFiles: boolean
   hasClaudeDir: boolean
+  hasHalOMeta: boolean
+  configLevel: ConfigLevel
   lastModified: number
   gitOwner: string
   runCmd: string
