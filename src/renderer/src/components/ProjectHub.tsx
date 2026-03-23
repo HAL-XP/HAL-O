@@ -8,6 +8,8 @@ import { GroupContextMenu } from './GroupContextMenu'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
 import { PbrHoloScene } from './three/PbrHoloScene'
+import { DEMO_PROJECTS } from '../data/demo-projects'
+import type { DemoSettings } from '../hooks/useDemoSettings'
 
 interface Props {
   onNewProject: () => void
@@ -33,6 +35,7 @@ interface Props {
   onLayoutChange: (id: string) => void
   halSessionId?: string | null
   terminalCount?: number
+  demo?: DemoSettings
 }
 
 function timeAgo(ms: number): string {
@@ -45,7 +48,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, rendererId, onRendererChange, layoutId, onLayoutChange, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -64,11 +67,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   } = useProjectGroups()
 
   useEffect(() => {
+    if (demo?.enabled) {
+      setProjects(DEMO_PROJECTS.slice(0, demo.cardCount))
+      setLoading(false)
+      return
+    }
     window.api.scanProjects().then((p) => {
       setProjects(p)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [])
+  }, [demo?.enabled, demo?.cardCount])
 
   // Track CONTAINER size, not window size
   useEffect(() => {
@@ -188,25 +196,31 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         </div>
         {isHovered && (
           <div className="hal-arc-actions">
-            {extSession && (
-              <button
-                className="hal-btn absorb"
-                disabled={!!isAbsorbing}
-                onClick={(e) => { e.stopPropagation(); handleAbsorb(extSession, project) }}
-              >{isAbsorbing ? 'ABSORBING...' : 'ABSORB'}</button>
+            {demo?.enabled ? (
+              <span style={{ fontSize: 8, letterSpacing: 2, color: '#22d3ee', opacity: 0.6 }}>DEMO PROJECT</span>
+            ) : (
+              <>
+                {extSession && (
+                  <button
+                    className="hal-btn absorb"
+                    disabled={!!isAbsorbing}
+                    onClick={(e) => { e.stopPropagation(); handleAbsorb(extSession, project) }}
+                  >{isAbsorbing ? 'ABSORBING...' : 'ABSORB'}</button>
+                )}
+                <button className="hal-btn deploy" onClick={() => {
+                  if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
+                  else window.api.launchProject(project.path, true)
+                }}>RESUME</button>
+                <button className="hal-btn" onClick={() => {
+                  if (onOpenTerminal) onOpenTerminal(project.path, project.name, false)
+                  else window.api.launchProject(project.path, false)
+                }}>NEW</button>
+                {project.runCmd && (
+                  <button className="hal-btn run" onClick={() => window.api.runApp(project.path, project.runCmd)}>RUN</button>
+                )}
+                <button className="hal-btn" onClick={() => window.api.openFolder(project.path)}>FILES</button>
+              </>
             )}
-            <button className="hal-btn deploy" onClick={() => {
-              if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
-              else window.api.launchProject(project.path, true)
-            }}>RESUME</button>
-            <button className="hal-btn" onClick={() => {
-              if (onOpenTerminal) onOpenTerminal(project.path, project.name, false)
-              else window.api.launchProject(project.path, false)
-            }}>NEW</button>
-            {project.runCmd && (
-              <button className="hal-btn run" onClick={() => window.api.runApp(project.path, project.runCmd)}>RUN</button>
-            )}
-            <button className="hal-btn" onClick={() => window.api.openFolder(project.path)}>FILES</button>
           </div>
         )}
       </div>
@@ -271,8 +285,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
+          demo={demo}
         />
-        <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
     )
   }
@@ -295,9 +310,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectCount={projects.length} readyCount={readyCount}
           hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
+          demo={demo}
         />
 
-        <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
     )
   }
@@ -323,13 +340,14 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
         voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
         projectCount={projects.length} readyCount={readyCount}
-        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
-        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity} rendererId={rendererId} layoutId={layoutId}
+        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
       />
 
       {/* Status label */}
       <div className="hal-center-label">
-        {loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}
+        {loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}
       </div>
 
       {/* Project cards — positioned by active layout */}
@@ -341,6 +359,18 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       )}
 
       {/* Command bar removed — integrated into top bar */}
+
+      {/* Right-click group assignment context menu */}
+      {ctxMenu && (
+        <GroupContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          groups={groups}
+          currentGroupId={assignments[ctxMenu.projectPath]}
+          onAssign={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
 
       {/* HUD corners */}
       <div className="hal-hud-corner tl" />

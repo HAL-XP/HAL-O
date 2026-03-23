@@ -2,6 +2,7 @@ import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
 import type { VoiceProfileId, DockPosition } from '../hooks/useSettings'
+import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
 interface HudTopbarProps {
@@ -37,6 +38,7 @@ interface HudTopbarProps {
   onRenameGroup?: (id: string, name: string) => void
   onReorderGroups?: (ids: string[]) => void
   onApplyPreset?: (preset: GroupPreset) => void
+  demo?: DemoSettings
 }
 
 export function HudTopbar({
@@ -46,6 +48,7 @@ export function HudTopbar({
   hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, rendererId, layoutId,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onRendererChange, onLayoutChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
+  demo,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -98,6 +101,7 @@ export function HudTopbar({
           rendererId={rendererId as any} layoutId={layoutId as any}
           onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
           onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any}
+          demo={demo}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span> OPS</span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>

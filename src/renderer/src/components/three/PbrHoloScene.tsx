@@ -12,7 +12,8 @@ import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import type { ProjectInfo } from '../../types'
-import { LAYOUT_3D_FNS } from '../../layouts3d'
+import type { ProjectGroup } from '../../hooks/useProjectGroups'
+import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../../layouts3d'
 
 const CYAN = new THREE.Color('#00d4ff')
 const RED = new THREE.Color('#ff2200')
@@ -407,18 +408,46 @@ interface Props {
   halOnline?: boolean
   layoutId?: string
   terminalCount?: number
+  groups?: ProjectGroup[]
+  assignments?: Record<string, string>
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0 }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, groups = [], assignments = {} }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
 
+  // Build group index map: project index -> group order index (-1 = ungrouped)
+  const groupIndices = useMemo(() => {
+    if (groups.length === 0) return projects.map(() => -1)
+    const groupIdToIndex = new Map(groups.map((g, i) => [g.id, i]))
+    return projects.map((p) => {
+      const gId = assignments[p.path]
+      if (!gId) return -1
+      return groupIdToIndex.get(gId) ?? -1
+    })
+  }, [projects, groups, assignments])
+
+  // Build per-project group colors
+  const projectGroupColors = useMemo(() => {
+    if (groups.length === 0) return projects.map(() => undefined as string | undefined)
+    return projects.map((p) => {
+      const gId = assignments[p.path]
+      if (!gId) return undefined
+      return groups.find((g) => g.id === gId)?.color
+    })
+  }, [projects, groups, assignments])
+
   // ALL hooks before any conditional return
   const screenPositions = useMemo(() => {
+    // Check if this is a group-aware layout
+    const groupFn = GROUP_LAYOUT_3D_FNS[layoutId]
+    if (groupFn) {
+      return groupFn(projects.length, groupIndices, groups.length)
+    }
     const layoutFn = LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default']
     return layoutFn(projects.length)
-  }, [projects.length, layoutId])
+  }, [projects.length, layoutId, groupIndices, groups.length])
 
   // Trigger spaceship flyby when a new terminal opens
   useEffect(() => {
@@ -477,6 +506,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
             onFiles={() => window.api.openFolder(project.path)}
             runCmd={project.runCmd}
             onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
+            groupColor={projectGroupColors[i]}
           />
         )
       })}
