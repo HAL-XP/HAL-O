@@ -80,6 +80,11 @@ export function DataParticles({ projectCount }: Props) {
         vOpacity = aStream > 0.5 ? 0.6 : shimmer * 0.35;
 
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+        // Fade out particles close to camera (prevents blocking the view)
+        float camDist = length(mvPosition.xyz);
+        vOpacity *= smoothstep(2.0, 5.0, camDist);
+
         // Size: streams slightly larger
         float size = aStream > 0.5 ? 3.0 : (1.5 + sin(aSeed * 6.28 + uTime) * 0.5);
         gl_PointSize = size * uPixelRatio * (200.0 / -mvPosition.z);
