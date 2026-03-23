@@ -83,6 +83,12 @@ export interface ProjectAnalysis {
   folderDetected: boolean
 }
 
+export interface TerminalSession {
+  id: string
+  projectName: string
+  projectPath: string
+}
+
 export interface ProjectInfo {
   name: string
   path: string

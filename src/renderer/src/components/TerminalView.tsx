@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { TerminalPanel } from './TerminalPanel'
+import type { TerminalSession } from '../types'
 
-export interface TerminalSession {
-  id: string
-  projectName: string
-  projectPath: string
-}
+export type { TerminalSession }
 
 interface Pane {
   id: string

@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { ProjectInfo } from '../types'
 import { SceneRoot } from './three/SceneRoot'
-import { MicButton } from './MicButton'
-import { SettingsMenu } from './SettingsMenu'
+import { HudTopbar } from './HudTopbar'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
 import { PbrHoloScene } from './three/PbrHoloScene'
@@ -165,43 +164,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenTerminal={onOpenTerminal}
           halOnline={!!halSessionId}
         />
-        <div className="hal-topbar">
-          <div className="hal-topbar-left">
-            <span className="hal-sys-label">SYS://HAL-O</span>
-            <span className="hal-sys-ver">v1.0</span>
-            <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
-            <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ RECRUIT</button>
-          </div>
-          <div className="hal-topbar-center">
-            <span className="hal-prompt">&gt;</span>
-            <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <MicButton onTranscript={(text) => {
-                const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
-                if (target) {
-                  ;(window as any).__voiceResponseTarget = target
-                  window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
-                } else if (voiceFocus !== 'hub') {
-                  // Terminal focused but target missing — try any session
-                  window.api.ptySessions().then((sessions) => {
-                    if (sessions.length > 0) {
-                      ;(window as any).__voiceResponseTarget = sessions[0].id
-                      window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
-                    }
-                  }).catch(() => {})
-                } else {
-                  // Hub focused, no HAL — just search
-                  setSearch(text)
-                }
-              }} onListeningChange={setIsListening} />
-            <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
-          </div>
-          <div className="hal-topbar-right">
-            <SettingsMenu hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId as any} layoutId={layoutId as any} onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} />
-            <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
-            <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
-            <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{projects.length - readyCount}</span> PENDING</span>
-          </div>
-        </div>
+        <HudTopbar
+          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
+          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
+          projectCount={projects.length} readyCount={readyCount}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        />
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
     )
@@ -218,44 +187,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenTerminal={onOpenTerminal}
         />
 
-        {/* Top HUD bar — same as classic */}
-        <div className="hal-topbar">
-          <div className="hal-topbar-left">
-            <span className="hal-sys-label">SYS://HAL-O</span>
-            <span className="hal-sys-ver">v1.0</span>
-            <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
-            <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ RECRUIT</button>
-          </div>
-          <div className="hal-topbar-center">
-            <span className="hal-prompt">&gt;</span>
-            <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <MicButton
-              onTranscript={(text) => {
-                const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
-                if (target) {
-                  ;(window as any).__voiceResponseTarget = target
-                  window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
-                } else {
-                  setSearch(text)
-                  window.api.ptySessions().then((sessions) => {
-                    if (sessions.length > 0) {
-                      ;(window as any).__voiceResponseTarget = sessions[0].id
-                      window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
-                    }
-                  }).catch(() => {})
-                }
-              }}
-              onListeningChange={setIsListening}
-            />
-            <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
-          </div>
-          <div className="hal-topbar-right">
-            <SettingsMenu hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId as any} layoutId={layoutId as any} onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} />
-            <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
-            <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
-            <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{projects.length - readyCount}</span> PENDING</span>
-          </div>
-        </div>
+        <HudTopbar
+          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
+          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
+          projectCount={projects.length} readyCount={readyCount}
+          hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
+          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+        />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
       </div>
@@ -279,66 +217,13 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       <div className="hal-edge br">SESSION {new Date().toISOString().slice(0, 10)}</div>
 
       {/* Top HUD bar */}
-      <div className="hal-topbar">
-        <div className="hal-topbar-left">
-          <span className="hal-sys-label">SYS://HAL-O</span>
-          <span className="hal-sys-ver">v1.0</span>
-          <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>
-            + NEW
-          </button>
-          <button className="hal-cmd" onClick={async () => {
-            const folder = await window.api.selectFolder()
-            if (folder) onConvertProject(folder)
-          }} style={{ padding: '3px 10px', fontSize: '9px' }}>
-            + RECRUIT
-          </button>
-        </div>
-        <div className="hal-topbar-center">
-          <span className="hal-prompt">&gt;</span>
-          <input
-            className="hal-search"
-            placeholder="SEARCH... (CTRL+SPACE to talk)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <MicButton
-            onTranscript={(text) => {
-              const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
-              if (target) {
-                // Signal that a voice response is expected from this terminal
-                ;(window as any).__voiceResponseTarget = target
-                window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
-              } else {
-                window.api.ptySessions().then((sessions) => {
-                  if (sessions.length > 0) {
-                    ;(window as any).__voiceResponseTarget = sessions[0].id
-                    window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
-                  }
-                }).catch(() => {})
-              }
-            }}
-            onListeningChange={setIsListening}
-          />
-          <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
-        </div>
-        <div className="hal-topbar-right">
-          <SettingsMenu
-            hubFontSize={hubFontSize}
-            termFontSize={termFontSize}
-            voiceOut={voiceOut}
-            rendererId={rendererId as any}
-            layoutId={layoutId as any}
-            onHubFontSize={onHubFontSize}
-            onTermFontSize={onTermFontSize}
-            onVoiceOut={onVoiceOut}
-            onRendererChange={onRendererChange as any}
-            onLayoutChange={onLayoutChange as any}
-          />
-          <span className="hal-stat"><span className="hal-stat-n">{projects.length}</span> OPS</span>
-          <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span> READY</span>
-          <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{projects.length - readyCount}</span> PENDING</span>
-        </div>
-      </div>
+      <HudTopbar
+        search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
+        voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
+        projectCount={projects.length} readyCount={readyCount}
+        hubFontSize={hubFontSize} termFontSize={termFontSize} voiceOut={voiceOut} rendererId={rendererId} layoutId={layoutId}
+        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onRendererChange={onRendererChange} onLayoutChange={onLayoutChange}
+      />
 
       {/* Status label */}
       <div className="hal-center-label">

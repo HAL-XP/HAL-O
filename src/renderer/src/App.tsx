@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useI18n } from './i18n'
 import type { Answers, ProjectConfig, ProjectAnalysis } from './types'
 import { getActiveSteps } from './steps'
+import { useSettings } from './hooks/useSettings'
+import { useTerminalSessions } from './hooks/useTerminalSessions'
 import { SetupScreen } from './components/SetupScreen'
 import { ProjectHub } from './components/ProjectHub'
 import { Logo } from './components/Logo'
@@ -11,7 +13,7 @@ import { CurrentStep } from './components/CurrentStep'
 import { AnalysisStep } from './components/AnalysisStep'
 import { ReviewScreen } from './components/ReviewScreen'
 import { CreationProgress } from './components/CreationProgress'
-import { TerminalView, type TerminalSession } from './components/TerminalView'
+import { TerminalView } from './components/TerminalView'
 
 interface AppState {
   currentStepId: string
@@ -92,34 +94,8 @@ export function App() {
   })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
-  const [voiceFocus, setVoiceFocus] = useState<'hub' | string>('hub')
-  const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-hub-font') || '10'))
-  const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-term-font') || '13'))
-  const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('hal-o-voice-out') === 'true')
-  const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
-  const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
-
-  const updateRenderer = useCallback((id: string) => {
-    setRendererId(id)
-    localStorage.setItem('hal-o-renderer', id)
-  }, [])
-  const updateLayout = useCallback((id: string) => {
-    setLayoutId(id)
-    localStorage.setItem('hal-o-layout', id)
-  }, [])
-  const updateHubFont = useCallback((size: number) => {
-    setHubFontSize(size)
-    localStorage.setItem('hal-o-hub-font', String(size))
-  }, [])
-  const updateTermFont = useCallback((size: number) => {
-    setTermFontSize(size)
-    localStorage.setItem('hal-o-term-font', String(size))
-  }, [])
-  const updateVoiceOut = useCallback((enabled: boolean) => {
-    setVoiceOut(enabled)
-    localStorage.setItem('hal-o-voice-out', String(enabled))
-  }, [])
+  const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions()
+  const { hubFontSize, termFontSize, voiceOut, rendererId, layoutId, updateHubFont, updateTermFont, updateVoiceOut, updateRenderer, updateLayout } = useSettings()
 
   // Draggable split ratio between hub and terminal (0-100, percentage for hub)
   const [splitRatio, setSplitRatio] = useState(() => parseInt(localStorage.getItem('hal-o-split') || '50'))
@@ -147,77 +123,6 @@ export function App() {
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }, [])
-
-  // Find the Claudeborn terminal session ID — THIS is HAL
-  const getHalSessionId = useCallback(() => {
-    // Match by project path, exclude legacy _hal_ session
-    const hal = termSessions.find((s) =>
-      s.id !== '_hal_' && (s.projectPath.includes('hal-o') || s.projectPath.includes('ProjectCreator') || s.projectName === 'HAL-O' || s.projectName === 'Claudeborn')
-    )
-    return hal?.id || null
-  }, [termSessions])
-
-  const openTerminal = useCallback((projectPath: string, projectName: string, resume: boolean) => {
-    const id = projectPath.replace(/[^a-zA-Z0-9]/g, '_')
-    // Don't open duplicate
-    if (termSessions.find((s) => s.id === id)) return
-
-    const args = ['--dangerously-skip-permissions', '-n', projectName, '--channels', 'plugin:telegram@claude-plugins-official']
-    if (resume) args.push('--continue')
-
-    window.api.ptySpawn({
-      id,
-      cwd: projectPath,
-      cmd: 'claude',
-      args,
-      cols: 120,
-      rows: 30,
-      projectName,
-    })
-
-    setTermSessions((prev) => [...prev, { id, projectName, projectPath }])
-    // Auto-focus voice on the new terminal
-    setVoiceFocus(id)
-  }, [termSessions])
-
-  const closeTerminal = useCallback((id: string) => {
-    window.api.ptyClose(id)
-    setTermSessions((prev) => prev.filter((s) => s.id !== id))
-  }, [])
-
-  // Restore terminals — reconnect to running ptys (survives renderer reload)
-  // AND restore from pending file (survives full app restart)
-  useEffect(() => {
-    if (!window.api) return
-
-    // First: check for running pty sessions (renderer reload case)
-    window.api.ptySessions().then((active) => {
-      if (active.length > 0) {
-        setTermSessions((prev) => {
-          const existing = new Set(prev.map((s) => s.id))
-          const toAdd = active.filter((s) => !existing.has(s.id))
-          if (toAdd.length === 0) return prev
-          return [...prev, ...toAdd.map((s) => ({
-            id: s.id,
-            projectName: s.projectName,
-            projectPath: s.projectPath,
-          }))]
-        })
-      }
-    }).catch(() => {})
-
-    // Second: check for pending sessions from full restart
-    if (window.api.ptyCheckPending) {
-      window.api.ptyCheckPending().then((pending) => {
-        if (!pending || pending.length === 0) return
-        setTimeout(() => {
-          for (const s of pending) {
-            openTerminal(s.projectPath, s.projectName, true)
-          }
-        }, 1000)
-      }).catch(() => {})
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute derived values (always, even when setup screen is showing)
   const activeSteps = getActiveSteps(state.answers)
