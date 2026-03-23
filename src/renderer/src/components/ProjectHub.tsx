@@ -168,6 +168,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
           halOnline={!!halSessionId}
+          layoutId={layoutId}
         />
         <HudTopbar
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
@@ -190,6 +191,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           listening={isListening && voiceFocus === 'hub'}
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
+          layoutId={layoutId}
         />
 
         <HudTopbar

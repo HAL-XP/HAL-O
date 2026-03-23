@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { VOICE_PROFILES, DOCK_POSITIONS, type VoiceProfileId, type DockPosition } from '../hooks/useSettings'
+import { LAYOUTS_3D } from '../layouts3d'
 
 export const RENDERERS = [
   { id: 'classic', label: 'CLASSIC' },
@@ -9,7 +10,7 @@ export const RENDERERS = [
 
 export type RendererId = typeof RENDERERS[number]['id']
 
-export const LAYOUTS = [
+export const LAYOUTS_CLASSIC = [
   { id: 'dual-arc', label: 'DUAL ARC' },
   { id: 'dual-arc-3d', label: 'DUAL ARC 3D' },
   { id: 'jarvis-radial', label: 'JARVIS RADIAL' },
@@ -22,7 +23,16 @@ export const LAYOUTS = [
   { id: 'cinematic', label: 'CINEMATIC' },
 ] as const
 
-export type LayoutId = typeof LAYOUTS[number]['id']
+// Keep old export for backward compat
+export const LAYOUTS = LAYOUTS_CLASSIC
+
+export type LayoutId = string
+
+const RENDERER_LAYOUTS: Record<string, readonly { id: string; label: string }[]> = {
+  'classic': LAYOUTS_CLASSIC,
+  'holographic': LAYOUTS_3D,
+  'pbr-holo': LAYOUTS_3D,
+}
 
 const PROFILE_SAMPLE_TEXTS: Record<string, string> = {
   buddy: 'Hey there, just checking in. Everything looks good.',
@@ -134,7 +144,15 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
             <select
               className="hal-settings-select"
               value={rendererId}
-              onChange={(e) => onRendererChange(e.target.value as RendererId)}
+              onChange={(e) => {
+                const newRenderer = e.target.value as RendererId
+                onRendererChange(newRenderer)
+                // Auto-switch to first valid layout if current one doesn't exist in new renderer
+                const validLayouts = RENDERER_LAYOUTS[newRenderer] || LAYOUTS_CLASSIC
+                if (!validLayouts.some((l) => l.id === layoutId)) {
+                  onLayoutChange(validLayouts[0].id as LayoutId)
+                }
+              }}
             >
               {RENDERERS.map((r) => (
                 <option key={r.id} value={r.id}>{r.label}</option>
@@ -143,13 +161,13 @@ export function SettingsMenu({ hubFontSize, termFontSize, voiceOut, voiceProfile
           </div>
 
           <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-            <span className="hal-settings-label">{rendererId === 'classic' ? 'LAYOUT' : 'LAYOUT (3D)'}</span>
+            <span className="hal-settings-label">LAYOUT</span>
             <select
               className="hal-settings-select"
               value={layoutId}
               onChange={(e) => onLayoutChange(e.target.value as LayoutId)}
             >
-              {LAYOUTS.map((l) => (
+              {(RENDERER_LAYOUTS[rendererId] || LAYOUTS_CLASSIC).map((l) => (
                 <option key={l.id} value={l.id}>{l.label}</option>
               ))}
             </select>

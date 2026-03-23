@@ -8,6 +8,7 @@ import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
 import { ScreenPanel } from './ScreenPanel'
 import type { ProjectInfo } from '../../types'
+import { LAYOUT_3D_FNS } from '../../layouts3d'
 
 // ── Holographic colors (cyan, not green) ──
 const CYAN = '#00d4ff'
@@ -205,26 +206,16 @@ interface Props {
   listening: boolean
   isFullySetup: (p: ProjectInfo) => boolean
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
+  layoutId?: string
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default' }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
-    const count = projects.length
-    const radius = 7
-    const yBase = 0.8
-    return projects.map((_, i) => {
-      const angle = (i / count) * Math.PI * 2 - Math.PI / 2
-      const x = Math.cos(angle) * radius
-      const z = Math.sin(angle) * radius
-      const rotY = -angle + Math.PI / 2
-      return {
-        position: [x, yBase, z] as [number, number, number],
-        rotation: [0, rotY, 0] as [number, number, number],
-      }
-    })
-  }, [projects.length])
+    const layoutFn = LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default']
+    return layoutFn(projects.length)
+  }, [projects.length, layoutId])
 
   return (
     <Canvas
