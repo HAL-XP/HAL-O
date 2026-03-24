@@ -2113,9 +2113,11 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
 
   // ── Blur throttle: switch to demand frameloop when window loses focus ──
   // On blur: frameloop→demand + 5fps invalidate timer. On focus: frameloop→always.
+  // On focus recovery: burst-invalidate to ensure instant responsiveness (B24 fix).
   const [frameloop, setFrameloop] = useState<'always' | 'demand'>('always')
   const blurTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const invalidateRef = useRef<(() => void) | null>(null)
+  const warmupTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => {
     const startThrottle = () => {
       setFrameloop('demand')
@@ -2126,6 +2128,16 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
     const stopThrottle = () => {
       if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
       setFrameloop('always')
+      // Burst-invalidate: force several frames immediately so the render loop
+      // is fully warm before the user's first interaction lands. The React state
+      // update (setFrameloop) is async, but invalidate() triggers a frame even
+      // in "demand" mode, bridging the gap until "always" takes effect.
+      for (const t of warmupTimersRef.current) clearTimeout(t)
+      warmupTimersRef.current = []
+      const burst = [0, 8, 16, 32, 48]
+      for (const ms of burst) {
+        warmupTimersRef.current.push(setTimeout(() => { invalidateRef.current?.() }, ms))
+      }
     }
     const off = window.api.onWindowFocusChange?.((focused) => {
       if (focused) stopThrottle(); else startThrottle()
@@ -2136,6 +2148,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       stopThrottle()
+      for (const t of warmupTimersRef.current) clearTimeout(t)
+      warmupTimersRef.current = []
       off?.()
       document.removeEventListener('visibilitychange', onVisible)
     }
