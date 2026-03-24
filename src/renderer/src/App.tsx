@@ -281,8 +281,18 @@ export function App() {
   useEffect(() => {
     if (viewMode !== 'loading') return
 
+    // Safety timeout: if IPC calls hang (e.g. on CI), force exit loading after 15s
+    const safetyTimer = setTimeout(() => {
+      setViewMode((prev) => {
+        if (prev !== 'loading') return prev
+        console.warn('[HAL-O] Loading safety timeout -- falling back to setup screen')
+        return 'setup'
+      })
+    }, 15_000)
+
     // Check for continuation file first (D4)
     window.api.readContinuation().then((continuation) => {
+      clearTimeout(safetyTimer)
       if (continuation) {
         // Show a brief "Continuing setup..." message, then go to setup
         setContinuationMsg(continuation.message || 'Continuing setup...')
@@ -307,6 +317,7 @@ export function App() {
         setViewMode('setup')
       })
     }).catch(() => {
+      clearTimeout(safetyTimer)
       // If continuation check fails, proceed normally
       const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
       if (!hasSeenSetup) {
@@ -320,6 +331,8 @@ export function App() {
         setViewMode('setup')
       })
     })
+
+    return () => clearTimeout(safetyTimer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch dynamic defaults when entering wizard

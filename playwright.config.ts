@@ -4,8 +4,13 @@ const isCI = !!process.env.CI
 
 export default defineConfig({
   testDir: './e2e',
-  // CI runners are slower — give tests more time
-  timeout: isCI ? 60_000 : 30_000,
+  // CI runners are slower — give tests generous time.
+  // Individual tests can still set tighter timeouts where appropriate.
+  timeout: isCI ? 90_000 : 30_000,
+  // Default expect timeout — CI runners need more time for element waits
+  expect: {
+    timeout: isCI ? 45_000 : 10_000,
+  },
   // One retry on CI to absorb transient timing flakes; none locally
   retries: isCI ? 1 : 0,
   // Exclude local-only test files from default runs:

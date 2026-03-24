@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp } from './electron'
+import { launchApp, CI_TIMEOUT } from './electron'
 import type { ElectronApplication, Page } from 'playwright-core'
 
 /*
@@ -24,8 +24,8 @@ test.describe('Setup Screen', () => {
     // Reload to trigger fresh setup
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
-    // Wait for setup screen or hub
-    await page.locator('.setup-screen, .hal-topbar').first().waitFor({ timeout: 10000 })
+    // Wait for setup screen or hub (CI runners can be very slow)
+    await page.locator('.setup-screen, .hal-topbar').first().waitFor({ timeout: CI_TIMEOUT })
   })
 
   test.afterAll(async () => {
@@ -34,7 +34,7 @@ test.describe('Setup Screen', () => {
 
   test('1. setup screen shows all tool detection items', async () => {
     const setupScreen = page.locator('.setup-screen')
-    const isSetup = await setupScreen.isVisible({ timeout: 5000 }).catch(() => false)
+    const isSetup = await setupScreen.isVisible({ timeout: CI_TIMEOUT }).catch(() => false)
     if (!isSetup) {
       test.skip()
       return
@@ -100,7 +100,7 @@ test.describe('Setup Screen', () => {
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
     const setupScreen = page.locator('.setup-screen')
-    const isSetup = await setupScreen.isVisible({ timeout: 5000 }).catch(() => false)
+    const isSetup = await setupScreen.isVisible({ timeout: CI_TIMEOUT }).catch(() => false)
     if (!isSetup) {
       test.skip()
       return
@@ -124,7 +124,7 @@ test.describe('Setup Screen', () => {
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
     const setupScreen = page.locator('.setup-screen')
-    const isSetup = await setupScreen.isVisible({ timeout: 5000 }).catch(() => false)
+    const isSetup = await setupScreen.isVisible({ timeout: CI_TIMEOUT }).catch(() => false)
     if (!isSetup) {
       test.skip()
       return
@@ -169,7 +169,7 @@ test.describe('Import / Enlist Flow', () => {
       await page.waitForTimeout(1000)
     }
     // Wait for hub
-    await page.locator('.hal-topbar').waitFor({ timeout: 10000 })
+    await page.locator('.hal-topbar').waitFor({ timeout: CI_TIMEOUT })
   })
 
   test.afterAll(async () => {
@@ -261,7 +261,7 @@ test.describe('Settings Panel', () => {
       await page.locator('.create-btn').click()
       await page.waitForTimeout(1000)
     }
-    await page.locator('.hal-topbar').waitFor({ timeout: 10000 })
+    await page.locator('.hal-topbar').waitFor({ timeout: CI_TIMEOUT })
   })
 
   test.afterAll(async () => {
@@ -597,7 +597,7 @@ test.describe('Demo Mode', () => {
       await page.locator('.create-btn').click()
       await page.waitForTimeout(1000)
     }
-    await page.locator('.hal-topbar').waitFor({ timeout: 10000 })
+    await page.locator('.hal-topbar').waitFor({ timeout: CI_TIMEOUT })
   })
 
   test.afterAll(async () => {
@@ -721,7 +721,7 @@ test.describe('3D Theme', () => {
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
     // Wait for hub to appear (PBR renderer)
-    await page.locator('.hal-topbar').waitFor({ timeout: 15000 })
+    await page.locator('.hal-topbar').waitFor({ timeout: CI_TIMEOUT })
   })
 
   test.afterAll(async () => {
@@ -815,7 +815,7 @@ test.describe('Hub', () => {
       await page.locator('.create-btn').click()
       await page.waitForTimeout(1000)
     }
-    await page.locator('.hal-topbar').waitFor({ timeout: 10000 })
+    await page.locator('.hal-topbar').waitFor({ timeout: CI_TIMEOUT })
     // Enable demo mode to ensure projects are present
     await page.locator('button[title="Settings"]').click()
     const panel = page.locator('.hal-settings-panel')

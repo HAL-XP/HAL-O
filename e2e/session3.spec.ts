@@ -4,7 +4,7 @@
  * Run: npx playwright test e2e/session3.spec.ts --timeout=120000
  */
 import { test, expect } from '@playwright/test'
-import { launchApp } from './electron'
+import { launchApp, CI_TIMEOUT } from './electron'
 import type { ElectronApplication, Page } from 'playwright-core'
 
 let app: ElectronApplication
@@ -56,10 +56,10 @@ test.beforeAll(async () => {
   await page.reload()
 
   // Wait for the hub + canvas to render (CI with xvfb is slow)
-  await page.locator('canvas').first().waitFor({ timeout: 30000 }).catch(() => {})
+  await page.locator('canvas').first().waitFor({ timeout: CI_TIMEOUT }).catch(() => {})
   // Wait for the Settings button to confirm the hub is fully mounted
-  await page.locator('button[title="Settings"]').waitFor({ timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(1000) // Brief settle
+  await page.locator('button[title="Settings"]').waitFor({ timeout: CI_TIMEOUT }).catch(() => {})
+  await page.waitForTimeout(2000) // Brief settle
 })
 
 test.afterAll(async () => {
@@ -70,7 +70,7 @@ test.afterAll(async () => {
 
 test('1 — Settings panel opens and closes', async () => {
   const settingsBtn = page.locator('button[title="Settings"]')
-  await expect(settingsBtn).toBeVisible({ timeout: 5000 })
+  await expect(settingsBtn).toBeVisible({ timeout: CI_TIMEOUT })
   await settingsBtn.click()
 
   // Settings panel should appear (rendered via portal)
@@ -221,7 +221,7 @@ test('8 — Screenshot after switching to HAL eye sphere style', async () => {
     localStorage.setItem('hal-o-sphere-style', 'hal-eye')
   })
   await page.reload()
-  await page.locator('canvas').first().waitFor({ timeout: 20000 }).catch(() => {})
+  await page.locator('canvas').first().waitFor({ timeout: CI_TIMEOUT }).catch(() => {})
   await page.waitForTimeout(3000) // Let sphere transition settle
 
   await page.screenshot({ path: 'screenshots/e2e-session3-hal-eye.png', fullPage: true })
@@ -231,7 +231,7 @@ test('8 — Screenshot after switching to HAL eye sphere style', async () => {
     localStorage.setItem('hal-o-sphere-style', 'wireframe')
   })
   await page.reload()
-  await page.locator('canvas').first().waitFor({ timeout: 20000 }).catch(() => {})
+  await page.locator('canvas').first().waitFor({ timeout: CI_TIMEOUT }).catch(() => {})
   await page.waitForTimeout(2000)
 })
 

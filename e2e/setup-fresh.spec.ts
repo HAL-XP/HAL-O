@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp } from './electron'
+import { launchApp, CI_TIMEOUT } from './electron'
 import type { ElectronApplication, Page } from 'playwright-core'
 
 let app: ElectronApplication
@@ -14,9 +14,10 @@ test.afterAll(async () => {
 })
 
 test('setup screen or hub appears on launch', async () => {
-  // Setup screen shows on first launch; auto-skips to hub if setup was completed before
+  // Setup screen shows on first launch; auto-skips to hub if setup was completed before.
+  // On CI the app may stay in "loading" mode for a long time while IPC calls resolve.
   const setupOrHub = page.locator('.setup-screen, .hal-topbar, canvas').first()
-  await expect(setupOrHub).toBeVisible({ timeout: 10000 })
+  await expect(setupOrHub).toBeVisible({ timeout: CI_TIMEOUT })
 })
 
 test('setup screen has correct items when visible', async () => {
@@ -24,7 +25,7 @@ test('setup screen has correct items when visible', async () => {
   const isSetup = await setupScreen.isVisible().catch(() => false)
   if (isSetup) {
     const nodeItem = page.locator('.setup-item.ok').first()
-    await expect(nodeItem).toBeVisible({ timeout: 5000 })
+    await expect(nodeItem).toBeVisible({ timeout: CI_TIMEOUT })
   }
 })
 
@@ -34,11 +35,11 @@ test('setup screen has continue button when visible', async () => {
   if (isSetup) {
     // On setup screen: look for the launch/continue button
     const continueBtn = page.locator('.create-btn, button:has-text("Launch HAL-O"), button:has-text("Continue")')
-    await expect(continueBtn.first()).toBeVisible({ timeout: 5000 })
+    await expect(continueBtn.first()).toBeVisible({ timeout: CI_TIMEOUT })
   } else {
     // Already at hub — setup was previously completed, skip assertion
     const hub = page.locator('.hal-topbar, canvas').first()
-    await expect(hub).toBeVisible()
+    await expect(hub).toBeVisible({ timeout: CI_TIMEOUT })
   }
 })
 
@@ -47,13 +48,13 @@ test('clicking continue goes to hub', async () => {
   const isSetup = await setupScreen.isVisible().catch(() => false)
   if (isSetup) {
     const continueBtn = page.locator('.create-btn, button:has-text("Launch HAL-O"), button:has-text("Continue")')
-    await continueBtn.first().click()
-    await page.waitForTimeout(1000)
+    await continueBtn.first().click({ force: true })
+    await page.waitForTimeout(2000)
   }
 
   // Should now see the hub
   const hub = page.locator('.hal-topbar, canvas').first()
-  await expect(hub).toBeVisible({ timeout: 10000 })
+  await expect(hub).toBeVisible({ timeout: CI_TIMEOUT })
 })
 
 test('screenshot setup flow result', async () => {

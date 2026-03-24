@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp } from './electron'
+import { launchApp, CI_TIMEOUT } from './electron'
 import type { ElectronApplication, Page } from 'playwright-core'
 
 let app: ElectronApplication
@@ -21,30 +21,30 @@ test('window title contains HAL-O', async () => {
 test('setup screen shows on first launch', async () => {
   // Setup screen should be visible with prerequisite checks
   const setupScreen = page.locator('.setup-screen')
-  const isSetup = await setupScreen.isVisible({ timeout: 5000 }).catch(() => false)
+  const isSetup = await setupScreen.isVisible({ timeout: CI_TIMEOUT }).catch(() => false)
 
   if (isSetup) {
     // Wait for prerequisite checks to complete (loading spinner disappears)
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(3000)
 
     // Click "Skip Setup" / "Continue" / "Launch HAL-O" button
     const continueBtn = page.locator('.create-btn').first()
-    await expect(continueBtn).toBeVisible({ timeout: 10000 })
+    await expect(continueBtn).toBeVisible({ timeout: CI_TIMEOUT })
     await continueBtn.click({ force: true })
 
     // Wait for transition to hub
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(3000)
   }
 })
 
 test('hub renders after setup', async () => {
   const hub = page.locator('.project-hub, .hal-topbar, canvas').first()
-  await expect(hub).toBeVisible({ timeout: 15000 })
+  await expect(hub).toBeVisible({ timeout: CI_TIMEOUT })
 })
 
 test('HUD shows SYS://HAL-O', async () => {
   const label = page.locator('.hal-sys-label')
-  await expect(label).toBeVisible({ timeout: 10000 })
+  await expect(label).toBeVisible({ timeout: CI_TIMEOUT })
   const text = await label.textContent()
   expect(text).toContain('HAL-O')
 })
