@@ -378,16 +378,14 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     // === Pulse wave expanding from center ===
     float pulse = smoothstep(0.3, 0.0, abs(dist - fract(uTime * 0.15))) * 0.25;
 
-    // === Combine (clamped below bloom threshold to prevent motion streaks) ===
-    float intensity = (ringLine * 0.2 + tick * 0.1 + dot * 0.3 + pulse * 0.3) * innerFade * edgeFade;
+    // === Combine — full intensity for neon HUD look ===
+    // B27v5: removed the 0.25 luminance clamp (was a workaround for motion streaks
+    // caused by group rotation, which is now fixed in B27v4)
+    float intensity = (ringLine * 0.7 + tick * 0.4 + dot * 0.8 + pulse * 0.5) * innerFade * edgeFade;
     vec3 color = baseColor * intensity;
+    float alpha = clamp(intensity * 2.5, 0.0, 1.0) * edgeFade;
 
-    // Clamp output to stay below bloom luminance threshold (0.3)
-    // This ensures ring lines NEVER trigger bloom, eliminating motion streaks
-    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    color *= min(1.0, 0.25 / max(lum, 0.001));
-
-    gl_FragColor = vec4(color, intensity * edgeFade * 0.7);
+    gl_FragColor = vec4(color, alpha);
   }
 `
 
