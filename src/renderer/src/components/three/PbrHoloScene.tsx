@@ -148,13 +148,13 @@ function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
       <circleGeometry args={[radius, 128]} />
       <MeshReflectorMaterial
         mirror={0.15}
-        resolution={512}
-        mixBlur={10}
-        mixStrength={0.4}
+        resolution={768}
+        mixBlur={8}
+        mixStrength={0.35}
         roughness={0.92}
         metalness={0.3}
         color={floorColor}
-        blur={[400, 150]}
+        blur={[300, 300]}
         transparent
         alphaMap={alphaMap}
       />
@@ -327,34 +327,46 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     float t = smoothstep(0.2, 0.9, dist);
     vec3 baseColor = mix(uInnerColor, uOuterColor, t);
 
-    // B27 fix: screen-space adaptive line widths via fwidth()
+    // B27 fix: screen-space anti-aliasing + density fade
+    // When rings/ticks become too dense on screen, fade them out entirely
+    // (like a mipmap) instead of letting them alias into horizontal bars.
     float fwDist = fwidth(dist);
     float fwAngle = fwidth(angle);
 
     // === Concentric rings — the signature look ===
     float ringDensity = 80.0;
     float ringDist = fract(dist * ringDensity);
-    // Anti-aliased ring width: never thinner than 1.5 screen pixels
-    float ringHalfW = max(0.03 + 0.02 * sin(dist * 20.0), fwDist * ringDensity * 1.5);
-    float ringLine = smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist);
+    float ringScreenWidth = fwDist * ringDensity; // how many ring periods fit in one pixel
+    // Fade out when rings are denser than ~3 pixels per period
+    float ringFade = smoothstep(0.5, 0.15, ringScreenWidth);
+    float ringHalfW = max(0.03 + 0.02 * sin(dist * 20.0), ringScreenWidth * 1.5);
+    float ringLine = (smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist)) * ringFade;
 
-    // Major rings (every 8th ring is brighter)
-    float majorRing = fract(dist * ringDensity / 8.0);
-    float majorHalfW = max(0.05, fwDist * ringDensity / 8.0 * 1.5);
-    float majorLine = smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing);
+    // Major rings (every 8th ring — visible at further distances)
+    float majorDensity = ringDensity / 8.0;
+    float majorRing = fract(dist * majorDensity);
+    float majorScreenW = fwDist * majorDensity;
+    float majorFade = smoothstep(0.5, 0.15, majorScreenW);
+    float majorHalfW = max(0.05, majorScreenW * 1.5);
+    float majorLine = (smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing)) * majorFade;
     ringLine = max(ringLine * 0.5, majorLine);
 
     // === Tick marks — radial lines at regular angles ===
     float tickCount = 72.0;
+    float tickScreenW = fwAngle / (2.0 * 3.14159265) * tickCount;
+    float tickFade = smoothstep(0.5, 0.15, tickScreenW);
     float tickAngle = fract(angle / (2.0 * 3.14159265) * tickCount);
-    float tickHalfW = max(0.02, fwAngle * tickCount * 0.8);
-    float tick = smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle);
+    float tickHalfW = max(0.02, tickScreenW * 1.5);
+    float tick = (smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle)) * tickFade;
     // Ticks only in certain radius bands
     float tickBand = step(0.3, dist) * step(dist, 0.85);
     // Major ticks every 8th
-    float majorTickAngle = fract(angle / (2.0 * 3.14159265) * (tickCount / 8.0));
-    float majorTickHalfW = max(0.04, fwAngle * tickCount / 8.0 * 1.0);
-    float majorTick = smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle);
+    float majorTickCount = tickCount / 8.0;
+    float majorTickScreenW = fwAngle / (2.0 * 3.14159265) * majorTickCount;
+    float majorTickFade = smoothstep(0.5, 0.15, majorTickScreenW);
+    float majorTickAngle = fract(angle / (2.0 * 3.14159265) * majorTickCount);
+    float majorTickHalfW = max(0.04, majorTickScreenW * 1.5);
+    float majorTick = (smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle)) * majorTickFade;
     tick = max(tick * 0.3, majorTick * 0.6) * tickBand;
 
     // === Marker dots at intersections ===
@@ -505,11 +517,13 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
             varying vec2 vUv;
             varying float vDist;
 
-            // B27 fix: screen-space anti-aliased ring line
+            // B27 fix: screen-space anti-aliased ring with density fade
             float aaRing(float dist, float center, float baseWidth, float intensity) {
               float fw = fwidth(dist);
-              float halfW = max(baseWidth, fw * 1.5); // never thinner than 1.5 screen pixels
-              return smoothstep(halfW, 0.0, abs(dist - center)) * intensity;
+              float halfW = max(baseWidth, fw * 1.5);
+              // Fade out when line would be less than ~3 pixels wide
+              float fade = smoothstep(baseWidth * 0.3, baseWidth * 2.0, 1.0 / max(fw, 0.001));
+              return smoothstep(halfW, 0.0, abs(dist - center)) * intensity * fade;
             }
 
             void main() {
