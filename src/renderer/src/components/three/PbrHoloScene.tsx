@@ -1450,12 +1450,23 @@ function SceneBackground() {
   return <color attach="background" args={[theme.backgroundHex]} />
 }
 
-// ── AutoRotate Manager — pauses rotation on user interaction, resumes after 3s ──
+// ── AutoRotate Manager — pauses rotation on user interaction, resumes after delay ──
+// B31b: autoRotate is managed ONLY here (not as a JSX prop on OrbitControls).
+// Setting it declaratively caused React re-renders to re-apply autoRotate=true mid-drag,
+// creating teleport/jitter when the user manually orbits.
 // Also pauses during active search (U7) so search results stay in view.
 function AutoRotateManager({ searchActive = false }: { searchActive?: boolean }) {
   const { controls } = useThree()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const interactingRef = useRef(false)
+
+  // Imperatively enable auto-rotate on mount (replaces the removed JSX prop)
+  useEffect(() => {
+    if (!controls) return
+    const orbitControls = controls as any
+    orbitControls.autoRotate = !searchActive
+    orbitControls.autoRotateSpeed = 0.12
+  }, [controls]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause/resume auto-rotate when search state changes (U7)
   useEffect(() => {
@@ -1483,9 +1494,11 @@ function AutoRotateManager({ searchActive = false }: { searchActive?: boolean })
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       // Don't resume auto-rotate while search is active (U7)
       if (searchActive) return
+      // B31b: 500ms delay lets damping settle before auto-rotate resumes,
+      // preventing the snap-back jitter at drag release.
       timeoutRef.current = setTimeout(() => {
         orbitControls.autoRotate = true
-      }, 3000)
+      }, 500)
     }
 
     orbitControls.addEventListener('start', onStart)
@@ -2334,8 +2347,8 @@ function PbrSceneInner({
         maxDistance={maxCamDistance}
         minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 2 - 0.03}
-        autoRotate
-        autoRotateSpeed={0.12}
+        enableDamping
+        dampingFactor={0.05}
         target={[0, 0.3, 0]}
       />
       <AutoRotateManager searchActive={searchActive} />
