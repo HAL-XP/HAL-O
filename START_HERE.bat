@@ -1,4 +1,9 @@
 @echo off
+:: Safety net — if ANYTHING crashes, this keeps the window open
+if "%~1"=="" (
+    cmd /k "%~f0" run
+    exit /b
+)
 chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
 
