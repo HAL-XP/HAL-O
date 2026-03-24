@@ -666,6 +666,13 @@ export const ScreenPanel = memo(function ScreenPanel({
                   {'>_'}
                 </button>
               )}
+              <button
+                onClick={() => (window as any).__openTaskBoard?.(projectPath)}
+                style={{ ...btnGhost, color: '#22d3ee', borderColor: 'rgba(34,211,238,0.2)' }}
+                title="Open task board for this project"
+              >
+                TASKS
+              </button>
             </div>
             </div>{/* close zIndex:1 content wrapper */}
           </div>

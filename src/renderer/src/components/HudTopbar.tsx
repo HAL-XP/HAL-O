@@ -1,7 +1,9 @@
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
+import { TaskBoard } from './TaskBoard'
+import { useTasks } from '../hooks/useTasks'
 import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
@@ -70,6 +72,8 @@ interface HudTopbarProps {
   // Dock mode (Phase 2)
   dockMode?: boolean
   onDockModeChange?: (enabled: boolean) => void
+  // Task board — project list for filter dropdown
+  projects?: Array<{ path: string; name: string }>
 }
 
 export function HudTopbar({
@@ -88,8 +92,39 @@ export function HudTopbar({
   onVoiceBlocked,
   defaultIde = 'auto', onDefaultIdeChange,
   dockMode = false, onDockModeChange,
+  projects = [],
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
+
+  // ── Task Board ──
+  const tasksState = useTasks()
+  const [taskBoardOpen, setTaskBoardOpen] = useState(false)
+  const [taskFilterProject, setTaskFilterProject] = useState<string | null>(null)
+  const taskCount = tasksState.tasks.filter(t => t.status !== 'done').length
+
+  const openTaskBoard = useCallback((projectPath?: string | null) => {
+    setTaskFilterProject(projectPath ?? null)
+    setTaskBoardOpen(true)
+  }, [])
+
+  // Expose global function so ScreenPanel (inside R3F Canvas) can open the task board
+  useEffect(() => {
+    ;(window as any).__openTaskBoard = openTaskBoard
+    return () => { delete (window as any).__openTaskBoard }
+  }, [openTaskBoard])
+
+  // Keyboard shortcut: Ctrl+Shift+T opens task board
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault()
+        setTaskBoardOpen(prev => !prev)
+        if (!taskBoardOpen) setTaskFilterProject(null)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [taskBoardOpen])
 
   // Mic is disabled when hub is focused but no HAL terminal is linked
   const micDisabled = voiceFocus === 'hub' && !halSessionId
@@ -172,10 +207,45 @@ export function HudTopbar({
           demo={demo}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
         />
+        {/* Task Board button */}
+        <button
+          className="hal-settings-btn"
+          onClick={() => { setTaskFilterProject(null); setTaskBoardOpen(prev => !prev) }}
+          title="Mission Control — Task Board (Ctrl+Shift+T)"
+          style={{ position: 'relative' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="9" y1="9" x2="9" y2="21" />
+          </svg>
+          {taskCount > 0 && (
+            <span style={{
+              position: 'absolute', top: '-4px', right: '-4px',
+              background: '#22d3ee', color: '#000',
+              fontSize: '7px', fontWeight: 800,
+              minWidth: '12px', height: '12px',
+              borderRadius: '6px', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              padding: '0 3px', lineHeight: 1,
+              fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+            }}>
+              {taskCount}
+            </span>
+          )}
+        </button>
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span><span className="hal-stat-label"> OPS</span></span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span><span className="hal-stat-label"> READY</span></span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-warn">{pendingCount}</span><span className="hal-stat-label"> PENDING</span></span>
       </div>
+      {/* Task Board overlay */}
+      <TaskBoard
+        open={taskBoardOpen}
+        onClose={() => setTaskBoardOpen(false)}
+        tasks={tasksState}
+        filterProject={taskFilterProject}
+        projects={projects}
+      />
     </div>
   )
 }

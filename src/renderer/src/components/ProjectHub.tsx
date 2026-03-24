@@ -597,6 +597,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
+          projects={projects.map(p => ({ path: p.path, name: p.name }))}
         />
         {renderAbsorptionOverlay()}
       </div>
@@ -680,6 +681,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
+          projects={projects.map(p => ({ path: p.path, name: p.name }))}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
@@ -750,6 +752,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
+          projects={projects.map(p => ({ path: p.path, name: p.name }))}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -816,6 +819,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onVoiceBlocked={handleVoiceBlocked}
         defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
         dockMode={dockMode} onDockModeChange={onDockModeChange}
+        projects={projects.map(p => ({ path: p.path, name: p.name }))}
       />
 
       {/* Status label */}
