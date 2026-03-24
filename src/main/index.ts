@@ -158,6 +158,13 @@ function createWindow(): void {
 
 // ── Dev tools ──
 
+// Clipboard — reliable in all Electron security contexts
+ipcMain.handle('copy-to-clipboard', async (_event, text: string) => {
+  const { clipboard } = await import('electron')
+  clipboard.writeText(text)
+  return true
+})
+
 // Reload renderer without killing main process (ptys survive!)
 ipcMain.handle('reload-renderer', async () => {
   mainWindow?.webContents.reload()

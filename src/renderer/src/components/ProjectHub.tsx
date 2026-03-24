@@ -467,6 +467,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
         />
+        {renderAbsorptionOverlay()}
       </div>
     )
   }

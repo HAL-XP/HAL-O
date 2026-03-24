@@ -145,24 +145,24 @@ function ErrorToast({ toast, onDismiss }: { toast: ToastEntry; onDismiss: (id: n
   const [copied, setCopied] = useState(false)
   const [exiting, setExiting] = useState(false)
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(() => {
     try {
-      await navigator.clipboard.writeText(toast.detail)
+      // Use Electron clipboard (works in all security contexts)
+      if (window.api?.copyToClipboard) {
+        window.api.copyToClipboard(toast.detail)
+      } else {
+        // Fallback: selection + execCommand
+        const ta = document.createElement('textarea')
+        ta.value = toast.detail
+        ta.style.cssText = 'position:fixed;opacity:0;left:-9999px'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // Fallback: textarea trick
-      const ta = document.createElement('textarea')
-      ta.value = toast.detail
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
+    } catch { /* silently fail */ }
   }, [toast.detail])
 
   const handleDismiss = useCallback(() => {

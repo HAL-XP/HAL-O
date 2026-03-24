@@ -152,6 +152,9 @@ const api = {
     return () => ipcRenderer.removeListener('window-focus-change', listener)
   },
 
+  // Clipboard (works in all Electron security contexts)
+  copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),
+
   // A11: "Ship it!" flyby — triggered when git push is detected in a terminal
   onShipItFlyby: (callback: (info: { projectPath: string; projectName: string; shipIndex: number }) => void) => {
     const listener = (_: unknown, info: { projectPath: string; projectName: string; shipIndex: number }) => callback(info)
