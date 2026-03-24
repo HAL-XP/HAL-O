@@ -110,9 +110,24 @@ function playOrGenerate(text: string, profileId: string, setPreviewing: (v: stri
   }).catch(() => setPreviewing(null))
 }
 
+const SECTION_ICONS: Record<string, string> = {
+  'DISPLAY': '\uD83D\uDDA5\uFE0F',
+  'GRAPHICS': '\uD83C\uDFA8',
+  'EFFECTS': '\u2728',
+  'FONTS': '\uD83D\uDD24',
+  'TERMINAL': '\u2B1B',
+  'VOICE': '\uD83C\uDF99\uFE0F',
+  'PERSONALITY': '\uD83C\uDFAD',
+  'PRESETS': '\uD83D\uDCBE',
+  'SYSTEM': '\u2699\uFE0F',
+  'HIDDEN PROJECTS': '\uD83D\uDC41\uFE0F',
+  'DEMO MODE': '\uD83C\uDFAC',
+}
+
 function SectionHeader({ label, expanded, onToggle }: { label: string; expanded: boolean; onToggle: () => void }) {
+  const icon = SECTION_ICONS[label] || ''
   return (<button className="hal-settings-section-header" onClick={onToggle}>
-    <span className="hal-settings-section-arrow">{expanded ? '\u25BC' : '\u25B6'}</span><span>{label}</span>
+    <span className="hal-settings-section-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>{icon && <span style={{ marginRight: 6, fontSize: '12px' }}>{icon}</span>}<span>{label}</span>
   </button>)
 }
 
@@ -169,6 +184,12 @@ export function SettingsMenu({
   onRedetectGpu,
 }: Props) {
   const [open, setOpen] = useState(false)
+  // Listen for external open requests (e.g. GPU wizard "Customize" button)
+  useEffect(() => {
+    const handler = () => setOpen(true)
+    window.addEventListener('hal-open-settings', handler)
+    return () => window.removeEventListener('hal-open-settings', handler)
+  }, [])
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

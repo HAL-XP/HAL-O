@@ -256,7 +256,8 @@ export function App() {
 
   const handleGpuWizardCustomize = useCallback(() => {
     setShowGpuWizard(false)
-    // Settings panel will be opened by the user from the gear icon
+    // Dispatch event so SettingsMenu opens itself (no prop drilling needed)
+    window.dispatchEvent(new CustomEvent('hal-open-settings'))
   }, [])
 
   const handleRedetectGpu = useCallback(() => {
