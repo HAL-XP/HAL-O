@@ -13,6 +13,7 @@ import { registerWizardHandlers } from './ipc-wizard'
 import { registerTerminalHandlers } from './ipc-terminal'
 import { registerVoiceHandlers } from './ipc-voice'
 import { registerUpgradeHandlers } from './ipc-upgrade'
+import { registerModelHandlers } from './ipc-models'
 
 export function registerIpcHandlers(): void {
   registerSetupHandlers()
@@ -21,4 +22,5 @@ export function registerIpcHandlers(): void {
   registerTerminalHandlers()
   registerVoiceHandlers()
   registerUpgradeHandlers()
+  registerModelHandlers()
 }

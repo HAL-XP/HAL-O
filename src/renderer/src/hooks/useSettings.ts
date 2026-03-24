@@ -105,6 +105,18 @@ export const IDE_OPTIONS = [
 
 export type IdeOptionId = typeof IDE_OPTIONS[number]['id']
 
+// ── X7: Terminal AI Model ──
+
+export const TERMINAL_MODEL_OPTIONS = [
+  { id: 'default', label: 'CLAUDE (DEFAULT)' },
+  { id: 'gpt-4o', label: 'GPT-4o' },
+  { id: 'codex', label: 'CODEX' },
+  { id: 'ollama', label: 'OLLAMA (LOCAL)' },
+  { id: 'custom', label: 'CUSTOM ENDPOINT' },
+] as const
+
+export type TerminalModelId = typeof TERMINAL_MODEL_OPTIONS[number]['id']
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -125,6 +137,7 @@ export interface SettingsState {
   personality: PersonalitySettings
   defaultIde: IdeOptionId
   activityFeedback: boolean
+  defaultTerminalModel: TerminalModelId
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -146,6 +159,7 @@ export interface SettingsState {
   applyPersonalityPreset: (presetName: string) => void
   updateDefaultIde: (id: IdeOptionId) => void
   updateActivityFeedback: (enabled: boolean) => void
+  updateDefaultTerminalModel: (id: TerminalModelId) => void
 }
 
 export function useSettings(): SettingsState {
@@ -205,6 +219,7 @@ export function useSettings(): SettingsState {
   })
   const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
   const [activityFeedback, setActivityFeedback] = useState(() => localStorage.getItem('hal-o-activity-feedback') !== 'false') // default ON
+  const [defaultTerminalModel, setDefaultTerminalModel] = useState<TerminalModelId>(() => (localStorage.getItem('hal-o-terminal-model') as TerminalModelId) || 'default')
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
     return stored !== null ? parseFloat(stored) : 0.5
@@ -288,6 +303,10 @@ export function useSettings(): SettingsState {
     setActivityFeedback(enabled)
     localStorage.setItem('hal-o-activity-feedback', String(enabled))
   }, [])
+  const updateDefaultTerminalModel = useCallback((id: TerminalModelId) => {
+    setDefaultTerminalModel(id)
+    localStorage.setItem('hal-o-terminal-model', id)
+  }, [])
   const updateVoiceReactionIntensity = useCallback((v: number) => {
     setVoiceReactionIntensity(v)
     localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
@@ -328,7 +347,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback, defaultTerminalModel,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
   }
 }

@@ -4,7 +4,7 @@ import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
 import { TaskBoard } from './TaskBoard'
 import { useTasks } from '../hooks/useTasks'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId, TerminalModelId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -71,6 +71,9 @@ interface HudTopbarProps {
   // IDE (U19)
   defaultIde?: IdeOptionId
   onDefaultIdeChange?: (id: IdeOptionId) => void
+  // X7: Terminal AI model
+  defaultTerminalModel?: TerminalModelId
+  onDefaultTerminalModelChange?: (id: TerminalModelId) => void
   // Dock mode (Phase 2)
   dockMode?: boolean
   onDockModeChange?: (enabled: boolean) => void
@@ -94,6 +97,7 @@ export function HudTopbar({
   demo,
   onVoiceBlocked,
   defaultIde = 'auto', onDefaultIdeChange,
+  defaultTerminalModel = 'default', onDefaultTerminalModelChange,
   dockMode = false, onDockModeChange,
   projects = [],
 }: HudTopbarProps) {
@@ -207,6 +211,7 @@ export function HudTopbar({
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           defaultIde={defaultIde} onDefaultIdeChange={onDefaultIdeChange ?? (() => {})}
+          defaultTerminalModel={defaultTerminalModel} onDefaultTerminalModelChange={onDefaultTerminalModelChange ?? (() => {})}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
           dockMode={dockMode} onDockModeChange={onDockModeChange}

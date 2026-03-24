@@ -148,7 +148,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel } = useSettings()
 
   const updateWizardFont = useCallback((size: number) => {
     setWizardFontSize(size)
@@ -415,6 +415,8 @@ export function App() {
             demo={demo}
             defaultIde={defaultIde}
             onDefaultIdeChange={updateDefaultIde}
+            defaultTerminalModel={defaultTerminalModel}
+            onDefaultTerminalModelChange={updateDefaultTerminalModel}
             termSessions={termSessions}
             onCloseTerminal={closeTerminal}
             onVoiceFocus={(id) => setVoiceFocus(id)}
@@ -494,6 +496,8 @@ export function App() {
             demo={demo}
             defaultIde={defaultIde}
             onDefaultIdeChange={updateDefaultIde}
+            defaultTerminalModel={defaultTerminalModel}
+            onDefaultTerminalModelChange={updateDefaultTerminalModel}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
           />

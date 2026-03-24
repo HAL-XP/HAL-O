@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { TerminalPanel } from './TerminalPanel'
 import type { TerminalSession } from '../types'
-import type { VoiceProfileId } from '../hooks/useSettings'
+import { TERMINAL_MODEL_OPTIONS, type VoiceProfileId } from '../hooks/useSettings'
 
 export type { TerminalSession }
 
@@ -19,6 +19,8 @@ interface Props {
   fontSize?: number
   voiceOut?: boolean
   voiceProfile?: VoiceProfileId
+  /** X7: callback when user changes AI model for a terminal via context menu */
+  onModelChange?: (sessionId: string, modelId: string) => void
 }
 
 type DropZone = 'left' | 'right' | 'full' | null
@@ -36,7 +38,7 @@ function loadLayout(): Pane[] {
   } catch { return [] }
 }
 
-export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
+export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, fontSize = 13, voiceOut = false, voiceProfile = 'auto', onModelChange }: Props) {
   const [panes, setPanesRaw] = useState<Pane[]>(loadLayout)
   const [draggedTab, setDraggedTab] = useState<string | null>(null)
 
@@ -51,6 +53,7 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
   const [dropPreview, setDropPreview] = useState<{ paneId: string; zone: DropZone } | null>(null)
   const [dragOverNewZone, setDragOverNewZone] = useState<'left' | 'right' | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sessionId: string } | null>(null)
+  const [modelSubOpen, setModelSubOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Sync sessions into panes — restore saved layout, add new sessions, remove closed ones
@@ -234,12 +237,21 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
   const handleContextMenu = useCallback((e: React.MouseEvent, sessionId: string) => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, sessionId })
+    setModelSubOpen(false)
   }, [])
+
+  const handleModelSelect = useCallback((sessionId: string, modelId: string) => {
+    onModelChange?.(sessionId, modelId)
+    // Also store via IPC so the main process knows
+    window.api?.setTerminalModel?.(sessionId, modelId === 'default' ? null : modelId)
+    setContextMenu(null)
+    setModelSubOpen(false)
+  }, [onModelChange])
 
   // Close context menu on click anywhere
   useEffect(() => {
     if (!contextMenu) return
-    const close = () => setContextMenu(null)
+    const close = () => { setContextMenu(null); setModelSubOpen(false) }
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [contextMenu])
@@ -291,7 +303,14 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
                   onContextMenu={(e) => handleContextMenu(e, tabId)}
                 >
                   <span className="hal-terminal-tab-dot" />
-                  <span className="hal-terminal-tab-name">{session.projectName}</span>
+                  <span className="hal-terminal-tab-name">
+                    {session.projectName}
+                    {session.modelOverride && session.modelOverride !== 'default' && (
+                      <span className="hal-terminal-tab-model" title={`AI Model: ${session.modelOverride}`}>
+                        {' '}[{TERMINAL_MODEL_OPTIONS.find(m => m.id === session.modelOverride)?.label || session.modelOverride}]
+                      </span>
+                    )}
+                  </span>
                   <button
                     className="hal-terminal-tab-close"
                     onClick={(e) => { e.stopPropagation(); closeTab(tabId) }}
@@ -331,6 +350,33 @@ export function TerminalView({ sessions, onClose, voiceFocus, onVoiceFocus, font
           <button onClick={() => popOutToExternal(contextMenu.sessionId)}>
             Open in External Terminal
           </button>
+          <div
+            className="hal-tab-context-menu-item-sub"
+            onMouseEnter={() => setModelSubOpen(true)}
+            onMouseLeave={() => setModelSubOpen(false)}
+          >
+            <button className="hal-tab-context-menu-sub-trigger">
+              Change AI Model <span style={{ float: 'right', opacity: 0.5 }}>▶</span>
+            </button>
+            {modelSubOpen && (
+              <div className="hal-tab-context-submenu">
+                {TERMINAL_MODEL_OPTIONS.map((m) => {
+                  const session = getSession(contextMenu.sessionId)
+                  const currentModel = session?.modelOverride || 'default'
+                  return (
+                    <button
+                      key={m.id}
+                      className={currentModel === m.id ? 'active' : ''}
+                      onClick={(e) => { e.stopPropagation(); handleModelSelect(contextMenu.sessionId, m.id) }}
+                    >
+                      {currentModel === m.id && <span style={{ marginRight: 6 }}>●</span>}
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           <button onClick={() => { closeTab(contextMenu.sessionId); setContextMenu(null) }}>
             Close Tab
           </button>

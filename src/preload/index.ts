@@ -162,6 +162,14 @@ const api = {
   setLaunchOnStartup: (enabled: boolean): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('set-launch-on-startup', enabled),
 
+  // Model providers (X7)
+  getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
+  setTerminalModel: (sessionId: string, modelId: string | null) =>
+    ipcRenderer.invoke('set-terminal-model', sessionId, modelId),
+  getTerminalModel: (sessionId: string): Promise<string | null> =>
+    ipcRenderer.invoke('get-terminal-model', sessionId),
+  refreshModelProviders: () => ipcRenderer.invoke('refresh-model-providers'),
+
   // Dev: 2D Preview Mode toggle
   onToggle2dPreview: (callback: (enabled: boolean) => void) => {
     const listener = (_: unknown, enabled: boolean) => callback(enabled)

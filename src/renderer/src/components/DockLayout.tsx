@@ -140,6 +140,8 @@ export interface DockLayoutProps {
   demo?: DemoSettings
   defaultIde?: string
   onDefaultIdeChange?: (id: string) => void
+  defaultTerminalModel?: string
+  onDefaultTerminalModelChange?: (id: string) => void
 
   // Terminal session management
   termSessions: TerminalSession[]
@@ -219,6 +221,8 @@ export function DockLayout(props: DockLayoutProps) {
       demo: props.demo,
       defaultIde: props.defaultIde,
       onDefaultIdeChange: props.onDefaultIdeChange,
+      defaultTerminalModel: props.defaultTerminalModel,
+      onDefaultTerminalModelChange: props.onDefaultTerminalModelChange,
       dockMode: props.dockMode,
       onDockModeChange: props.onDockModeChange,
     },
@@ -250,6 +254,7 @@ export function DockLayout(props: DockLayoutProps) {
     props.personality, props.onPersonalityChange, props.onPersonalityPreset,
     props.halSessionId, props.terminalCount, props.demo,
     props.defaultIde, props.onDefaultIdeChange,
+    props.defaultTerminalModel, props.onDefaultTerminalModelChange,
     props.dockMode, props.onDockModeChange,
     props.termSessions, props.onCloseTerminal, props.onVoiceFocus,
   ])

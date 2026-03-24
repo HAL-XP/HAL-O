@@ -68,6 +68,8 @@ export interface DockSceneProps {
   demo?: DemoSettings
   defaultIde?: string
   onDefaultIdeChange?: (id: string) => void
+  defaultTerminalModel?: string
+  onDefaultTerminalModelChange?: (id: string) => void
   // Dock-mode toggle so Settings can show it
   dockMode: boolean
   onDockModeChange: (enabled: boolean) => void

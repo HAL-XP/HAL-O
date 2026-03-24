@@ -102,6 +102,8 @@ export interface TerminalSession {
   id: string
   projectName: string
   projectPath: string
+  /** X7: Per-terminal AI model override (null/undefined = use global default) */
+  modelOverride?: string | null
 }
 
 export type ConfigLevel = 'bare' | 'claude-aware' | 'hal-o-enhanced'
@@ -235,6 +237,28 @@ export interface EnlistResult {
   path: string
 }
 
+// ── X7: Model Provider types (mirrors main/model-providers.ts) ──
+
+export type ProviderType = 'anthropic' | 'openai' | 'ollama' | 'custom'
+
+export interface ModelEntry {
+  id: string
+  name: string
+  modelId: string
+  isDefault: boolean
+}
+
+export interface ModelProviderSerialized {
+  id: string
+  name: string
+  type: ProviderType
+  label: string
+  baseUrl?: string
+  available: boolean
+  description: string
+  models: ModelEntry[]
+}
+
 export interface ElectronAPI {
   // Setup
   getPlatform: () => Promise<string>
@@ -306,6 +330,12 @@ export interface ElectronAPI {
   // Session absorption
   detectExternalSessions: () => Promise<Array<{ pid: number; projectPath: string; projectName: string }>>
   absorbSession: (info: { pid: number; projectPath: string; projectName: string }) => Promise<{ success: boolean; error?: string }>
+
+  // Model providers (X7)
+  getAvailableModels: () => Promise<ModelProviderSerialized[]>
+  setTerminalModel: (sessionId: string, modelId: string | null) => Promise<{ success: boolean }>
+  getTerminalModel: (sessionId: string) => Promise<string | null>
+  refreshModelProviders: () => Promise<ModelProviderSerialized[]>
 
   // Terminal (pty)
   ptySpawn: (options: {

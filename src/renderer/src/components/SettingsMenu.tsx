@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -129,6 +129,8 @@ interface Props {
   onPersonalityPreset: (presetName: string) => void
   defaultIde: IdeOptionId
   onDefaultIdeChange: (id: IdeOptionId) => void
+  defaultTerminalModel: TerminalModelId
+  onDefaultTerminalModelChange: (id: TerminalModelId) => void
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
   demo?: DemoSettings
@@ -185,7 +187,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, activityFeedback, onActivityFeedbackChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo, dockMode = false, onDockModeChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, activityFeedback, onActivityFeedbackChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, defaultTerminalModel, onDefaultTerminalModelChange, hiddenPaths = [], onUnhide, demo, dockMode = false, onDockModeChange }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -290,7 +292,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   // Collect which sections have at least one visible row when searching
   const presetsLabels = ['SAVE PRESET', 'LOAD PRESET']
   const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE', 'DEFAULT IDE']
-  const terminalLabels = ['TERMINAL DOCK', 'DOCK MODE']
+  const terminalLabels = ['TERMINAL DOCK', 'DOCK MODE', 'TERMINAL AI MODEL']
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
   const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
   const personalityLabels = ['HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET']
@@ -546,6 +548,22 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           />
                           <span className="hal-toggle-label">{dockMode ? 'ON' : 'OFF'}</span>
                         </label>
+                      </div>
+                    </div>
+                  )}
+                  {match('TERMINAL AI MODEL') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">TERMINAL AI MODEL</span>
+                      <div className="hal-settings-control">
+                        <select
+                          className="hal-settings-select"
+                          value={defaultTerminalModel}
+                          onChange={(e) => onDefaultTerminalModelChange(e.target.value as TerminalModelId)}
+                        >
+                          {TERMINAL_MODEL_OPTIONS.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   )}

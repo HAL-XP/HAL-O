@@ -76,6 +76,8 @@ export function ScenePanel(_props: IDockviewPanelProps) {
         demo={s.demo}
         defaultIde={s.defaultIde}
         onDefaultIdeChange={s.onDefaultIdeChange}
+        defaultTerminalModel={s.defaultTerminalModel}
+        onDefaultTerminalModelChange={s.onDefaultTerminalModelChange}
         dockMode={s.dockMode}
         onDockModeChange={s.onDockModeChange}
       />
