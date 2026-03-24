@@ -27,6 +27,27 @@ function getWinCwd(): string {
 
 let mainWindow: BrowserWindow | null = null
 
+// ── B32: Persist window bounds ──
+const BOUNDS_FILE = join(app.getPath('userData'), 'window-bounds.json')
+
+function loadBounds(): { x?: number; y?: number; width: number; height: number; maximized: boolean } {
+  try {
+    return JSON.parse(readFileSync(BOUNDS_FILE, 'utf-8'))
+  } catch {
+    return { width: 950, height: 720, maximized: true }
+  }
+}
+
+function saveBounds(): void {
+  if (!mainWindow) return
+  try {
+    const maximized = mainWindow.isMaximized()
+    // Save the non-maximized bounds so restore works correctly
+    const bounds = maximized ? (mainWindow as any)._lastNormalBounds || mainWindow.getNormalBounds() : mainWindow.getBounds()
+    writeFileSync(BOUNDS_FILE, JSON.stringify({ ...bounds, maximized }, null, 2))
+  } catch { /* best effort */ }
+}
+
 // ── PID tracking ──
 
 const PIDS_FILE = join(process.cwd(), '.claude', '.pids')
@@ -116,9 +137,11 @@ function createMenu(): void {
 // ── Window ──
 
 function createWindow(): void {
+  const saved = loadBounds()
   mainWindow = new BrowserWindow({
-    width: 950,
-    height: 720,
+    width: saved.width,
+    height: saved.height,
+    ...(saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
     minWidth: 750,
     minHeight: 550,
     title: 'HAL-O',
@@ -134,7 +157,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.maximize()
+    if (saved.maximized) mainWindow?.maximize()
     mainWindow?.show()
 
     // M2: Auto-activate cinematic demo mode from --demo-cinematic flag
@@ -145,6 +168,11 @@ function createWindow(): void {
       }, 2000)
     }
   })
+
+  // ── B32: Save window bounds on move/resize ──
+  mainWindow.on('resize', () => { if (!mainWindow?.isMaximized()) (mainWindow as any)._lastNormalBounds = mainWindow?.getBounds() })
+  mainWindow.on('move', () => { if (!mainWindow?.isMaximized()) (mainWindow as any)._lastNormalBounds = mainWindow?.getBounds() })
+  mainWindow.on('close', () => saveBounds())
 
   // ── Frame-rate throttle: notify renderer when window loses/gains focus ──
   mainWindow.on('blur', () => {
