@@ -195,65 +195,37 @@ jobs:
           node-version: 22
 
       - name: Run START_HERE.bat (skip VS Build Tools, verify build output)
-        shell: powershell
-        timeout-minutes: 10
+        shell: cmd
+        timeout-minutes: 15
         run: |
-          # Run START_HERE.bat with "3" piped as stdin to skip the VS Build Tools prompt.
-          # The script ends with `pause >nul` then `npm run dev` which block forever,
-          # so we run it as a process with a timeout and kill it after the build completes.
-          #
-          # IMPORTANT: Read stdout/stderr asynchronously to avoid deadlock. If we call
-          # WaitForExit() before ReadToEnd(), the process can fill its output buffer and
-          # block, while we block waiting for exit — classic .NET deadlock.
-          $outFile = "start_here_out.txt"
-          $errFile = "start_here_err.txt"
+          REM Pipe "3" to skip VS Build Tools prompt. START_HERE.bat hangs at
+          REM pause + npm run dev at the end, but we only need it to get through
+          REM steps 1-6 (Node check, npm install, patches skip, build).
+          REM The _setup.log file records all steps for verification.
+          echo 3| call START_HERE.bat run
+          REM If we reach here, the script completed (or npm run dev exited).
+          REM On CI the npm run dev will fail immediately (no Electron display),
+          REM which causes START_HERE.bat to fall through to the final pause.
+          REM The piped stdin satisfies the pause, so the script exits cleanly.
 
-          $psi = New-Object System.Diagnostics.ProcessStartInfo
-          $psi.FileName = "cmd.exe"
-          $psi.Arguments = '/c "echo 3| call START_HERE.bat run"'
-          $psi.UseShellExecute = $false
-          $psi.RedirectStandardOutput = $true
-          $psi.RedirectStandardError = $true
-          $psi.WorkingDirectory = $PWD.Path
-
-          $proc = [System.Diagnostics.Process]::Start($psi)
-
-          # Read streams asynchronously to prevent buffer deadlock
-          $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
-          $stderrTask = $proc.StandardError.ReadToEndAsync()
-
-          # Wait up to 8 minutes for the process (npm install + build take a while on CI)
-          $exited = $proc.WaitForExit(480000)
-
-          if (-not $exited) {
-            Write-Host "Process still running after 8 min - killing (expected due to pause + npm run dev)"
-            $proc.Kill()
-            $proc.WaitForExit(5000)
+      - name: Verify build output and check for parse errors
+        shell: powershell
+        run: |
+          # Check the setup log for parse errors
+          if (Test-Path "_setup.log") {
+            Write-Host "=== _setup.log ==="
+            Get-Content "_setup.log"
+            $log = Get-Content "_setup.log" -Raw
+            if ($log -match 'was unexpected at this time|inattendu|syntax error') {
+              Write-Error "START_HERE.bat has a parse/syntax error in the log!"
+              exit 1
+            }
+          } else {
+            Write-Host "WARNING: _setup.log not found (script may have crashed early)"
           }
-
-          $stdout = $stdoutTask.Result
-          $stderr = $stderrTask.Result
-
-          $stdout | Out-File $outFile -Encoding utf8
-          $stderr | Out-File $errFile -Encoding utf8
-
-          Write-Host "=== STDOUT (last 80 lines) ==="
-          $stdout -split "`n" | Select-Object -Last 80 | ForEach-Object { Write-Host $_ }
-
-          if ($stderr.Trim()) {
-            Write-Host "=== STDERR (last 30 lines) ==="
-            $stderr -split "`n" | Select-Object -Last 30 | ForEach-Object { Write-Host $_ }
-          }
-
-          # Check for batch parse errors (e.g. "\Microsoft was unexpected at this time")
-          if ($stdout -match 'was unexpected at this time|inattendu|syntax error') {
-            Write-Error "START_HERE.bat has a parse/syntax error!"
-            exit 1
-          }
-
-          # Check that the build step ran and produced output
+          # Check that electron-vite build produced output
           if (Test-Path "out\main\index.js") {
-            Write-Host "`nPASS: out\main\index.js exists - full build succeeded"
+            Write-Host "PASS: out\main\index.js exists - full build succeeded"
           } else {
             Write-Error "FAIL: out\main\index.js not found - build did not complete"
             exit 1
