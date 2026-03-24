@@ -1345,9 +1345,7 @@ function PostFXInner() {
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      {/* Bloom disabled — causes visible line streaks on camera movement from all bright emissive elements.
-           Re-enable when P14 (graphics quality presets) is implemented with scale-aware line widths.
-      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} /> */}
+      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />
       {/* ChromaticAberration disabled — binary search confirmed it causes horizontal lines on bright edges */}
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
@@ -2102,9 +2100,11 @@ function PbrSceneInner({
       {/* No starfield in PBR — pure dark cinematic */}
       <ReflectiveFloor radius={floorRadius} />
       <FloorEdgeMist radius={floorRadius} />
-      <GridOverlay radius={floorRadius} />
+      {/* GridOverlay + PbrRingPlatform disabled — their thin lines project as visible streaks
+           from low camera angles. TexturedPlatform remains as the only floor decoration. */}
+      {/* <GridOverlay radius={floorRadius} /> */}
       <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
-      <PbrRingPlatform radius={ringPlatformRadius} />
+      {/* <PbrRingPlatform radius={ringPlatformRadius} /> */}
       <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} sphereStyle={sphereStyle} />
 
       {/* Ambient data particles — faded in at phase 3 */}
