@@ -3,7 +3,7 @@
 
 import { ipcMain, shell } from 'electron'
 import { existsSync, readdirSync, readFileSync } from 'fs'
-import { execSync } from 'child_process'
+import { exec, execSync } from 'child_process'
 import { join, normalize } from 'path'
 import { run } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames } from './platform'
@@ -20,91 +20,105 @@ interface ProjectStats {
 const statsCache = new Map<string, { data: ProjectStats; ts: number }>()
 const STATS_TTL = 60_000
 
-// ── Concurrency limiter: max 3 concurrent getProjectStats calls ──
+// ── Async semaphore: cap concurrent getProjectStats to avoid execSync stampede ──
+const MAX_CONCURRENT_STATS = 4
 let activeStats = 0
-const MAX_CONCURRENT_STATS = 3
-const statsQueue: Array<{ resolve: (v: ProjectStats) => void; path: string }> = []
+const statsQueue: Array<{ resolve: (v: ProjectStats) => void; reject: (e: Error) => void; path: string }> = []
 
-function getProjectStatsSync(projectPath: string): ProjectStats {
-  const now = Date.now()
+/** Run a shell command asynchronously, returning trimmed stdout. */
+function runAsync(cmd: string, cwd?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(cmd, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 10_000,
+      shell: true,
+      windowsHide: true,
+    }, (err, stdout) => {
+      if (err) reject(err)
+      else resolve((stdout || '').trim())
+    })
+  })
+}
+
+/** Gather git stats for a project asynchronously (non-blocking). */
+async function getProjectStatsAsync(projectPath: string): Promise<ProjectStats> {
   const stats: ProjectStats = { lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }
 
   if (!existsSync(join(projectPath, '.git'))) {
     try {
-      const entries = readdirSync(projectPath)
-      stats.fileCount = entries.length
+      stats.fileCount = readdirSync(projectPath).length
     } catch { /* */ }
-    statsCache.set(projectPath, { data: stats, ts: now })
+    statsCache.set(projectPath, { data: stats, ts: Date.now() })
     return stats
   }
 
-  try {
-    stats.lastCommit = run('git log -1 --pretty=format:%s', projectPath)
-  } catch { /* no commits */ }
+  // Fire all git commands in parallel — each is a separate child process
+  const fileCountCmd = process.platform === 'win32'
+    ? 'git ls-files --cached | find /c /v ""'
+    : 'git ls-files --cached | wc -l'
 
-  try {
-    const epoch = run('git log -1 --pretty=format:%ct', projectPath)
-    stats.lastCommitTime = parseInt(epoch, 10) * 1000
-  } catch { /* */ }
+  const [lastCommit, epoch, count30d, fileCount] = await Promise.all([
+    runAsync('git log -1 --pretty=format:%s', projectPath).catch(() => ''),
+    runAsync('git log -1 --pretty=format:%ct', projectPath).catch(() => ''),
+    runAsync('git rev-list --count --since="30 days ago" HEAD', projectPath).catch(() => '0'),
+    runAsync(fileCountCmd, projectPath).catch(() => ''),
+  ])
 
-  try {
-    const count = run('git rev-list --count --since="30 days ago" HEAD', projectPath)
-    stats.commitCount30d = parseInt(count, 10) || 0
-  } catch { /* */ }
+  stats.lastCommit = lastCommit
+  stats.lastCommitTime = epoch ? parseInt(epoch, 10) * 1000 : 0
+  stats.commitCount30d = parseInt(count30d, 10) || 0
+  stats.fileCount = parseInt(fileCount, 10) || 0
 
-  try {
-    const countCmd = process.platform === 'win32'
-      ? 'git ls-files --cached | find /c /v ""'
-      : 'git ls-files --cached | wc -l'
-    const count = run(countCmd, projectPath)
-    stats.fileCount = parseInt(count.trim(), 10) || 0
-  } catch {
+  // Fallback for file count if git ls-files failed
+  if (!stats.fileCount) {
     try {
       stats.fileCount = readdirSync(projectPath).length
     } catch { /* */ }
   }
 
-  statsCache.set(projectPath, { data: stats, ts: now })
+  statsCache.set(projectPath, { data: stats, ts: Date.now() })
   return stats
 }
 
-function processStatsQueue(): void {
+/** Drain queued stats requests up to the concurrency limit. */
+function drainStatsQueue(): void {
   while (statsQueue.length > 0 && activeStats < MAX_CONCURRENT_STATS) {
+    const item = statsQueue.shift()!
     activeStats++
-    const { resolve, path } = statsQueue.shift()!
-    try {
-      const result = getProjectStatsSync(path)
-      resolve(result)
-    } catch {
-      resolve({ lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 })
-    }
-    activeStats--
-    // Recurse to fill slots freed by synchronous completions
-    processStatsQueue()
+    getProjectStatsAsync(item.path)
+      .then(item.resolve)
+      .catch(() => item.resolve({ lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }))
+      .finally(() => {
+        activeStats--
+        drainStatsQueue()
+      })
   }
 }
 
 export function registerHubHandlers(): void {
-  // ── Get project git stats (cached 60s, max 3 concurrent) ──
+  // ── Get project git stats (cached 60s, max concurrent via async semaphore) ──
   ipcMain.handle('get-project-stats', async (_event, projectPath: string): Promise<ProjectStats> => {
     const now = Date.now()
     const cached = statsCache.get(projectPath)
     if (cached && now - cached.ts < STATS_TTL) return cached.data
 
-    // If under the concurrency limit, run immediately
+    // If under the concurrency limit, run immediately (async — won't block event loop)
     if (activeStats < MAX_CONCURRENT_STATS) {
       activeStats++
       try {
-        return getProjectStatsSync(projectPath)
+        return await getProjectStatsAsync(projectPath)
+      } catch {
+        return { lastCommit: '', lastCommitTime: 0, commitCount30d: 0, fileCount: 0 }
       } finally {
         activeStats--
-        processStatsQueue()
+        drainStatsQueue()
       }
     }
 
-    // Otherwise queue and wait
-    return new Promise<ProjectStats>((resolve) => {
-      statsQueue.push({ resolve, path: projectPath })
+    // Otherwise queue and wait — resolved when a slot opens
+    return new Promise<ProjectStats>((resolve, reject) => {
+      statsQueue.push({ resolve, reject, path: projectPath })
     })
   })
 

@@ -74,7 +74,7 @@ export function SceneRoot({ projectCount = 0, listening = false, showPerf = fals
 
   return (
     <Canvas
-      style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}
       camera={{ position: [0, 4, 8], fov: 50, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={renderQuality ?? Math.min(window.devicePixelRatio, 2)}

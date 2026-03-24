@@ -6,7 +6,7 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
-import { ScreenPanel } from './ScreenPanel'
+import { ScreenPanel, ScreenPanelUpdater } from './ScreenPanel'
 import type { ProjectInfo } from '../../types'
 
 // ── Holographic colors (cyan, not green) ──
@@ -267,6 +267,9 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
         <pointLight color="#ff2200" intensity={4} distance={20} decay={2} />
       </group>
 
+      {/* B22 PERF: Camera-movement flag for throttled ScreenPanel updates */}
+      <ScreenPanelUpdater />
+
       {/* 3D Screen Panels */}
       {projects.map((project, i) => {
         const sp = screenPositions[i]
@@ -292,6 +295,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       })}
 
       <OrbitControls
+        makeDefault
         enablePan={false}
         enableZoom={true}
         minDistance={5}

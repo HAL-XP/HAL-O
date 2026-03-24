@@ -1,6 +1,11 @@
 /** 3D layout functions for holographic/PBR renderers.
  * Each function returns position + rotation arrays for screen panels. */
 
+/** Minimum Y for screen panel centers.
+ * Panels are ~1.8 units tall so the bottom edge extends ~0.9 below center.
+ * Y >= 1.0 keeps panels fully above the floor plane (Y=0). */
+const MIN_PANEL_Y = 1.0
+
 export interface Screen3DPosition {
   position: [number, number, number]
   rotation: [number, number, number]
@@ -19,7 +24,7 @@ export type GroupLayout3DFn = (
 /** Single ring — screens evenly spaced around a circle */
 function layoutDefault(count: number): Screen3DPosition[] {
   const radius = Math.max(8, count * 0.55)
-  const yBase = 0.8
+  const yBase = MIN_PANEL_Y
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 - Math.PI / 2
     return {
@@ -44,7 +49,7 @@ function layoutDualRing(count: number): Screen3DPosition[] {
   for (let i = 0; i < outerCount; i++) {
     const angle = (i / outerCount) * Math.PI * 2 - Math.PI / 2
     result.push({
-      position: [Math.cos(angle) * outerRadius, 0.8, Math.sin(angle) * outerRadius],
+      position: [Math.cos(angle) * outerRadius, MIN_PANEL_Y, Math.sin(angle) * outerRadius],
       rotation: [0, -angle + Math.PI / 2, 0],
     })
   }
@@ -53,7 +58,7 @@ function layoutDualRing(count: number): Screen3DPosition[] {
   for (let i = 0; i < innerCount; i++) {
     const angle = (i / innerCount) * Math.PI * 2 - Math.PI / 2 + Math.PI / innerCount
     result.push({
-      position: [Math.cos(angle) * innerRadius, 1.6, Math.sin(angle) * innerRadius],
+      position: [Math.cos(angle) * innerRadius, MIN_PANEL_Y + 0.8, Math.sin(angle) * innerRadius],
       rotation: [0, -angle + Math.PI / 2, 0],
     })
   }
@@ -74,7 +79,7 @@ function layoutStackedRings(count: number): Screen3DPosition[] {
   for (let tier = 0; tier < tiers && placed < count; tier++) {
     const tierCount = Math.min(perTier, count - placed)
     const radius = baseRadius - tier * 1.5
-    const y = 0.5 + tier * 2.2
+    const y = MIN_PANEL_Y + tier * 2.2
     const angleOffset = tier * (Math.PI / (tierCount * 2)) // stagger tiers
 
     for (let i = 0; i < tierCount; i++) {
@@ -95,7 +100,7 @@ function layoutSpiral(count: number): Screen3DPosition[] {
   const radius = Math.max(7, count * 0.35)
   const totalRotation = Math.PI * 2 * 1.5 // 1.5 full turns
   const yStart = 3.5
-  const yEnd = -0.5
+  const yEnd = MIN_PANEL_Y
 
   return Array.from({ length: count }, (_, i) => {
     const t = i / Math.max(1, count - 1)
@@ -120,7 +125,7 @@ function layoutGroupedRings(count: number, groupIndices: number[], groupCount: n
   if (groupCount === 0 || groupIndices.every((g) => g < 0)) return layoutDefault(count)
 
   const radius = Math.max(8, count * 0.55)
-  const yBase = 0.8
+  const yBase = MIN_PANEL_Y
   const result: Screen3DPosition[] = new Array(count)
 
   // Bucket projects by group index (-1 = ungrouped)
@@ -191,7 +196,7 @@ function layoutStackedGroups(count: number, groupIndices: number[], groupCount: 
     const tier = tiers[t]
     const tierSize = tier.length
     const radius = baseRadius - t * 1.2
-    const y = 0.5 + t * 2.4
+    const y = MIN_PANEL_Y + t * 2.4
     const angleOffset = t * (Math.PI / Math.max(1, tierSize * 2))
 
     for (let i = 0; i < tierSize; i++) {

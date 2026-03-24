@@ -147,7 +147,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity } = useSettings()
 
   const updateWizardFont = useCallback((size: number) => {
     setWizardFontSize(size)
@@ -403,6 +403,8 @@ export function App() {
             onThreeThemeChange={updateThreeTheme}
             shipVfxEnabled={shipVfxEnabled}
             onShipVfxEnabledChange={updateShipVfxEnabled}
+            voiceReactionIntensity={voiceReactionIntensity}
+            onVoiceReactionIntensityChange={updateVoiceReactionIntensity}
             halSessionId={demo.enabled ? 'demo-hal' : getHalSessionId()}
             terminalCount={demo.enabled ? demo.terminalCount : termSessions.length}
             demo={demo}
@@ -598,7 +600,7 @@ export function App() {
     return (
       <ErrorBoundary>
         <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
-          <StepProgress currentPhase="review" answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
+          <StepProgress currentPhase="review" answers={state.answers} />
           <div className="chat-area">
             <CreationProgress
               log={state.creationLog}
@@ -620,7 +622,7 @@ export function App() {
   return (
     <ErrorBoundary>
     <div className="app" style={{ fontSize: 'var(--wizard-font-size, 14px)' }}>
-      <StepProgress currentPhase={state.showReview ? 'review' : currentPhase} answers={state.answers} fontSize={wizardFontSize} onFontSizeChange={updateWizardFont} />
+      <StepProgress currentPhase={state.showReview ? 'review' : currentPhase} answers={state.answers} />
 
       <div className="chat-area">
         {/* Welcome message */}

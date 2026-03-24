@@ -192,7 +192,7 @@ export function ScreenPanel({
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
-      // Back-face detection
+      // Back-face detection — dot > 0.05 means panel normal faces camera
       _screenNormal.set(0, 0, 1)
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
@@ -205,6 +205,7 @@ export function ScreenPanel({
         for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
         if (htmlWrapRef.current) {
           htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+          htmlWrapRef.current.style.visibility = isFront ? 'visible' : 'hidden'
           htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
         }
       }
@@ -273,6 +274,9 @@ export function ScreenPanel({
           transition: 'opacity 0.15s ease',
           willChange: 'opacity',
           position: 'relative',
+          opacity: 0,
+          visibility: 'hidden' as const,
+          pointerEvents: 'none' as const,
         }}>
           {/* CRT scanline overlay — sci-fi holographic display effect */}
           <div style={{

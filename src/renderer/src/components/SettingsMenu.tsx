@@ -1,36 +1,5 @@
-/*
- * ── UX RECOMMENDATION: Font Controls Reorganization ──────────────────────────
- *
- * CURRENT STATE (confusing):
- *   - A-/A+ buttons in the global toolbar (main.tsx) → control WIZARD font size
- *   - HUB FONT SIZE slider in DISPLAY section → controls hub font
- *   - TERMINAL FONT SIZE slider in TERMINAL section → controls terminal font
- *   - No place to set wizard font except the toolbar buttons
- *
- * PROBLEM:
- *   Three font controls are scattered across two different UI surfaces
- *   (toolbar + settings panel) with no logical grouping. Users have to hunt.
- *   The toolbar A-/A+ buttons are ambiguous — they don't say what they affect.
- *
- * RECOMMENDATION: Remove A-/A+ from the toolbar. Add a "FONTS" section in
- * the Settings panel (between TERMINAL and VOICE) containing all three controls:
- *
- *   FONTS
- *   ├── HUB FONT SIZE      [7px — 18px]   (moved from DISPLAY)
- *   ├── TERMINAL FONT SIZE [8px — 24px]   (moved from TERMINAL section)
- *   └── WIZARD FONT SIZE   [10px — 22px]  (new — previously only in toolbar)
- *
- * Rationale:
- *   1. One place for all font controls = zero hunting.
- *   2. Toolbar should only contain global app actions, not font configuration.
- *   3. Each control is clearly labeled by context (Hub / Terminal / Wizard).
- *   4. Future: could add a "GLOBAL SCALE" multiplier that proportionally scales
- *      all three values at once for accessibility use cases.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
 import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
@@ -144,6 +113,8 @@ interface Props {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled: boolean
   onShipVfxEnabledChange: (enabled: boolean) => void
+  voiceReactionIntensity: number
+  onVoiceReactionIntensityChange: (v: number) => void
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
   demo?: DemoSettings
@@ -197,11 +168,12 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // ── Search ──
   const [search, setSearch] = useState('')
@@ -278,7 +250,10 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   useEffect(() => {
     if (!open) return
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
@@ -292,7 +267,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE']
   const terminalLabels = ['TERMINAL DOCK']
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
-  const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE']
+  const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
   const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
   const hiddenLabels = ['HIDDEN PROJECTS']
   const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
@@ -312,8 +287,12 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
         </svg>
       </button>
 
-      {open && (
-        <div className="hal-settings-panel">
+      {open && createPortal(
+        <div className="hal-settings-panel" ref={panelRef} style={(() => {
+          const rect = ref.current?.getBoundingClientRect()
+          if (!rect) return { '--hub-font': `${hubFontSize}px` } as React.CSSProperties
+          return { position: 'fixed' as const, top: rect.bottom + 6, right: window.innerWidth - rect.right, '--hub-font': `${hubFontSize}px` } as React.CSSProperties
+        })()}>
           <div className="hal-settings-title">SETTINGS</div>
 
           {/* ── SEARCH BAR ── */}
@@ -527,10 +506,11 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                   {match('HUB FONT SIZE') && (
                     <div className="hal-settings-row">
                       <span className="hal-settings-label">HUB FONT SIZE</span>
-                      <div className="hal-settings-control">
-                        <button onClick={() => onHubFontSize(Math.max(7, hubFontSize - 1))}>-</button>
-                        <span>{hubFontSize}px</span>
-                        <button onClick={() => onHubFontSize(Math.min(18, hubFontSize + 1))}>+</button>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min="7" max="18" step="1" value={hubFontSize}
+                          onChange={(e) => onHubFontSize(parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }} />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 34, textAlign: 'right', flexShrink: 0, fontFamily: 'monospace' }}>{hubFontSize}px</span>
                       </div>
                     </div>
                   )}
@@ -538,10 +518,11 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                   {match('TERMINAL FONT SIZE') && (
                     <div className="hal-settings-row">
                       <span className="hal-settings-label">TERMINAL FONT SIZE</span>
-                      <div className="hal-settings-control">
-                        <button onClick={() => onTermFontSize(Math.max(8, termFontSize - 1))}>-</button>
-                        <span>{termFontSize}px</span>
-                        <button onClick={() => onTermFontSize(Math.min(24, termFontSize + 1))}>+</button>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min="8" max="24" step="1" value={termFontSize}
+                          onChange={(e) => onTermFontSize(parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }} />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 34, textAlign: 'right', flexShrink: 0, fontFamily: 'monospace' }}>{termFontSize}px</span>
                       </div>
                     </div>
                   )}
@@ -549,10 +530,11 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                   {match('WIZARD FONT SIZE') && (
                     <div className="hal-settings-row">
                       <span className="hal-settings-label">WIZARD FONT SIZE</span>
-                      <div className="hal-settings-control">
-                        <button onClick={() => onWizardFontSize(Math.max(10, wizardFontSize - 1))}>-</button>
-                        <span>{wizardFontSize}px</span>
-                        <button onClick={() => onWizardFontSize(Math.min(22, wizardFontSize + 1))}>+</button>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="range" min="10" max="22" step="1" value={wizardFontSize}
+                          onChange={(e) => onWizardFontSize(parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }} />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 34, textAlign: 'right', flexShrink: 0, fontFamily: 'monospace' }}>{wizardFontSize}px</span>
                       </div>
                     </div>
                   )}
@@ -611,6 +593,24 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                       </div>
                     </div>
                   )}
+
+                  {match('VOICE REACTION') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">VOICE REACTION</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          value={voiceReactionIntensity}
+                          onChange={(e) => onVoiceReactionIntensityChange(parseFloat(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{voiceReactionIntensity.toFixed(1)}x</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -635,7 +635,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           onChange={(e) => onScreenOpacityChange(parseFloat(e.target.value))}
                           style={{ flex: 1, accentColor: 'var(--primary)' }}
                         />
-                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{Math.round(screenOpacity * 100)}%</span>
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0 }}>{Math.round(screenOpacity * 100)}%</span>
                       </div>
                     </div>
                   )}
@@ -647,13 +647,13 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                         <input
                           type="range"
                           min="0"
-                          max="10"
+                          max="15"
                           step="1"
                           value={particleDensity}
                           onChange={(e) => onParticleDensityChange(parseInt(e.target.value))}
                           style={{ flex: 1, accentColor: 'var(--primary)' }}
                         />
-                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{PARTICLE_DENSITY_LABELS[particleDensity]}</span>
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 70, textAlign: 'right', flexShrink: 0, fontFamily: "'Cascadia Code', 'Fira Code', monospace" }}>{PARTICLE_DENSITY_LABELS[particleDensity]}</span>
                       </div>
                     </div>
                   )}
@@ -671,7 +671,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           onChange={(e) => onRenderQualityChange(parseFloat(e.target.value))}
                           style={{ flex: 1, accentColor: 'var(--primary)' }}
                         />
-                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 42 }}>
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 52, textAlign: 'right', flexShrink: 0 }}>
                           {renderQuality >= window.devicePixelRatio ? 'NATIVE' : `${renderQuality.toFixed(2).replace(/\.?0+$/, '')}x`}
                         </span>
                       </div>
@@ -704,7 +704,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                         <input type="range" min="1" max="15" step="0.5" value={camera.particleHideDist}
                           onChange={(e) => onCameraChange({ ...camera, particleHideDist: parseFloat(e.target.value) })}
                           style={{ flex: 1, accentColor: 'var(--primary)' }} />
-                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', minWidth: 30 }}>{camera.particleHideDist}u</span>
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0 }}>{camera.particleHideDist}u</span>
                       </div>
                     </div>
                   )}
@@ -949,7 +949,8 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
               )}
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

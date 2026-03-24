@@ -432,7 +432,7 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
 }
 
 // ── HAL Sphere — PBR version with audio-reactive animation ──
-function PbrHalSphere({ blockedInput = false }: { blockedInput?: boolean }) {
+function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { blockedInput?: boolean; voiceReactionIntensity?: number }) {
   const theme = useThreeTheme()
   const wireRef     = useRef<THREE.Mesh>(null)
   const coreRef     = useRef<THREE.Mesh>(null)
@@ -484,8 +484,14 @@ function PbrHalSphere({ blockedInput = false }: { blockedInput?: boolean }) {
     s.highs  += (raw.highs  - s.highs)  * smoothFactor
     s.volume += (raw.volume - s.volume) * smoothFactor
 
-    const { bass, mids, highs, volume } = s
-    const isActive = raw.isActive
+    // Apply voice reaction intensity multiplier (0 = no reaction, 1 = default, 5 = exaggerated)
+    const vri = voiceReactionIntensity
+    const { bass: rawBass, mids: rawMids, highs: rawHighs, volume: rawVolume } = s
+    const bass = rawBass * vri
+    const mids = rawMids * vri
+    const highs = rawHighs * vri
+    const volume = rawVolume * vri
+    const isActive = raw.isActive && vri > 0
 
     // ── Wireframe globe — scale with bass, speed with volume ──
     if (wireRef.current) {
@@ -966,6 +972,7 @@ interface Props {
   showPerf?: boolean
   onSceneReady?: () => void
   shipVfxEnabled?: boolean
+  voiceReactionIntensity?: number
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -993,13 +1000,14 @@ interface PbrSceneInnerProps {
   ringPlatformRadius: number
   maxCamDistance: number
   shipVfxEnabled: boolean
+  voiceReactionIntensity: number
 }
 
 function PbrSceneInner({
   projects, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
-  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled,
+  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -1048,8 +1056,8 @@ function PbrSceneInner({
       ? groupFn(projects.length, groupIndices, groups.length)
       : (LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default'])(projects.length)
 
-    // Clamp panel Y to avoid clipping through the floor/ring platform (floor y=-0.02, ring at y=0).
-    // Min 0.5 keeps the bottom edge (panel height ~1 unit) clear of the floor surface.
+    // Safety clamp: layouts3d.ts already uses MIN_PANEL_Y = 1.0, but this
+    // guards against any future layout that might produce a Y below the floor.
     return raw.map((sp) => ({
       ...sp,
       position: [sp.position[0], Math.max(1.0, sp.position[1]), sp.position[2]] as [number, number, number],
@@ -1099,7 +1107,7 @@ function PbrSceneInner({
       <GridOverlay radius={floorRadius} />
       <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
       <PbrRingPlatform radius={ringPlatformRadius} />
-      <PbrHalSphere blockedInput={blockedInput} />
+      <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} />
 
       {/* Ambient data particles — faded in at phase 3 */}
       <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
@@ -1197,7 +1205,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 2, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5 }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1274,7 +1282,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
   return (
     <Canvas
       key={canvasKey}
-      style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}
       camera={{ position: [0, camY, camZ], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       frameloop={frameloop}
@@ -1306,6 +1314,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           ringPlatformRadius={ringPlatformRadius}
           maxCamDistance={maxCamDistance}
           shipVfxEnabled={shipVfxEnabled}
+          voiceReactionIntensity={voiceReactionIntensity}
         />
       </ThreeThemeProvider>
     </Canvas>

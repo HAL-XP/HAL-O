@@ -46,8 +46,8 @@ export const DEFAULT_CAMERA: CameraSettings = {
   cameraAngle: 32,
 }
 
-export const PARTICLE_DENSITY_LABELS = ['NONE', 'MINIMAL', 'VERY LOW', 'LOW', 'LOW-MED', 'MED', 'MED-HIGH', 'HIGH', 'VERY HIGH', 'ULTRA', 'MAX'] as const
-export const PARTICLE_DENSITY_MULTIPLIERS = [0, 0.1, 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0] as const
+export const PARTICLE_DENSITY_LABELS = ['OFF', 'BARE', 'MINIMAL', 'VERY LOW', 'LOW', 'LOW-MED', 'MEDIUM', 'MED-HIGH', 'HIGH', 'HIGH+', 'VERY HIGH', 'ULTRA', 'ULTRA+', 'EXTREME', 'INSANE', 'MAX'] as const
+export const PARTICLE_DENSITY_MULTIPLIERS = [0, 0.03, 0.08, 0.15, 0.25, 0.4, 0.6, 0.85, 1.0, 1.3, 1.7, 2.2, 2.8, 3.5, 4.5, 6.0] as const
 
 export interface SettingsState {
   hubFontSize: number
@@ -64,6 +64,7 @@ export interface SettingsState {
   layoutId: string
   threeTheme: string
   shipVfxEnabled: boolean
+  voiceReactionIntensity: number
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -79,6 +80,7 @@ export interface SettingsState {
   updateLayout: (id: string) => void
   updateThreeTheme: (id: string) => void
   updateShipVfxEnabled: (enabled: boolean) => void
+  updateVoiceReactionIntensity: (v: number) => void
 }
 
 export function useSettings(): SettingsState {
@@ -96,17 +98,27 @@ export function useSettings(): SettingsState {
     const stored = localStorage.getItem('hal-o-particle-density')
     if (stored !== null) {
       const v = parseInt(stored)
-      // Migrate old 0-4 scale to new 0-10 scale: multiply by 2.5 and round
-      // Old default was 2 (MED) → new default is 5 (MED)
+      // Migrate old 0-4 scale → 0-10 scale (v2) → 0-15 scale (v3)
       if (v >= 0 && v <= 4 && localStorage.getItem('hal-o-particle-density-v2') === null) {
-        const migrated = Math.round(v * 2.5)
+        // v1→v3 direct: map 0-4 multipliers to closest 0-15 index
+        const V1_TO_V3 = [0, 3, 8, 10, 14] // old 0-4 mapped to new 0-15
+        const migrated = V1_TO_V3[v] ?? 8
         localStorage.setItem('hal-o-particle-density', String(migrated))
         localStorage.setItem('hal-o-particle-density-v2', '1')
+        localStorage.setItem('hal-o-particle-density-v3', '1')
+        return migrated
+      }
+      // v2→v3: map old 0-10 scale to new 0-15 scale by closest multiplier
+      if (v >= 0 && v <= 10 && localStorage.getItem('hal-o-particle-density-v3') === null) {
+        const V2_TO_V3 = [0, 3, 4, 4, 6, 8, 10, 11, 12, 13, 14]
+        const migrated = V2_TO_V3[v] ?? 8
+        localStorage.setItem('hal-o-particle-density', String(migrated))
+        localStorage.setItem('hal-o-particle-density-v3', '1')
         return migrated
       }
       return v
     }
-    return 5
+    return 8
   })
   const [renderQuality, setRenderQuality] = useState(() => {
     const stored = localStorage.getItem('hal-o-render-quality')
@@ -116,6 +128,10 @@ export function useSettings(): SettingsState {
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
   const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
   const [shipVfxEnabled, setShipVfxEnabled] = useState(() => localStorage.getItem('hal-o-ship-vfx') !== 'false')
+  const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
+    const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
+    return stored !== null ? parseFloat(stored) : 0.5
+  })
 
   const updateRenderer = useCallback((id: string) => {
     setRendererId(id)
@@ -177,9 +193,13 @@ export function useSettings(): SettingsState {
     setShipVfxEnabled(enabled)
     localStorage.setItem('hal-o-ship-vfx', String(enabled))
   }, [])
+  const updateVoiceReactionIntensity = useCallback((v: number) => {
+    setVoiceReactionIntensity(v)
+    localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
+  }, [])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity,
   }
 }

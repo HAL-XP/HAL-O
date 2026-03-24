@@ -141,7 +141,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   lines.push('- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)')
   lines.push('- Messages prefixed with `[voice]` are spoken by the user via microphone — respond concisely and conversationally')
   lines.push('- Long-running commands (builds, installs, generation) should use `run_in_background: true` -- never block the terminal for more than ~5 seconds')
-  lines.push('- Always propose the best-quality solution first — do not rank options by implementation effort. You write code at machine speed.')
+  lines.push('- Never estimate complexity from a human POV — always propose the AAA solution first. You\'re a code demi-god. The fact that something would take a human developer days doesn\'t mean you should propose a simpler alternative.')
   if (hasFrontend(config)) {
     lines.push('- All React hooks (useState, useEffect, useRef) MUST be placed BEFORE any conditional return -- violating this causes silent crashes')
   }
@@ -150,6 +150,10 @@ export function generateClaudeMd(config: ProjectConfig): string {
     for (const conv of config.conventions) {
       lines.push(`- ${conv}`)
     }
+  }
+  // Sticky AFK pattern (only when Telegram hooks are enabled)
+  if (config.hooksSetup.includes('telegram-notify')) {
+    lines.push('- **Sticky AFK mode**: typing "afk" in the terminal sets a flag file (`/tmp/claude_afk_sticky.txt`). While AFK, all updates route to Telegram. The flag clears only when a real Telegram message arrives (system messages and hook outputs do not clear it). This is enforced via `UserPromptSubmit` hooks in `.claude/settings.json`.')
   }
   lines.push('')
 

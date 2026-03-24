@@ -234,7 +234,7 @@ export interface ElectronAPI {
 
   // Session absorption
   detectExternalSessions: () => Promise<Array<{ pid: number; projectPath: string; projectName: string }>>
-  absorbSession: (info: { pid: number; projectPath: string; projectName: string }) => Promise<{ success: boolean }>
+  absorbSession: (info: { pid: number; projectPath: string; projectName: string }) => Promise<{ success: boolean; error?: string }>
 
   // Terminal (pty)
   ptySpawn: (options: {

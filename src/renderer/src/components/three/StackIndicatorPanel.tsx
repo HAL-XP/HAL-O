@@ -13,7 +13,7 @@ interface Props {
 
 const CYAN = '#00d4ff'
 
-// Scratch vectors for face-culling
+// Scratch vectors for face-culling (reused every frame to avoid GC pressure)
 const _screenNormal = new THREE.Vector3()
 const _toCamera = new THREE.Vector3()
 
@@ -25,6 +25,7 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
   const edgeColor = groupColor || CYAN
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
+  const wasFrontRef = useRef<boolean | null>(null) // null = first frame, needs forced write
   const { camera } = useThree()
 
   const W = 2.8
@@ -40,15 +41,21 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
 
   useFrame(() => {
     if (groupRef.current) {
-      // Face-culling for Html visibility
+      // Back-face detection — dot > 0.05 means panel normal faces camera
       _screenNormal.set(0, 0, 1)
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = _screenNormal.dot(_toCamera)
-      const isFront = dot > 0
-      if (htmlWrapRef.current) {
-        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
-        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
+      const isFront = dot > 0.05
+
+      // Update DOM only on state change OR first frame (null → force write)
+      if (isFront !== wasFrontRef.current) {
+        wasFrontRef.current = isFront
+        if (htmlWrapRef.current) {
+          htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+          htmlWrapRef.current.style.visibility = isFront ? 'visible' : 'hidden'
+          htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
+        }
       }
     }
   })
@@ -160,6 +167,9 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
           justifyContent: 'center',
           textAlign: 'center',
           gap: '8px',
+          opacity: 0,
+          visibility: 'hidden' as const,
+          pointerEvents: 'none' as const,
         }}>
           {groupName && (
             <span style={{

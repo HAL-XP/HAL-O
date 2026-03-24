@@ -1373,6 +1373,7 @@ textarea.text-input {
   overflow: visible;
   position: relative;
   z-index: 20;
+  pointer-events: auto;
 }
 
 .hal-topbar-left {
@@ -1417,8 +1418,9 @@ textarea.text-input {
   display: flex;
   gap: 14px;
   margin-right: 200px;
-  flex-shrink: 0;
+  flex-shrink: 1;
   align-items: center;
+  min-width: 0;
 }
 .hal-stat {
   font-size: var(--hub-font, 10px);
@@ -1436,26 +1438,74 @@ textarea.text-input {
 .hal-c-ok { color: var(--success); }
 .hal-c-warn { color: var(--warning); }
 
+/* ── Topbar button layout (icon + label) ── */
+.hal-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 3px 10px;
+  font-size: calc(var(--hub-font, 10px) * 0.9);
+  white-space: nowrap;
+}
+.hal-topbar-btn:first-of-type { margin-left: 16px; }
+.hal-btn-icon { flex-shrink: 0; }
+.hal-btn-label { }
+
 /* ── Responsive topbar — graceful shrink ── */
+
+/* Below 1200px: reduce right margin, tighten gaps */
+@media (max-width: 1200px) {
+  .hal-topbar-right { margin-right: 140px; gap: 10px; }
+}
+
+/* Below 1000px: hide button text labels → icon-only, shrink right margin more */
+@media (max-width: 1000px) {
+  .hal-btn-label { display: none; }
+  .hal-topbar-btn { padding: 3px 6px; margin-left: 4px; }
+  .hal-topbar-btn:first-of-type { margin-left: 8px; }
+  .hal-topbar-right { margin-right: 100px; gap: 8px; }
+  .hal-voice-target { display: none; }
+}
+
 /* Below 900px: hide stat labels (OPS / READY / PENDING text), keep numbers */
 @media (max-width: 900px) {
   .hal-stat-label { display: none; }
-  .hal-topbar-right { gap: 8px; margin-right: 120px; }
+  .hal-topbar-right { gap: 8px; margin-right: 80px; }
+  .hal-topbar-center { flex: 0 1 200px; }
 }
 
-/* Below 700px: shrink / hide search placeholder text + tighten center */
-@media (max-width: 700px) {
-  .hal-topbar-center { flex: 0 1 120px; }
-  .hal-topbar-center input::placeholder { color: transparent; }
+/* Below 800px: hide PENDING stat entirely, collapse search bar */
+@media (max-width: 800px) {
   .hal-topbar-right { gap: 6px; margin-right: 60px; }
+  .hal-topbar-center { flex: 0 1 140px; }
+  .hal-topbar-center input::placeholder { color: transparent; }
+  .hal-stat:last-child { display: none; }
 }
 
-/* Below 500px: overflow:hidden + ellipsis everywhere, hide version tag */
-@media (max-width: 500px) {
+/* Below 700px: hide version, tighten further */
+@media (max-width: 700px) {
   .hal-sys-ver { display: none; }
-  .hal-topbar { padding: 6px 10px; }
+  .hal-topbar-center { flex: 0 1 120px; }
+  .hal-topbar-right { gap: 6px; margin-right: 40px; }
+  .hal-topbar { padding: 6px 14px; }
+}
+
+/* Below 600px: hide ADD PROJECT button, shrink sys-label */
+@media (max-width: 600px) {
+  .hal-topbar-left .hal-topbar-btn:not(:first-of-type) { display: none; }
+  .hal-sys-label { font-size: calc(var(--hub-font, 10px) * 0.9); letter-spacing: 1.5px; }
+  .hal-topbar-right { margin-right: 20px; gap: 4px; }
   .hal-topbar-center { flex: 0 1 80px; }
-  .hal-topbar-right { gap: 4px; margin-right: 20px; }
+  .hal-topbar { padding: 6px 10px; }
+}
+
+/* Below 500px: hide all stats, minimal layout */
+@media (max-width: 500px) {
+  .hal-stat { display: none; }
+  .hal-topbar-right { margin-right: 10px; }
+  .hal-topbar-left { gap: 4px; }
+  .hal-sys-label { letter-spacing: 1px; }
 }
 
 /* Center eye */
@@ -2040,11 +2090,8 @@ textarea.text-input {
 }
 
 .hal-settings-panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 6px;
-  z-index: 50;
+  /* Rendered via portal into document.body — position/top/right set inline */
+  z-index: 10000;
   /* Adaptive width: scales with hub font (--hub-font is Npx), clamped 260–420px */
   width: clamp(260px, calc(var(--hub-font, 10px) * 26), min(420px, 90vw));
   min-width: 260px;
@@ -2056,7 +2103,6 @@ textarea.text-input {
   border: 1px solid rgba(132, 204, 22, 0.2);
   border-radius: 4px;
   padding: 10px;
-  z-index: 100;
 }
 
 .hal-settings-divider {
@@ -3439,4 +3485,176 @@ textarea.text-input {
 @keyframes hal-overlay-pulse {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
+}
+
+/* ── Error Toast ── */
+
+.error-toast-container {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+}
+
+.error-toast {
+  pointer-events: auto;
+  display: flex;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: rgba(18, 12, 14, 0.95);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(248, 113, 113, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: error-toast-enter 0.25s ease-out;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  position: relative;
+}
+
+.error-toast-exit {
+  animation: error-toast-leave 0.2s ease-in forwards;
+}
+
+@keyframes error-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes error-toast-leave {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px) scale(0.9);
+  }
+}
+
+.error-toast-accent {
+  width: 3px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+}
+
+.error-toast-body {
+  flex: 1;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.error-toast-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.error-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.error-toast-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #f87171;
+  flex: 1;
+}
+
+.error-toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.error-toast-close:hover {
+  color: #f87171;
+}
+
+.error-toast-summary {
+  font-size: 12px;
+  color: #e2e4f0;
+  line-height: 1.4;
+  word-break: break-word;
+  margin-bottom: 4px;
+}
+
+.error-toast-suggestion {
+  font-size: 11px;
+  color: rgba(0, 229, 255, 0.7);
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.error-toast-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.error-toast-copy {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.error-toast-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e4f0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.error-toast-timer {
+  position: absolute;
+  bottom: 0;
+  left: 3px;
+  right: 0;
+  height: 2px;
+  background: rgba(248, 113, 113, 0.5);
+  animation: error-toast-timer 8s linear forwards;
+  transform-origin: left;
+}
+
+@keyframes error-toast-timer {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }

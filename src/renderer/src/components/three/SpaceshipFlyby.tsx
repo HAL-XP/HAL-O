@@ -35,30 +35,41 @@ const FLYBY_DURATION = 11.0 // seconds
 // A9: Larger trail to match the bigger ship
 const TRAIL_COUNT = 120
 
-// ── Pre-compute triangular hull Shape (Star Destroyer wedge, XY plane) ──
-// The shape is in local XY; mesh rotation Rx(-π/2) maps shape +Y → world -Z.
-// So nose (at +Y) ends up pointing -Z in shipGroupRef — correct for Three.js lookAt.
+// ── Pre-compute hull geometry with native -Z nose orientation ──
+// Shape is drawn in XY plane (nose at +Y), extruded along +Z (hull thickness).
+// We bake rotateX(-π/2) into the geometry so nose points -Z natively.
+// This means lookAt() works directly — no rotation hack on the mesh.
 // Stern is at +Z; all engine/bridge positions use positive Z.
-function makeHullShape(): THREE.Shape {
+function makeHullGeometry(): THREE.ExtrudeGeometry {
   const shape = new THREE.Shape()
   const W = 1.0   // half-width at stern
   const L = 2.2   // length nose→stern
-  // Triangular plan view — nose tip at +Y (maps to -Z after Rx(-π/2))
+  // Triangular plan view — nose tip at +Y (will become -Z after rotateX)
   shape.moveTo(0, L)         // nose tip (forward)
   shape.lineTo(W, -L)        // starboard stern corner
   shape.lineTo(-W, -L)       // port stern corner
   shape.closePath()
-  return shape
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.28,       // vertical thickness of the wedge hull
+    bevelEnabled: true,
+    bevelThickness: 0.04,
+    bevelSize: 0.04,
+    bevelSegments: 2,
+  })
+  // Bake rotation into vertices: +Y→-Z, +Z→+Y — nose now natively points -Z
+  geo.rotateX(-Math.PI / 2)
+  return geo
 }
 
-const HULL_SHAPE = makeHullShape()
-const HULL_EXTRUDE: THREE.ExtrudeGeometryOptions = {
-  depth: 0.28,       // vertical thickness of the wedge hull
-  bevelEnabled: true,
-  bevelThickness: 0.04,
-  bevelSize: 0.04,
-  bevelSegments: 2,
-}
+const HULL_GEOMETRY = makeHullGeometry()
+
+// Exhaust particle spawn offsets — one per engine, in ship local space (stern at +Z)
+const EXHAUST_OFFSETS = [
+  new THREE.Vector3(-0.55, -0.1, 2.0),
+  new THREE.Vector3(0, -0.1, 2.3),
+  new THREE.Vector3(0.55, -0.1, 2.0),
+]
 
 // Materials — defined once, shared across all ship instances
 const MAT_HULL = new THREE.MeshStandardMaterial({
@@ -202,15 +213,10 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
 
       // Deposit 3 particles per frame (one per engine)
       // Stern is at +Z (nose at -Z), so exhaust spawns at positive Z offsets
-      const exhaustOffsets = [
-        new THREE.Vector3(-0.55, -0.1, 2.0),
-        new THREE.Vector3(0, -0.1, 2.3),
-        new THREE.Vector3(0.55, -0.1, 2.0),
-      ]
       for (let e = 0; e < 3; e++) {
         const idx = trailIdxRef.current % TRAIL_COUNT
         const i3 = idx * 3
-        _v3Trail.copy(exhaustOffsets[e])
+        _v3Trail.copy(EXHAUST_OFFSETS[e])
         shipGroupRef.current.localToWorld(_v3Trail)
         posArr[i3]     = _v3Trail.x + (Math.random() - 0.5) * 0.3
         posArr[i3 + 1] = _v3Trail.y + (Math.random() - 0.5) * 0.3
@@ -250,15 +256,14 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
       {/* ── Star Destroyer — A9 scale 2.2x ── */}
       <group ref={shipGroupRef} scale={2.2}>
         {/* === Main wedge hull === */}
-        {/* ExtrudeGeometry in XY plane; nose tip is at +Y.
-            Rx(-π/2) maps +Y→-Z, so nose faces -Z (Three.js lookAt convention — no wrapper needed) */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
-          <extrudeGeometry args={[HULL_SHAPE, HULL_EXTRUDE]} />
+        {/* Geometry has rotateX(-π/2) baked in — nose natively at -Z, no rotation needed */}
+        <mesh position={[0, 0.12, 0]}>
+          <primitive object={HULL_GEOMETRY} attach="geometry" />
           <primitive object={MAT_HULL} attach="material" />
         </mesh>
 
         {/* Underside reinforcement slab */}
-        <mesh position={[0, -0.06, 0]} rotation={[0, 0, 0]}>
+        <mesh position={[0, -0.06, 0]}>
           <boxGeometry args={[1.5, 0.06, 3.6]} />
           <primitive object={MAT_HULL} attach="material" />
         </mesh>
@@ -330,30 +335,30 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
           <primitive object={MAT_HULL} attach="material" />
         </mesh>
 
-        {/* Engine glow discs (emissive face at exhaust) */}
-        <mesh position={[-0.55, -0.05, 2.31]} rotation={[Math.PI / 2, 0, 0]}>
+        {/* Engine glow discs (emissive face at exhaust — circle faces +Z by default, matching stern) */}
+        <mesh position={[-0.55, -0.05, 2.31]}>
           <circleGeometry args={[0.13, 10]} />
           <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
-        <mesh position={[0, -0.05, 2.52]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0, -0.05, 2.52]}>
           <circleGeometry args={[0.16, 10]} />
           <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
-        <mesh position={[0.55, -0.05, 2.31]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0.55, -0.05, 2.31]}>
           <circleGeometry args={[0.13, 10]} />
           <primitive object={MAT_ENGINE} attach="material" />
         </mesh>
 
         {/* Engine outer halo discs */}
-        <mesh position={[-0.55, -0.05, 2.32]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[-0.55, -0.05, 2.32]}>
           <circleGeometry args={[0.2, 10]} />
           <primitive object={MAT_ENGINE_OUTER} attach="material" />
         </mesh>
-        <mesh position={[0, -0.05, 2.54]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0, -0.05, 2.54]}>
           <circleGeometry args={[0.24, 10]} />
           <primitive object={MAT_ENGINE_OUTER} attach="material" />
         </mesh>
-        <mesh position={[0.55, -0.05, 2.32]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0.55, -0.05, 2.32]}>
           <circleGeometry args={[0.2, 10]} />
           <primitive object={MAT_ENGINE_OUTER} attach="material" />
         </mesh>

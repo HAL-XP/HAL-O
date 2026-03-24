@@ -52,6 +52,8 @@ interface HudTopbarProps {
   onApplyPreset?: (preset: GroupPreset) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  voiceReactionIntensity?: number
+  onVoiceReactionIntensityChange?: (v: number) => void
   // Hidden projects
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
@@ -66,6 +68,7 @@ export function HudTopbar({
   hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
+  voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   hiddenPaths = [], onUnhide,
   demo,
@@ -102,8 +105,14 @@ export function HudTopbar({
       <div className="hal-topbar-left">
         <span className="hal-sys-label">SYS://HAL-O</span>
         <span className="hal-sys-ver">v1.0</span>
-        <button className="hal-cmd deploy" onClick={onNewProject} style={{ marginLeft: 16, padding: '3px 10px', fontSize: '9px' }}>+ NEW</button>
-        <button className="hal-cmd" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} style={{ padding: '3px 10px', fontSize: '9px' }}>+ ADD PROJECT</button>
+        <button className="hal-cmd deploy hal-topbar-btn" onClick={onNewProject} title="New project">
+          <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          <span className="hal-btn-label">NEW</span>
+        </button>
+        <button className="hal-cmd hal-topbar-btn" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} title="Add existing project">
+          <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          <span className="hal-btn-label">ADD PROJECT</span>
+        </button>
       </div>
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>
@@ -140,6 +149,7 @@ export function HudTopbar({
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
+          voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
         />

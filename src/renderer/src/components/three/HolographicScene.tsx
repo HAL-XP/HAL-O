@@ -6,7 +6,7 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
-import { ScreenPanel } from './ScreenPanel'
+import { ScreenPanel, ScreenPanelUpdater } from './ScreenPanel'
 import type { ProjectInfo } from '../../types'
 import { LAYOUT_3D_FNS } from '../../layouts3d'
 import { ThreeThemeProvider } from '../../contexts/ThreeThemeContext'
@@ -277,7 +277,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
 
   return (
     <Canvas
-      style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}
       camera={{ position: [0, 5, camZ], fov: 55, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       dpr={renderQuality ?? Math.min(window.devicePixelRatio, 2)}
@@ -319,6 +319,9 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
         <pointLight color="#ff2200" intensity={4} distance={20} decay={2} />
       </group>
 
+      {/* B22 PERF: Camera-movement flag for throttled ScreenPanel updates */}
+      <ScreenPanelUpdater />
+
       {/* 3D Screen Panels */}
       {projects.map((project, i) => {
         const sp = screenPositions[i]
@@ -347,6 +350,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
       })}
 
       <OrbitControls
+        makeDefault
         enablePan={false}
         enableZoom={true}
         minDistance={6}
