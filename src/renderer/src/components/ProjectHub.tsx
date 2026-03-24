@@ -87,6 +87,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [externalSessions, setExternalSessions] = useState<Array<{ pid: number; projectPath: string; projectName: string }>>([])
   const [absorbingPid, setAbsorbingPid] = useState<number | null>(null)
+  const [absorbToast, setAbsorbToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const absorbToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string; projectName: string; rulesOutdated?: boolean } | null>(null)
   const [preview2d, setPreview2d] = useState(false)
   const [voiceBlocked, setVoiceBlocked] = useState(false)
@@ -244,17 +246,55 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     })
   }
 
+  const showAbsorbToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+    setAbsorbToast({ message, type })
+    if (absorbToastTimer.current) clearTimeout(absorbToastTimer.current)
+    absorbToastTimer.current = setTimeout(() => setAbsorbToast(null), type === 'error' ? 5000 : 3000)
+  }, [])
+
   const handleAbsorb = async (extSession: { pid: number; projectPath: string; projectName: string }, project: ProjectInfo) => {
     setAbsorbingPid(extSession.pid)
     try {
-      await window.api.absorbSession(extSession)
-      // Remove from external sessions immediately
-      setExternalSessions((prev) => prev.filter((s) => s.pid !== extSession.pid))
-      // Open embedded terminal with --continue to pick up the conversation
-      if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
-    } catch { /* */ }
+      const result = await window.api.absorbSession(extSession)
+      if (result.success) {
+        // Remove from external sessions immediately
+        setExternalSessions((prev) => prev.filter((s) => s.pid !== extSession.pid))
+        showAbsorbToast(`Session absorbed: ${project.name}`, 'success')
+        // Open embedded terminal with --continue to pick up the conversation
+        if (onOpenTerminal) onOpenTerminal(project.path, project.name, true)
+      } else {
+        showAbsorbToast(result.error || `Failed to absorb ${project.name}`, 'error')
+      }
+    } catch (err) {
+      showAbsorbToast(`Absorption failed: ${err instanceof Error ? err.message : 'unknown error'}`, 'error')
+    }
     setAbsorbingPid(null)
   }
+
+  // ── Absorption overlay: toast notification + external session alert ──
+  const renderAbsorptionOverlay = () => (
+    <>
+      {/* Toast notification (success/error/info) */}
+      {absorbToast && (
+        <div className={`hal-absorb-toast hal-absorb-toast--${absorbToast.type}`}>
+          <span className="hal-absorb-toast-icon">
+            {absorbToast.type === 'success' ? '\u2713' : absorbToast.type === 'error' ? '\u2717' : '\u2139'}
+          </span>
+          {absorbToast.message}
+        </div>
+      )}
+      {/* External sessions detected — floating alert */}
+      {externalSessions.length > 0 && !absorbingPid && (
+        <div className="hal-external-alert">
+          <span className="hal-external-alert-dot" />
+          {externalSessions.length === 1
+            ? `External session: ${externalSessions[0].projectName}`
+            : `${externalSessions.length} external sessions detected`
+          }
+        </div>
+      )}
+    </>
+  )
 
   const renderCard = (project: ProjectInfo, globalIndex: number) => {
     const ready = isFullySetup(project)
@@ -431,6 +471,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onSceneReady={onSceneReady}
           shipVfxEnabled={shipVfxEnabled}
           voiceReactionIntensity={voiceReactionIntensity}
+          externalSessions={externalSessions}
+          absorbingPid={absorbingPid}
+          onAbsorb={handleAbsorb}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
@@ -457,6 +500,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onVoiceBlocked={handleVoiceBlocked}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        {renderAbsorptionOverlay()}
         {ctxMenu && (
           <ProjectContextMenu
             x={ctxMenu.x} y={ctxMenu.y}
@@ -516,6 +560,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        {renderAbsorptionOverlay()}
         {ctxMenu && (
           <ProjectContextMenu
             x={ctxMenu.x} y={ctxMenu.y}
@@ -586,6 +631,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       )}
 
       {/* Command bar removed — integrated into top bar */}
+
+      {renderAbsorptionOverlay()}
 
       {/* Right-click project context menu */}
       {ctxMenu && (

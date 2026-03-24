@@ -1942,6 +1942,91 @@ textarea.text-input {
   box-shadow: 0 0 12px rgba(192, 132, 252, 0.15);
 }
 
+/* ── Absorption toast notification ── */
+.hal-absorb-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  animation: absorbToastIn 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+.hal-absorb-toast--success {
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.1);
+}
+.hal-absorb-toast--error {
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #f87171;
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.1);
+}
+.hal-absorb-toast--info {
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  color: #c084fc;
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.1);
+}
+.hal-absorb-toast-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+@keyframes absorbToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── External session floating alert ── */
+.hal-external-alert {
+  position: fixed;
+  bottom: 32px;
+  right: 24px;
+  z-index: 9998;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.08);
+  border: 1px solid rgba(192, 132, 252, 0.25);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: extAlertIn 0.4s ease-out;
+  pointer-events: none;
+}
+.hal-external-alert-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c084fc;
+  box-shadow: 0 0 6px #c084fc;
+  animation: absorb-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes extAlertIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 /* Rules update available badge on card header */
 .hal-update-badge {
   font-size: calc(var(--hub-font, 10px) - 3px);

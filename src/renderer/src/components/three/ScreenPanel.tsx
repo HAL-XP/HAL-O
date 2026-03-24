@@ -35,22 +35,28 @@ interface Props {
   onContextMenu?: (e: React.MouseEvent) => void
   rulesOutdated?: boolean // show UPDATE badge when rules version is behind
   isFavorite?: boolean // show gold star indicator on favorited projects
+  isExternal?: boolean // an external Claude session is running for this project
+  isAbsorbing?: boolean // absorption in progress
+  onAbsorb?: () => void // trigger absorption of the external session
 }
 
-// Health-based edge glow colors
-const HEALTH_COLORS: Record<HealthStatus, string> = {
-  ok: '',       // empty = use default (accent or groupColor)
-  warning: '#fbbf24',   // amber
-  outdated: '#fb923c',  // dim orange
-  error: '#f87171',     // red
-  neutral: '#4a5568',   // dim gray — bare projects, not broken
+// Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
+function getHealthColors(theme: ReturnType<typeof useThreeTheme>): Record<HealthStatus, string> {
+  return {
+    ok: '',       // empty = use default (accent or groupColor)
+    warning: '#' + theme.warning.getHexString(),
+    outdated: '#fb923c',  // dim orange — no direct theme mapping
+    error: '#' + theme.error.getHexString(),
+    neutral: '#4a5568',   // dim gray — bare projects, not broken
+  }
 }
-const HEALTH_EDGE_OPACITY: Record<HealthStatus, number> = {
-  ok: 0.5,
-  warning: 0.6,
-  outdated: 0.3,
-  error: 0.7,
-  neutral: 0.2,
+// Edge glow opacity multipliers per health status — multiplied with style.edgeGlowBase (P3)
+const HEALTH_EDGE_OPACITY_MULT: Record<HealthStatus, number> = {
+  ok: 1.0,
+  warning: 1.2,
+  outdated: 0.6,
+  error: 1.4,
+  neutral: 0.4,
 }
 
 // Scratch vectors — reused every frame to avoid GC pressure
@@ -70,6 +76,44 @@ const _sharedFramePositions = new Float32Array([
 ])
 const _sharedFrameGeo = new THREE.BufferGeometry()
 _sharedFrameGeo.setAttribute('position', new THREE.BufferAttribute(_sharedFramePositions, 3))
+
+// ── Global camera-move detection for throttling Html updates (B22 PERF) ──
+// drei's Html component recalculates CSS transform3d from the 3D world matrix EVERY frame.
+// With 100+ panels, that's 100+ matrix decompositions per frame — the #1 cause of orbit stutter.
+// We track whether the camera actually moved and skip Html rendering for frames where it didn't,
+// and during active interaction we throttle back-face checks to every 3rd frame.
+let _prevCamX = 0
+let _prevCamY = 0
+let _prevCamZ = 0
+let _cameraMovedThisFrame = true
+let _frameCounter = 0
+let _isUserInteracting = false
+let _interactionEndTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Called once per frame from ScreenPanelUpdater to detect camera movement */
+export function updateCameraMovementFlag(camera: THREE.Camera): void {
+  _frameCounter++
+  const dx = camera.position.x - _prevCamX
+  const dy = camera.position.y - _prevCamY
+  const dz = camera.position.z - _prevCamZ
+  // Threshold: camera moved more than 0.001 units (covers sub-pixel precision)
+  _cameraMovedThisFrame = (dx * dx + dy * dy + dz * dz) > 0.000001
+  _prevCamX = camera.position.x
+  _prevCamY = camera.position.y
+  _prevCamZ = camera.position.z
+}
+
+/** Signal that user started interacting (orbit drag / zoom) */
+export function setUserInteracting(active: boolean): void {
+  if (active) {
+    _isUserInteracting = true
+    if (_interactionEndTimer) { clearTimeout(_interactionEndTimer); _interactionEndTimer = null }
+  } else {
+    // Debounce: keep throttling for 200ms after interaction ends (covers inertia)
+    if (_interactionEndTimer) clearTimeout(_interactionEndTimer)
+    _interactionEndTimer = setTimeout(() => { _isUserInteracting = false }, 200)
+  }
+}
 
 // Format epoch timestamp into relative "time ago" string
 function timeAgo(epoch: number): string {
@@ -101,23 +145,57 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${alpha})`
 }
 
+/**
+ * ScreenPanelUpdater — ONE instance in the scene (in PbrSceneInner).
+ * Runs a single useFrame to update the global camera-movement flag.
+ * This replaces N per-panel useFrame calls for camera detection. (B22 PERF)
+ */
+export function ScreenPanelUpdater() {
+  const { camera, controls } = useThree()
+
+  // Wire up interaction detection to OrbitControls events
+  useEffect(() => {
+    if (!controls) return
+    const oc = controls as any
+    const onStart = () => setUserInteracting(true)
+    const onEnd = () => setUserInteracting(false)
+    oc.addEventListener('start', onStart)
+    oc.addEventListener('end', onEnd)
+    return () => {
+      oc.removeEventListener('start', onStart)
+      oc.removeEventListener('end', onEnd)
+    }
+  }, [controls])
+
+  useFrame(() => {
+    updateCameraMovementFlag(camera)
+  })
+
+  return null
+}
+
 export function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
   demoStats, onContextMenu, rulesOutdated = false, isFavorite = false,
+  isExternal = false, isAbsorbing = false, onAbsorb,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
   const [stats, setStats] = useState<ProjectStats | null>(null)
-  const [visible, setVisible] = useState(false)
+
+  // Track if panel has ever been front-facing (triggers Html mount — never unmounts after) (B22 PERF)
+  const [htmlMounted, setHtmlMounted] = useState(false)
+  // isFront ref: true = facing camera. Starts null (unknown).
+  const wasFrontRef = useRef<boolean | null>(null)
 
   // Lazy-load stats when screen becomes visible (front-facing)
   // If demoStats is provided (demo projects), use it directly without IPC
   useEffect(() => {
-    if (!visible) return
+    if (!htmlMounted) return
     if (demoStats) {
       setStats(demoStats)
       return
@@ -128,7 +206,7 @@ export function ScreenPanel({
       if (!cancelled) setStats(s)
     }).catch(() => { /* ignore */ })
     return () => { cancelled = true }
-  }, [visible, projectPath, demoStats])
+  }, [htmlMounted, projectPath, demoStats])
 
   // Derive effective health from prop + stats (stats can upgrade 'ok' to 'outdated')
   const effectiveHealth: HealthStatus = useMemo(() => {
@@ -149,11 +227,14 @@ export function ScreenPanel({
     return undefined
   }, [healthText, effectiveHealth, stats])
 
-  // Health status overrides edge color (except 'ok' which uses default)
-  const healthColor = HEALTH_COLORS[effectiveHealth]
+  // Health status overrides edge color (except 'ok' which uses default) (P3 theme)
+  // External sessions get a distinctive purple glow to draw attention (T3)
+  const healthColors = useMemo(() => getHealthColors(theme), [theme.warning, theme.error])
+  const healthColor = healthColors[effectiveHealth]
   const accentHex = theme.screenEdgeHex
-  const edgeColor = healthColor || groupColor || accentHex
-  const edgeBaseOpacity = HEALTH_EDGE_OPACITY[effectiveHealth]
+  const edgeColor = isExternal ? '#c084fc' : (healthColor || groupColor || accentHex)
+  // Edge glow opacity: style.edgeGlowBase * health multiplier (P3), boosted for external (T3)
+  const edgeBaseOpacity = isExternal ? 0.7 : ((theme.style?.edgeGlowBase ?? 0.5) * HEALTH_EDGE_OPACITY_MULT[effectiveHealth])
 
   // Button styles derived from theme accent color
   const btnPrimary: React.CSSProperties = useMemo(() => ({
@@ -170,6 +251,14 @@ export function ScreenPanel({
     textTransform: 'uppercase',
   }), [])
 
+  // Absorb button style (T3)
+  const btnAbsorb: React.CSSProperties = useMemo(() => ({
+    padding: '3px 9px', background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.5)',
+    color: '#c084fc', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
+    cursor: isAbsorbing ? 'wait' : 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+    textTransform: 'uppercase' as const, opacity: isAbsorbing ? 0.6 : 1,
+  }), [isAbsorbing])
+
   // Stack tag badge colors
   const stackBadgeBg = useMemo(() => hexToRgba(accentHex, 0.1), [accentHex])
   const stackBadgeBorder = useMemo(() => hexToRgba(accentHex, 0.2), [accentHex])
@@ -185,43 +274,49 @@ export function ScreenPanel({
 
   const edgeMeshRefs = useRef<THREE.Mesh[]>([])
 
-  const wasFrontRef = useRef<boolean | null>(null) // null = first frame, needs forced write
-
   useFrame(() => {
-    if (groupRef.current) {
-      const s = isHovered ? 1.04 : 1.0
-      groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
+    if (!groupRef.current) return
 
-      // Back-face detection — dot > 0.05 means panel normal faces camera
-      _screenNormal.set(0, 0, 1)
-      _screenNormal.applyQuaternion(groupRef.current.quaternion)
-      _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
-      const dot = _screenNormal.dot(_toCamera)
-      const isFront = dot > 0.05
+    // Hover scale lerp — always runs (cheap: one lerp)
+    const s = isHovered ? 1.04 : 1.0
+    groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
-      // Update DOM only on state change OR first frame (null → force write)
-      if (isFront !== wasFrontRef.current) {
-        wasFrontRef.current = isFront
-        for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
-        if (htmlWrapRef.current) {
-          htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
-          htmlWrapRef.current.style.visibility = isFront ? 'visible' : 'hidden'
-          htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
-        }
+    // ── Back-face detection — throttled during interaction (B22 PERF FIX) ──
+    // During active camera orbit/zoom, only check every 3rd frame.
+    // The visual difference is imperceptible but saves 66% of per-panel vector math.
+    if (_isUserInteracting && (_frameCounter % 3 !== 0)) return
+
+    // Only recompute when camera actually moved (skip static frames entirely)
+    if (!_cameraMovedThisFrame && wasFrontRef.current !== null) return
+
+    _screenNormal.set(0, 0, 1)
+    _screenNormal.applyQuaternion(groupRef.current.quaternion)
+    _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
+    const dot = _screenNormal.dot(_toCamera)
+    const isFront = dot > 0.05
+
+    // Update DOM only on state change OR first frame (null -> force write)
+    if (isFront !== wasFrontRef.current) {
+      wasFrontRef.current = isFront
+      for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
+      if (htmlWrapRef.current) {
+        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
       }
-      if (isFront && !visible) setVisible(true)
     }
+    // Mount Html the first time this panel faces the camera (never unmount — avoids flicker) (B22 PERF)
+    if (isFront && !htmlMounted) setHtmlMounted(true)
   })
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
 
-      {/* Screen face — shared geometry (PERF2) */}
+      {/* Screen face — shared geometry (PERF2), metalness/roughness from style (P3) */}
       <mesh geometry={_sharedFaceGeo}>
         <meshStandardMaterial
           color={theme.screenFaceHex}
-          metalness={0.3}
-          roughness={0.9}
+          metalness={theme.style?.surfaceMetalness ?? 0.3}
+          roughness={theme.style?.surfaceRoughness ?? 0.9}
           emissive={theme.gridLineHex}
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
@@ -253,193 +348,215 @@ export function ScreenPanel({
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
 
-      {/* HTML content — starts hidden, useFrame reveals when front-facing */}
-      <Html
-        transform
-        distanceFactor={4}
-        position={[0, 0, 0.05]}
-        style={{
-          width: '260px',
-          padding: '12px 14px',
-          pointerEvents: 'auto',
-          cursor: 'pointer',
-          userSelect: 'none',
-        }}
-        onPointerOver={() => onHover(true)}
-        onPointerOut={() => onHover(false)}
-      >
-        <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
-          fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-          color: '#c8dce8',
-          transition: 'opacity 0.15s ease',
-          willChange: 'opacity',
-          position: 'relative',
-          opacity: 0,
-          visibility: 'hidden' as const,
-          pointerEvents: 'none' as const,
-        }}>
-          {/* CRT scanline overlay — sci-fi holographic display effect */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            zIndex: 10,
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
-            mixBlendMode: 'multiply',
-          }} />
-          {/* Horizontal refresh line — sweeps down like a CRT beam */}
-          <div style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            height: '2px',
-            background: `linear-gradient(90deg, transparent, ${edgeColor}44, transparent)`,
-            pointerEvents: 'none',
-            zIndex: 11,
-            animation: 'crtSweep 3s linear infinite',
-            opacity: 0.6,
-          }} />
-          <style>{`
-            @keyframes crtSweep {
-              0% { top: -2px; }
-              100% { top: 100%; }
-            }
-          `}</style>
-          {/* Scrolling background status text — very low opacity, behind content */}
-          {effectiveHealthText && (
+      {/* HTML content — deferred mount: only mounts when panel first faces camera (B22 PERF FIX).
+          drei's Html with transform recalculates CSS transform3d from world matrix EVERY frame.
+          By not mounting Html for back-facing panels, we avoid 50%+ of matrix decompositions.
+          Once mounted, Html stays mounted (just hidden via opacity) to avoid flicker. */}
+      {htmlMounted && (
+        <Html
+          transform
+          distanceFactor={4}
+          position={[0, 0, 0.05]}
+          zIndexRange={[1, 0]}
+          style={{
+            width: '260px',
+            padding: '12px 14px',
+            pointerEvents: 'auto',
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+          onPointerOver={() => onHover(true)}
+          onPointerOut={() => onHover(false)}
+        >
+          <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
+            fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+            color: '#c8dce8',
+            transition: 'opacity 0.15s ease',
+            willChange: 'opacity',
+            position: 'relative',
+          }}>
+            {/* CRT scanline overlay — sci-fi holographic display effect */}
             <div style={{
               position: 'absolute',
               inset: 0,
-              overflow: 'hidden',
               pointerEvents: 'none',
-              zIndex: 0,
-              opacity: effectiveHealth === 'ok' ? 0.08 : 0.12,
-            }}>
-              <div style={{
-                fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-                fontSize: '9px',
-                letterSpacing: '2px',
-                color: edgeColor,
-                whiteSpace: 'nowrap',
-                lineHeight: '14px',
-                animation: 'healthScrollY 8s linear infinite',
-              }}>
-                {/* Repeat text to fill vertical space */}
-                {Array.from({ length: 12 }, (_, i) => (
-                  <div key={i}>{effectiveHealthText}</div>
-                ))}
-              </div>
-              <style>{`
-                @keyframes healthScrollY {
-                  0% { transform: translateY(0); }
-                  100% { transform: translateY(-50%); }
-                }
-              `}</style>
-            </div>
-          )}
-          <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: ready ? '#4ade80' : '#fbbf24',
-              boxShadow: `0 0 8px ${ready ? '#4ade80' : '#fbbf24'}`,
-              display: 'inline-block', flexShrink: 0,
+              zIndex: 10,
+              background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
+              mixBlendMode: 'multiply',
             }} />
-            <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase' }}>
-              {projectName}
-            </span>
-            {rulesOutdated && (
-              <span style={{
-                fontSize: '7px', letterSpacing: '1px', color: '#fb923c',
-                background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
-                padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
-              }} title="HAL-O rules update available">
-                UPDATE
-              </span>
-            )}
-            {isFavorite && (
-              <span className="favorite-star" title="Favorite" style={{
-                fontSize: '10px', color: '#fbbf24', flexShrink: 0, lineHeight: 1,
-                textShadow: '0 0 6px rgba(251,191,36,0.6)',
-              }}>&#x2605;</span>
-            )}
-          </div>
-
-          {stack && (
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{
-                fontSize: '8px', color: accentHex,
-                background: stackBadgeBg,
-                padding: '2px 7px', borderRadius: '2px',
-                letterSpacing: '1px', border: `1px solid ${stackBadgeBorder}`,
+            {/* Horizontal refresh line — sweeps down like a CRT beam */}
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              height: '2px',
+              background: `linear-gradient(90deg, transparent, ${edgeColor}44, transparent)`,
+              pointerEvents: 'none',
+              zIndex: 11,
+              animation: 'crtSweep 3s linear infinite',
+              opacity: 0.6,
+            }} />
+            <style>{`
+              @keyframes crtSweep {
+                0% { top: -2px; }
+                100% { top: 100%; }
+              }
+              @keyframes extPulse {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 1; }
+              }
+            `}</style>
+            {/* Scrolling background status text — very low opacity, behind content */}
+            {effectiveHealthText && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+                zIndex: 0,
+                opacity: effectiveHealth === 'ok' ? 0.08 : 0.12,
               }}>
-                {stack}
-              </span>
-            </div>
-          )}
-
-          {/* ── Project Stats ── */}
-          {stats && (
-            <div style={{ marginBottom: '6px', fontSize: '8px', lineHeight: '1.5' }}>
-              {/* Last commit */}
-              {stats.lastCommit && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#6b7a8d' }}>
-                  <span style={{
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    maxWidth: '160px', color: '#8b9bb0',
-                  }} title={stats.lastCommit}>
-                    {stats.lastCommit.length > 30 ? stats.lastCommit.slice(0, 28) + '..' : stats.lastCommit}
-                  </span>
-                  <span style={{ flexShrink: 0, color: '#4a5568', fontSize: '7px' }}>
-                    {timeAgo(stats.lastCommitTime)}
-                  </span>
-                </div>
-              )}
-
-              {/* Activity bar + file count row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-                {/* 7-bar activity indicator */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '12px' }} title={`${stats.commitCount30d} commits (30d)`}>
-                  {activityBars(stats.commitCount30d).map((v, i) => (
-                    <div key={i} style={{
-                      width: '3px',
-                      height: `${Math.max(3, v * 12)}px`,
-                      borderRadius: '1px',
-                      background: v > 0.6
-                        ? `${activityBarHighlight} ${0.4 + v * 0.5})`
-                        : `rgba(100, 130, 160, ${0.2 + v * 0.4})`,
-                      transition: 'height 0.3s ease',
-                    }} />
+                <div style={{
+                  fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+                  fontSize: '9px',
+                  letterSpacing: '2px',
+                  color: edgeColor,
+                  whiteSpace: 'nowrap',
+                  lineHeight: '14px',
+                  animation: 'healthScrollY 8s linear infinite',
+                }}>
+                  {/* Repeat text to fill vertical space */}
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i}>{effectiveHealthText}</div>
                   ))}
-                  <span style={{ fontSize: '7px', color: '#4a5568', marginLeft: '3px' }}>
-                    {stats.commitCount30d > 0 ? `${stats.commitCount30d}` : '0'}
-                  </span>
                 </div>
-
-                {/* File count badge */}
-                {stats.fileCount > 0 && (
-                  <span style={{
-                    fontSize: '7px', color: '#4a5568',
-                    background: 'rgba(255,255,255,0.04)',
-                    padding: '1px 5px', borderRadius: '2px',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                    {stats.fileCount} files
-                  </span>
-                )}
+                <style>{`
+                  @keyframes healthScrollY {
+                    0% { transform: translateY(0); }
+                    100% { transform: translateY(-50%); }
+                  }
+                `}</style>
               </div>
+            )}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: ready ? ('#' + theme.success.getHexString()) : ('#' + theme.warning.getHexString()),
+                boxShadow: `0 0 8px ${ready ? ('#' + theme.success.getHexString()) : ('#' + theme.warning.getHexString())}`,
+                display: 'inline-block', flexShrink: 0,
+              }} />
+              <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase' }}>
+                {projectName}
+              </span>
+              {isExternal && (
+                <span style={{
+                  fontSize: '7px', letterSpacing: '1px', color: '#c084fc',
+                  background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.4)',
+                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
+                  animation: 'extPulse 2s ease-in-out infinite',
+                }} title="External Claude session detected">
+                  EXT
+                </span>
+              )}
+              {rulesOutdated && (
+                <span style={{
+                  fontSize: '7px', letterSpacing: '1px', color: '#fb923c',
+                  background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
+                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
+                }} title="HAL-O rules update available">
+                  UPDATE
+                </span>
+              )}
+              {isFavorite && (
+                <span className="favorite-star" title="Favorite" style={{
+                  fontSize: '10px', color: '#fbbf24', flexShrink: 0, lineHeight: 1,
+                  textShadow: '0 0 6px rgba(251,191,36,0.6)',
+                }}>&#x2605;</span>
+              )}
             </div>
-          )}
 
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            <button onClick={onResume} style={btnPrimary}>RESUME</button>
-            <button onClick={onNewSession} style={btnGhost}>NEW</button>
-            {runCmd && onRunApp && <button onClick={onRunApp} style={{ ...btnGhost, color: '#22d3ee', borderColor: 'rgba(34,211,238,0.3)' }}>RUN</button>}
-            <button onClick={onFiles} style={btnGhost}>FILES</button>
+            {stack && (
+              <div style={{ marginBottom: '6px' }}>
+                <span style={{
+                  fontSize: '8px', color: accentHex,
+                  background: stackBadgeBg,
+                  padding: '2px 7px', borderRadius: '2px',
+                  letterSpacing: '1px', border: `1px solid ${stackBadgeBorder}`,
+                }}>
+                  {stack}
+                </span>
+              </div>
+            )}
+
+            {/* ── Project Stats ── */}
+            {stats && (
+              <div style={{ marginBottom: '6px', fontSize: '8px', lineHeight: '1.5' }}>
+                {/* Last commit */}
+                {stats.lastCommit && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#6b7a8d' }}>
+                    <span style={{
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      maxWidth: '160px', color: '#8b9bb0',
+                    }} title={stats.lastCommit}>
+                      {stats.lastCommit.length > 30 ? stats.lastCommit.slice(0, 28) + '..' : stats.lastCommit}
+                    </span>
+                    <span style={{ flexShrink: 0, color: '#4a5568', fontSize: '7px' }}>
+                      {timeAgo(stats.lastCommitTime)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Activity bar + file count row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                  {/* 7-bar activity indicator */}
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '12px' }} title={`${stats.commitCount30d} commits (30d)`}>
+                    {activityBars(stats.commitCount30d).map((v, i) => (
+                      <div key={i} style={{
+                        width: '3px',
+                        height: `${Math.max(3, v * 12)}px`,
+                        borderRadius: '1px',
+                        background: v > 0.6
+                          ? `${activityBarHighlight} ${0.4 + v * 0.5})`
+                          : `rgba(100, 130, 160, ${0.2 + v * 0.4})`,
+                        transition: 'height 0.3s ease',
+                      }} />
+                    ))}
+                    <span style={{ fontSize: '7px', color: '#4a5568', marginLeft: '3px' }}>
+                      {stats.commitCount30d > 0 ? `${stats.commitCount30d}` : '0'}
+                    </span>
+                  </div>
+
+                  {/* File count badge */}
+                  {stats.fileCount > 0 && (
+                    <span style={{
+                      fontSize: '7px', color: '#4a5568',
+                      background: 'rgba(255,255,255,0.04)',
+                      padding: '1px 5px', borderRadius: '2px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                      {stats.fileCount} files
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {isExternal && onAbsorb && (
+                <button onClick={onAbsorb} disabled={isAbsorbing} style={btnAbsorb}>
+                  {isAbsorbing ? 'ABSORBING...' : 'ABSORB'}
+                </button>
+              )}
+              <button onClick={onResume} style={btnPrimary}>RESUME</button>
+              <button onClick={onNewSession} style={btnGhost}>NEW</button>
+              {runCmd && onRunApp && <button onClick={onRunApp} style={{ ...btnGhost, color: '#22d3ee', borderColor: 'rgba(34,211,238,0.3)' }}>RUN</button>}
+              <button onClick={onFiles} style={btnGhost}>FILES</button>
+            </div>
+            </div>{/* close zIndex:1 content wrapper */}
           </div>
-          </div>{/* close zIndex:1 content wrapper */}
-        </div>
-      </Html>
+        </Html>
+      )}
     </group>
   )
 }

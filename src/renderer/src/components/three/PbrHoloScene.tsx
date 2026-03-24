@@ -6,7 +6,7 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
-import { ScreenPanel } from './ScreenPanel'
+import { ScreenPanel, ScreenPanelUpdater } from './ScreenPanel'
 import { DataParticles } from './DataParticles'
 import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
@@ -222,15 +222,16 @@ function TexturedPlatform({ radius = 12, onLoad }: { radius?: number; onLoad?: (
 
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
-    uInnerColor: { value: new THREE.Color('#ff3300') },
-    uOuterColor: { value: new THREE.Color(theme.screenEdgeHex || '#00d4ff') },
+    uInnerColor: { value: new THREE.Color(theme.sphereHex) },
+    uOuterColor: { value: new THREE.Color(theme.screenEdgeHex) },
     uRadius: { value: radius },
   }), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((state) => {
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      matRef.current.uniforms.uOuterColor.value.set(theme.screenEdgeHex || '#00d4ff')
+      matRef.current.uniforms.uInnerColor.value.set(theme.sphereHex)
+      matRef.current.uniforms.uOuterColor.value.set(theme.screenEdgeHex)
     }
     // Signal ready on first frame (no texture to wait for)
     if (!signaled.current) {
@@ -290,10 +291,12 @@ function InstancedDots({ radius, count, accentHex, accentDim }: { radius: number
 function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
+  const ringMatRef = useRef<THREE.ShaderMaterial>(null)
   // Scale factor relative to original 8.5 radius
   const s = radius / 8.5
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.015
+    if (ringMatRef.current) ringMatRef.current.uniforms.uTime.value = state.clock.elapsedTime
   })
 
   // Derive inner/outer colors from theme
@@ -312,10 +315,12 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
       <mesh position={[0, 0, -0.01]}>
         <ringGeometry args={[1.0, radius, 128]} />
         <shaderMaterial
+          ref={ringMatRef}
           transparent
           side={THREE.DoubleSide}
           depthWrite={false}
           uniforms={{
+            uTime: { value: 0 },
             uInnerColor: { value: new THREE.Vector3(innerRGB[0], innerRGB[1], innerRGB[2]) },
             uOuterColor: { value: new THREE.Vector3(outerRGB[0], outerRGB[1], outerRGB[2]) },
           }}
@@ -330,6 +335,7 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
             }
           `}
           fragmentShader={`
+            uniform float uTime;
             uniform vec3 uInnerColor;
             uniform vec3 uOuterColor;
             varying vec2 vUv;
@@ -810,7 +816,7 @@ function SceneLights() {
 
   return (
     <>
-      <ambientLight intensity={0.008} color="#080818" />
+      <ambientLight intensity={0.008} color={theme.backgroundHex} />
       {/* Overhead spot lights illuminating the screens — 4 lights (45° apart) cover full ring */}
       {Array.from({ length: 4 }, (_, i) => {
         const a = (i / 4) * Math.PI * 2
@@ -948,6 +954,25 @@ function ScenePhaseManager({ sceneReady, onPhaseChange }: { sceneReady: boolean;
   return null
 }
 
+// ── External session matching helper (T3) ──
+type ExternalSession = { pid: number; projectPath: string; projectName: string }
+
+function matchExternalSession(
+  projectPath: string,
+  externalSessions: ExternalSession[],
+): ExternalSession | undefined {
+  if (externalSessions.length === 0) return undefined
+  const norm = projectPath.replace(/\\/g, '/').toLowerCase()
+  return externalSessions.find((s) => {
+    const ePath = s.projectPath.replace(/\\/g, '/').toLowerCase()
+    return ePath === norm || norm.includes(ePath) || ePath.includes(norm)
+  }) || externalSessions.find((s) => {
+    const eName = s.projectName.toLowerCase()
+    const pName = projectPath.split(/[/\\]/).pop()?.toLowerCase() || ''
+    return eName === pName
+  })
+}
+
 // ── Main PBR Scene ──
 interface Props {
   projects: ProjectInfo[]
@@ -973,6 +998,10 @@ interface Props {
   onSceneReady?: () => void
   shipVfxEnabled?: boolean
   voiceReactionIntensity?: number
+  // Session absorption (T3)
+  externalSessions?: ExternalSession[]
+  absorbingPid?: number | null
+  onAbsorb?: (extSession: ExternalSession, project: ProjectInfo) => void
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1001,6 +1030,10 @@ interface PbrSceneInnerProps {
   maxCamDistance: number
   shipVfxEnabled: boolean
   voiceReactionIntensity: number
+  // Session absorption (T3)
+  externalSessions: ExternalSession[]
+  absorbingPid: number | null
+  onAbsorb?: (extSession: ExternalSession, project: ProjectInfo) => void
 }
 
 function PbrSceneInner({
@@ -1008,6 +1041,7 @@ function PbrSceneInner({
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
   floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
+  externalSessions, absorbingPid, onAbsorb,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -1121,12 +1155,18 @@ function PbrSceneInner({
       {/* Sonar pulse — HAL heartbeat */}
       {halOnline && <SonarPulse />}
 
+      {/* B22 PERF: Single useFrame that detects camera movement + user interaction.
+          ScreenPanel useFrame callbacks then skip work when camera is static or throttle
+          during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
+      <ScreenPanelUpdater />
+
       {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {
         const sp = screenPositions[i]
         if (!sp) return null
         // If stack info exists and this project is not in the visible set, skip it
         if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
+        const extSession = matchExternalSession(project.path, externalSessions)
         return (
           <ScreenPanel
             key={project.path}
@@ -1149,6 +1189,9 @@ function PbrSceneInner({
             isFavorite={isFavorite ? isFavorite(project.path) : false}
             demoStats={project.demoStats}
             screenOpacity={fadeRef.current.screens}
+            isExternal={!!extSession}
+            isAbsorbing={extSession ? absorbingPid === extSession.pid : false}
+            onAbsorb={extSession && onAbsorb ? () => onAbsorb(extSession, project) : undefined}
             onContextMenu={onProjectContextMenu ? (e: React.MouseEvent) => {
               e.preventDefault()
               onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
@@ -1205,7 +1248,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5 }: Props) {
+export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1315,6 +1358,9 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
           maxCamDistance={maxCamDistance}
           shipVfxEnabled={shipVfxEnabled}
           voiceReactionIntensity={voiceReactionIntensity}
+          externalSessions={externalSessions}
+          absorbingPid={absorbingPid}
+          onAbsorb={onAbsorb}
         />
       </ThreeThemeProvider>
     </Canvas>

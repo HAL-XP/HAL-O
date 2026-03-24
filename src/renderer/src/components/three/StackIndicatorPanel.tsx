@@ -2,6 +2,7 @@ import { useRef, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
+import { useThreeTheme } from '../../contexts/ThreeThemeContext'
 
 interface Props {
   position: [number, number, number]
@@ -11,9 +12,7 @@ interface Props {
   groupName?: string  // optional group label
 }
 
-const CYAN = '#00d4ff'
-
-// Scratch vectors for face-culling (reused every frame to avoid GC pressure)
+// Scratch vectors for face-culling
 const _screenNormal = new THREE.Vector3()
 const _toCamera = new THREE.Vector3()
 
@@ -22,10 +21,10 @@ const _toCamera = new THREE.Vector3()
  * Placed at the 6th position in a group when that group has > 6 projects.
  */
 export function StackIndicatorPanel({ position, rotation, count, groupColor, groupName }: Props) {
-  const edgeColor = groupColor || CYAN
+  const theme = useThreeTheme()
+  const edgeColor = groupColor || theme.screenEdgeHex
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
-  const wasFrontRef = useRef<boolean | null>(null) // null = first frame, needs forced write
   const { camera } = useThree()
 
   const W = 2.8
@@ -41,21 +40,15 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
 
   useFrame(() => {
     if (groupRef.current) {
-      // Back-face detection — dot > 0.05 means panel normal faces camera
+      // Face-culling for Html visibility
       _screenNormal.set(0, 0, 1)
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = _screenNormal.dot(_toCamera)
-      const isFront = dot > 0.05
-
-      // Update DOM only on state change OR first frame (null → force write)
-      if (isFront !== wasFrontRef.current) {
-        wasFrontRef.current = isFront
-        if (htmlWrapRef.current) {
-          htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
-          htmlWrapRef.current.style.visibility = isFront ? 'visible' : 'hidden'
-          htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
-        }
+      const isFront = dot > 0
+      if (htmlWrapRef.current) {
+        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
+        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
       }
     }
   })
@@ -91,7 +84,7 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
             <mesh>
               <planeGeometry args={[W, H]} />
               <meshBasicMaterial
-                color="#050810"
+                color={theme.screenFaceHex}
                 transparent
                 opacity={opacity * 0.6}
                 side={THREE.DoubleSide}
@@ -105,10 +98,10 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
       <mesh>
         <planeGeometry args={[W, H]} />
         <meshStandardMaterial
-          color="#050810"
-          metalness={0.3}
-          roughness={0.9}
-          emissive="#001520"
+          color={theme.screenFaceHex}
+          metalness={theme.style?.surfaceMetalness ?? 0.3}
+          roughness={theme.style?.surfaceRoughness ?? 0.9}
+          emissive={theme.gridLineHex}
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
         />
@@ -126,22 +119,22 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
       {/* Top */}
       <mesh position={[0, H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={0.35} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={(theme.style?.edgeGlowBase ?? 0.5) * 0.7} />
       </mesh>
       {/* Bottom */}
       <mesh position={[0, -H / 2, 0.001]}>
         <planeGeometry args={[W, 0.02]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={0.35} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={(theme.style?.edgeGlowBase ?? 0.5) * 0.7} />
       </mesh>
       {/* Left */}
       <mesh position={[-W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={0.35} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={(theme.style?.edgeGlowBase ?? 0.5) * 0.7} />
       </mesh>
       {/* Right */}
       <mesh position={[W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, H]} />
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={0.35} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={(theme.style?.edgeGlowBase ?? 0.5) * 0.7} />
       </mesh>
 
       {/* HTML count badge */}
@@ -167,9 +160,6 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
           justifyContent: 'center',
           textAlign: 'center',
           gap: '8px',
-          opacity: 0,
-          visibility: 'hidden' as const,
-          pointerEvents: 'none' as const,
         }}>
           {groupName && (
             <span style={{

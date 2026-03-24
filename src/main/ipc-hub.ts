@@ -396,6 +396,58 @@ export function registerHubHandlers(): void {
     return entries
   }
 
+  /** Parse PowerShell CSV with ProcessId, CommandLine, and ExecutablePath columns. (T3) */
+  function parseProcessCsvWithPath(output: string): Array<{ pid: number; cmdLine: string; exePath: string }> {
+    const entries: Array<{ pid: number; cmdLine: string; exePath: string }> = []
+    const lines = output.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length === 0) return entries
+
+    // Find header row
+    const headerIdx = lines.findIndex(l => l.includes('"ProcessId"'))
+    if (headerIdx < 0) return entries
+
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+      const trimmed = lines[i]
+      // Parse "PID","CmdLine","ExePath" — fields may contain commas/quotes
+      const fields: string[] = []
+      let pos = 0
+      while (pos < trimmed.length && fields.length < 3) {
+        if (trimmed[pos] === '"') {
+          let end = pos + 1
+          while (end < trimmed.length) {
+            if (trimmed[end] === '"' && trimmed[end + 1] === '"') { end += 2; continue }
+            if (trimmed[end] === '"') break
+            end++
+          }
+          fields.push(trimmed.slice(pos + 1, end).replace(/""/g, '"'))
+          pos = end + 2 // skip closing quote + comma
+        } else {
+          const comma = trimmed.indexOf(',', pos)
+          if (comma < 0) { fields.push(trimmed.slice(pos)); break }
+          fields.push(trimmed.slice(pos, comma))
+          pos = comma + 1
+        }
+      }
+      const pid = parseInt(fields[0], 10)
+      if (!pid || isNaN(pid)) continue
+      entries.push({ pid, cmdLine: fields[1] || '', exePath: fields[2] || '' })
+    }
+    return entries
+  }
+
+  /** Check if a PID is still alive. (T3) */
+  function isProcessAlive(pid: number): boolean {
+    try {
+      // tasklist with /FI filter — returns header + row if alive, error text if dead
+      const out = execSync(`tasklist /FI "PID eq ${pid}" /NH`, {
+        encoding: 'utf-8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+      })
+      return out.includes(String(pid))
+    } catch {
+      return false
+    }
+  }
+
   ipcMain.handle('detect-external-sessions', async (): Promise<Array<{
     pid: number; projectPath: string; projectName: string
   }>> => {
@@ -405,36 +457,47 @@ export function registerHubHandlers(): void {
     const embeddedPaths = new Set(
       terminalManager.getActiveSessions().map((s) => normalize(s.projectPath).toLowerCase())
     )
+    const ourPid = process.pid
 
     const results: Array<{ pid: number; projectPath: string; projectName: string }> = []
     const seenPids = new Set<number>()
 
-    // Scan both node.exe (claude CLI runs as node) and cmd.exe (wrapper shells)
-    // Use PowerShell Get-CimInstance instead of WMIC to avoid cmd.exe quote escaping issues
-    // WMIC is deprecated and its WHERE clause quotes conflict with cmd.exe shell parsing
-    const processNames = ['node.exe', 'cmd.exe']
+    // Scan node.exe, cmd.exe, and pwsh.exe (PowerShell 7) / powershell.exe (Windows PowerShell) (T3)
+    // Use PowerShell Get-CimInstance — also fetch ExecutablePath for better filtering
+    const processNames = ['node.exe', 'cmd.exe', 'pwsh.exe', 'powershell.exe']
 
     for (const procName of processNames) {
       try {
-        const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='${procName}' and CommandLine like '%claude%'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`
-        const wmicOut = execSync(psCmd, {
+        const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='${procName}' and CommandLine like '%claude%'\\" | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Csv -NoTypeInformation"`
+        const csvOut = execSync(psCmd, {
           encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
         })
 
-        for (const { pid, cmdLine } of parseProcessCsv(wmicOut)) {
+        for (const { pid, cmdLine, exePath } of parseProcessCsvWithPath(csvOut)) {
           if (seenPids.has(pid)) continue
-          // Skip our own Electron/hal-o processes
+          // Skip our own Electron process tree
+          if (pid === ourPid) continue
           if (cmdLine.includes('electron') || cmdLine.includes('hal-o')) continue
+          // Skip if this is a PowerShell invocation from our own detection query
+          if (cmdLine.includes('Get-CimInstance') || cmdLine.includes('ConvertTo-Csv')) continue
           if (!cmdLine.includes('claude')) continue
+          // Skip node_modules/.bin paths (npm internal processes)
+          if (exePath && (exePath.includes('node_modules') || exePath.includes('\\npm'))) continue
 
           // Extract project name from -n "Name" flag
           let projectName = ''
           const nameMatch = cmdLine.match(/-n\s+"([^"]+)"/) || cmdLine.match(/-n\s+(\S+)/)
           if (nameMatch) projectName = nameMatch[1]
 
-          // Extract cwd from `cd /d "path"` pattern (cmd.exe launch scripts)
+          // Extract cwd from multiple common patterns:
+          // 1. cmd.exe: cd /d "path" (batch file launcher)
+          // 2. PowerShell: Set-Location "path" or cd "path"
+          // 3. General: working directory after &&
           let cwd = ''
-          const cdMatch = cmdLine.match(/cd\s+\/d\s+"([^"]+)"/) || cmdLine.match(/cd\s+\/d\s+(\S+)/)
+          const cdMatch = cmdLine.match(/cd\s+\/d\s+"([^"]+)"/)
+            || cmdLine.match(/cd\s+\/d\s+(\S+)/)
+            || cmdLine.match(/Set-Location\s+"([^"]+)"/)
+            || cmdLine.match(/Set-Location\s+(\S+)/)
           if (cdMatch) cwd = cdMatch[1]
 
           // Validate cwd — discard if it points to node_modules or doesn't exist
@@ -459,7 +522,7 @@ export function registerHubHandlers(): void {
             projectName: projectName || 'Claude Session',
           })
         }
-      } catch { /* wmic query failed — silently ignore */ }
+      } catch { /* query failed — silently ignore */ }
     }
 
     return results
@@ -468,15 +531,16 @@ export function registerHubHandlers(): void {
   // ── Session Absorption: absorb an external Claude session into embedded terminal ──
   ipcMain.handle('absorb-session', async (_e, info: {
     pid: number; projectPath: string; projectName: string
-  }): Promise<{ success: boolean }> => {
+  }): Promise<{ success: boolean; error?: string }> => {
     const isWin = process.platform === 'win32'
 
     try {
       // Gracefully terminate the external process
       if (isWin) {
-        // Graceful kill (no /F) — gives process chance to clean up
-        execSync(`taskkill //PID ${info.pid} //T`, {
-          encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
+        // Use /PID and /T flags (forward-slash, not double-slash) (T3 fix)
+        // /T kills the process tree, no /F means graceful shutdown
+        execSync(`taskkill /PID ${info.pid} /T`, {
+          encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
         })
       } else {
         execSync(`kill -TERM ${info.pid}`, {
@@ -489,6 +553,21 @@ export function registerHubHandlers(): void {
 
     // Wait a moment for the process to release resources
     await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Verify the process is actually dead (T3 kill verification)
+    if (isWin && isProcessAlive(info.pid)) {
+      // Force kill if still alive
+      try {
+        execSync(`taskkill /PID ${info.pid} /T /F`, {
+          encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+        })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      } catch { /* */ }
+
+      if (isProcessAlive(info.pid)) {
+        return { success: false, error: 'Process could not be terminated' }
+      }
+    }
 
     return { success: true }
   })
