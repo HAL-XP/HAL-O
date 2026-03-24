@@ -60,6 +60,8 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 
 // Also expose on window for use from terminal detection or other non-module code
 ;(window as any).__haloDispatchSphereEvent = dispatchSphereEvent
+
+import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
 import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
@@ -1702,6 +1704,7 @@ interface Props {
   shipVfxEnabled?: boolean
   sphereStyle?: SphereStyleId
   voiceReactionIntensity?: number
+  activityFeedback?: boolean
   // Session absorption (T3)
   externalSessions?: ExternalSession[]
   absorbingPid?: number | null
@@ -1744,6 +1747,7 @@ interface PbrSceneInnerProps {
   shipVfxEnabled: boolean
   sphereStyle: SphereStyleId
   voiceReactionIntensity: number
+  activityFeedback: boolean
   // Session absorption (T3)
   externalSessions: ExternalSession[]
   absorbingPid: number | null
@@ -1762,7 +1766,7 @@ function PbrSceneInner({
   projects, searchQuery, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
-  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, sphereStyle, voiceReactionIntensity,
+  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, sphereStyle, voiceReactionIntensity, activityFeedback,
   externalSessions, absorbingPid, onAbsorb,
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
   cinematicActive, onCinematicComplete,
@@ -1770,6 +1774,29 @@ function PbrSceneInner({
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
+
+  // U20: Listen for terminal-activity IPC events — writes to global map for ScreenPanel to read
+  useEffect(() => {
+    if (!activityFeedback || !window.api?.onTerminalActivity) return
+    const unsub = window.api.onTerminalActivity((info) => {
+      terminalActivityMap.set(info.projectPath, info.activityLevel)
+      // Compute max activity across all sessions for sphere drive
+      let maxLevel = 0
+      for (const level of terminalActivityMap.values()) {
+        if (level > maxLevel) maxLevel = level
+      }
+      setTerminalActivityMax(maxLevel)
+      // Dispatch sphere event for high activity bursts (>60) — brief info pulse
+      if (info.activityLevel > 60) {
+        dispatchSphereEvent({ type: 'info', intensity: Math.min(1, info.activityLevel / 100) * 0.3 })
+      }
+    })
+    return () => {
+      unsub()
+      terminalActivityMap.clear()
+      setTerminalActivityMax(0)
+    }
+  }, [activityFeedback])
 
   // Scene loading phase state
   const [textureLoaded, setTextureLoaded] = useState(false)
@@ -2067,7 +2094,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2193,6 +2220,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           shipVfxEnabled={shipVfxEnabled}
           sphereStyle={sphereStyle}
           voiceReactionIntensity={voiceReactionIntensity}
+          activityFeedback={activityFeedback}
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}
           onAbsorb={onAbsorb}

@@ -187,6 +187,13 @@ const api = {
     ipcRenderer.on('toggle-cinematic', listener)
     return () => ipcRenderer.removeListener('toggle-cinematic', listener)
   },
+
+  // U20: Terminal activity feedback — bytes/sec metering from PTY sessions
+  onTerminalActivity: (callback: (info: { sessionId: string; projectPath: string; activityLevel: number }) => void) => {
+    const listener = (_: unknown, info: { sessionId: string; projectPath: string; activityLevel: number }) => callback(info)
+    ipcRenderer.on('terminal-activity', listener)
+    return () => ipcRenderer.removeListener('terminal-activity', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

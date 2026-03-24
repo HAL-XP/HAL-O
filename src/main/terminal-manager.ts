@@ -40,20 +40,78 @@ function fnv1aHash(str: string): number {
   return hash >>> 0 // unsigned
 }
 
+// ── U20: Terminal activity metering — bytes/sec → 0-100 activity level ──
+const ACTIVITY_WINDOW_MS = 2000      // rolling window: last 2 seconds
+const ACTIVITY_TICK_MS = 500         // compute + send activity level every 500ms
+const ACTIVITY_MAX_BPS = 5000        // bytes/sec at which activity = 100
+
+interface ActivityBucket {
+  bytes: number
+  timestamp: number
+}
+
 interface PtySession {
   pty: import('node-pty').IPty
   projectPath: string
   projectName: string
   scrollback: string // buffered output for reconnection after renderer reload
   lastPushFlybyTime: number // A11: cooldown timestamp for git push flyby
+  // U20: Activity metering state
+  activityBuckets: ActivityBucket[]
+  lastActivityLevel: number
 }
 
 export class TerminalManager {
   private sessions = new Map<string, PtySession>()
   private window: BrowserWindow | null = null
+  private activityTimer: ReturnType<typeof setInterval> | null = null
 
   setWindow(win: BrowserWindow) {
     this.window = win
+    // U20: Start activity metering tick
+    this.startActivityTick()
+  }
+
+  // U20: Periodic activity level computation + IPC broadcast
+  private startActivityTick() {
+    if (this.activityTimer) return
+    this.activityTimer = setInterval(() => {
+      if (!this.window || this.window.isDestroyed()) return
+      const now = Date.now()
+      const cutoff = now - ACTIVITY_WINDOW_MS
+
+      for (const [id, session] of this.sessions) {
+        // Prune old buckets
+        session.activityBuckets = session.activityBuckets.filter(b => b.timestamp >= cutoff)
+
+        // Sum bytes in window
+        let totalBytes = 0
+        for (const b of session.activityBuckets) totalBytes += b.bytes
+
+        // Normalize to 0-100
+        const bytesPerSec = (totalBytes / ACTIVITY_WINDOW_MS) * 1000
+        const level = Math.min(100, Math.round((bytesPerSec / ACTIVITY_MAX_BPS) * 100))
+
+        // Only send when level changes (avoid spamming idle sessions)
+        if (level !== session.lastActivityLevel) {
+          session.lastActivityLevel = level
+          try {
+            this.window.webContents.send('terminal-activity', {
+              sessionId: id,
+              projectPath: session.projectPath,
+              activityLevel: level,
+            })
+          } catch { /* window destroyed */ }
+        }
+      }
+    }, ACTIVITY_TICK_MS)
+  }
+
+  private stopActivityTick() {
+    if (this.activityTimer) {
+      clearInterval(this.activityTimer)
+      this.activityTimer = null
+    }
   }
 
   spawn(id: string, options: {
@@ -93,6 +151,8 @@ export class TerminalManager {
       projectName: options.projectName,
       scrollback: '',
       lastPushFlybyTime: 0,
+      activityBuckets: [],
+      lastActivityLevel: 0,
     }
 
     p.onData((data) => {
@@ -101,6 +161,9 @@ export class TerminalManager {
       if (session.scrollback.length > SCROLLBACK_SIZE) {
         session.scrollback = session.scrollback.slice(-SCROLLBACK_SIZE)
       }
+
+      // U20: Track bytes for activity metering
+      session.activityBuckets.push({ bytes: data.length, timestamp: Date.now() })
 
       // A11: Detect git push success — trigger "Ship it!" flyby
       const now = Date.now()
@@ -177,6 +240,7 @@ export class TerminalManager {
   }
 
   closeAll() {
+    this.stopActivityTick()
     this.sessions.forEach((s) => s.pty.kill())
     this.sessions.clear()
   }

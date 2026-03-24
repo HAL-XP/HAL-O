@@ -118,6 +118,8 @@ interface Props {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled: boolean
   onShipVfxEnabledChange: (enabled: boolean) => void
+  activityFeedback: boolean
+  onActivityFeedbackChange: (enabled: boolean) => void
   sphereStyle: SphereStyleId
   onSphereStyleChange: (style: SphereStyleId) => void
   voiceReactionIntensity: number
@@ -183,7 +185,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo, dockMode = false, onDockModeChange }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, activityFeedback, onActivityFeedbackChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo, dockMode = false, onDockModeChange }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -285,7 +287,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
   const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
   const personalityLabels = ['HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET']
-  const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
+  const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'ACTIVITY FEEDBACK', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
   const hiddenLabels = ['HIDDEN PROJECTS']
   const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
 
@@ -841,6 +843,25 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           }}
                         >
                           {shipVfxEnabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('ACTIVITY FEEDBACK') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">ACTIVITY FEEDBACK</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => onActivityFeedbackChange(!activityFeedback)}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: activityFeedback ? 'var(--primary)' : 'var(--text-dim)',
+                            borderColor: activityFeedback ? 'var(--primary-dim)' : undefined,
+                          }}
+                        >
+                          {activityFeedback ? 'ON' : 'OFF'}
                         </button>
                       </div>
                     </div>

@@ -401,6 +401,8 @@ export function App() {
             onThreeThemeChange={updateThreeTheme}
             shipVfxEnabled={shipVfxEnabled}
             onShipVfxEnabledChange={updateShipVfxEnabled}
+            activityFeedback={activityFeedback}
+            onActivityFeedbackChange={updateActivityFeedback}
             sphereStyle={sphereStyle}
             onSphereStyleChange={updateSphereStyle}
             voiceReactionIntensity={voiceReactionIntensity}
@@ -478,6 +480,8 @@ export function App() {
             onThreeThemeChange={updateThreeTheme}
             shipVfxEnabled={shipVfxEnabled}
             onShipVfxEnabledChange={updateShipVfxEnabled}
+            activityFeedback={activityFeedback}
+            onActivityFeedbackChange={updateActivityFeedback}
             sphereStyle={sphereStyle}
             onSphereStyleChange={updateSphereStyle}
             voiceReactionIntensity={voiceReactionIntensity}

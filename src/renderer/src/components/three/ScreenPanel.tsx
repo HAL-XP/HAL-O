@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { useThreeTheme } from '../../contexts/ThreeThemeContext'
+import { terminalActivityMap } from './terminalActivity'
 
 interface ProjectStats {
   lastCommit: string
@@ -319,6 +320,10 @@ export const ScreenPanel = memo(function ScreenPanel({
   // Track current dim opacity for smooth animation (U7)
   const dimOpacityRef = useRef(1)
 
+  // U20: Smoothed activity level for edge glow drive (avoids jitter from IPC updates)
+  const smoothActivityRef = useRef(0)
+  const activityBarRef = useRef<HTMLDivElement>(null)
+
   useFrame(() => {
     if (!groupRef.current) return
 
@@ -366,6 +371,38 @@ export const ScreenPanel = memo(function ScreenPanel({
         const vis = wasFrontRef.current !== false
         htmlWrapRef.current.style.opacity = vis ? String(Math.min(1, dimOpacityRef.current)) : '0'
         htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.3) ? 'auto' : 'none'
+      }
+    }
+
+    // ── U20: Activity-driven edge glow — read from global map, smooth EMA ──
+    const rawActivity = terminalActivityMap.get(projectPath) ?? 0
+    const actNorm = rawActivity / 100 // 0-1
+    const actDelta = actNorm - smoothActivityRef.current
+    // Fast attack (0.15), slow release (0.03)
+    const actSmooth = actDelta > 0 ? 0.15 : 0.03
+    smoothActivityRef.current += actDelta * actSmooth
+    const sa = smoothActivityRef.current
+    // Drive edge glow when activity > threshold
+    if (sa > 0.05) {
+      for (const m of edgeMeshRefs.current) {
+        if (!m) continue
+        const mat = (m as any).material as THREE.MeshBasicMaterial | undefined
+        if (!mat) continue
+        // Boost opacity: base + up to 0.4 extra from activity
+        const baseOp = isHovered ? 0.9 : edgeBaseOpacity
+        const activityBoost = sa * 0.4
+        mat.opacity = Math.min(1, (baseOp + activityBoost) * dimOpacityRef.current)
+      }
+    }
+    // Drive DOM activity indicator bar imperatively (no React re-render)
+    if (activityBarRef.current) {
+      if (sa > 0.2) {
+        activityBarRef.current.style.display = 'flex'
+        activityBarRef.current.style.opacity = String(Math.min(1, sa * 1.2))
+        // Faster pulse for higher activity
+        activityBarRef.current.style.animationDuration = sa > 0.5 ? '0.8s' : '1.5s'
+      } else {
+        activityBarRef.current.style.display = 'none'
       }
     }
 
@@ -500,7 +537,33 @@ export const ScreenPanel = memo(function ScreenPanel({
                 0%, 100% { opacity: 0.6; }
                 50% { opacity: 1; }
               }
+              @keyframes activityPulse {
+                0%, 100% { opacity: 0.5; transform: scaleX(0.3); }
+                50% { opacity: 1; transform: scaleX(1); }
+              }
             `}</style>
+            {/* U20: Terminal activity indicator — pulsing bar at bottom of card.
+                Always mounted but hidden via display:none by default.
+                Driven imperatively from useFrame reading the global activity map. */}
+            <div ref={activityBarRef} style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '2px',
+              pointerEvents: 'none',
+              zIndex: 12,
+              display: 'none',
+              justifyContent: 'center',
+              animation: 'activityPulse 1.5s ease-in-out infinite',
+            }}>
+              <div style={{
+                width: '100%',
+                height: '2px',
+                borderRadius: '1px',
+                background: `linear-gradient(90deg, transparent, ${edgeColor}, transparent)`,
+              }} />
+            </div>
             {/* Scrolling background status text — very low opacity, behind content */}
             {effectiveHealthText && (
               <div style={{

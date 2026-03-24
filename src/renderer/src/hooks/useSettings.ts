@@ -124,6 +124,7 @@ export interface SettingsState {
   voiceReactionIntensity: number
   personality: PersonalitySettings
   defaultIde: IdeOptionId
+  activityFeedback: boolean
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -144,6 +145,7 @@ export interface SettingsState {
   updatePersonality: (key: keyof PersonalitySettings, value: number) => void
   applyPersonalityPreset: (presetName: string) => void
   updateDefaultIde: (id: IdeOptionId) => void
+  updateActivityFeedback: (enabled: boolean) => void
 }
 
 export function useSettings(): SettingsState {
@@ -202,6 +204,7 @@ export function useSettings(): SettingsState {
     return (localStorage.getItem('hal-o-sphere-style') as SphereStyleId) || 'wireframe'
   })
   const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
+  const [activityFeedback, setActivityFeedback] = useState(() => localStorage.getItem('hal-o-activity-feedback') !== 'false') // default ON
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
     return stored !== null ? parseFloat(stored) : 0.5
@@ -281,6 +284,10 @@ export function useSettings(): SettingsState {
     setDefaultIde(id)
     localStorage.setItem('hal-o-default-ide', id)
   }, [])
+  const updateActivityFeedback = useCallback((enabled: boolean) => {
+    setActivityFeedback(enabled)
+    localStorage.setItem('hal-o-activity-feedback', String(enabled))
+  }, [])
   const updateVoiceReactionIntensity = useCallback((v: number) => {
     setVoiceReactionIntensity(v)
     localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
@@ -321,7 +328,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback,
   }
 }

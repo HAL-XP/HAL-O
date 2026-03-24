@@ -54,6 +54,8 @@ export interface DockSceneProps {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  activityFeedback?: boolean
+  onActivityFeedbackChange?: (enabled: boolean) => void
   sphereStyle?: SphereStyleId
   onSphereStyleChange?: (style: SphereStyleId) => void
   voiceReactionIntensity?: number

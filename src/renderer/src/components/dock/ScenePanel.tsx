@@ -62,6 +62,8 @@ export function ScenePanel(_props: IDockviewPanelProps) {
         onThreeThemeChange={s.onThreeThemeChange}
         shipVfxEnabled={s.shipVfxEnabled}
         onShipVfxEnabledChange={s.onShipVfxEnabledChange}
+        activityFeedback={s.activityFeedback}
+        onActivityFeedbackChange={s.onActivityFeedbackChange}
         sphereStyle={s.sphereStyle}
         onSphereStyleChange={s.onSphereStyleChange}
         voiceReactionIntensity={s.voiceReactionIntensity}

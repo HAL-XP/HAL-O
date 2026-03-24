@@ -126,6 +126,8 @@ export interface DockLayoutProps {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  activityFeedback?: boolean
+  onActivityFeedbackChange?: (enabled: boolean) => void
   sphereStyle?: SphereStyleId
   onSphereStyleChange?: (style: SphereStyleId) => void
   voiceReactionIntensity?: number
@@ -203,6 +205,8 @@ export function DockLayout(props: DockLayoutProps) {
       onThreeThemeChange: props.onThreeThemeChange,
       shipVfxEnabled: props.shipVfxEnabled,
       onShipVfxEnabledChange: props.onShipVfxEnabledChange,
+      activityFeedback: props.activityFeedback,
+      onActivityFeedbackChange: props.onActivityFeedbackChange,
       sphereStyle: props.sphereStyle,
       onSphereStyleChange: props.onSphereStyleChange,
       voiceReactionIntensity: props.voiceReactionIntensity,
@@ -240,6 +244,7 @@ export function DockLayout(props: DockLayoutProps) {
     props.rendererId, props.onRendererChange, props.layoutId, props.onLayoutChange,
     props.threeTheme, props.onThreeThemeChange,
     props.shipVfxEnabled, props.onShipVfxEnabledChange,
+    props.activityFeedback, props.onActivityFeedbackChange,
     props.sphereStyle, props.onSphereStyleChange,
     props.voiceReactionIntensity, props.onVoiceReactionIntensityChange,
     props.personality, props.onPersonalityChange, props.onPersonalityPreset,

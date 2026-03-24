@@ -53,6 +53,8 @@ interface Props {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  activityFeedback?: boolean
+  onActivityFeedbackChange?: (enabled: boolean) => void
   sphereStyle?: SphereStyleId
   onSphereStyleChange?: (style: SphereStyleId) => void
   voiceReactionIntensity?: number
@@ -81,7 +83,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, dockMode, onDockModeChange }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, dockMode, onDockModeChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -588,6 +590,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -644,6 +647,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           shipVfxEnabled={shipVfxEnabled}
           sphereStyle={sphereStyle}
           voiceReactionIntensity={voiceReactionIntensity}
+          activityFeedback={activityFeedback}
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}
           onAbsorb={handleAbsorb}
@@ -672,6 +676,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -743,6 +748,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -812,6 +818,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onCameraChange={onCameraChange} onCameraReset={onCameraReset}
         onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
         shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+        activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
         voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
         personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}

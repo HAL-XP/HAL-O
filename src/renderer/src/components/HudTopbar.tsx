@@ -54,6 +54,8 @@ interface HudTopbarProps {
   onApplyPreset?: (preset: GroupPreset) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  activityFeedback?: boolean
+  onActivityFeedbackChange?: (enabled: boolean) => void
   sphereStyle?: SphereStyleId
   onSphereStyleChange?: (style: SphereStyleId) => void
   voiceReactionIntensity?: number
@@ -83,6 +85,7 @@ export function HudTopbar({
   hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
+  activityFeedback = true, onActivityFeedbackChange,
   sphereStyle = 'wireframe', onSphereStyleChange,
   voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange,
   personality, onPersonalityChange, onPersonalityPreset,
@@ -199,6 +202,7 @@ export function HudTopbar({
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
+          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange ?? (() => {})}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}

@@ -341,6 +341,9 @@ export interface ElectronAPI {
 
   // M2: Cinematic demo mode
   onToggleCinematic: (callback: (enabled: boolean) => void) => () => void
+
+  // U20: Terminal activity feedback — bytes/sec metering from PTY sessions
+  onTerminalActivity: (callback: (info: { sessionId: string; projectPath: string; activityLevel: number }) => void) => () => void
 }
 
 declare global {
