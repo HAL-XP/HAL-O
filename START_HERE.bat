@@ -660,6 +660,12 @@ echo     Press any key to launch HAL-O, or close this window to skip.
 echo.
 pause >nul
 
+:: CI mode: exit cleanly after build (don't launch Electron)
+if defined CI (
+    echo %GREEN%  CI mode detected - skipping launch.%RESET%
+    exit /b 0
+)
+
 echo.
 echo %CYAN%  Launching HAL-O...%RESET%
 echo.
