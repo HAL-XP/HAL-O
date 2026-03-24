@@ -271,8 +271,14 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
           void main() {
             float dist = length(vWorldPos.xz);
             float gs = 1.5;
-            vec2 g = abs(fract(vWorldPos.xz / gs - 0.5) - 0.5) / fwidth(vWorldPos.xz / gs);
+            vec2 fw = fwidth(vWorldPos.xz / gs);
+            vec2 g = abs(fract(vWorldPos.xz / gs - 0.5) - 0.5) / fw;
             float line = 1.0 - min(min(g.x, g.y), 1.0);
+            // B27 fix: fade out when grid cells become smaller than ~3 pixels
+            // (prevents sub-pixel aliasing at grazing camera angles)
+            float cellScreenSize = 1.0 / max(fw.x, fw.y);
+            float distanceFade = smoothstep(2.0, 5.0, cellScreenSize);
+            line *= distanceFade;
             // P11: wider edge fade (40% of radius) to match floor alpha fade
             float fadeStart = uRadius * 0.55;
             float edge = smoothstep(uRadius, fadeStart, dist);
@@ -321,31 +327,39 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     float t = smoothstep(0.2, 0.9, dist);
     vec3 baseColor = mix(uInnerColor, uOuterColor, t);
 
+    // B27 fix: screen-space adaptive line widths via fwidth()
+    float fwDist = fwidth(dist);
+    float fwAngle = fwidth(angle);
+
     // === Concentric rings — the signature look ===
     float ringDensity = 80.0;
     float ringDist = fract(dist * ringDensity);
-    // Sharp ring lines with anti-aliased edges
-    float ringWidth = 0.03 + 0.02 * sin(dist * 20.0); // varied width
-    float ringLine = smoothstep(0.5 - ringWidth, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringWidth, ringDist);
+    // Anti-aliased ring width: never thinner than 1.5 screen pixels
+    float ringHalfW = max(0.03 + 0.02 * sin(dist * 20.0), fwDist * ringDensity * 1.5);
+    float ringLine = smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist);
 
     // Major rings (every 8th ring is brighter)
     float majorRing = fract(dist * ringDensity / 8.0);
-    float majorLine = smoothstep(0.45, 0.5, majorRing) - smoothstep(0.5, 0.55, majorRing);
+    float majorHalfW = max(0.05, fwDist * ringDensity / 8.0 * 1.5);
+    float majorLine = smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing);
     ringLine = max(ringLine * 0.5, majorLine);
 
     // === Tick marks — radial lines at regular angles ===
     float tickCount = 72.0;
     float tickAngle = fract(angle / (2.0 * 3.14159265) * tickCount);
-    float tick = smoothstep(0.48, 0.5, tickAngle) - smoothstep(0.5, 0.52, tickAngle);
+    float tickHalfW = max(0.02, fwAngle * tickCount * 0.8);
+    float tick = smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle);
     // Ticks only in certain radius bands
     float tickBand = step(0.3, dist) * step(dist, 0.85);
     // Major ticks every 8th
     float majorTickAngle = fract(angle / (2.0 * 3.14159265) * (tickCount / 8.0));
-    float majorTick = smoothstep(0.46, 0.5, majorTickAngle) - smoothstep(0.5, 0.54, majorTickAngle);
+    float majorTickHalfW = max(0.04, fwAngle * tickCount / 8.0 * 1.0);
+    float majorTick = smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle);
     tick = max(tick * 0.3, majorTick * 0.6) * tickBand;
 
     // === Marker dots at intersections ===
-    float dotRing = ring(dist, 0.5, 0.008) + ring(dist, 0.7, 0.008) + ring(dist, 0.35, 0.006);
+    float dotW = max(0.008, fwDist * 2.0);
+    float dotRing = ring(dist, 0.5, dotW) + ring(dist, 0.7, dotW) + ring(dist, 0.35, dotW * 0.75);
     float dotAngle = fract(angle / (2.0 * 3.14159265) * 36.0);
     float dot = smoothstep(0.03, 0.0, abs(dotAngle - 0.5)) * dotRing;
 
@@ -491,39 +505,41 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
             varying vec2 vUv;
             varying float vDist;
 
-            void main() {
-              // Dark base
-              vec3 base = vec3(0.015, 0.02, 0.025);
+            // B27 fix: screen-space anti-aliased ring line
+            float aaRing(float dist, float center, float baseWidth, float intensity) {
+              float fw = fwidth(dist);
+              float halfW = max(baseWidth, fw * 1.5); // never thinner than 1.5 screen pixels
+              return smoothstep(halfW, 0.0, abs(dist - center)) * intensity;
+            }
 
-              // Concentric ring lines at specific radii
+            void main() {
+              // Concentric ring lines at specific radii (anti-aliased via fwidth)
               float line = 0.0;
 
               // Inner rings
-              line += smoothstep(0.02, 0.0, abs(vDist - 1.5)) * 0.8;
-              line += smoothstep(0.015, 0.0, abs(vDist - 1.9)) * 0.5;
-              line += smoothstep(0.03, 0.0, abs(vDist - 2.3)) * 0.6;
-              line += smoothstep(0.015, 0.0, abs(vDist - 2.7)) * 0.4;
+              line += aaRing(vDist, 1.5, 0.04, 0.8);
+              line += aaRing(vDist, 1.9, 0.03, 0.5);
+              line += aaRing(vDist, 2.3, 0.05, 0.6);
+              line += aaRing(vDist, 2.7, 0.03, 0.4);
 
               // Transition rings
-              line += smoothstep(0.02, 0.0, abs(vDist - 3.2)) * 0.7;
-              line += smoothstep(0.04, 0.0, abs(vDist - 3.6)) * 0.3;
-              line += smoothstep(0.015, 0.0, abs(vDist - 4.0)) * 0.9;
-              line += smoothstep(0.03, 0.0, abs(vDist - 4.4)) * 0.4;
-              line += smoothstep(0.015, 0.0, abs(vDist - 4.8)) * 0.6;
+              line += aaRing(vDist, 3.2, 0.04, 0.7);
+              line += aaRing(vDist, 3.6, 0.06, 0.3);
+              line += aaRing(vDist, 4.0, 0.03, 0.9);
+              line += aaRing(vDist, 4.4, 0.05, 0.4);
+              line += aaRing(vDist, 4.8, 0.03, 0.6);
 
               // Outer rings
-              line += smoothstep(0.035, 0.0, abs(vDist - 5.3)) * 0.3;
-              line += smoothstep(0.015, 0.0, abs(vDist - 5.7)) * 0.8;
-              line += smoothstep(0.025, 0.0, abs(vDist - 6.1)) * 0.4;
-              line += smoothstep(0.02, 0.0, abs(vDist - 6.5)) * 0.7;
-              line += smoothstep(0.04, 0.0, abs(vDist - 6.9)) * 0.3;
-              line += smoothstep(0.015, 0.0, abs(vDist - 7.3)) * 0.6;
+              line += aaRing(vDist, 5.3, 0.06, 0.3);
+              line += aaRing(vDist, 5.7, 0.03, 0.8);
+              line += aaRing(vDist, 6.1, 0.04, 0.4);
+              line += aaRing(vDist, 6.5, 0.04, 0.7);
+              line += aaRing(vDist, 6.9, 0.06, 0.3);
+              line += aaRing(vDist, 7.3, 0.03, 0.6);
 
               // Color: inner near center, outer at edges
               float t = smoothstep(1.5, 5.0, vDist);
               vec3 lineColor = mix(uInnerColor, uOuterColor, t);
-
-              float frontFade = 1.0;
 
               // Pulse wave expanding from center
               float pulse = smoothstep(0.3, 0.0, abs(vDist - mod(uTime * 2.0, 9.0))) * 0.3;

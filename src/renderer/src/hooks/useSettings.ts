@@ -478,7 +478,7 @@ function loadInitialState(): SettingsData {
     graphicsPreset: (localStorage.getItem('hal-o-graphics-preset') as GraphicsPresetId) || detectGraphicsPreset(),
     bloomEnabled: localStorage.getItem('hal-o-bloom') !== 'false',
     chromaticAberrationEnabled: localStorage.getItem('hal-o-chromatic-aberration') === 'true',
-    floorLinesEnabled: localStorage.getItem('hal-o-floor-lines') === 'true',
+    floorLinesEnabled: localStorage.getItem('hal-o-floor-lines') !== 'false',
     groupTrailsEnabled: localStorage.getItem('hal-o-group-trails') === 'true',
     devlogSections,
   }
