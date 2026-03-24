@@ -38,6 +38,9 @@ interface Props {
   isExternal?: boolean // an external Claude session is running for this project
   isAbsorbing?: boolean // absorption in progress
   onAbsorb?: () => void // trigger absorption of the external session
+  // Search-aware animated positioning (U7) — when set, panel lerps to these targets
+  searchTarget?: { position: [number, number, number]; rotation: [number, number, number] }
+  searchDimmed?: boolean // true = non-matching panel during search, dim to ~0.1 opacity
 }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
@@ -180,6 +183,7 @@ export function ScreenPanel({
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
   demoStats, onContextMenu, rulesOutdated = false, isFavorite = false,
   isExternal = false, isAbsorbing = false, onAbsorb,
+  searchTarget, searchDimmed = false,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -272,10 +276,61 @@ export function ScreenPanel({
   const W = PANEL_W
   const H = PANEL_H
 
-  const edgeMeshRefs = useRef<THREE.Mesh[]>([])
+  const edgeMeshRefs = useRef<THREE.Object3D[]>([])
+  const faceMeshRef = useRef<THREE.Mesh>(null)
+
+  // Track current dim opacity for smooth animation (U7)
+  const dimOpacityRef = useRef(1)
 
   useFrame(() => {
     if (!groupRef.current) return
+
+    // ── Search position lerp (U7) — animate toward search target or back to layout ──
+    const tp = searchTarget ? searchTarget.position : position
+    const tr = searchTarget ? searchTarget.rotation : rotation
+    const dx = tp[0] - groupRef.current.position.x
+    const dy = tp[1] - groupRef.current.position.y
+    const dz = tp[2] - groupRef.current.position.z
+    const distSq = dx * dx + dy * dy + dz * dz
+    // Only lerp when position is meaningfully different (> 0.001 units)
+    const panelMoving = distSq > 0.000001
+    if (panelMoving) {
+      const lerpFactor = 0.06 // ~500ms settle at 60fps
+      groupRef.current.position.x += dx * lerpFactor
+      groupRef.current.position.y += dy * lerpFactor
+      groupRef.current.position.z += dz * lerpFactor
+      groupRef.current.rotation.x += (tr[0] - groupRef.current.rotation.x) * lerpFactor
+      groupRef.current.rotation.y += (tr[1] - groupRef.current.rotation.y) * lerpFactor
+      groupRef.current.rotation.z += (tr[2] - groupRef.current.rotation.z) * lerpFactor
+    }
+
+    // ── Search dim fade (U7) — smoothly fade non-matching panels ──
+    const dimTarget = searchDimmed ? 0.08 : 1
+    const dimDelta = dimTarget - dimOpacityRef.current
+    // Only update materials when dim is actually changing (> 0.5% difference)
+    if (Math.abs(dimDelta) > 0.005) {
+      dimOpacityRef.current += dimDelta * 0.08
+      // Apply dim to face mesh material opacity
+      if (faceMeshRef.current) {
+        const mat = faceMeshRef.current.material as THREE.MeshStandardMaterial
+        mat.opacity = screenOpacity * dimOpacityRef.current
+        mat.transparent = mat.opacity < 1
+      }
+      // Apply dim to edge meshes + frame line
+      for (const m of edgeMeshRefs.current) {
+        if (!m) continue
+        const mat = (m as any).material as THREE.Material & { opacity: number }
+        if (!mat) continue
+        const baseOp = isHovered ? 0.9 : edgeBaseOpacity
+        mat.opacity = baseOp * dimOpacityRef.current
+      }
+      // Apply dim to HTML content
+      if (htmlWrapRef.current) {
+        const vis = wasFrontRef.current !== false
+        htmlWrapRef.current.style.opacity = vis ? String(Math.min(1, dimOpacityRef.current)) : '0'
+        htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.3) ? 'auto' : 'none'
+      }
+    }
 
     // Hover scale lerp — always runs (cheap: one lerp)
     const s = isHovered ? 1.04 : 1.0
@@ -284,10 +339,10 @@ export function ScreenPanel({
     // ── Back-face detection — throttled during interaction (B22 PERF FIX) ──
     // During active camera orbit/zoom, only check every 3rd frame.
     // The visual difference is imperceptible but saves 66% of per-panel vector math.
-    if (_isUserInteracting && (_frameCounter % 3 !== 0)) return
+    if (_isUserInteracting && (_frameCounter % 3 !== 0) && !panelMoving) return
 
-    // Only recompute when camera actually moved (skip static frames entirely)
-    if (!_cameraMovedThisFrame && wasFrontRef.current !== null) return
+    // Only recompute when camera actually moved OR panel is animating (U7: search repositioning)
+    if (!_cameraMovedThisFrame && !panelMoving && wasFrontRef.current !== null) return
 
     _screenNormal.set(0, 0, 1)
     _screenNormal.applyQuaternion(groupRef.current.quaternion)
@@ -300,8 +355,10 @@ export function ScreenPanel({
       wasFrontRef.current = isFront
       for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
       if (htmlWrapRef.current) {
-        htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
-        htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
+        // When search-dimmed, let the dim handler above control opacity
+        const dimOp = searchDimmed ? dimOpacityRef.current : 1
+        htmlWrapRef.current.style.opacity = isFront ? String(dimOp) : '0'
+        htmlWrapRef.current.style.pointerEvents = (isFront && dimOp > 0.3) ? 'auto' : 'none'
       }
     }
     // Mount Html the first time this panel faces the camera (never unmount — avoids flicker) (B22 PERF)
@@ -312,7 +369,7 @@ export function ScreenPanel({
     <group ref={groupRef} position={position} rotation={rotation}>
 
       {/* Screen face — shared geometry (PERF2), metalness/roughness from style (P3) */}
-      <mesh geometry={_sharedFaceGeo}>
+      <mesh ref={faceMeshRef} geometry={_sharedFaceGeo}>
         <meshStandardMaterial
           color={theme.screenFaceHex}
           metalness={theme.style?.surfaceMetalness ?? 0.3}
@@ -320,16 +377,17 @@ export function ScreenPanel({
           emissive={theme.gridLineHex}
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
-          transparent={screenOpacity < 1}
+          transparent
           opacity={screenOpacity}
         />
       </mesh>
 
       {/* Frame edge — shared geometry (PERF2), hidden when back-facing (PERF1) */}
-      <lineLoop geometry={_sharedFrameGeo}>
+      <lineLoop ref={(el: any) => { if (el) edgeMeshRefs.current[4] = el }} geometry={_sharedFrameGeo}>
         <lineBasicMaterial
           color={edgeColor}
           toneMapped={false}
+          transparent
           linewidth={1}
         />
       </lineLoop>

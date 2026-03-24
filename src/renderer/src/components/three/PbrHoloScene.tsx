@@ -55,9 +55,36 @@ function PerfStatsExporter() {
   return null
 }
 
-// ── Reflective Floor Platform ──
+// ── Procedural radial alpha texture — fully opaque center, soft fade to transparent at edges (P11) ──
+function useRadialAlphaMap(size = 512): THREE.Texture {
+  return useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    const cx = size / 2
+    const cy = size / 2
+    // Radial gradient: opaque center → transparent edges
+    // Inner 60% is fully opaque, then smooth falloff from 60% to 100% radius
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
+    grad.addColorStop(0, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.55, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.75, 'rgba(255,255,255,0.6)')
+    grad.addColorStop(0.88, 'rgba(255,255,255,0.2)')
+    grad.addColorStop(0.96, 'rgba(255,255,255,0.04)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, size, size)
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.needsUpdate = true
+    return tex
+  }, [size])
+}
+
+// ── Reflective Floor Platform (P11: radial alpha fade at edges) ──
 function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
   const theme = useThreeTheme()
+  const alphaMap = useRadialAlphaMap(512)
   // Derive a dark floor color from the screen face
   const floorColor = useMemo(() => {
     return theme.screenFaceHex
@@ -75,6 +102,72 @@ function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
         metalness={0.3}
         color={floorColor}
         blur={[400, 150]}
+        transparent
+        alphaMap={alphaMap}
+      />
+    </mesh>
+  )
+}
+
+// ── Floor Edge Mist — soft atmospheric glow ring at floor boundary (P11) ──
+function FloorEdgeMist({ radius = 16 }: { radius?: number }) {
+  const theme = useThreeTheme()
+  const matRef = useRef<THREE.ShaderMaterial>(null)
+
+  const uniforms = useMemo(() => ({
+    uColor: { value: new THREE.Color(theme.accentHex) },
+    uBgColor: { value: new THREE.Color(theme.backgroundHex) },
+    uRadius: { value: radius },
+  }), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep uniforms in sync with theme
+  useFrame(() => {
+    if (matRef.current) {
+      matRef.current.uniforms.uColor.value.set(theme.accentHex)
+      matRef.current.uniforms.uBgColor.value.set(theme.backgroundHex)
+    }
+  })
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+      <ringGeometry args={[radius * 0.6, radius * 1.15, 128]} />
+      <shaderMaterial
+        ref={matRef}
+        transparent
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        uniforms={uniforms}
+        vertexShader={`
+          varying vec2 vUv;
+          varying float vDist;
+          void main() {
+            vUv = uv;
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vDist = length(wp.xz);
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `}
+        fragmentShader={`
+          uniform vec3 uColor;
+          uniform vec3 uBgColor;
+          uniform float uRadius;
+          varying vec2 vUv;
+          varying float vDist;
+          void main() {
+            // Mist band peaks around 75-90% of floor radius, fades in both directions
+            float inner = uRadius * 0.6;
+            float outer = uRadius * 1.15;
+            float peak = uRadius * 0.82;
+            float width = uRadius * 0.22;
+            // Bell curve centered on the peak
+            float d = (vDist - peak) / width;
+            float mist = exp(-d * d * 2.0);
+            // Tint: subtle mix of accent + background for atmospheric feel
+            vec3 mistColor = mix(uBgColor, uColor, 0.15);
+            float alpha = mist * 0.06;
+            gl_FragColor = vec4(mistColor, alpha);
+          }
+        `}
       />
     </mesh>
   )
@@ -127,7 +220,9 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
             float gs = 1.5;
             vec2 g = abs(fract(vWorldPos.xz / gs - 0.5) - 0.5) / fwidth(vWorldPos.xz / gs);
             float line = 1.0 - min(min(g.x, g.y), 1.0);
-            float edge = smoothstep(uRadius, uRadius - 6.0, dist);
+            // P11: wider edge fade (40% of radius) to match floor alpha fade
+            float fadeStart = uRadius * 0.55;
+            float edge = smoothstep(uRadius, fadeStart, dist);
             vec3 color = uGridColor * line * 0.5;
             float alpha = line * 0.1 * edge;
             gl_FragColor = vec4(color, alpha);
@@ -845,21 +940,38 @@ function SceneBackground() {
 }
 
 // ── AutoRotate Manager — pauses rotation on user interaction, resumes after 3s ──
-function AutoRotateManager() {
+// Also pauses during active search (U7) so search results stay in view.
+function AutoRotateManager({ searchActive = false }: { searchActive?: boolean }) {
   const { controls } = useThree()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const interactingRef = useRef(false)
+
+  // Pause/resume auto-rotate when search state changes (U7)
+  useEffect(() => {
+    if (!controls) return
+    const orbitControls = controls as any
+    if (searchActive) {
+      orbitControls.autoRotate = false
+    } else if (!interactingRef.current) {
+      orbitControls.autoRotate = true
+    }
+  }, [searchActive, controls])
 
   useEffect(() => {
     if (!controls) return
     const orbitControls = controls as any
 
     const onStart = () => {
+      interactingRef.current = true
       orbitControls.autoRotate = false
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
 
     const onEnd = () => {
+      interactingRef.current = false
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      // Don't resume auto-rotate while search is active (U7)
+      if (searchActive) return
       timeoutRef.current = setTimeout(() => {
         orbitControls.autoRotate = true
       }, 3000)
@@ -873,7 +985,7 @@ function AutoRotateManager() {
       orbitControls.removeEventListener('end', onEnd)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [controls])
+  }, [controls, searchActive])
 
   return null
 }
@@ -976,6 +1088,7 @@ function matchExternalSession(
 // ── Main PBR Scene ──
 interface Props {
   projects: ProjectInfo[]
+  searchQuery?: string // When non-empty, matching panels animate closer to camera; non-matching dim
   listening: boolean
   isFullySetup: (p: ProjectInfo) => boolean
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
@@ -1007,6 +1120,7 @@ interface Props {
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
 interface PbrSceneInnerProps {
   projects: ProjectInfo[]
+  searchQuery: string
   isFullySetup: (p: ProjectInfo) => boolean
   onOpenTerminal?: (path: string, name: string, resume: boolean) => void
   halOnline?: boolean
@@ -1037,7 +1151,7 @@ interface PbrSceneInnerProps {
 }
 
 function PbrSceneInner({
-  projects, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
+  projects, searchQuery, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
   floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
@@ -1112,6 +1226,58 @@ function PbrSceneInner({
     return m
   }, [groups])
 
+  // ── Search-aware positioning (U7) ──
+  // When search is active, matching panels animate to a tight arc in front of the camera.
+  // Non-matching panels stay in place but get dimmed.
+  const searchActive = searchQuery.length > 0
+  const searchLower = searchQuery.toLowerCase()
+
+  const searchMatchIndices = useMemo(() => {
+    if (!searchActive) return new Set<number>()
+    const matches = new Set<number>()
+    projects.forEach((p, i) => {
+      if (
+        p.name.toLowerCase().includes(searchLower) ||
+        p.path.toLowerCase().includes(searchLower) ||
+        p.stack.toLowerCase().includes(searchLower)
+      ) {
+        matches.add(i)
+      }
+    })
+    return matches
+  }, [projects, searchLower, searchActive])
+
+  // Compute search-result positions: a tight arc in front of camera, facing center
+  const searchPositions = useMemo(() => {
+    if (!searchActive) return null
+    const matchCount = searchMatchIndices.size
+    if (matchCount === 0) return new Map<number, { position: [number, number, number]; rotation: [number, number, number] }>()
+
+    // Place matching panels in a compact arc at z+ (camera side), facing the origin.
+    // Camera is at positive-Z looking toward origin, so panels at angle=PI/2 are closest.
+    const searchRadius = Math.max(5, Math.min(8, matchCount * 0.8))
+    const arcSpan = Math.min(Math.PI * 0.8, matchCount * 0.35) // narrower arc for fewer results
+    const centerAngle = Math.PI / 2 // center of arc faces the camera
+    const startAngle = centerAngle - arcSpan / 2
+    const yBase = 2.5 // slightly elevated for better visibility
+
+    const result = new Map<number, { position: [number, number, number]; rotation: [number, number, number] }>()
+    const sortedMatches = Array.from(searchMatchIndices).sort((a, b) => a - b)
+    sortedMatches.forEach((idx, rank) => {
+      const t = matchCount === 1 ? 0.5 : rank / (matchCount - 1)
+      const angle = startAngle + t * arcSpan
+      const x = Math.cos(angle) * searchRadius
+      const z = Math.sin(angle) * searchRadius
+      // Face toward center
+      const rotY = -angle + Math.PI / 2
+      result.set(idx, {
+        position: [x, yBase, z],
+        rotation: [0, rotY, 0],
+      })
+    })
+    return result
+  }, [searchActive, searchMatchIndices])
+
   // Trigger spaceship flyby when a new terminal opens
   useEffect(() => {
     if (terminalCount > prevTermCountRef.current) {
@@ -1138,6 +1304,7 @@ function PbrSceneInner({
       <SceneLights />
       {/* No starfield in PBR — pure dark cinematic */}
       <ReflectiveFloor radius={floorRadius} />
+      <FloorEdgeMist radius={floorRadius} />
       <GridOverlay radius={floorRadius} />
       <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
       <PbrRingPlatform radius={ringPlatformRadius} />
@@ -1167,6 +1334,10 @@ function PbrSceneInner({
         // If stack info exists and this project is not in the visible set, skip it
         if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
         const extSession = matchExternalSession(project.path, externalSessions)
+        // Search-aware positioning (U7): matching panels get a searchTarget, non-matching get dimmed
+        const isMatch = searchActive ? searchMatchIndices.has(i) : false
+        const searchTargetPos = searchActive && isMatch && searchPositions ? searchPositions.get(i) : undefined
+        const isDimmed = searchActive && !isMatch
         return (
           <ScreenPanel
             key={project.path}
@@ -1196,6 +1367,8 @@ function PbrSceneInner({
               e.preventDefault()
               onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
             } : undefined}
+            searchTarget={searchTargetPos}
+            searchDimmed={isDimmed}
           />
         )
       })}
@@ -1224,7 +1397,7 @@ function PbrSceneInner({
         autoRotateSpeed={0.12}
         target={[0, 0.3, 0]}
       />
-      <AutoRotateManager />
+      <AutoRotateManager searchActive={searchActive} />
 
       <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
       {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
@@ -1248,7 +1421,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1335,6 +1508,7 @@ export function PbrHoloScene({ projects, listening, isFullySetup, onOpenTerminal
       <ThreeThemeProvider styleId={themeId} accentHex={accentHex}>
         <PbrSceneInner
           projects={projects}
+          searchQuery={searchQuery}
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
           halOnline={halOnline}

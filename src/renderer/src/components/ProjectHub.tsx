@@ -197,6 +197,30 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       )
     : visibleProjects
 
+  // Sort all visible projects by group/favorite/lastModified (no search filter applied).
+  // Used by PBR renderer which handles search-aware positioning internally.
+  const allSorted = useMemo(() => {
+    if (demo?.enabled) return visibleProjects
+    if (groups.length === 0) {
+      return [...visibleProjects].sort((a, b) => {
+        const fa = isFavorite(a.path) ? 0 : 1
+        const fb = isFavorite(b.path) ? 0 : 1
+        if (fa !== fb) return fa - fb
+        return (b.lastModified || 0) - (a.lastModified || 0)
+      })
+    }
+    const groupIdToOrder = new Map(groups.map((g, i) => [g.id, i]))
+    return [...visibleProjects].sort((a, b) => {
+      const ga = assignments[a.path] ? (groupIdToOrder.get(assignments[a.path]) ?? 999) : 1000
+      const gb = assignments[b.path] ? (groupIdToOrder.get(assignments[b.path]) ?? 999) : 1000
+      if (ga !== gb) return ga - gb
+      const fa = isFavorite(a.path) ? 0 : 1
+      const fb = isFavorite(b.path) ? 0 : 1
+      if (fa !== fb) return fa - fb
+      return (b.lastModified || 0) - (a.lastModified || 0)
+    })
+  }, [visibleProjects, groups, assignments, isFavorite, demo?.enabled])
+
   // Sort by group (group order first, ungrouped last), then favorites first within group,
   // then by lastModified within each group.
   // In demo mode, skip group/favorite sorting — demo projects are synthetic.
@@ -448,7 +472,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return (
       <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
         <PbrHoloScene
-          projects={filtered}
+          projects={allSorted}
+          searchQuery={search}
           listening={isListening && voiceFocus === 'hub'}
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
