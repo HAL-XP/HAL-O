@@ -366,6 +366,15 @@ function settingsReducer(state: SettingsData, action: SettingsAction): SettingsD
 
 /** Read initial values from localStorage (runs once) */
 function loadInitialState(): SettingsData {
+  // One-time migration: clear stale debugging values from session 3 line investigations
+  if (!localStorage.getItem('hal-o-settings-v4')) {
+    localStorage.removeItem('hal-o-bloom')
+    localStorage.removeItem('hal-o-chromatic-aberration')
+    localStorage.removeItem('hal-o-floor-lines')
+    localStorage.removeItem('hal-o-group-trails')
+    localStorage.removeItem('hal-o-graphics-preset')
+    localStorage.setItem('hal-o-settings-v4', '1')
+  }
   // ── particle density migration ──
   let particleDensity = 8
   const storedPD = localStorage.getItem('hal-o-particle-density')
