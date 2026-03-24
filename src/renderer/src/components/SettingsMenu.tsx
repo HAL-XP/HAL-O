@@ -86,6 +86,7 @@ interface Props {
   chromaticAberrationEnabled?: boolean; onChromaticAberrationEnabledChange?: (e: boolean) => void
   floorLinesEnabled?: boolean; onFloorLinesEnabledChange?: (e: boolean) => void
   groupTrailsEnabled?: boolean; onGroupTrailsEnabledChange?: (e: boolean) => void
+  onRedetectGpu?: () => void
 }
 
 const voiceCache = new Map<string, { text: string; audioDataUrl: string }>()
@@ -165,6 +166,7 @@ export function SettingsMenu({
   chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange,
   floorLinesEnabled = false, onFloorLinesEnabledChange,
   groupTrailsEnabled = false, onGroupTrailsEnabledChange,
+  onRedetectGpu,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
@@ -234,7 +236,7 @@ export function SettingsMenu({
           </div>)}</>)}
 
         {/* 2. GRAPHICS */}
-        {sv(['BLOOM','CHROMATIC ABERRATION','FLOOR LINES','GROUP TRAILS','SCREEN OPACITY','PARTICLE DENSITY','RENDER QUALITY','SPHERE STYLE','PARTICLE HIDE DIST']) && (<><SectionHeader label="GRAPHICS" expanded={isEx(secGraphics)} onToggle={() => setSecGraphics(!secGraphics)} />
+        {sv(['BLOOM','CHROMATIC ABERRATION','FLOOR LINES','GROUP TRAILS','SCREEN OPACITY','PARTICLE DENSITY','RENDER QUALITY','SPHERE STYLE','PARTICLE HIDE DIST','RE-DETECT GPU']) && (<><SectionHeader label="GRAPHICS" expanded={isEx(secGraphics)} onToggle={() => setSecGraphics(!secGraphics)} />
           {isEx(secGraphics) && (<div className="hal-settings-section-body">
             {m('BLOOM') && onBloomEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">BLOOM</span><div className="hal-settings-control"><Toggle value={bloomEnabled} onChange={onBloomEnabledChange} /></div></div>)}
             {m('CHROMATIC ABERRATION') && onChromaticAberrationEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">CHROMATIC ABERR.</span><div className="hal-settings-control"><Toggle value={chromaticAberrationEnabled} onChange={onChromaticAberrationEnabledChange} /></div></div>)}
@@ -245,6 +247,7 @@ export function SettingsMenu({
             {m('RENDER QUALITY') && <Slider label="RENDER QUALITY" min={0.5} max={window.devicePixelRatio} step={0.25} value={renderQuality} onChange={onRenderQualityChange} fmt={(v) => v >= window.devicePixelRatio ? 'NATIVE' : v.toFixed(2).replace(/\.?0+$/, '') + 'x'} w={52} />}
             {m('SPHERE STYLE') && (<div className="hal-settings-row"><span className="hal-settings-label">SPHERE STYLE</span><div className="hal-settings-control"><select className="hal-settings-select" value={sphereStyle} onChange={(e) => onSphereStyleChange(e.target.value as SphereStyleId)} style={{ width: '100%', textTransform: 'uppercase' }}>{SPHERE_STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></div></div>)}
             {m('PARTICLE HIDE DIST') && <Slider label="PARTICLE HIDE DIST" min={1} max={15} step={0.5} value={camera.particleHideDist} onChange={(v) => onCameraChange({ ...camera, particleHideDist: v })} fmt={(v) => v + 'u'} w={36} />}
+            {m('RE-DETECT GPU') && onRedetectGpu && (<div className="hal-settings-row" style={{ justifyContent: 'flex-end', marginTop: 4 }}><button className="hal-settings-preview-btn" onClick={onRedetectGpu} style={{ width: 'auto', padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', color: '#22d3ee', borderColor: '#22d3ee55', letterSpacing: '1px' }}>RE-DETECT GPU</button></div>)}
           </div>)}</>)}
 
         {/* 3. EFFECTS */}

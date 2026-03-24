@@ -91,6 +91,8 @@ interface HudTopbarProps {
   onFloorLinesEnabledChange?: (enabled: boolean) => void
   groupTrailsEnabled?: boolean
   onGroupTrailsEnabledChange?: (enabled: boolean) => void
+  // P14b: GPU wizard re-detect
+  onRedetectGpu?: () => void
   // Task board — project list for filter dropdown
   projects?: Array<{ path: string; name: string }>
   // U23: Devlog section verbosity
@@ -123,6 +125,7 @@ export function HudTopbar({
   chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange,
   floorLinesEnabled = false, onFloorLinesEnabledChange,
   groupTrailsEnabled = false, onGroupTrailsEnabledChange,
+  onRedetectGpu,
   projects = [],
   devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections,
 }: HudTopbarProps) {
@@ -238,6 +241,7 @@ export function HudTopbar({
           chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange ?? (() => {})}
           floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange ?? (() => {})}
           groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange ?? (() => {})}
+          onRedetectGpu={onRedetectGpu}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}

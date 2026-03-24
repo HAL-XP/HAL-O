@@ -54,8 +54,22 @@ export const GRAPHICS_PRESETS = [
 
 export type GraphicsPresetId = typeof GRAPHICS_PRESETS[number]['id']
 
+/** Read raw GPU renderer string from WebGL for display purposes. */
+export function getGpuRendererName(): string {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    if (!gl) return 'Unknown GPU'
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    if (!ext) return 'Unknown GPU'
+    return gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)?.toString() ?? 'Unknown GPU'
+  } catch {
+    return 'Unknown GPU'
+  }
+}
+
 /** Auto-detect a sensible default graphics preset based on WebGL renderer info. */
-function detectGraphicsPreset(): GraphicsPresetId {
+export function detectGraphicsPreset(): GraphicsPresetId {
   try {
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')

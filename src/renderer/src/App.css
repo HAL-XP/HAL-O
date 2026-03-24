@@ -3795,3 +3795,205 @@ textarea.text-input {
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
+
+/* ── GPU Wizard Modal (P14b) ── */
+
+.gpu-wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  animation: gpu-wizard-fade-in 0.3s ease-out;
+}
+
+@keyframes gpu-wizard-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gpu-wizard-modal {
+  width: 520px;
+  max-width: 92vw;
+  background: #0a0e17;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.08), 0 0 120px rgba(0, 0, 0, 0.5);
+  animation: gpu-wizard-slide-up 0.35s ease-out;
+}
+
+@keyframes gpu-wizard-slide-up {
+  from { opacity: 0; transform: translateY(30px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.gpu-wizard-header {
+  position: relative;
+  padding: 24px 28px 18px;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.06) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+  overflow: hidden;
+}
+
+.gpu-wizard-scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(34, 211, 238, 0.015) 2px,
+    rgba(34, 211, 238, 0.015) 4px
+  );
+}
+
+.gpu-wizard-title {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: #22d3ee;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+}
+
+.gpu-wizard-gpu-name {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.5px;
+  word-break: break-word;
+}
+
+.gpu-wizard-recommended {
+  padding: 12px 28px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.gpu-wizard-recommended-value {
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+
+.gpu-wizard-presets {
+  display: flex;
+  gap: 10px;
+  padding: 20px 28px;
+}
+
+.gpu-wizard-preset-card {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.gpu-wizard-preset-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.gpu-wizard-preset-card.selected {
+  background: color-mix(in srgb, var(--preset-color, #22d3ee) 6%, transparent);
+  border-color: var(--preset-color, #22d3ee);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--preset-color, #22d3ee) 15%, transparent);
+}
+
+.gpu-wizard-preset-icon {
+  font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.gpu-wizard-preset-label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+.gpu-wizard-preset-desc {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.gpu-wizard-preset-badge {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  padding: 2px 7px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: #0a0e17;
+  background: var(--preset-color, #22d3ee);
+  border-radius: 3px;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--preset-color, #22d3ee) 40%, transparent);
+}
+
+.gpu-wizard-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 28px 22px;
+}
+
+.gpu-wizard-btn-accept {
+  flex: 1;
+  padding: 10px 16px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  color: #0a0e17;
+  background: #22d3ee;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gpu-wizard-btn-accept:hover {
+  background: #67e8f9;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+.gpu-wizard-btn-customize {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gpu-wizard-btn-customize:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+}

@@ -1,3 +1,4 @@
 @echo off
-title * HAL-O
+title * HAL-O (NOPROMPT)
+cd /d "%~dp0\.."
 claude -n "HAL-O" --dangerously-skip-permissions --resume --channels plugin:telegram@claude-plugins-official

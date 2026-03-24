@@ -21,6 +21,7 @@ import { DockLayout } from './components/DockLayout'
 import { BrowserPanel, makeBrowserTabId } from './components/BrowserPanel'
 import type { BrowserTab } from './components/BrowserPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { GpuWizardModal, isGpuWizardDone } from './components/GpuWizardModal'
 
 interface AppState {
   currentStepId: string
@@ -237,6 +238,31 @@ export function App() {
   const handleDockModeChange = useCallback((enabled: boolean) => {
     setDockMode(enabled)
     localStorage.setItem('hal-o-dock-mode', enabled ? '1' : '0')
+  }, [])
+
+  // GPU wizard: shown once on first hub load (P14b)
+  const [showGpuWizard, setShowGpuWizard] = useState(false)
+  // Check on mount and when viewMode transitions to 'hub'
+  useEffect(() => {
+    if (viewMode === 'hub' && !isGpuWizardDone()) {
+      setShowGpuWizard(true)
+    }
+  }, [viewMode])
+
+  const handleGpuWizardAccept = useCallback((preset: 'light' | 'medium' | 'high') => {
+    updateGraphicsPreset(preset)
+    setShowGpuWizard(false)
+  }, [updateGraphicsPreset])
+
+  const handleGpuWizardCustomize = useCallback(() => {
+    setShowGpuWizard(false)
+    // Settings panel will be opened by the user from the gear icon
+  }, [])
+
+  const handleRedetectGpu = useCallback(() => {
+    // Clear the done flag and show the wizard again
+    localStorage.removeItem('hal-o-gpu-wizard-done')
+    setShowGpuWizard(true)
   }, [])
 
   // Compute derived values (always, even when setup screen is showing)
@@ -475,8 +501,10 @@ export function App() {
             onFloorLinesEnabledChange={updateFloorLinesEnabled}
             groupTrailsEnabled={groupTrailsEnabled}
             onGroupTrailsEnabledChange={updateGroupTrailsEnabled}
+            onRedetectGpu={handleRedetectGpu}
             onOpenBrowser={openBrowserTab}
           />
+          {showGpuWizard && <GpuWizardModal onAccept={handleGpuWizardAccept} onCustomize={handleGpuWizardCustomize} />}
         </ErrorBoundary>
       )
     }
@@ -567,6 +595,7 @@ export function App() {
             onFloorLinesEnabledChange={updateFloorLinesEnabled}
             groupTrailsEnabled={groupTrailsEnabled}
             onGroupTrailsEnabledChange={updateGroupTrailsEnabled}
+            onRedetectGpu={handleRedetectGpu}
             onOpenBrowser={openBrowserTab}
             devlogSections={devlogSections}
             onDevlogSectionChange={updateDevlogSection}
@@ -617,6 +646,7 @@ export function App() {
           </div>
         )}
       </div>
+      {showGpuWizard && <GpuWizardModal onAccept={handleGpuWizardAccept} onCustomize={handleGpuWizardCustomize} />}
       </ErrorBoundary>
     )
   }
