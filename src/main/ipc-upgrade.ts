@@ -20,12 +20,41 @@ export function registerUpgradeHandlers(): void {
   // ── Check if upgrade is available for a project ──
   ipcMain.handle('check-upgrade-available', async (_event, projectPath: string) => {
     try {
+      if (!projectPath || typeof projectPath !== 'string' || !existsSync(projectPath)) {
+        return { available: false, reason: 'invalid-path', error: 'Project path does not exist' }
+      }
       const metaPath = join(projectPath, '.claude', '.hal-o-meta.json')
       if (!existsSync(metaPath)) {
+        // Check if this is a pre-versioning project (has .claude/ dir but no meta)
+        const claudeDir = join(projectPath, '.claude')
+        if (existsSync(claudeDir)) {
+          return {
+            available: true,
+            reason: 'pre-versioning',
+            currentVersion: 0,
+            targetVersion: RULES_VERSION,
+            currentAppVersion: '0.0.0',
+            targetAppVersion: HAL_O_VERSION,
+          }
+        }
         return { available: false, reason: 'no-meta' }
       }
 
-      const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+      let meta: any
+      try {
+        meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+      } catch {
+        // Corrupted meta file — treat as version 0 so upgrade can repair it
+        return {
+          available: true,
+          reason: 'corrupted-meta',
+          currentVersion: 0,
+          targetVersion: RULES_VERSION,
+          currentAppVersion: '0.0.0',
+          targetAppVersion: HAL_O_VERSION,
+        }
+      }
+
       const currentVersion = typeof meta.rulesVersion === 'number' ? meta.rulesVersion : 0
 
       if (currentVersion >= RULES_VERSION) {
@@ -55,13 +84,29 @@ export function registerUpgradeHandlers(): void {
   // ── Preview what an upgrade would change ──
   ipcMain.handle('preview-upgrade', async (_event, projectPath: string) => {
     try {
+      if (!projectPath || typeof projectPath !== 'string' || !existsSync(projectPath)) {
+        return { success: false, error: 'Project path does not exist' }
+      }
       // Read the project's meta to reconstruct its config
       const metaPath = join(projectPath, '.claude', '.hal-o-meta.json')
-      if (!existsSync(metaPath)) {
-        return { success: false, error: 'No HAL-O meta found. This project has not been enlisted.' }
-      }
+      let meta: any = {}
 
-      const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+      if (existsSync(metaPath)) {
+        try {
+          meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+        } catch {
+          // Corrupted meta — proceed with empty meta (version 0) so upgrade can repair
+          meta = { rulesVersion: 0, halOVersion: '0.0.0', corrupted: true }
+        }
+      } else {
+        // Pre-versioning project or never enlisted — check if .claude/ dir exists
+        const claudeDir = join(projectPath, '.claude')
+        if (!existsSync(claudeDir)) {
+          return { success: false, error: 'No .claude/ directory found. This project has not been set up with HAL-O yet.' }
+        }
+        // Pre-versioning: treat as version 0
+        meta = { rulesVersion: 0, halOVersion: '0.0.0' }
+      }
 
       // Try to reconstruct the config from existing files
       const config = reconstructConfig(projectPath, meta)
@@ -76,12 +121,25 @@ export function registerUpgradeHandlers(): void {
   // ── Apply upgrade with selected sections ──
   ipcMain.handle('apply-upgrade', async (_event, projectPath: string, acceptedSectionIds: string[]) => {
     try {
+      if (!projectPath || typeof projectPath !== 'string' || !existsSync(projectPath)) {
+        return { success: false, log: ['[ERROR] Project path does not exist'], backupPath: '', upgradedSections: [], skippedSections: [] }
+      }
+      if (!Array.isArray(acceptedSectionIds) || acceptedSectionIds.length === 0) {
+        return { success: false, log: ['[ERROR] No sections selected for upgrade'], backupPath: '', upgradedSections: [], skippedSections: [] }
+      }
       const metaPath = join(projectPath, '.claude', '.hal-o-meta.json')
-      if (!existsSync(metaPath)) {
-        return { success: false, error: 'No HAL-O meta found.' }
+      let meta: any = {}
+
+      if (existsSync(metaPath)) {
+        try {
+          meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+        } catch {
+          meta = { rulesVersion: 0, halOVersion: '0.0.0' }
+        }
+      } else {
+        meta = { rulesVersion: 0, halOVersion: '0.0.0' }
       }
 
-      const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
       const config = reconstructConfig(projectPath, meta)
       const preview = buildUpgradePreview(projectPath, config)
 
@@ -95,6 +153,9 @@ export function registerUpgradeHandlers(): void {
   // ── Rollback to a specific backup ──
   ipcMain.handle('rollback-upgrade', async (_event, projectPath: string, backupPath: string) => {
     try {
+      if (!backupPath || !existsSync(backupPath)) {
+        return { success: false, log: ['[ERROR] Backup directory not found or invalid path'], restoredFiles: [] }
+      }
       const result = restoreFromBackup(projectPath, backupPath)
       return result
     } catch (e: any) {

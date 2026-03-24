@@ -75,6 +75,15 @@ export function UpgradeDialog({ projectPath, projectName, onClose, onUpgradeComp
     return () => { cancelled = true }
   }, [projectPath])
 
+  // Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   // Auto-scroll log to bottom
   useEffect(() => {
     if (logEndRef.current) {
@@ -365,8 +374,8 @@ export function UpgradeDialog({ projectPath, projectName, onClose, onUpgradeComp
             )}
           </div>
           <div style={footerStyle}>
-            <button style={btnStyle('secondary')} onClick={() => setPhase('preview')}>
-              Back to Preview
+            <button style={btnStyle('secondary')} onClick={() => preview ? setPhase('preview') : onClose()}>
+              {preview ? 'Back to Preview' : 'Close'}
             </button>
             <button style={btnStyle('ghost')} onClick={onClose}>Cancel</button>
           </div>
@@ -438,7 +447,19 @@ export function UpgradeDialog({ projectPath, projectName, onClose, onUpgradeComp
             </div>
           )}
 
+          {/* Empty diff — already up to date */}
+          {changedSections.length === 0 && (
+            <div style={{
+              textAlign: 'center', padding: '32px 16px',
+              color: 'rgba(255, 255, 255, 0.5)', fontSize: '14px',
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '12px', color: '#4ade80' }}>&#10003;</div>
+              All files are already up to date. No changes needed.
+            </div>
+          )}
+
           {/* Section selection controls */}
+          {changedSections.length > 0 && (
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             marginBottom: '12px',
@@ -454,6 +475,7 @@ export function UpgradeDialog({ projectPath, projectName, onClose, onUpgradeComp
               <button style={btnStyle('ghost')} onClick={selectNone}>Select None</button>
             </div>
           </div>
+          )}
 
           {/* Changed sections */}
           {changedSections.map(section => (
