@@ -104,7 +104,7 @@ if defined ELECTRON_NO_ASAR (
 echo %BOLD%  [1/%TOTAL_STEPS%] Checking Node.js...%RESET%
 echo [Step 1] Checking Node.js >> "%LOG%"
 
-node --version >nul 2>&1
+call node --version >nul 2>&1
 if errorlevel 1 (
     echo %RED%    ✗ Node.js is not installed%RESET%
     echo [Step 1] FAIL: Node.js not found >> "%LOG%"
@@ -204,7 +204,8 @@ set "STEP_NODE=1"
 echo %BOLD%  [2/%TOTAL_STEPS%] Checking npm...%RESET%
 echo [Step 2] Checking npm >> "%LOG%"
 
-npm --version >nul 2>&1
+echo [Step 2] Running npm --version >> "%LOG%"
+call npm --version >nul 2>&1
 if errorlevel 1 (
     echo %RED%    ✗ npm not found%RESET%
     echo [Step 2] FAIL: npm not found >> "%LOG%"
@@ -216,7 +217,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-for /f %%v in ('npm --version') do set "NPM_VER=%%v"
+for /f "delims=" %%v in ('call npm --version 2^>nul') do set "NPM_VER=%%v"
 echo %GREEN%    ✓ npm v%NPM_VER%%RESET%
 echo [Step 2] Found npm v%NPM_VER% >> "%LOG%"
 set "STEP_NPM=1"
