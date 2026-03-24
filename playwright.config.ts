@@ -11,10 +11,11 @@ export default defineConfig({
   // Exclude local-only test files from default runs:
   //   perf-*.spec.ts   — manual profiling, needs local GPU/high-res display
   //   screenshot-*.spec.ts — capture reference screenshots, not assertions
+  //   visual-qa.spec.ts — cinematic frame capture for human review
   testIgnore: [
     '**/perf-*.spec.ts',
     '**/screenshot-*.spec.ts',
-    '**/screenshot-readme.spec.ts',
+    '**/visual-qa.spec.ts',
   ],
   use: {
     trace: 'on-first-retry',
