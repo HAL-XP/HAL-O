@@ -44,6 +44,7 @@ test.beforeAll(async () => {
   await page.evaluate(() => {
     localStorage.setItem('hal-o-setup-done', '1')
     localStorage.setItem('hal-o-gpu-wizard-done', '1')
+    localStorage.setItem('hal-o-intro-animation', 'false')
     localStorage.setItem('hal-o-demo-mode', 'true')
     localStorage.setItem('hal-o-renderer', 'pbr-holo')
     localStorage.setItem('hal-o-demo-cards', '12')
