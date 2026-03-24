@@ -1859,7 +1859,7 @@ function PbrSceneInner({
   selectedConflictFile, onSelectConflictFile,
   resolvedFilesMap,
 }: PbrSceneInnerProps) {
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
 
@@ -2172,8 +2172,6 @@ function PbrSceneInner({
             projectPath={project.path}
             stack={project.stack}
             ready={isFullySetup(project)}
-            isHovered={hoveredId === project.path}
-            onHover={(h) => setHoveredId(h ? project.path : null)}
             onResume={() => onOpenTerminal?.(project.path, project.name, true)}
             onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
             onFiles={() => window.api.openFolder(project.path)}

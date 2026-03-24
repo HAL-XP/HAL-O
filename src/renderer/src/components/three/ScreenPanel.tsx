@@ -21,8 +21,6 @@ interface Props {
   projectPath: string
   stack: string
   ready: boolean
-  isHovered: boolean
-  onHover: (hovered: boolean) => void
   onResume: () => void
   onNewSession: () => void
   onFiles: () => void
@@ -71,6 +69,14 @@ const HEALTH_EDGE_OPACITY_MULT: Record<HealthStatus, number> = {
   error: 1.4,
   neutral: 0.4,
 }
+
+// ── PERF6: Module-level hover store — avoids React state in parent, zero re-renders on hover ──
+// Each ScreenPanel reads this in useFrame and drives its own visuals imperatively.
+let _hoveredPath: string | null = null
+/** Set the currently hovered project path (called from ScreenPanel pointer events) */
+export function setHoveredPath(path: string | null): void { _hoveredPath = path }
+/** Get the currently hovered project path (called from useFrame in each panel) */
+export function getHoveredPath(): string | null { return _hoveredPath }
 
 // Scratch vectors — reused every frame to avoid GC pressure
 const _targetScale = new THREE.Vector3()
@@ -187,11 +193,11 @@ export function ScreenPanelUpdater() {
   return null
 }
 
-// B25 PERF: React.memo prevents re-rendering ALL panels when parent state changes
-// (e.g. hoveredId change only affects 1-2 panels, the rest skip re-render).
+// B25 PERF: React.memo prevents re-rendering ALL panels when parent state changes.
+// PERF6: hoveredId moved to module-level ref — hover no longer triggers ANY parent re-render.
 // Custom comparator ignores callback props (stable in behavior, unstable in reference due to inline arrows).
 const CALLBACK_PROPS = new Set([
-  'onHover', 'onResume', 'onNewSession', 'onFiles', 'onRunApp', 'onAbsorb',
+  'onResume', 'onNewSession', 'onFiles', 'onRunApp', 'onAbsorb',
   'onContextMenu', 'onOpenIde', 'onOpenIdeMenu', 'onOpenTerminal', 'onOpenBrowser',
 ])
 
@@ -220,7 +226,7 @@ function screenPanelAreEqual(prev: Props, next: Props): boolean {
 
 export const ScreenPanel = memo(function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
-  isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
+  onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
   demoStats, onContextMenu, rulesOutdated = false, isFavorite = false,
   isExternal = false, isAbsorbing = false, onAbsorb,
@@ -365,11 +371,12 @@ export const ScreenPanel = memo(function ScreenPanel({
         mat.transparent = mat.opacity < 1
       }
       // Apply dim to edge meshes + frame line
+      const hoverDim = _hoveredPath === projectPath
       for (const m of edgeMeshRefs.current) {
         if (!m) continue
         const mat = (m as any).material as THREE.Material & { opacity: number }
         if (!mat) continue
-        const baseOp = isHovered ? 0.9 : edgeBaseOpacity
+        const baseOp = hoverDim ? 0.9 : edgeBaseOpacity
         mat.opacity = baseOp * dimOpacityRef.current
       }
       // Apply dim to HTML content
@@ -392,12 +399,13 @@ export const ScreenPanel = memo(function ScreenPanel({
     const sa = smoothActivityRef.current
     // Drive edge glow when activity > threshold
     if (sa > 0.05) {
+      const hoverAct = _hoveredPath === projectPath
       for (const m of edgeMeshRefs.current) {
         if (!m) continue
         const mat = (m as any).material as THREE.MeshBasicMaterial | undefined
         if (!mat) continue
         // Boost opacity: base + up to 0.4 extra from activity
-        const baseOp = isHovered ? 0.9 : edgeBaseOpacity
+        const baseOp = hoverAct ? 0.9 : edgeBaseOpacity
         const activityBoost = sa * 0.4
         mat.opacity = Math.min(1, (baseOp + activityBoost) * dimOpacityRef.current)
       }
@@ -414,8 +422,8 @@ export const ScreenPanel = memo(function ScreenPanel({
       }
     }
 
-    // Hover scale lerp — always runs (cheap: one lerp)
-    const s = isHovered ? 1.04 : 1.0
+    // Hover scale lerp — always runs (cheap: one lerp) — PERF6: reads module-level ref, no React re-render
+    const s = _hoveredPath === projectPath ? 1.04 : 1.0
     groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
     // ── Back-face detection — throttled during interaction (B22 PERF FIX) ──
@@ -475,17 +483,18 @@ export const ScreenPanel = memo(function ScreenPanel({
       </lineLoop>
 
       {/* Emissive edge glow — shared geometries (PERF2), hidden when back-facing (PERF1) */}
+      {/* PERF6: initial opacity uses edgeBaseOpacity; hover boost driven imperatively in useFrame */}
       <mesh position={[0, H / 2, 0.001]} geometry={_sharedEdgeHGeo} ref={(el) => { if (el) edgeMeshRefs.current[0] = el }}>
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={edgeBaseOpacity} />
       </mesh>
       <mesh position={[0, -H / 2, 0.001]} geometry={_sharedEdgeHGeo} ref={(el) => { if (el) edgeMeshRefs.current[1] = el }}>
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={edgeBaseOpacity} />
       </mesh>
       <mesh position={[-W / 2, 0, 0.001]} geometry={_sharedEdgeVGeo} ref={(el) => { if (el) edgeMeshRefs.current[2] = el }}>
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={edgeBaseOpacity} />
       </mesh>
       <mesh position={[W / 2, 0, 0.001]} geometry={_sharedEdgeVGeo} ref={(el) => { if (el) edgeMeshRefs.current[3] = el }}>
-        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
+        <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={edgeBaseOpacity} />
       </mesh>
 
       {/* HTML content — deferred mount: only mounts when panel first faces camera (B22 PERF FIX).
@@ -505,8 +514,8 @@ export const ScreenPanel = memo(function ScreenPanel({
             cursor: 'pointer',
             userSelect: 'none',
           }}
-          onPointerOver={() => onHover(true)}
-          onPointerOut={() => onHover(false)}
+          onPointerOver={() => setHoveredPath(projectPath)}
+          onPointerOut={() => { if (_hoveredPath === projectPath) setHoveredPath(null) }}
         >
           <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
             fontFamily: "'Cascadia Code', 'Fira Code', monospace",

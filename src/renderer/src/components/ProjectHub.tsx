@@ -223,15 +223,20 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Resolve IDE labels for all projects on mount and when projects/defaultIde change
   useEffect(() => {
     const resolveAll = async () => {
+      const results = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const perProject = getPerProjectIde(project.path)
+            const resolved = await window.api.resolveIde(project.path, perProject, defaultIde)
+            return [project.path, resolved?.shortLabel || '</>'] as const
+          } catch {
+            return [project.path, '</>'] as const
+          }
+        })
+      )
       const labels: Record<string, string> = {}
-      for (const project of projects) {
-        try {
-          const perProject = getPerProjectIde(project.path)
-          const resolved = await window.api.resolveIde(project.path, perProject, defaultIde)
-          labels[project.path] = resolved?.shortLabel || '</>'
-        } catch {
-          labels[project.path] = '</>'
-        }
+      for (const [path, label] of results) {
+        labels[path] = label
       }
       setIdeLabels(labels)
     }
