@@ -182,12 +182,100 @@ jobs:
           path: screenshots/
           retention-days: 7
 
+  test-start-here:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run START_HERE.bat (skip VS Build Tools, verify build output)
+        shell: powershell
+        timeout-minutes: 10
+        run: |
+          # Run START_HERE.bat with "3" piped as stdin to skip the VS Build Tools prompt.
+          # The script ends with `pause >nul` then `npm run dev` which block forever,
+          # so we run it as a process with a timeout and kill it after the build completes.
+          #
+          # IMPORTANT: Read stdout/stderr asynchronously to avoid deadlock. If we call
+          # WaitForExit() before ReadToEnd(), the process can fill its output buffer and
+          # block, while we block waiting for exit — classic .NET deadlock.
+          $outFile = "start_here_out.txt"
+          $errFile = "start_here_err.txt"
+
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = "cmd.exe"
+          $psi.Arguments = '/c "echo 3| call START_HERE.bat run"'
+          $psi.UseShellExecute = $false
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.WorkingDirectory = $PWD.Path
+
+          $proc = [System.Diagnostics.Process]::Start($psi)
+
+          # Read streams asynchronously to prevent buffer deadlock
+          $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+          $stderrTask = $proc.StandardError.ReadToEndAsync()
+
+          # Wait up to 8 minutes for the process (npm install + build take a while on CI)
+          $exited = $proc.WaitForExit(480000)
+
+          if (-not $exited) {
+            Write-Host "Process still running after 8 min — killing (expected due to pause + npm run dev)"
+            $proc.Kill()
+            $proc.WaitForExit(5000)
+          }
+
+          $stdout = $stdoutTask.Result
+          $stderr = $stderrTask.Result
+
+          $stdout | Out-File $outFile -Encoding utf8
+          $stderr | Out-File $errFile -Encoding utf8
+
+          Write-Host "=== STDOUT (last 80 lines) ==="
+          $stdout -split "`n" | Select-Object -Last 80 | ForEach-Object { Write-Host $_ }
+
+          if ($stderr.Trim()) {
+            Write-Host "=== STDERR (last 30 lines) ==="
+            $stderr -split "`n" | Select-Object -Last 30 | ForEach-Object { Write-Host $_ }
+          }
+
+          # Check for batch parse errors (e.g. "\Microsoft was unexpected at this time")
+          if ($stdout -match 'was unexpected at this time|inattendu|syntax error') {
+            Write-Error "START_HERE.bat has a parse/syntax error!"
+            exit 1
+          }
+
+          # Check that the build step ran and produced output
+          if (Test-Path "out\main\index.js") {
+            Write-Host "`nPASS: out\main\index.js exists — full build succeeded"
+          } else {
+            Write-Error "FAIL: out\main\index.js not found — build did not complete"
+            exit 1
+          }
+
+      - name: Upload setup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: start-here-log
+          path: |
+            _setup.log
+            start_here_out.txt
+            start_here_err.txt
+          retention-days: 7
+
   # ── Telegram notifications ──────────────────────────────────────────
   # Requires repo secrets: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
   # Add them at: Settings → Secrets and variables → Actions → New repository secret
 
   notify-failure:
-    needs: [test-linux, test-windows]
+    needs: [test-linux, test-windows, test-start-here]
     if: failure()
     runs-on: ubuntu-latest
     steps:
@@ -202,7 +290,7 @@ jobs:
             -d text="${TEXT}"
 
   notify-success:
-    needs: [test-linux, test-windows]
+    needs: [test-linux, test-windows, test-start-here]
     if: success()
     runs-on: ubuntu-latest
     steps:
