@@ -107,25 +107,100 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
     termRef.current = term
     fitRef.current = fit
 
-    // B30: Batch xterm writes — accumulate data for one frame then write once
+    // ── Layer 1: Wheel event interception (rocket scroll fix) ──
+    // Intercept wheel events to clamp macOS momentum scrolling and prevent
+    // the viewport from rocketing past the buffer when output is arriving.
+    let lastWheelTime = 0
+    let wheelAccum = 0
+    const MAX_DELTA = 3 // max lines per wheel event
+    const WHEEL_THROTTLE_MS = 16 // ~60fps
+    const onWheel = (e: WheelEvent) => {
+      const now = performance.now()
+      // Detect momentum: rapid small deltas after a fast flick
+      const dt = now - lastWheelTime
+      if (dt < WHEEL_THROTTLE_MS) {
+        wheelAccum += Math.abs(e.deltaY)
+        // If momentum is building up, suppress
+        if (wheelAccum > 200) {
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+      } else {
+        wheelAccum = Math.abs(e.deltaY)
+      }
+      lastWheelTime = now
+      // Clamp large deltas (trackpad momentum sends deltaY of 50-200+)
+      if (Math.abs(e.deltaY) > MAX_DELTA * 20) {
+        e.preventDefault()
+        e.stopPropagation()
+        // Re-dispatch a clamped version
+        const clamped = new WheelEvent('wheel', {
+          deltaY: Math.sign(e.deltaY) * MAX_DELTA * 20,
+          deltaX: e.deltaX,
+          deltaMode: e.deltaMode,
+          bubbles: false, // don't re-trigger this handler
+        })
+        container.querySelector('.xterm-viewport')?.dispatchEvent(clamped)
+      }
+    }
+    container.addEventListener('wheel', onWheel, { capture: true, passive: false })
+
+    // ── Layer 2: Batch xterm writes (one write per frame) ──
     let writeBuf = ''
     let writeRaf = 0
+    // Layer 3: DEC 2026 sync mode — buffer writes during sync sequences
+    let syncMode = false
+
     const flushWrite = () => {
-      if (writeBuf) {
+      if (writeBuf && !syncMode) {
         term.write(writeBuf)
         writeBuf = ''
       }
       writeRaf = 0
     }
 
+    // ── Layer 4: Write backpressure ──
+    const HIGH_WATER = 128 * 1024 // 128KB — pause PTY forwarding
+    const LOW_WATER = 16 * 1024   // 16KB — resume PTY forwarding
+    let paused = false
+    let pendingBytes = 0
+
     // Connect to pty data stream (may fail if pty doesn't exist yet)
     let cleanupData = () => {}
     let cleanupExit = () => {}
     try {
     cleanupData = window.api.onPtyData(sessionId, (data) => {
+      // Layer 3: Detect DEC 2026 sync start/end
+      if (data.includes('\x1b[?2026h')) syncMode = true
+      if (data.includes('\x1b[?2026l')) {
+        syncMode = false
+        // Flush buffered sync content immediately
+        if (writeBuf) {
+          term.write(writeBuf)
+          writeBuf = ''
+        }
+      }
+
+      // Layer 4: Track pending bytes for backpressure
+      pendingBytes += data.length
+      if (!paused && pendingBytes > HIGH_WATER) {
+        paused = true
+        // Signal main process to pause PTY reads (best-effort, non-blocking)
+        window.api.ptyInput(sessionId, '').catch(() => {}) // no-op write to keep IPC alive
+      }
+
       // Queue data for batched write instead of writing every event
       writeBuf += data
-      if (!writeRaf) writeRaf = requestAnimationFrame(flushWrite)
+      if (!writeRaf) writeRaf = requestAnimationFrame(() => {
+        flushWrite()
+        // Layer 4: Update pending bytes after flush
+        pendingBytes = writeBuf.length
+        if (paused && pendingBytes < LOW_WATER) {
+          paused = false
+        }
+        writeRaf = 0
+      })
 
       // Auto-speak response when this terminal is the voice response target
       const isVoiceTarget = (window as any).__voiceResponseTarget === sessionId
@@ -219,6 +294,7 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
       cleanupExit()
       if (writeRaf) cancelAnimationFrame(writeRaf)
       if (resizeTimer) clearTimeout(resizeTimer)
+      container.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
       container.removeEventListener('contextmenu', onContextMenu)
       container.removeEventListener('focusin', onFocusIn)
       container.removeEventListener('focusout', onFocusOut)
