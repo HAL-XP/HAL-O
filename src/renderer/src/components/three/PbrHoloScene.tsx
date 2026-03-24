@@ -1504,13 +1504,15 @@ function CameraSync({ onCameraMove }: { onCameraMove: (distance: number, angle: 
 }
 
 // ── Scene Ready Gate — waits for texture + N frames before signaling ready ──
-function SceneReadyGate({ textureReady, onReady }: { textureReady: boolean; onReady: () => void }) {
+// PERF8: SceneReadyGate no longer waits for texture — the platform texture is deferred to phase 2.
+// It just needs a few rendered frames to confirm the WebGL context is stable.
+function SceneReadyGate({ onReady }: { textureReady?: boolean; onReady: () => void }) {
   const frameCount = useRef(0)
   const signaled = useRef(false)
   useFrame(() => {
     if (signaled.current) return
     frameCount.current++
-    if (textureReady && frameCount.current >= 4) {
+    if (frameCount.current >= 4) {
       signaled.current = true
       onReady()
     }
@@ -1518,7 +1520,11 @@ function SceneReadyGate({ textureReady, onReady }: { textureReady: boolean; onRe
   return null
 }
 
-// ── Scene Phase Manager — staged reveal (0→1→2→3) after scene ready ──
+// ── PERF8: Scene Phase Manager — progressive boot (0→1→2→3) after scene ready ──
+// Phase 0 (immediate): Sphere + lights + background + camera — scene feels alive instantly
+// Phase 1 (+500ms):    Screen panels + merge graphs — content appears
+// Phase 2 (+1.0s):     Floor, particles, HUD text — environment fills in
+// Phase 3 (+2.0s):     PostFX, spaceship VFX, cinematic — heavy GPU work last
 function ScenePhaseManager({ sceneReady, onPhaseChange }: { sceneReady: boolean; onPhaseChange: (p: number) => void }) {
   const phaseRef = useRef(0)
   const timerRef = useRef(0)
@@ -1526,8 +1532,8 @@ function ScenePhaseManager({ sceneReady, onPhaseChange }: { sceneReady: boolean;
     if (!sceneReady || phaseRef.current >= 3) return
     timerRef.current += delta
     if (phaseRef.current === 0) { phaseRef.current = 1; onPhaseChange(1) }
-    if (phaseRef.current === 1 && timerRef.current > 0.2) { phaseRef.current = 2; onPhaseChange(2) }
-    if (phaseRef.current === 2 && timerRef.current > 0.5) { phaseRef.current = 3; onPhaseChange(3) }
+    if (phaseRef.current === 1 && timerRef.current > 0.5) { phaseRef.current = 2; onPhaseChange(2) }
+    if (phaseRef.current === 2 && timerRef.current > 1.0) { phaseRef.current = 3; onPhaseChange(3) }
   })
   return null
 }
@@ -1948,12 +1954,12 @@ function PbrSceneInner({
   //   }
   // }, [sceneReady, introAnimation, cinematicActive])
 
-  // Interpolate fade values each frame based on current scene phase
+  // PERF8: Interpolate fade values — targets match progressive mount phases
   useFrame((_, delta) => {
     const f = fadeRef.current
-    f.particles += ((scenePhase >= 3 ? 1 : 0) - f.particles) * Math.min(1, delta * 2.5)
+    f.particles += ((scenePhase >= 2 ? 1 : 0) - f.particles) * Math.min(1, delta * 2.5)
     f.hud += ((scenePhase >= 2 ? 0.14 : 0) - f.hud) * Math.min(1, delta * 3)
-    f.screens += ((scenePhase >= 2 ? screenOpacity : 0) - f.screens) * Math.min(1, delta * 3)
+    f.screens += ((scenePhase >= 1 ? screenOpacity : 0) - f.screens) * Math.min(1, delta * 3)
   })
 
   // Build group index map: project index -> group order index (-1 = ungrouped)
@@ -2090,60 +2096,159 @@ function PbrSceneInner({
     return unsub
   }, [])
 
+  // ── PERF8: Progressive boot — gate component MOUNTING on scenePhase ──
+  // Phase 0 (immediate): Sphere + lights + background + camera controls
+  // Phase 1 (+500ms):    Screen panels, merge graphs, stack indicators
+  // Phase 2 (+1.0s):     Floor decorations, particles, HUD text, sonar pulse
+  // Phase 3 (+2.0s):     PostFX, spaceship VFX, cinematic features
+  // This defers GPU work (geometry upload, shader compilation, texture decode)
+  // so the app feels interactive sooner — terminals and menus are usable immediately.
+
   return (
     <>
       {showPerf && <Perf position="bottom-left" deepAnalyze />}
       <PerfStatsExporter />
       <SceneBackground />
 
+      {/* ── Phase 0: Sphere + lights (immediate) ── */}
       <SceneLights />
-      {/* No starfield in PBR — pure dark cinematic */}
-      <ReflectiveFloor radius={floorRadius} />
-      <FloorEdgeMist radius={floorRadius} />
-      {/* GridOverlay + PbrRingPlatform disabled — their thin lines project as visible streaks
-           from low camera angles. TexturedPlatform remains as the only floor decoration. */}
-      {/* <GridOverlay radius={floorRadius} /> */}
-      <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
-      {/* <PbrRingPlatform radius={ringPlatformRadius} /> */}
       <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} sphereStyle={sphereStyle} />
 
-      {/* Ambient data particles — faded in at phase 3 */}
-      <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
+      {/* ── Phase 1: Screen panels + merge graphs (+500ms) ── */}
+      {scenePhase >= 1 && (
+        <>
+          {/* B22 PERF: Single useFrame that detects camera movement + user interaction.
+              ScreenPanel useFrame callbacks then skip work when camera is static or throttle
+              during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
+          <ScreenPanelUpdater />
 
-      {/* Scrolling HUD text strips — faded in at phase 2 */}
-      <HudScrollText opacity={fadeRef.current.hud} />
+          {/* Screens — skip stacked (hidden) projects when stack info is active */}
+          {projects.map((project, i) => {
+            const sp = screenPositions[i]
+            if (!sp) return null
+            // If stack info exists and this project is not in the visible set, skip it
+            if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
+            const extSession = matchExternalSession(project.path, externalSessions)
+            // Search-aware positioning (U7): matching panels get a searchTarget, non-matching get dimmed
+            const isMatch = searchActive ? searchMatchIndices.has(i) : false
+            const searchTargetPos = searchActive && isMatch && searchPositions ? searchPositions.get(i) : undefined
+            const isDimmed = searchActive && !isMatch
+            return (
+              <ScreenPanel
+                key={project.path}
+                position={sp.position}
+                rotation={sp.rotation}
+                projectName={project.name}
+                projectPath={project.path}
+                stack={project.stack}
+                ready={isFullySetup(project)}
+                onResume={() => onOpenTerminal?.(project.path, project.name, true)}
+                onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
+                onFiles={() => window.api.openFolder(project.path)}
+                runCmd={project.runCmd}
+                onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
+                groupColor={projectGroupColors[i]}
+                healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
+                rulesOutdated={(project as any).rulesOutdated === true}
+                isFavorite={isFavorite ? isFavorite(project.path) : false}
+                demoStats={project.demoStats}
+                screenOpacity={fadeRef.current.screens}
+                isExternal={!!extSession}
+                isAbsorbing={extSession ? absorbingPid === extSession.pid : false}
+                onAbsorb={extSession && onAbsorb ? () => onAbsorb(extSession, project) : undefined}
+                onContextMenu={onProjectContextMenu ? (e: React.MouseEvent) => {
+                  e.preventDefault()
+                  onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
+                } : undefined}
+                ideLabel={getIdeLabel ? getIdeLabel(project.path) : undefined}
+                onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
+                onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
+                onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
+                onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
+                searchTarget={searchTargetPos}
+                searchDimmed={isDimmed}
+                inMerge={!!mergeStates[project.path]?.inMerge}
+              />
+            )
+          })}
 
-      {/* Spaceship flyby — triggered on new terminal open */}
-      <SpaceshipFlyby ref={flybyRef} enabled={shipVfxEnabled} />
+          {/* Stack indicator panels — shown when groups overflow */}
+          {stackInfo?.stacks.map((stack) => (
+            <StackIndicatorPanel
+              key={`stack-${stack.groupIndex}`}
+              position={stack.position}
+              rotation={stack.rotation}
+              count={stack.hiddenCount}
+              groupColor={groups[stack.groupIndex]?.color}
+              groupName={groupNameMap.get(stack.groupIndex)}
+            />
+          ))}
 
-      {/* Sonar pulse — HAL heartbeat */}
-      {halOnline && <SonarPulse />}
+          {/* U18: 3D Merge Conflict Graphs — render for each project currently in merge (+ cinematic overlay) */}
+          {Object.entries(effectiveMergeStates).map(([projectPath, mergeState]) => {
+            if (!mergeState.inMerge) return null
+            const graph = commitGraphs[projectPath] || []
+            const resolvedFiles = effectiveResolvedFilesMap[projectPath]
+            // Phase 5: Determine if all conflict files in this project are resolved
+            const allFilesResolved = resolvedFiles != null && mergeState.conflictFiles.length > 0 &&
+              mergeState.conflictFiles.every(f => resolvedFiles.has(f.path))
+            return (
+              <MergeGraph
+                key={`merge-${projectPath}`}
+                mergeState={mergeState}
+                commitGraph={graph}
+                selectedFile={selectedConflictFile}
+                onSelectFile={onSelectConflictFile ? (filePath) => onSelectConflictFile(projectPath, filePath) : undefined}
+                resolvedFiles={resolvedFiles}
+                allResolved={allFilesResolved}
+              />
+            )
+          })}
+        </>
+      )}
 
-      {/* U18: 3D Merge Conflict Graphs — render for each project currently in merge (+ cinematic overlay) */}
-      {Object.entries(effectiveMergeStates).map(([projectPath, mergeState]) => {
-        if (!mergeState.inMerge) return null
-        const graph = commitGraphs[projectPath] || []
-        const resolvedFiles = effectiveResolvedFilesMap[projectPath]
-        // Phase 5: Determine if all conflict files in this project are resolved
-        const allFilesResolved = resolvedFiles != null && mergeState.conflictFiles.length > 0 &&
-          mergeState.conflictFiles.every(f => resolvedFiles.has(f.path))
-        return (
-          <MergeGraph
-            key={`merge-${projectPath}`}
-            mergeState={mergeState}
-            commitGraph={graph}
-            selectedFile={selectedConflictFile}
-            onSelectFile={onSelectConflictFile ? (filePath) => onSelectConflictFile(projectPath, filePath) : undefined}
-            resolvedFiles={resolvedFiles}
-            allResolved={allFilesResolved}
+      {/* ── Phase 2: Floor, particles, HUD (+1.0s) ── */}
+      {scenePhase >= 2 && (
+        <>
+          <ReflectiveFloor radius={floorRadius} />
+          <FloorEdgeMist radius={floorRadius} />
+          <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
+
+          {/* Ambient data particles — faded in at phase 3 */}
+          <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
+
+          {/* Scrolling HUD text strips */}
+          <HudScrollText opacity={fadeRef.current.hud} />
+
+          {/* Sonar pulse — HAL heartbeat */}
+          {halOnline && <SonarPulse />}
+        </>
+      )}
+
+      {/* ── Phase 3: PostFX, spaceship VFX, cinematic (+2.0s) ── */}
+      {scenePhase >= 3 && (
+        <>
+          {/* Spaceship flyby — triggered on new terminal open */}
+          <SpaceshipFlyby ref={flybyRef} enabled={shipVfxEnabled} />
+
+          {/* M2: Cinematic demo mode — scripted camera sequence */}
+          <CinematicSequence
+            active={cinematicActive}
+            onComplete={onCinematicComplete}
+            flybyRef={flybyRef}
+            loop={true}
           />
-        )
-      })}
 
-      {/* B22 PERF: Single useFrame that detects camera movement + user interaction.
-          ScreenPanel useFrame callbacks then skip work when camera is static or throttle
-          during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
-      <ScreenPanelUpdater />
+          {/* M2c: Intro fly-in animation — plays once on app start, unmount when done */}
+          {introActive && (
+            <IntroSequence
+              active={true}
+              onComplete={() => { setIntroActive(false); onIntroComplete?.() }}
+              finalTarget={[0, 0.3, 0]}
+            />
+          )}
+        </>
+      )}
 
       {/* P5b: Curved particle energy trails between grouped projects */}
       {/* GroupTrails disabled — purple arcs visible and distracting. Needs design rethink.
@@ -2154,68 +2259,6 @@ function PbrSceneInner({
         screenPositions={screenPositions}
         searchActive={searchActive}
       /> */}
-
-      {/* Screens — skip stacked (hidden) projects when stack info is active */}
-      {projects.map((project, i) => {
-        const sp = screenPositions[i]
-        if (!sp) return null
-        // If stack info exists and this project is not in the visible set, skip it
-        if (stackInfo && !stackInfo.visibleIndices.has(i)) return null
-        const extSession = matchExternalSession(project.path, externalSessions)
-        // Search-aware positioning (U7): matching panels get a searchTarget, non-matching get dimmed
-        const isMatch = searchActive ? searchMatchIndices.has(i) : false
-        const searchTargetPos = searchActive && isMatch && searchPositions ? searchPositions.get(i) : undefined
-        const isDimmed = searchActive && !isMatch
-        return (
-          <ScreenPanel
-            key={project.path}
-            position={sp.position}
-            rotation={sp.rotation}
-            projectName={project.name}
-            projectPath={project.path}
-            stack={project.stack}
-            ready={isFullySetup(project)}
-            onResume={() => onOpenTerminal?.(project.path, project.name, true)}
-            onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
-            onFiles={() => window.api.openFolder(project.path)}
-            runCmd={project.runCmd}
-            onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
-            groupColor={projectGroupColors[i]}
-            healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
-            rulesOutdated={(project as any).rulesOutdated === true}
-            isFavorite={isFavorite ? isFavorite(project.path) : false}
-            demoStats={project.demoStats}
-            screenOpacity={fadeRef.current.screens}
-            isExternal={!!extSession}
-            isAbsorbing={extSession ? absorbingPid === extSession.pid : false}
-            onAbsorb={extSession && onAbsorb ? () => onAbsorb(extSession, project) : undefined}
-            onContextMenu={onProjectContextMenu ? (e: React.MouseEvent) => {
-              e.preventDefault()
-              onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
-            } : undefined}
-            ideLabel={getIdeLabel ? getIdeLabel(project.path) : undefined}
-            onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
-            onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
-            onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
-            onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
-            searchTarget={searchTargetPos}
-            searchDimmed={isDimmed}
-            inMerge={!!mergeStates[project.path]?.inMerge}
-          />
-        )
-      })}
-
-      {/* Stack indicator panels — shown when groups overflow */}
-      {stackInfo?.stacks.map((stack) => (
-        <StackIndicatorPanel
-          key={`stack-${stack.groupIndex}`}
-          position={stack.position}
-          rotation={stack.rotation}
-          count={stack.hiddenCount}
-          groupColor={groups[stack.groupIndex]?.color}
-          groupName={groupNameMap.get(stack.groupIndex)}
-        />
-      ))}
 
       <OrbitControls
         makeDefault
@@ -2237,23 +2280,6 @@ function PbrSceneInner({
       {/* Scene ready gate + phase manager */}
       <SceneReadyGate textureReady={textureLoaded} onReady={() => { setSceneReady(true); onSceneReady?.() }} />
       <ScenePhaseManager sceneReady={sceneReady} onPhaseChange={setScenePhase} />
-
-      {/* M2: Cinematic demo mode — scripted camera sequence */}
-      <CinematicSequence
-        active={cinematicActive}
-        onComplete={onCinematicComplete}
-        flybyRef={flybyRef}
-        loop={true}
-      />
-
-      {/* M2c: Intro fly-in animation — plays once on app start, unmount when done */}
-      {introActive && (
-        <IntroSequence
-          active={true}
-          onComplete={() => { setIntroActive(false); onIntroComplete?.() }}
-          finalTarget={[0, 0.3, 0]}
-        />
-      )}
 
       <PostFX enabled={scenePhase >= 3} />
     </>
