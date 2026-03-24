@@ -1343,7 +1343,7 @@ function PostFXInner() {
   return (
     <EffectComposer key={glKey}>
       <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />
-      <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
+      {/* ChromaticAberration disabled — binary search confirmed it causes horizontal lines on bright edges */}
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
   )
