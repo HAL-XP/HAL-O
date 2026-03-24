@@ -226,7 +226,7 @@ jobs:
           $exited = $proc.WaitForExit(480000)
 
           if (-not $exited) {
-            Write-Host "Process still running after 8 min — killing (expected due to pause + npm run dev)"
+            Write-Host "Process still running after 8 min - killing (expected due to pause + npm run dev)"
             $proc.Kill()
             $proc.WaitForExit(5000)
           }
@@ -253,9 +253,9 @@ jobs:
 
           # Check that the build step ran and produced output
           if (Test-Path "out\main\index.js") {
-            Write-Host "`nPASS: out\main\index.js exists — full build succeeded"
+            Write-Host "`nPASS: out\main\index.js exists - full build succeeded"
           } else {
-            Write-Error "FAIL: out\main\index.js not found — build did not complete"
+            Write-Error "FAIL: out\main\index.js not found - build did not complete"
             exit 1
           }
 
