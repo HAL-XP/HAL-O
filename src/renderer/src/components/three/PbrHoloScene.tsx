@@ -66,6 +66,17 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
 import { isFocusRecovering, onRecoveryChange } from '../../hooks/useFocusRecovery'
 import { isTerminalFocused } from '../TerminalPanel'
+
+// B31: Lightweight scene throttle — checked by useFrame callbacks to skip heavy work.
+// No React state changes, no re-renders, just a mutable flag.
+let _sceneThrottled = false
+export function isSceneThrottled(): boolean { return _sceneThrottled }
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { _sceneThrottled = document.hidden })
+  // Poll terminal focus
+  setInterval(() => { _sceneThrottled = document.hidden || isTerminalFocused() }, 500)
+}
 import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
@@ -2406,65 +2417,11 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
   const camY = Math.sin(angleRad) * camera.cameraDistance
   const camZ = Math.cos(angleRad) * camera.cameraDistance
 
-  // ── Blur throttle: switch to demand frameloop when window loses focus ──
-  // On blur: frameloop→demand + 5fps invalidate timer. On focus: frameloop→always.
-  // B29: Burst invalidation is now handled by InvalidateExporter's useFrame loop
-  // (driven by useFocusRecovery), replacing the old B24 setTimeout burst.
-  // The frameloop switch stays "demand" during recovery — InvalidateExporter's useFrame
-  // calls invalidate() every frame in demand mode, which is equivalent to "always" but
-  // avoids the React state update overhead during the critical recovery window.
-  const [frameloop, setFrameloop] = useState<'always' | 'demand'>('always')
-  const blurTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // ── Frame production control ──
+  // Keep frameloop='always' permanently to avoid React re-renders from state changes.
+  // Instead, use a module-level flag to skip expensive work in useFrame callbacks
+  // when the window is hidden or terminal is focused.
   const invalidateRef = useRef<(() => void) | null>(null)
-  const frameloopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    const startThrottle = () => {
-      if (frameloopTimerRef.current) { clearTimeout(frameloopTimerRef.current); frameloopTimerRef.current = null }
-      setFrameloop('demand')
-      if (!blurTimerRef.current) {
-        blurTimerRef.current = setInterval(() => { invalidateRef.current?.() }, 200)
-      }
-    }
-    const stopThrottle = () => {
-      if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
-      // B29: Don't switch to "always" immediately — keep "demand" while the
-      // InvalidateExporter useFrame burst handles frame production.
-      // Defer the frameloop→always switch by 1.5s so the React state update
-      // doesn't cause a re-render storm during the recovery window.
-      if (frameloopTimerRef.current) clearTimeout(frameloopTimerRef.current)
-      frameloopTimerRef.current = setTimeout(() => {
-        setFrameloop('always')
-        frameloopTimerRef.current = null
-      }, 1500)
-      // Kick-start an immediate invalidation so the very first frame renders instantly
-      invalidateRef.current?.()
-    }
-    const off = window.api.onWindowFocusChange?.((focused) => {
-      if (focused) stopThrottle(); else startThrottle()
-    })
-    const onVisible = () => {
-      if (document.hidden) startThrottle(); else stopThrottle()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-
-    // B30: Throttle to 5fps when terminal is focused (typing) — poll every 500ms
-    const termFocusPoll = setInterval(() => {
-      const termFocused = isTerminalFocused()
-      if (termFocused && !blurTimerRef.current) {
-        startThrottle()
-      } else if (!termFocused && !document.hidden && blurTimerRef.current) {
-        stopThrottle()
-      }
-    }, 500)
-
-    return () => {
-      clearInterval(termFocusPoll)
-      if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
-      if (frameloopTimerRef.current) { clearTimeout(frameloopTimerRef.current); frameloopTimerRef.current = null }
-      off?.()
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [])
 
   return (
     <Canvas
@@ -2472,7 +2429,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
       style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}
       camera={{ position: [0, camY, camZ], fov: 48, near: 0.1, far: 1000 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      frameloop={frameloop}
+      frameloop="always"
       dpr={typeof window !== 'undefined' && localStorage.getItem('hal-o-dpr-override') ? Number(localStorage.getItem('hal-o-dpr-override')) : (renderQuality ?? Math.min(window.devicePixelRatio, 2))}
     >
       <InvalidateExporter invalidateRef={invalidateRef} />
