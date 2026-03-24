@@ -75,6 +75,14 @@ export interface ProjectConfig {
   sessionName: boolean
   conventions: string[]
   skipPermissions: boolean
+  tokenBudget: 'full' | 'balanced' | 'aggressive'
+}
+
+export type TokenBudget = 'full' | 'balanced' | 'aggressive'
+
+export interface SubscriptionInfo {
+  type: 'api' | 'subscription' | 'unknown'
+  hasApiKey: boolean
 }
 
 /** Structured detection result from existing folder files (U3) */
@@ -276,6 +284,7 @@ export interface ElectronAPI {
   installClaudeCli: () => Promise<{ success: boolean; error?: string }>
   installFfmpeg: () => Promise<{ success: boolean; error?: string }>
   authGhCli: () => Promise<{ success: boolean }>
+  detectSubscriptionType: () => Promise<SubscriptionInfo>
 
   // Hub
   scanProjects: () => Promise<ProjectInfo[]>

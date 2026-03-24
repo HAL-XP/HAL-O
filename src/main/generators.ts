@@ -25,6 +25,7 @@ interface ProjectConfig {
   sessionName: boolean
   conventions: string[]
   skipPermissions: boolean
+  tokenBudget: 'full' | 'balanced' | 'aggressive'
 }
 
 function stackLabel(tech: string): string {
@@ -162,15 +163,26 @@ export function generateClaudeMd(config: ProjectConfig): string {
   }
   lines.push('')
 
-  // Performance tip
+  // Performance tip — adjusted by token budget (U21)
+  const budget = config.tokenBudget || 'full'
   lines.push(`<!-- hal-o:v${RULES_VERSION}:performance -->`)
   lines.push('## Performance')
-  lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
-  lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+  if (budget === 'aggressive') {
+    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=65` for aggressive context compaction (saves tokens, more frequent compaction)')
+    lines.push('- Keep `MEMORY.md` updated frequently -- it survives compaction')
+    lines.push('- Prefer Haiku subagents for research, search, and boilerplate tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
+  } else if (budget === 'balanced') {
+    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` for balanced context compaction')
+    lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+    lines.push('- Use Haiku subagents for routine tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
+  } else {
+    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
+    lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+  }
   lines.push('')
 
-  if (config.claudeMd === 'full') {
-    // Session Start Protocol
+  if (config.claudeMd === 'full' && budget !== 'aggressive') {
+    // Session Start Protocol (skipped in aggressive budget to save tokens)
     lines.push('## Session Start Protocol')
     lines.push('When you see `SessionStart` hook output:')
     lines.push('1. Read `MEMORY.md` for current state')
@@ -405,9 +417,16 @@ export function generateHooksSettings(config: ProjectConfig): object {
     }],
   }]
 
-  // Environment — set compaction threshold
+  // Environment — set compaction threshold based on token budget (U21)
+  const budget = config.tokenBudget || 'full'
+  const compactPct = budget === 'aggressive' ? '65' : budget === 'balanced' ? '75' : '80'
   const env: Record<string, string> = {
-    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: '80',
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: compactPct,
+  }
+
+  // Haiku subagents for balanced/aggressive budgets
+  if (budget === 'balanced' || budget === 'aggressive') {
+    env.ANTHROPIC_SUBAGENT_MODEL = 'claude-haiku-4-0'
   }
 
   return { hooks, env }

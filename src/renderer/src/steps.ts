@@ -393,6 +393,48 @@ export const STEPS: StepDef[] = [
     },
   },
 
+  // ── Phase: Extras — Token Budget (U21) ──
+  {
+    id: 'token-budget',
+    phase: 'extras',
+    question: (answers) => {
+      const subType = answers['_subscription_type']?.value as string
+      const hint = subType === 'subscription'
+        ? '\n\nDetected: **subscription** (unlimited) — Full is recommended.'
+        : subType === 'api'
+          ? '\n\nDetected: **API** (pay per token) — Balanced saves ~30%.'
+          : ''
+      return `Choose a **token budget** strategy. This affects CLAUDE.md size, compaction thresholds, and subagent model selection.${hint}`
+    },
+    type: 'choice',
+    // Skip in quick-create mode — defaults to 'full' (W5)
+    condition: (a) => !isQuickCreate(a),
+    choices: [
+      {
+        id: 'full',
+        label: 'Full features',
+        icon: '⚡',
+        description: 'All features enabled, no optimization — best for subscription users',
+      },
+      {
+        id: 'balanced',
+        label: 'Balanced',
+        icon: '⚖',
+        description: 'Haiku subagents, compaction at 75%, full CLAUDE.md — ~30% savings',
+      },
+      {
+        id: 'aggressive',
+        label: 'Aggressive saver',
+        icon: '💰',
+        description: 'Haiku subagents, compaction at 65%, minimal CLAUDE.md — ~50% savings',
+      },
+    ],
+    defaultValue: (answers) => {
+      const subType = answers['_subscription_type']?.value as string
+      return subType === 'api' ? 'balanced' : 'full'
+    },
+  },
+
   // Launch phase removed — agent name auto-derived from project name, session name always on
 ]
 

@@ -27,6 +27,7 @@ export interface ProjectConfig {
   sessionName: boolean
   conventions: string[]
   skipPermissions: boolean
+  tokenBudget: 'full' | 'balanced' | 'aggressive'
 }
 
 export function run(cmd: string, cwd?: string): string {

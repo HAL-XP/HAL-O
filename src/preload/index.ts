@@ -61,6 +61,8 @@ const api = {
   installClaudeCli: () => ipcRenderer.invoke('install-claude-cli'),
   installFfmpeg: () => ipcRenderer.invoke('install-ffmpeg'),
   authGhCli: () => ipcRenderer.invoke('auth-gh-cli'),
+  detectSubscriptionType: (): Promise<{ type: 'api' | 'subscription' | 'unknown'; hasApiKey: boolean }> =>
+    ipcRenderer.invoke('detect-subscription-type'),
 
   // Hub
   scanProjects: (): Promise<ProjectInfo[]> => ipcRenderer.invoke('scan-projects'),

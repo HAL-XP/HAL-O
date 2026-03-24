@@ -117,6 +117,16 @@ export const TERMINAL_MODEL_OPTIONS = [
 
 export type TerminalModelId = typeof TERMINAL_MODEL_OPTIONS[number]['id']
 
+// ── U21: Token Budget ──
+
+export type TokenBudgetId = 'full' | 'balanced' | 'aggressive'
+
+export const TOKEN_BUDGET_OPTIONS = [
+  { id: 'full' as const, label: 'FULL FEATURES', description: 'All features, no optimization' },
+  { id: 'balanced' as const, label: 'BALANCED', description: 'Haiku subagents, 75% compaction' },
+  { id: 'aggressive' as const, label: 'AGGRESSIVE SAVER', description: 'Haiku subagents, 65% compaction, minimal CLAUDE.md' },
+] as const
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number

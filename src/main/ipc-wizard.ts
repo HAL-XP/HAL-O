@@ -490,6 +490,7 @@ export function registerWizardHandlers(): void {
             sessionName: false,
             conventions: [],
             skipPermissions: false,
+            tokenBudget: 'full',
           }
           const hooks = generateHooksSettings(fakeConfig)
           writeFileSync(settingsPath, JSON.stringify(hooks, null, 2), 'utf-8')
@@ -556,6 +557,7 @@ export function registerWizardHandlers(): void {
           sessionName: false,
           conventions: [],
           skipPermissions: false,
+          tokenBudget: 'full',
         }
         const ruleFiles = generateRuleFiles(fakeConfigForRules)
         for (const [filename, content] of Object.entries(ruleFiles)) {
@@ -627,6 +629,7 @@ export function registerWizardHandlers(): void {
             sessionName: false,
             conventions: [],
             skipPermissions: false,
+            tokenBudget: 'full',
           }
           writeFileSync(memoryPath, generateMemorySeed(fakeConfigForMemory), 'utf-8')
           filesCreated.push('MEMORY.md')
@@ -664,6 +667,7 @@ export function registerWizardHandlers(): void {
           sessionName: false,
           conventions: [],
           skipPermissions: false,
+          tokenBudget: 'full',
         }
         const agentFiles = generateAgentTemplates(fakeConfigForAgents)
         for (const [filename, content] of Object.entries(agentFiles)) {

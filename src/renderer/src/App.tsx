@@ -84,6 +84,9 @@ function answersToConfig(answers: Answers): ProjectConfig {
     : extras.includes('agent-templates')
   const playwrightMcp = quickMode ? hasFrontendStack : extras.includes('playwright-mcp')
 
+  // Token budget: quick-create defaults to 'full'
+  const tokenBudget = (quickMode ? 'full' : get('token-budget', 'full')) as 'full' | 'balanced' | 'aggressive'
+
   return {
     name: get('project-name'),
     location: get('project-location'),
@@ -111,6 +114,7 @@ function answersToConfig(answers: Answers): ProjectConfig {
     sessionName: true,
     skipPermissions: extras.includes('skip-permissions'),
     conventions: getArr('_conventions'),
+    tokenBudget,
   }
 }
 
@@ -304,6 +308,16 @@ export function App() {
           ...prev.answers,
           '_gh_user': { value: user, label: user },
           '_gh_orgs': { value: orgs, label: orgs.join(', ') },
+        },
+      }))
+    }).catch(() => {})
+    // U21: Detect subscription type for token budget default
+    window.api.detectSubscriptionType?.().then((info) => {
+      setState((prev) => ({
+        ...prev,
+        answers: {
+          ...prev.answers,
+          '_subscription_type': { value: info.type, label: info.type },
         },
       }))
     }).catch(() => {})

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, TOKEN_BUDGET_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId, type TokenBudgetId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -212,11 +212,25 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const [secHidden, setSecHidden] = useState(false)
   const [secDemo, setSecDemo] = useState(false)
   const [secSystem, setSecSystem] = useState(false)
+  const [secTokenBudget, setSecTokenBudget] = useState(false)
 
   // X8: Launch on startup — local state synced with main process
   const [launchOnStartup, setLaunchOnStartup] = useState(false)
   useEffect(() => {
     window.api?.getLaunchOnStartup?.().then((v) => setLaunchOnStartup(v)).catch(() => {})
+  }, [])
+
+  // U21: Token budget — local state from localStorage
+  const [tokenBudget, setTokenBudget] = useState<TokenBudgetId>(() =>
+    (localStorage.getItem('hal-o-token-budget') as TokenBudgetId) || 'full'
+  )
+  const [subscriptionType, setSubscriptionType] = useState<'api' | 'subscription' | 'unknown'>('unknown')
+  useEffect(() => {
+    window.api?.detectSubscriptionType?.().then((info) => setSubscriptionType(info.type)).catch(() => {})
+  }, [])
+  const handleTokenBudgetChange = useCallback((id: TokenBudgetId) => {
+    setTokenBudget(id)
+    localStorage.setItem('hal-o-token-budget', id)
   }, [])
 
   // When searching, sections auto-expand; when cleared, collapse state is restored by saved flags
@@ -301,6 +315,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'INTRO ANIMATION', 'ACTIVITY FEEDBACK', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
   const hiddenLabels = ['HIDDEN PROJECTS']
   const systemLabels = ['LAUNCH ON STARTUP']
+  const tokenBudgetLabels = ['TOKEN BUDGET', 'FULL FEATURES', 'BALANCED', 'AGGRESSIVE SAVER']
   const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
 
   const sectionVisible = (labels: string[]) => !searchActive || labels.some((l) => l.toLowerCase().includes(searchLower))
@@ -1002,6 +1017,57 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           {launchOnStartup ? 'ON' : 'OFF'}
                         </button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── TOKEN BUDGET section (U21) ── */}
+          {sectionVisible(tokenBudgetLabels) && (
+            <>
+              <SectionHeader label="TOKEN BUDGET" expanded={isExpanded(secTokenBudget)} onToggle={() => setSecTokenBudget(!secTokenBudget)} />
+              {isExpanded(secTokenBudget) && (
+                <div className="hal-settings-section-body">
+                  {subscriptionType !== 'unknown' && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label" style={{ color: subscriptionType === 'subscription' ? '#4ade80' : '#f59e0b' }}>
+                        {subscriptionType === 'subscription' ? 'SUBSCRIPTION (UNLIMITED)' : 'API (PAY PER TOKEN)'}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                    {TOKEN_BUDGET_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => handleTokenBudgetChange(opt.id)}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          padding: '6px 10px',
+                          background: tokenBudget === opt.id ? 'rgba(34,211,238,0.1)' : 'transparent',
+                          border: `1px solid ${tokenBudget === opt.id ? '#22d3ee55' : 'var(--border-dim, #333)'}`,
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          color: tokenBudget === opt.id ? '#22d3ee' : 'var(--text-dim)',
+                          textAlign: 'left',
+                          fontSize: 'calc(var(--hub-font, 10px) - 1px)',
+                          fontFamily: 'inherit',
+                          width: '100%',
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, fontSize: 'calc(var(--hub-font, 10px))' }}>
+                          {tokenBudget === opt.id ? '● ' : '○ '}{opt.label}
+                        </span>
+                        <span style={{ opacity: 0.6, marginTop: '2px' }}>{opt.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {subscriptionType === 'api' && tokenBudget === 'full' && (
+                    <div style={{ marginTop: '6px', padding: '4px 8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '4px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', color: '#f59e0b' }}>
+                      TIP: API users can save ~30-50% with Balanced or Aggressive mode
                     </div>
                   )}
                 </div>

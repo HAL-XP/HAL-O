@@ -101,6 +101,43 @@ export function registerSetupHandlers(): void {
     }
   })
 
+  // ── U21: Detect subscription type for token budget wizard step ──
+  ipcMain.handle('detect-subscription-type', async () => {
+    const apiKeyResult = findApiKey()
+    const hasApiKey = !!apiKeyResult.key
+
+    // Check for Claude Code OAuth credentials (subscription users)
+    let hasOAuth = false
+    try {
+      const claudeDir = join(HOME, '.claude')
+      const credentialsPath = join(claudeDir, 'credentials.json')
+      if (existsSync(credentialsPath)) {
+        const creds = JSON.parse(readFileSync(credentialsPath, 'utf-8'))
+        hasOAuth = !!(creds.oauthToken || creds.accessToken || creds.refreshToken)
+      }
+    } catch { /* */ }
+
+    // Also check .claude.json in home dir
+    if (!hasOAuth) {
+      try {
+        const dotClaudeJson = join(HOME, '.claude.json')
+        if (existsSync(dotClaudeJson)) {
+          const data = JSON.parse(readFileSync(dotClaudeJson, 'utf-8'))
+          hasOAuth = !!(data.oauthToken || data.accessToken || data.refreshToken)
+        }
+      } catch { /* */ }
+    }
+
+    let type: 'api' | 'subscription' | 'unknown' = 'unknown'
+    if (hasOAuth) {
+      type = 'subscription'
+    } else if (hasApiKey) {
+      type = 'api'
+    }
+
+    return { type, hasApiKey }
+  })
+
   ipcMain.handle('save-api-key', async (_event, key: string, location: string) => {
     const home = process.env.HOME || process.env.USERPROFILE || ''
     const line = `ANTHROPIC_API_KEY="${key}"`
