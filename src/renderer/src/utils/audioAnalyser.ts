@@ -15,6 +15,17 @@
 let _ctx: AudioContext | null = null
 let _analyser: AnalyserNode | null = null
 
+/**
+ * Return the shared AudioContext, creating it if needed.
+ * Used by procedural audio (engine whoosh, UI sounds) that don't need the analyser chain.
+ */
+export function getOrCreateContext(): AudioContext {
+  if (_ctx) return _ctx
+  // Calling getOrCreateAnalyser creates both _ctx and _analyser
+  getOrCreateAnalyser()
+  return _ctx!
+}
+
 function getOrCreateAnalyser(): { ctx: AudioContext; analyser: AnalyserNode } {
   if (_ctx && _analyser) return { ctx: _ctx, analyser: _analyser }
 

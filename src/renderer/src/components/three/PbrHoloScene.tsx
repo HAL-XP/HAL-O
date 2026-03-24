@@ -13,6 +13,52 @@ import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
+
+// ── U4: Sphere Event System — visual feedback channel for system events ──
+export type SphereEventType = 'success' | 'error' | 'warning' | 'info' | 'push'
+
+export interface SphereEvent {
+  type: SphereEventType
+  intensity?: number // 0-1, default 1
+}
+
+// Color + animation mapping per event type
+const SPHERE_EVENT_COLORS: Record<SphereEventType, THREE.Color> = {
+  success: new THREE.Color(0x22c55e), // green
+  error:   new THREE.Color(0xef4444), // red
+  warning: new THREE.Color(0xf59e0b), // amber
+  info:    new THREE.Color(0xffffff), // white (brightness surge)
+  push:    new THREE.Color(0x3b82f6), // blue
+}
+
+// Duration in seconds for each event type's visual effect
+const SPHERE_EVENT_DURATIONS: Record<SphereEventType, number> = {
+  success: 1.5,
+  error:   1.0,  // fast flash
+  warning: 1.8,
+  info:    0.8,  // brief brightness surge
+  push:    2.0,  // blue ripple complements the ship flyby
+}
+
+// Simple pub/sub on window for sphere events — no React context needed since
+// the sphere lives inside R3F Canvas and events fire from outside.
+type SphereEventListener = (event: SphereEvent) => void
+const _sphereEventListeners = new Set<SphereEventListener>()
+
+/** Dispatch a visual event to the HAL sphere. Can be called from anywhere in the renderer. */
+export function dispatchSphereEvent(event: SphereEvent): void {
+  for (const listener of _sphereEventListeners) {
+    listener(event)
+  }
+}
+
+function subscribeSphereEvents(listener: SphereEventListener): () => void {
+  _sphereEventListeners.add(listener)
+  return () => { _sphereEventListeners.delete(listener) }
+}
+
+// Also expose on window for use from terminal detection or other non-module code
+;(window as any).__haloDispatchSphereEvent = dispatchSphereEvent
 import { DEFAULT_CAMERA, type CameraSettings } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
@@ -546,6 +592,30 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
   // Smoothed audio levels — exponential moving average for smooth animation
   const smoothedRef = useRef({ bass: 0, mids: 0, highs: 0, volume: 0 })
 
+  // ── U4: Sphere event visual feedback state ──
+  // Active event overlay — layered additively on top of audio reactions
+  const eventRef = useRef<{
+    active: boolean
+    type: SphereEventType
+    color: THREE.Color
+    intensity: number
+    elapsed: number
+    duration: number
+  }>({ active: false, type: 'info', color: new THREE.Color(), intensity: 0, elapsed: 0, duration: 0 })
+
+  // Subscribe to sphere events
+  useEffect(() => {
+    return subscribeSphereEvents((event) => {
+      const ev = eventRef.current
+      ev.active = true
+      ev.type = event.type
+      ev.color.copy(SPHERE_EVENT_COLORS[event.type])
+      ev.intensity = event.intensity ?? 1
+      ev.elapsed = 0
+      ev.duration = SPHERE_EVENT_DURATIONS[event.type]
+    })
+  }, [])
+
   // Derive a darkened version of sphere color for the wireframe base
   const sphereDark = useMemo(() => {
     const c = theme.sphere.clone()
@@ -605,13 +675,14 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
       const bassScale = isActive ? idlePulse + bass * 0.12 : idlePulse
       wireRef.current.scale.setScalar(bassScale)
 
+      // Reset emissive to theme color each frame (U4: prevents event color drift)
+      const wireMat = wireRef.current.material as THREE.MeshStandardMaterial
+      wireMat.emissive.set(theme.sphereHex)
       // Brighten wireframe emissive when speaking
       if (isActive) {
-        const mat = wireRef.current.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 0.6 + volume * 1.2
+        wireMat.emissiveIntensity = 0.6 + volume * 1.2
       } else {
-        const mat = wireRef.current.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 0.6
+        wireMat.emissiveIntensity = 0.6
       }
     }
 
@@ -646,9 +717,13 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
       const audioSpeed = isActive ? volume * 2.5 : 0
       equatorRef.current.rotation.z += delta * (idleSpeed + audioSpeed)
 
+      // Reset emissive to theme color each frame (U4: prevents event color drift)
+      const eqMat = equatorRef.current.material as THREE.MeshStandardMaterial
+      eqMat.emissive.set(theme.sphereGlowHex)
       if (isActive) {
-        const mat = equatorRef.current.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = 2 + mids * 4
+        eqMat.emissiveIntensity = 2 + mids * 4
+      } else {
+        eqMat.emissiveIntensity = 2
       }
     }
 
@@ -661,14 +736,95 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
 
     // ── Point lights — flicker with high frequencies ──
     if (light1Ref.current) {
+      light1Ref.current.color.set(theme.sphereHex) // Reset to theme each frame (U4: prevents event color drift)
       const idleIntensity = 3
       const highFlicker = isActive ? highs * 4 + Math.sin(t * 17) * highs * 1.5 : 0
       light1Ref.current.intensity = idleIntensity + highFlicker
     }
     if (light2Ref.current) {
+      light2Ref.current.color.set(theme.sphereGlowHex) // Reset to theme each frame (U4)
       const idleIntensity = 1.5
       const midGlow = isActive ? mids * 3 : 0
       light2Ref.current.intensity = idleIntensity + midGlow
+    }
+
+    // ── U4: Sphere event overlay — additive color/glow on top of audio ──
+    const ev = eventRef.current
+    if (ev.active) {
+      ev.elapsed += delta
+      if (ev.elapsed >= ev.duration) {
+        ev.active = false
+      } else {
+        const progress = ev.elapsed / ev.duration // 0→1
+        // Envelope: fast attack (first 15%), sustain (15-50%), smooth decay (50-100%)
+        let envelope: number
+        if (progress < 0.15) {
+          envelope = progress / 0.15 // ramp up
+        } else if (progress < 0.5) {
+          envelope = 1.0 // sustain
+        } else {
+          envelope = 1.0 - ((progress - 0.5) / 0.5) // decay
+        }
+        envelope *= ev.intensity
+        // Clamp to avoid negative from float precision
+        if (envelope < 0) envelope = 0
+
+        // Event-specific animation modifiers
+        let pulseModifier = 1.0
+        if (ev.type === 'error') {
+          // Rapid flash: 8Hz strobe
+          pulseModifier = 0.5 + 0.5 * Math.abs(Math.sin(ev.elapsed * 8 * Math.PI))
+        } else if (ev.type === 'push') {
+          // Blue ripple: slow wave
+          pulseModifier = 0.7 + 0.3 * Math.sin(ev.elapsed * 4)
+        } else if (ev.type === 'success') {
+          // Green pulse: smooth throb
+          pulseModifier = 0.8 + 0.2 * Math.sin(ev.elapsed * 6)
+        }
+
+        const strength = envelope * pulseModifier
+
+        // Overlay on core — blend event color into emissive, boost intensity
+        if (coreRef.current) {
+          const mat = coreRef.current.material as THREE.MeshStandardMaterial
+          // Lerp emissive color toward event color by strength (additive blend)
+          mat.emissive.lerp(ev.color, strength * 0.7)
+          mat.emissiveIntensity += strength * 6
+          // Scale pulse: slight expansion during event
+          const currentScale = coreRef.current.scale.x
+          coreRef.current.scale.setScalar(currentScale + strength * 0.08)
+        }
+
+        // Overlay on wireframe — tint wireframe emissive
+        if (wireRef.current) {
+          const mat = wireRef.current.material as THREE.MeshStandardMaterial
+          mat.emissive.lerp(ev.color, strength * 0.4)
+          mat.emissiveIntensity += strength * 1.5
+        }
+
+        // Overlay on equatorial band
+        if (equatorRef.current) {
+          const mat = equatorRef.current.material as THREE.MeshStandardMaterial
+          mat.emissive.lerp(ev.color, strength * 0.5)
+          mat.emissiveIntensity += strength * 3
+        }
+
+        // Atmospheric glow expansion
+        if (glowRef.current) {
+          const currentScale = glowRef.current.scale.x
+          glowRef.current.scale.setScalar(currentScale + strength * 0.2)
+        }
+
+        // Boost point lights with event color
+        if (light1Ref.current) {
+          light1Ref.current.color.lerp(ev.color, strength * 0.5)
+          light1Ref.current.intensity += strength * 5
+        }
+        if (light2Ref.current) {
+          light2Ref.current.color.lerp(ev.color, strength * 0.5)
+          light2Ref.current.intensity += strength * 3
+        }
+      }
     }
   })
 
@@ -1408,10 +1564,12 @@ function PbrSceneInner({
     return result
   }, [searchActive, searchMatchIndices])
 
-  // Trigger spaceship flyby when a new terminal opens
+  // Trigger spaceship flyby + U4 sphere brightness surge when a new terminal opens
   useEffect(() => {
     if (terminalCount > prevTermCountRef.current) {
       if (shipVfxEnabled) flybyRef.current?.trigger()
+      // U4: brief brightness surge on new terminal
+      dispatchSphereEvent({ type: 'info', intensity: 0.8 })
     }
     prevTermCountRef.current = terminalCount
   }, [terminalCount, shipVfxEnabled])
@@ -1431,6 +1589,8 @@ function PbrSceneInner({
     const unsub = window.api.onShipItFlyby((info) => {
       console.log(`[PbrScene] A11: Ship it! flyby for "${info.projectName}" (ship #${info.shipIndex})`)
       flybyRef.current?.trigger()
+      // U4: blue ripple on git push — complements the ship flyby
+      dispatchSphereEvent({ type: 'push', intensity: 1.0 })
     })
     return unsub
   }, [])

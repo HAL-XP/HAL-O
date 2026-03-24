@@ -1,6 +1,7 @@
 import { useRef, useImperativeHandle, forwardRef, useMemo, useState, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { getOrCreateContext } from '../../utils/audioAnalyser'
 
 export interface SpaceshipFlybyHandle {
   trigger: () => void
@@ -134,6 +135,128 @@ const SHAKE_MAX_INTENSITY = 0.012  // max displacement in world units — barely
 const SHAKE_CLOSEST_T = 0.42       // approximate t value where ship is nearest sphere
 const SHAKE_FALLOFF = 0.15         // how quickly shake tapers off from closest point
 
+// ── A11b: Procedural engine whoosh via Web Audio API ──
+// Synthesised white noise → bandpass filter chain → gain envelope.
+// The sound ramps up as the ship approaches, peaks near closest pass (~t=0.4),
+// and fades out as it departs.  Intentionally very subtle — more felt than heard.
+function playEngineWhoosh(): void {
+  let ctx: AudioContext
+  try {
+    ctx = getOrCreateContext()
+  } catch {
+    return // no audio support — silently skip
+  }
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+
+  const now = ctx.currentTime
+  const duration = FLYBY_DURATION + 2 // a little tail for fade-out
+
+  // ── White noise buffer (2 seconds, looped) ──
+  const sampleRate = ctx.sampleRate
+  const bufLen = sampleRate * 2
+  const noiseBuf = ctx.createBuffer(1, bufLen, sampleRate)
+  const data = noiseBuf.getChannelData(0)
+  for (let i = 0; i < bufLen; i++) {
+    data[i] = Math.random() * 2 - 1
+  }
+
+  const noise = ctx.createBufferSource()
+  noise.buffer = noiseBuf
+  noise.loop = true
+
+  // ── Low rumble band — deep engine throb ──
+  const bpLow = ctx.createBiquadFilter()
+  bpLow.type = 'bandpass'
+  bpLow.frequency.value = 120
+  bpLow.Q.value = 0.8
+
+  // ── Mid presence band — gives the whoosh its "air" character ──
+  const bpMid = ctx.createBiquadFilter()
+  bpMid.type = 'bandpass'
+  bpMid.frequency.value = 350
+  bpMid.Q.value = 1.2
+
+  // ── High shimmer — subtle hiss for sci-fi texture ──
+  const bpHigh = ctx.createBiquadFilter()
+  bpHigh.type = 'bandpass'
+  bpHigh.frequency.value = 2200
+  bpHigh.Q.value = 2.0
+
+  // Gain nodes for each band
+  const gainLow = ctx.createGain()
+  gainLow.gain.value = 1.0
+  const gainMid = ctx.createGain()
+  gainMid.gain.value = 0.4
+  const gainHigh = ctx.createGain()
+  gainHigh.gain.value = 0.15
+
+  // ── Master gain envelope — shapes the whoosh over the flyby ──
+  const master = ctx.createGain()
+  master.gain.setValueAtTime(0, now)
+
+  // The quintic easing means the ship moves slowest at start/end, fastest at ~t=0.4-0.5.
+  // We shape the volume to match: slow ramp → peak at closest approach → slow fade.
+  //
+  // Timeline (seconds):
+  //   0.0 → 0.0    silence at start
+  //   0.5 → 0.01   barely audible rumble as ship appears
+  //   4.0 → 0.04   building up as ship accelerates
+  //   7.0 → 0.07   approaching closest pass
+  //   8.0 → 0.08   PEAK — closest approach (t≈0.42 of 18s ≈ 7.6s)
+  //   9.0 → 0.07   still close
+  //  12.0 → 0.04   receding
+  //  16.0 → 0.01   distant rumble
+  //  18.0 → 0.0    silence
+  const peak = 0.08
+  master.gain.linearRampToValueAtTime(0.0,          now + 0.0)
+  master.gain.linearRampToValueAtTime(peak * 0.12,  now + 0.5)
+  master.gain.linearRampToValueAtTime(peak * 0.5,   now + 4.0)
+  master.gain.linearRampToValueAtTime(peak * 0.88,  now + 7.0)
+  master.gain.linearRampToValueAtTime(peak,         now + 8.0)   // peak at closest approach
+  master.gain.linearRampToValueAtTime(peak * 0.88,  now + 9.0)
+  master.gain.linearRampToValueAtTime(peak * 0.5,   now + 12.0)
+  master.gain.linearRampToValueAtTime(peak * 0.12,  now + 16.0)
+  master.gain.linearRampToValueAtTime(0.0,          now + FLYBY_DURATION)
+
+  // Doppler-like frequency sweep on mid band — pitch drops as ship passes
+  bpMid.frequency.setValueAtTime(420, now)
+  bpMid.frequency.linearRampToValueAtTime(450, now + 7.5)   // slight rise on approach
+  bpMid.frequency.linearRampToValueAtTime(280, now + 10.0)  // drop as it passes
+  bpMid.frequency.linearRampToValueAtTime(200, now + FLYBY_DURATION) // low rumble receding
+
+  // Wire up: noise → 3 parallel filter bands → master → destination
+  noise.connect(bpLow)
+  noise.connect(bpMid)
+  noise.connect(bpHigh)
+  bpLow.connect(gainLow)
+  bpMid.connect(gainMid)
+  bpHigh.connect(gainHigh)
+  gainLow.connect(master)
+  gainMid.connect(master)
+  gainHigh.connect(master)
+  master.connect(ctx.destination)
+
+  // Start and schedule auto-stop
+  noise.start(now)
+  noise.stop(now + duration)
+
+  // Cleanup after completion — disconnect all nodes to free resources
+  noise.onended = () => {
+    try {
+      noise.disconnect()
+      bpLow.disconnect()
+      bpMid.disconnect()
+      bpHigh.disconnect()
+      gainLow.disconnect()
+      gainMid.disconnect()
+      gainHigh.disconnect()
+      master.disconnect()
+    } catch {
+      // nodes may already be disconnected — safe to ignore
+    }
+  }
+}
+
 interface SpaceshipFlybyProps {
   enabled?: boolean
 }
@@ -168,6 +291,9 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
     if (!enabled) return
     if (activeRef.current) return
     console.log('[Flyby] trigger() — Star Destroyer flyby starting (A10: heavy inertia)')
+
+    // A11b: Play procedural engine whoosh sound
+    playEngineWhoosh()
 
     if (hideTimerRef.current !== null) {
       clearTimeout(hideTimerRef.current)
