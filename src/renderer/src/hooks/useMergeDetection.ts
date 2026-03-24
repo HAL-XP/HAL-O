@@ -128,6 +128,23 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
     return commitGraphs[path] || []
   }, [commitGraphs])
 
+  /** Force an immediate re-poll (e.g. after resolving a conflict or completing a merge) */
+  const refetch = useCallback(async () => {
+    const paths = projectsRef.current.map(p => p.path)
+    if (paths.length === 0) return
+    if (!window.api.batchCheckMergeState) return
+
+    try {
+      const flags = await window.api.batchCheckMergeState(paths)
+      prevFlagsRef.current = flags
+      setMergeFlags(flags)
+      const inMerge = Object.entries(flags).filter(([, v]) => v).map(([k]) => k)
+      await fetchFullStates(inMerge)
+    } catch {
+      // Silently ignore
+    }
+  }, [fetchFullStates])
+
   return {
     mergeStates,
     commitGraphs,
@@ -136,5 +153,6 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
     isProjectInMerge,
     getMergeState,
     getCommitGraph,
+    refetch,
   }
 }

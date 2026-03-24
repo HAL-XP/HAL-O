@@ -6,6 +6,7 @@ import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
 import { useSceneReady } from '../hooks/useSceneReady'
 import { useMergeDetection } from '../hooks/useMergeDetection'
+import { ConflictViewer } from './ConflictViewer'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { ProjectContextMenu } from './ProjectContextMenu'
@@ -322,7 +323,41 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }, [demo?.enabled])
 
   // U18: Monitor all projects for merge conflicts (Phase 2 — 3D graph visualization)
-  const { mergeStates, commitGraphs } = useMergeDetection(projects, !demo?.enabled)
+  const { mergeStates, commitGraphs, refetch: refetchMerge } = useMergeDetection(projects, !demo?.enabled)
+
+  // U18 Phase 3: Conflict viewer state
+  const [conflictViewerState, setConflictViewerState] = useState<{ projectPath: string; filePath: string } | null>(null)
+  const [selectedConflictFile, setSelectedConflictFile] = useState<string | null>(null)
+
+  const handleSelectConflictFile = useCallback((projectPath: string, filePath: string) => {
+    setSelectedConflictFile(filePath)
+    setConflictViewerState({ projectPath, filePath })
+  }, [])
+
+  const handleCloseConflictViewer = useCallback(() => {
+    setConflictViewerState(null)
+    setSelectedConflictFile(null)
+  }, [])
+
+  const handleConflictResolved = useCallback(() => {
+    // Refresh merge states after a file is resolved
+    refetchMerge()
+    // Close the viewer — user can click another file if needed
+    setConflictViewerState(null)
+    setSelectedConflictFile(null)
+  }, [refetchMerge])
+
+  const handleMergeAborted = useCallback(() => {
+    setConflictViewerState(null)
+    setSelectedConflictFile(null)
+    refetchMerge()
+  }, [refetchMerge])
+
+  const handleMergeComplete = useCallback((_commitHash?: string) => {
+    setConflictViewerState(null)
+    setSelectedConflictFile(null)
+    refetchMerge()
+  }, [refetchMerge])
 
   // Filter out hidden projects first, then apply search
   // In demo mode, skip the hidden filter — demo projects are synthetic
@@ -670,6 +705,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onCinematicComplete={() => setCinematicActive(false)}
           mergeStates={mergeStates}
           commitGraphs={commitGraphs}
+          selectedConflictFile={selectedConflictFile}
+          onSelectConflictFile={handleSelectConflictFile}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
@@ -885,6 +922,19 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
       )}
 
       {upgradeDialog}
+
+      {/* U18 Phase 3: Conflict Viewer overlay */}
+      {conflictViewerState && mergeStates[conflictViewerState.projectPath] && (
+        <ConflictViewer
+          mergeState={mergeStates[conflictViewerState.projectPath]}
+          projectPath={conflictViewerState.projectPath}
+          filePath={conflictViewerState.filePath}
+          onClose={handleCloseConflictViewer}
+          onResolved={handleConflictResolved}
+          onAborted={handleMergeAborted}
+          onMergeComplete={handleMergeComplete}
+        />
+      )}
 
       {/* HUD corners */}
       <div className="hal-hud-corner tl" />

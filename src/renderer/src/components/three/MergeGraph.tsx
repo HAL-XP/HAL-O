@@ -134,26 +134,34 @@ function BranchTube({ points, color }: {
 
 // ── Conflict File Panel — small red glowing panel with file name ──
 
-function ConflictFilePanel({ position, fileName, chunkCount }: {
+const SELECTED_COLOR = new THREE.Color(0xff8800) // bright amber for selected panel
+
+function ConflictFilePanel({ position, fileName, chunkCount, selected, onClick }: {
   position: [number, number, number]
   fileName: string
   chunkCount: number
+  selected?: boolean
+  onClick?: () => void
 }) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null)
   const edgeMatRef = useRef<THREE.MeshStandardMaterial>(null)
   const timeRef = useRef(Math.random() * Math.PI * 2) // phase offset for pulsing
 
+  // When selected, brighten the glow color
+  const edgeColor = selected ? SELECTED_COLOR : CONFLICT_GLOW_COLOR
+  const faceEmissive = selected ? SELECTED_COLOR : CONFLICT_COLOR
+
   useFrame((_, delta) => {
-    timeRef.current += delta * 2.5
+    timeRef.current += delta * (selected ? 3.5 : 2.5)
     const pulse = 0.5 + 0.5 * Math.sin(timeRef.current)
-    const intensity = 0.6 + pulse * 1.0
+    const intensity = selected ? 1.2 + pulse * 0.8 : 0.6 + pulse * 1.0
 
     if (matRef.current) {
-      matRef.current.emissiveIntensity = intensity * 0.3
-      matRef.current.opacity = 0.7 + pulse * 0.2
+      matRef.current.emissiveIntensity = intensity * (selected ? 0.6 : 0.3)
+      matRef.current.opacity = selected ? 0.9 + pulse * 0.1 : 0.7 + pulse * 0.2
     }
     if (edgeMatRef.current) {
-      edgeMatRef.current.emissiveIntensity = intensity
+      edgeMatRef.current.emissiveIntensity = intensity * (selected ? 1.6 : 1.0)
     }
   })
 
@@ -166,13 +174,23 @@ function ConflictFilePanel({ position, fileName, chunkCount }: {
 
   return (
     <group position={position}>
+      {/* Clickable hit area — slightly larger than the panel for easier clicks */}
+      <mesh
+        onClick={(e) => { e.stopPropagation(); onClick?.() }}
+        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = onClick ? 'pointer' : 'default' }}
+        onPointerOut={() => { document.body.style.cursor = 'default' }}
+      >
+        <planeGeometry args={[CONFLICT_PANEL_W + 0.1, CONFLICT_PANEL_H + 0.1]} />
+        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
+      </mesh>
+
       {/* Face */}
       <mesh>
         <planeGeometry args={[CONFLICT_PANEL_W, CONFLICT_PANEL_H]} />
         <meshStandardMaterial
           ref={matRef}
-          color="#1a0000"
-          emissive={CONFLICT_COLOR}
+          color={selected ? '#1a0a00' : '#1a0000'}
+          emissive={faceEmissive}
           emissiveIntensity={0.5}
           metalness={0.1}
           roughness={0.6}
@@ -187,8 +205,8 @@ function ConflictFilePanel({ position, fileName, chunkCount }: {
         <planeGeometry args={[CONFLICT_PANEL_W, 0.02]} />
         <meshStandardMaterial
           ref={edgeMatRef}
-          color={CONFLICT_COLOR}
-          emissive={CONFLICT_GLOW_COLOR}
+          color={edgeColor}
+          emissive={edgeColor}
           emissiveIntensity={1.2}
         />
       </mesh>
@@ -196,8 +214,8 @@ function ConflictFilePanel({ position, fileName, chunkCount }: {
       <mesh position={[0, -CONFLICT_PANEL_H / 2, 0.001]}>
         <planeGeometry args={[CONFLICT_PANEL_W, 0.02]} />
         <meshStandardMaterial
-          color={CONFLICT_COLOR}
-          emissive={CONFLICT_GLOW_COLOR}
+          color={edgeColor}
+          emissive={edgeColor}
           emissiveIntensity={1.2}
         />
       </mesh>
@@ -205,8 +223,8 @@ function ConflictFilePanel({ position, fileName, chunkCount }: {
       <mesh position={[-CONFLICT_PANEL_W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, CONFLICT_PANEL_H]} />
         <meshStandardMaterial
-          color={CONFLICT_COLOR}
-          emissive={CONFLICT_GLOW_COLOR}
+          color={edgeColor}
+          emissive={edgeColor}
           emissiveIntensity={1.2}
         />
       </mesh>
@@ -214,29 +232,32 @@ function ConflictFilePanel({ position, fileName, chunkCount }: {
       <mesh position={[CONFLICT_PANEL_W / 2, 0, 0.001]}>
         <planeGeometry args={[0.02, CONFLICT_PANEL_H]} />
         <meshStandardMaterial
-          color={CONFLICT_COLOR}
-          emissive={CONFLICT_GLOW_COLOR}
+          color={edgeColor}
+          emissive={edgeColor}
           emissiveIntensity={1.2}
         />
       </mesh>
 
       {/* File name label */}
       <Html center distanceFactor={10} zIndexRange={[100, 0]}>
-        <div style={{
-          color: '#ff6b6b',
-          fontSize: 9,
-          fontFamily: 'monospace',
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          textShadow: '0 0 6px #ef4444',
-          lineHeight: 1.3,
-          textAlign: 'center',
-        }}>
+        <div
+          onClick={(e) => { e.stopPropagation(); onClick?.() }}
+          style={{
+            color: selected ? '#ffaa44' : '#ff6b6b',
+            fontSize: 9,
+            fontFamily: 'monospace',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            pointerEvents: onClick ? 'auto' : 'none',
+            userSelect: 'none',
+            cursor: onClick ? 'pointer' : 'default',
+            textShadow: selected ? '0 0 8px #ff8800' : '0 0 6px #ef4444',
+            lineHeight: 1.3,
+            textAlign: 'center',
+          }}>
           <div>{shortName}</div>
-          <div style={{ fontSize: 7, color: '#ff9999', opacity: 0.8 }}>
-            {chunkCount} conflict{chunkCount !== 1 ? 's' : ''}
+          <div style={{ fontSize: 7, color: selected ? '#ffcc88' : '#ff9999', opacity: 0.8 }}>
+            {chunkCount} conflict{chunkCount !== 1 ? 's' : ''}{selected ? ' — CLICK TO VIEW' : ''}
           </div>
         </div>
       </Html>
@@ -367,6 +388,10 @@ interface MergeGraphProps {
   commitGraph: CommitNode[]
   /** Y offset — base position above the HAL sphere */
   baseY?: number
+  /** Currently selected conflict file path (highlighted in the graph) */
+  selectedFile?: string | null
+  /** Called when user clicks a conflict file panel in the 3D graph */
+  onSelectFile?: (filePath: string) => void
 }
 
 /**
@@ -379,7 +404,7 @@ interface MergeGraphProps {
  * - Conflict files float between the branches (red glow, pulsing)
  * - HUD banner at the top: "MERGE CONFLICTS"
  */
-export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y }: MergeGraphProps) {
+export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y, selectedFile, onSelectFile }: MergeGraphProps) {
   const groupRef = useRef<THREE.Group>(null)
   const fadeRef = useRef(0)
 
@@ -591,13 +616,15 @@ export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y }: 
         />
       ))}
 
-      {/* Conflict file panels */}
+      {/* Conflict file panels — clickable to open ConflictViewer */}
       {mergeState.conflictFiles.slice(0, 8).map((file, i) => conflictPositions[i] && (
         <ConflictFilePanel
           key={file.path}
           position={conflictPositions[i]}
           fileName={file.path}
           chunkCount={file.chunks.length}
+          selected={selectedFile === file.path}
+          onClick={onSelectFile ? () => onSelectFile(file.path) : undefined}
         />
       ))}
 

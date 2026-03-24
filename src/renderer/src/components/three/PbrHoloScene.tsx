@@ -1776,6 +1776,9 @@ interface Props {
   // U18: Merge conflict 3D graph
   mergeStates?: Record<string, import('../../types/merge').MergeState>
   commitGraphs?: Record<string, import('../../types/merge').CommitNode[]>
+  // U18 Phase 3: Conflict viewer interaction
+  selectedConflictFile?: string | null
+  onSelectConflictFile?: (projectPath: string, filePath: string) => void
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1824,6 +1827,9 @@ interface PbrSceneInnerProps {
   // U18: Merge conflict 3D graph
   mergeStates: Record<string, import('../../types/merge').MergeState>
   commitGraphs: Record<string, import('../../types/merge').CommitNode[]>
+  // U18 Phase 3: Conflict viewer interaction
+  selectedConflictFile: string | null
+  onSelectConflictFile?: (projectPath: string, filePath: string) => void
 }
 
 function PbrSceneInner({
@@ -1836,6 +1842,7 @@ function PbrSceneInner({
   onOpenBrowser,
   cinematicActive, onCinematicComplete,
   mergeStates, commitGraphs,
+  selectedConflictFile, onSelectConflictFile,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2048,6 +2055,8 @@ function PbrSceneInner({
             key={`merge-${projectPath}`}
             mergeState={mergeState}
             commitGraph={graph}
+            selectedFile={selectedConflictFile}
+            onSelectFile={onSelectConflictFile ? (filePath) => onSelectConflictFile(projectPath, filePath) : undefined}
           />
         )
       })}
@@ -2174,7 +2183,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {} }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2313,6 +2322,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           onCinematicComplete={onCinematicComplete}
           mergeStates={mergeStates}
           commitGraphs={commitGraphs}
+          selectedConflictFile={selectedConflictFile ?? null}
+          onSelectConflictFile={onSelectConflictFile}
         />
       </ThreeThemeProvider>
     </Canvas>
