@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 
 import { exec, execSync } from 'child_process'
 import { join, normalize } from 'path'
 import { run } from './ipc-shared'
-import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames } from './platform'
+import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames, openInIde, resolveIde, detectProjectIde, IDE_CANDIDATES } from './platform'
 import { terminalManager } from './terminal-manager'
 import { RULES_VERSION } from './version'
 
@@ -366,6 +366,54 @@ export function registerHubHandlers(): void {
 
   ipcMain.handle('run-app', async (_e, projectPath: string, runCmd: string) => {
     openTerminalAt(projectPath, runCmd)
+  })
+
+  // ── Open project in IDE (U19) — supports per-project + global default IDE ──
+  ipcMain.handle('open-in-ide', async (_e, projectPath: string, ideId?: string): Promise<{ success: boolean; ide?: string; error?: string }> => {
+    try {
+      const ide = openInIde(projectPath, ideId)
+      return { success: true, ide }
+    } catch (err) {
+      return { success: false, error: String(err instanceof Error ? err.message : err) }
+    }
+  })
+
+  // ── Resolve which IDE would be used for a project (U19) ──
+  // Returns: { id, name, shortLabel } or null — used to show the correct button label
+  ipcMain.handle('resolve-ide', async (_e, projectPath: string, perProjectIde?: string | null, globalDefault?: string | null): Promise<{ id: string; name: string; shortLabel: string } | null> => {
+    const ide = resolveIde(projectPath, perProjectIde, globalDefault)
+    return ide ? { id: ide.id, name: ide.name, shortLabel: ide.shortLabel } : null
+  })
+
+  // ── Auto-detect IDE from project files (U19) ──
+  ipcMain.handle('detect-project-ide', async (_e, projectPath: string): Promise<string | null> => {
+    return detectProjectIde(projectPath)
+  })
+
+  // ── Get list of all supported IDEs + availability (U19) ──
+  ipcMain.handle('get-available-ides', async (): Promise<Array<{ id: string; name: string; shortLabel: string; available: boolean }>> => {
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which'
+    return IDE_CANDIDATES.map(ide => {
+      let available = false
+      try {
+        require('child_process').execSync(`${whichCmd} ${ide.cmd}`, {
+          encoding: 'utf-8', timeout: 3000,
+          stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+        })
+        available = true
+      } catch { /* not available */ }
+      return { id: ide.id, name: ide.name, shortLabel: ide.shortLabel, available }
+    })
+  })
+
+  // ── Open external terminal at project path (U19) ──
+  ipcMain.handle('open-external-terminal', async (_e, projectPath: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      openTerminalAt(projectPath)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err instanceof Error ? err.message : err) }
+    }
   })
 
   // ── Session Absorption: detect external Claude CLI processes ──

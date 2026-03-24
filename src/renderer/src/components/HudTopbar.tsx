@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -62,6 +62,9 @@ interface HudTopbarProps {
   onUnhide?: (path: string) => void
   demo?: DemoSettings
   onVoiceBlocked?: () => void
+  // IDE (U19)
+  defaultIde?: IdeOptionId
+  onDefaultIdeChange?: (id: IdeOptionId) => void
 }
 
 export function HudTopbar({
@@ -77,6 +80,7 @@ export function HudTopbar({
   hiddenPaths = [], onUnhide,
   demo,
   onVoiceBlocked,
+  defaultIde = 'auto', onDefaultIdeChange,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -155,6 +159,7 @@ export function HudTopbar({
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
+          defaultIde={defaultIde} onDefaultIdeChange={onDefaultIdeChange ?? (() => {})}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
         />

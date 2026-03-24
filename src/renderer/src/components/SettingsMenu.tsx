@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -123,6 +123,8 @@ interface Props {
   personality: PersonalitySettings
   onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
   onPersonalityPreset: (presetName: string) => void
+  defaultIde: IdeOptionId
+  onDefaultIdeChange: (id: IdeOptionId) => void
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
   demo?: DemoSettings
@@ -176,7 +178,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -273,7 +275,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
 
   // Collect which sections have at least one visible row when searching
   const presetsLabels = ['SAVE PRESET', 'LOAD PRESET']
-  const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE']
+  const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE', 'DEFAULT IDE']
   const terminalLabels = ['TERMINAL DOCK']
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
   const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
@@ -471,6 +473,21 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                       >
                         {THREE_STYLES.map((t) => (
                           <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {match('DEFAULT IDE') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label">DEFAULT IDE</span>
+                      <select
+                        className="hal-settings-select"
+                        value={defaultIde}
+                        onChange={(e) => onDefaultIdeChange(e.target.value as IdeOptionId)}
+                      >
+                        {IDE_OPTIONS.map((ide) => (
+                          <option key={ide.id} value={ide.id}>{ide.label}</option>
                         ))}
                       </select>
                     </div>

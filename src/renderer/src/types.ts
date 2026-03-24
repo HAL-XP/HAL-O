@@ -219,6 +219,12 @@ export interface ElectronAPI {
   openFolder: (path: string) => Promise<void>
   runApp: (projectPath: string, runCmd: string) => Promise<void>
   openInClaude: (path: string) => Promise<void>
+  // IDE (U19)
+  openInIde: (path: string, ideId?: string) => Promise<{ success: boolean; ide?: string; error?: string }>
+  resolveIde: (projectPath: string, perProjectIde?: string | null, globalDefault?: string | null) => Promise<{ id: string; name: string; shortLabel: string } | null>
+  detectProjectIde: (projectPath: string) => Promise<string | null>
+  getAvailableIdes: () => Promise<Array<{ id: string; name: string; shortLabel: string; available: boolean }>>
+  openExternalTerminal: (projectPath: string) => Promise<{ success: boolean; error?: string }>
 
   // Continuation (D4)
   writeContinuation: (data: { step: string; reason: string; message: string }) => Promise<{ success: boolean; error?: string }>

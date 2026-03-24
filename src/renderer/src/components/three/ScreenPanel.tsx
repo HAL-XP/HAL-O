@@ -41,6 +41,11 @@ interface Props {
   // Search-aware animated positioning (U7) — when set, panel lerps to these targets
   searchTarget?: { position: [number, number, number]; rotation: [number, number, number] }
   searchDimmed?: boolean // true = non-matching panel during search, dim to ~0.1 opacity
+  // IDE & Terminal buttons (U19)
+  ideLabel?: string // short label for IDE button (e.g. "CODE", "CURSOR", "WS") — null hides button
+  onOpenIde?: () => void // click: open in preferred IDE
+  onOpenIdeMenu?: (e: React.MouseEvent) => void // right-click: show IDE picker
+  onOpenTerminal?: () => void // click: open external terminal at project path
 }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
@@ -184,6 +189,7 @@ export function ScreenPanel({
   demoStats, onContextMenu, rulesOutdated = false, isFavorite = false,
   isExternal = false, isAbsorbing = false, onAbsorb,
   searchTarget, searchDimmed = false,
+  ideLabel, onOpenIde, onOpenIdeMenu, onOpenTerminal,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -610,6 +616,25 @@ export function ScreenPanel({
               <button onClick={onNewSession} style={btnGhost}>NEW</button>
               {runCmd && onRunApp && <button onClick={onRunApp} style={{ ...btnGhost, color: '#22d3ee', borderColor: 'rgba(34,211,238,0.3)' }}>RUN</button>}
               <button onClick={onFiles} style={btnGhost}>FILES</button>
+              {onOpenIde && (
+                <button
+                  onClick={onOpenIde}
+                  onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenIdeMenu?.(e) }}
+                  style={{ ...btnGhost, color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)' }}
+                  title={ideLabel ? `Open in ${ideLabel} (right-click to change)` : 'Open in IDE'}
+                >
+                  {ideLabel || '</>'}
+                </button>
+              )}
+              {onOpenTerminal && (
+                <button
+                  onClick={onOpenTerminal}
+                  style={{ ...btnGhost, color: '#34d399', borderColor: 'rgba(52,211,153,0.3)' }}
+                  title="Open external terminal"
+                >
+                  {'>_'}
+                </button>
+              )}
             </div>
             </div>{/* close zIndex:1 content wrapper */}
           </div>

@@ -80,6 +80,21 @@ export const PERSONALITY_PRESETS: PersonalityPreset[] = [
   { name: 'chaos',    label: 'CHAOS',    values: { humor: 90, formality: 10, verbosity: 80, dramatic: 85 } },
 ]
 
+// ── IDE options (U19) ──
+
+export const IDE_OPTIONS = [
+  { id: 'auto', label: 'AUTO-DETECT' },
+  { id: 'vscode', label: 'VS CODE' },
+  { id: 'cursor', label: 'CURSOR' },
+  { id: 'webstorm', label: 'WEBSTORM' },
+  { id: 'idea', label: 'INTELLIJ IDEA' },
+  { id: 'fleet', label: 'FLEET' },
+  { id: 'zed', label: 'ZED' },
+  { id: 'sublime', label: 'SUBLIME TEXT' },
+] as const
+
+export type IdeOptionId = typeof IDE_OPTIONS[number]['id']
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -97,6 +112,7 @@ export interface SettingsState {
   shipVfxEnabled: boolean
   voiceReactionIntensity: number
   personality: PersonalitySettings
+  defaultIde: IdeOptionId
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -115,6 +131,7 @@ export interface SettingsState {
   updateVoiceReactionIntensity: (v: number) => void
   updatePersonality: (key: keyof PersonalitySettings, value: number) => void
   applyPersonalityPreset: (presetName: string) => void
+  updateDefaultIde: (id: IdeOptionId) => void
 }
 
 export function useSettings(): SettingsState {
@@ -162,6 +179,7 @@ export function useSettings(): SettingsState {
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
   const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
   const [shipVfxEnabled, setShipVfxEnabled] = useState(() => localStorage.getItem('hal-o-ship-vfx') !== 'false')
+  const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
     return stored !== null ? parseFloat(stored) : 0.5
@@ -233,6 +251,10 @@ export function useSettings(): SettingsState {
     setShipVfxEnabled(enabled)
     localStorage.setItem('hal-o-ship-vfx', String(enabled))
   }, [])
+  const updateDefaultIde = useCallback((id: IdeOptionId) => {
+    setDefaultIde(id)
+    localStorage.setItem('hal-o-default-ide', id)
+  }, [])
   const updateVoiceReactionIntensity = useCallback((v: number) => {
     setVoiceReactionIntensity(v)
     localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
@@ -273,7 +295,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, personality,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, personality, defaultIde,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
   }
 }

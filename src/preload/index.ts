@@ -80,6 +80,16 @@ const api = {
   openFolder: (path: string) => ipcRenderer.invoke('open-folder', path),
   runApp: (projectPath: string, runCmd: string) => ipcRenderer.invoke('run-app', projectPath, runCmd),
   openInClaude: (path: string) => ipcRenderer.invoke('open-in-claude', path),
+  openInIde: (path: string, ideId?: string): Promise<{ success: boolean; ide?: string; error?: string }> =>
+    ipcRenderer.invoke('open-in-ide', path, ideId),
+  resolveIde: (projectPath: string, perProjectIde?: string | null, globalDefault?: string | null): Promise<{ id: string; name: string; shortLabel: string } | null> =>
+    ipcRenderer.invoke('resolve-ide', projectPath, perProjectIde, globalDefault),
+  detectProjectIde: (projectPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('detect-project-ide', projectPath),
+  getAvailableIdes: (): Promise<Array<{ id: string; name: string; shortLabel: string; available: boolean }>> =>
+    ipcRenderer.invoke('get-available-ides'),
+  openExternalTerminal: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('open-external-terminal', projectPath),
 
   // Session absorption
   detectExternalSessions: () => ipcRenderer.invoke('detect-external-sessions'),

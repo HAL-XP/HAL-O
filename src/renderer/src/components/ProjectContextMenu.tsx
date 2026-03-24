@@ -1,5 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ProjectGroup } from '../hooks/useProjectGroups'
+
+interface IdeInfo {
+  id: string
+  name: string
+  shortLabel: string
+  available: boolean
+}
 
 interface Props {
   x: number
@@ -16,6 +23,9 @@ interface Props {
   groups?: ProjectGroup[]
   currentGroupId?: string
   onAssignGroup?: (groupId: string | null) => void
+  // IDE picker (U19)
+  currentIdeId?: string | null // per-project IDE override (null = auto)
+  onSetProjectIde?: (ideId: string | null) => void
   onClose: () => void
 }
 
@@ -24,9 +34,18 @@ export function ProjectContextMenu({
   onHide, onConfigure, rulesOutdated,
   isFavorite = false, onToggleFavorite,
   groups = [], currentGroupId, onAssignGroup,
+  currentIdeId, onSetProjectIde,
   onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+  const [availableIdes, setAvailableIdes] = useState<IdeInfo[]>([])
+
+  // Fetch available IDEs on mount
+  useEffect(() => {
+    if (onSetProjectIde) {
+      window.api.getAvailableIdes().then(setAvailableIdes).catch(() => {})
+    }
+  }, [onSetProjectIde])
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -143,6 +162,64 @@ export function ProjectContextMenu({
           <span style={{ fontSize: '8px', color: '#fb923c' }}>&#x25B2;</span>
           UPDATE HAL-O RULES
         </button>
+      )}
+
+      {/* IDE picker submenu (U19) */}
+      {onSetProjectIde && availableIdes.length > 0 && (
+        <>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '3px 0' }} />
+          <div style={{
+            padding: '4px 10px 4px',
+            fontSize: '8px',
+            letterSpacing: '2px',
+            color: 'var(--text-dim)',
+            fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+          }}>
+            PREFERRED IDE
+          </div>
+
+          {/* Auto-detect option */}
+          <button
+            onClick={() => { onSetProjectIde(null); onClose() }}
+            style={{
+              ...itemStyle,
+              background: !currentIdeId ? 'rgba(167,139,250,0.08)' : 'transparent',
+              color: !currentIdeId ? '#a78bfa' : 'var(--text-secondary)',
+            }}
+            onMouseEnter={hoverIn}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = !currentIdeId ? 'rgba(167,139,250,0.08)' : 'transparent'
+            }}
+          >
+            <span style={{ fontSize: '9px', color: !currentIdeId ? '#a78bfa' : 'var(--text-dim)' }}>&#x2731;</span>
+            AUTO-DETECT
+            {!currentIdeId && (
+              <span style={{ marginLeft: 'auto', fontSize: '8px', color: '#a78bfa' }}>&#x2713;</span>
+            )}
+          </button>
+
+          {availableIdes.filter(ide => ide.available).map((ide) => (
+            <button
+              key={ide.id}
+              onClick={() => { onSetProjectIde(ide.id); onClose() }}
+              style={{
+                ...itemStyle,
+                background: currentIdeId === ide.id ? 'rgba(167,139,250,0.08)' : 'transparent',
+                color: currentIdeId === ide.id ? '#a78bfa' : 'var(--text-secondary)',
+              }}
+              onMouseEnter={hoverIn}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = currentIdeId === ide.id ? 'rgba(167,139,250,0.08)' : 'transparent'
+              }}
+            >
+              <span style={{ fontSize: '8px', letterSpacing: '1px', color: currentIdeId === ide.id ? '#a78bfa' : 'var(--text-dim)', fontWeight: 700 }}>{ide.shortLabel}</span>
+              {ide.name}
+              {currentIdeId === ide.id && (
+                <span style={{ marginLeft: 'auto', fontSize: '8px', color: '#a78bfa' }}>&#x2713;</span>
+              )}
+            </button>
+          ))}
+        </>
       )}
 
       {/* Group assignment submenu */}

@@ -1401,6 +1401,11 @@ interface Props {
   externalSessions?: ExternalSession[]
   absorbingPid?: number | null
   onAbsorb?: (extSession: ExternalSession, project: ProjectInfo) => void
+  // IDE (U19)
+  getIdeLabel?: (projectPath: string) => string | undefined
+  onOpenIde?: (projectPath: string) => void
+  onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
+  onOpenExternalTerminal?: (projectPath: string) => void
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1434,6 +1439,11 @@ interface PbrSceneInnerProps {
   externalSessions: ExternalSession[]
   absorbingPid: number | null
   onAbsorb?: (extSession: ExternalSession, project: ProjectInfo) => void
+  // IDE (U19)
+  getIdeLabel?: (projectPath: string) => string | undefined
+  onOpenIde?: (projectPath: string) => void
+  onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
+  onOpenExternalTerminal?: (projectPath: string) => void
 }
 
 function PbrSceneInner({
@@ -1442,6 +1452,7 @@ function PbrSceneInner({
   screenOpacity, particleDensity, showPerf, onSceneReady,
   floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
   externalSessions, absorbingPid, onAbsorb,
+  getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -1676,6 +1687,10 @@ function PbrSceneInner({
               e.preventDefault()
               onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
             } : undefined}
+            ideLabel={getIdeLabel ? getIdeLabel(project.path) : undefined}
+            onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
+            onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
+            onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
             searchTarget={searchTargetPos}
             searchDimmed={isDimmed}
           />
@@ -1730,7 +1745,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1844,6 +1859,10 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}
           onAbsorb={onAbsorb}
+          getIdeLabel={getIdeLabel}
+          onOpenIde={onOpenIde}
+          onOpenIdeMenu={onOpenIdeMenu}
+          onOpenExternalTerminal={onOpenExternalTerminal}
         />
       </ThreeThemeProvider>
     </Canvas>

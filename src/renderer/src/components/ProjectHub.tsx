@@ -60,6 +60,9 @@ interface Props {
   halSessionId?: string | null
   terminalCount?: number
   demo?: DemoSettings
+  // IDE (U19)
+  defaultIde?: string
+  onDefaultIdeChange?: (id: string) => void
 }
 
 function timeAgo(ms: number): string {
@@ -72,7 +75,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -130,6 +133,87 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
   // Favorite projects
   const { toggleFavorite, isFavorite } = useFavoriteProjects()
+
+  // ── IDE preference management (U19) ──
+  // Per-project IDE stored in localStorage: hal-o-ide-<slug(path)>
+  // Slug: replace non-alnum chars with dashes for safe localStorage keys
+  const pathToKey = useCallback((p: string) => `hal-o-ide-${p.replace(/[^a-zA-Z0-9]/g, '-')}`, [])
+  const [ideLabels, setIdeLabels] = useState<Record<string, string>>({}) // path -> shortLabel
+
+  const getPerProjectIde = useCallback((projectPath: string): string | null => {
+    try {
+      return localStorage.getItem(pathToKey(projectPath)) || null
+    } catch { return null }
+  }, [pathToKey])
+
+  const setPerProjectIde = useCallback((projectPath: string, ideId: string | null) => {
+    const key = pathToKey(projectPath)
+    if (ideId) {
+      localStorage.setItem(key, ideId)
+    } else {
+      localStorage.removeItem(key)
+    }
+    // Re-resolve the label for this project
+    window.api.resolveIde(projectPath, ideId, defaultIde).then((resolved) => {
+      setIdeLabels(prev => ({
+        ...prev,
+        [projectPath]: resolved?.shortLabel || '</>'
+      }))
+    }).catch(() => {})
+  }, [defaultIde])
+
+  // Resolve IDE labels for all projects on mount and when projects/defaultIde change
+  useEffect(() => {
+    const resolveAll = async () => {
+      const labels: Record<string, string> = {}
+      for (const project of projects) {
+        try {
+          const perProject = getPerProjectIde(project.path)
+          const resolved = await window.api.resolveIde(project.path, perProject, defaultIde)
+          labels[project.path] = resolved?.shortLabel || '</>'
+        } catch {
+          labels[project.path] = '</>'
+        }
+      }
+      setIdeLabels(labels)
+    }
+    if (projects.length > 0) resolveAll()
+  }, [projects, defaultIde, getPerProjectIde])
+
+  const getIdeLabel = useCallback((projectPath: string): string | undefined => {
+    return ideLabels[projectPath]
+  }, [ideLabels])
+
+  const handleOpenIde = useCallback((projectPath: string) => {
+    const perProject = getPerProjectIde(projectPath)
+    // Resolve which IDE to use, then open it directly by id
+    window.api.resolveIde(projectPath, perProject, defaultIde).then((resolved) => {
+      if (resolved) {
+        window.api.openInIde(projectPath, resolved.id)
+      } else {
+        window.api.openInIde(projectPath)
+      }
+    }).catch(() => {
+      window.api.openInIde(projectPath)
+    })
+  }, [getPerProjectIde, defaultIde])
+
+  const handleOpenIdeMenu = useCallback((projectPath: string, e: React.MouseEvent) => {
+    // Show the context menu with IDE picker at the right-click position
+    const perProject = getPerProjectIde(projectPath)
+    const projectName = projects.find(p => p.path === projectPath)?.name || 'Project'
+    setCtxMenu({
+      x: e.clientX,
+      y: e.clientY,
+      projectPath,
+      projectName,
+      rulesOutdated: false,
+    })
+  }, [getPerProjectIde, projects])
+
+  const handleOpenExternalTerminal = useCallback((projectPath: string) => {
+    window.api.openExternalTerminal(projectPath)
+  }, [])
 
   useEffect(() => {
     if (demo?.enabled) {
@@ -466,6 +550,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
+          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
         />
         {renderAbsorptionOverlay()}
       </div>
@@ -504,6 +589,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}
           onAbsorb={handleAbsorb}
+          getIdeLabel={getIdeLabel}
+          onOpenIde={handleOpenIde}
+          onOpenIdeMenu={handleOpenIdeMenu}
+          onOpenExternalTerminal={handleOpenExternalTerminal}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
@@ -529,6 +618,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
+          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
@@ -542,6 +632,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             onToggleFavorite={toggleFavorite}
             groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
             onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+            currentIdeId={getPerProjectIde(ctxMenu.projectPath)}
+            onSetProjectIde={(ideId) => setPerProjectIde(ctxMenu.projectPath, ideId)}
             onClose={() => setCtxMenu(null)}
           />
         )}
@@ -563,6 +655,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           renderQuality={renderQuality}
           showPerf={showPerf}
           onSceneReady={onSceneReady}
+          getIdeLabel={getIdeLabel}
+          onOpenIde={handleOpenIde}
+          onOpenIdeMenu={handleOpenIdeMenu}
+          onOpenExternalTerminal={handleOpenExternalTerminal}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
@@ -589,6 +685,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
+          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -603,6 +700,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             onToggleFavorite={toggleFavorite}
             groups={groups} currentGroupId={assignments[ctxMenu.projectPath]}
             onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+            currentIdeId={getPerProjectIde(ctxMenu.projectPath)}
+            onSetProjectIde={(ideId) => setPerProjectIde(ctxMenu.projectPath, ideId)}
             onClose={() => setCtxMenu(null)}
           />
         )}
@@ -650,6 +749,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
         onVoiceBlocked={handleVoiceBlocked}
+        defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
       />
 
       {/* Status label */}
@@ -684,6 +784,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           groups={groups}
           currentGroupId={assignments[ctxMenu.projectPath]}
           onAssignGroup={(groupId) => assignProject(ctxMenu.projectPath, groupId)}
+          currentIdeId={getPerProjectIde(ctxMenu.projectPath)}
+          onSetProjectIde={(ideId) => setPerProjectIde(ctxMenu.projectPath, ideId)}
           onClose={() => setCtxMenu(null)}
         />
       )}

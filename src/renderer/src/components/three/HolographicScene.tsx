@@ -259,9 +259,14 @@ interface Props {
   renderQuality?: number
   showPerf?: boolean
   onSceneReady?: () => void
+  // IDE (U19)
+  getIdeLabel?: (projectPath: string) => string | undefined
+  onOpenIde?: (projectPath: string) => void
+  onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
+  onOpenExternalTerminal?: (projectPath: string) => void
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -345,6 +350,10 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
             demoStats={project.demoStats}
             screenOpacity={screenOpacity}
+            ideLabel={getIdeLabel ? getIdeLabel(project.path) : undefined}
+            onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
+            onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
+            onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
           />
         )
       })}
