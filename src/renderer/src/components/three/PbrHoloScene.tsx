@@ -333,39 +333,39 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     float fwDist = fwidth(dist);
     float fwAngle = fwidth(angle);
 
-    // === Concentric rings — the signature look ===
-    float ringDensity = 80.0;
+    // === Concentric rings — fewer, thicker, anti-aliased ===
+    // B27v3: reduced density 80→20 to prevent sub-pixel aliasing at oblique angles
+    float ringDensity = 20.0;
     float ringDist = fract(dist * ringDensity);
-    float ringScreenWidth = fwDist * ringDensity; // how many ring periods fit in one pixel
-    // Fade out when rings are denser than ~3 pixels per period
-    float ringFade = smoothstep(0.5, 0.15, ringScreenWidth);
-    float ringHalfW = max(0.03 + 0.02 * sin(dist * 20.0), ringScreenWidth * 1.5);
+    float ringScreenWidth = fwDist * ringDensity;
+    // Kill rings aggressively when they approach 1 pixel per period
+    float ringFade = smoothstep(0.35, 0.08, ringScreenWidth);
+    float ringHalfW = max(0.08, ringScreenWidth * 2.0);
     float ringLine = (smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist)) * ringFade;
 
-    // Major rings (every 8th ring — visible at further distances)
-    float majorDensity = ringDensity / 8.0;
+    // Major rings (every 4th — visible at further distances)
+    float majorDensity = ringDensity / 4.0;
     float majorRing = fract(dist * majorDensity);
     float majorScreenW = fwDist * majorDensity;
-    float majorFade = smoothstep(0.5, 0.15, majorScreenW);
-    float majorHalfW = max(0.05, majorScreenW * 1.5);
+    float majorFade = smoothstep(0.35, 0.08, majorScreenW);
+    float majorHalfW = max(0.1, majorScreenW * 2.0);
     float majorLine = (smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing)) * majorFade;
-    ringLine = max(ringLine * 0.5, majorLine);
+    ringLine = max(ringLine * 0.4, majorLine * 0.8);
 
-    // === Tick marks — radial lines at regular angles ===
-    float tickCount = 72.0;
+    // === Tick marks — fewer, thicker ===
+    float tickCount = 36.0;
     float tickScreenW = fwAngle / (2.0 * 3.14159265) * tickCount;
-    float tickFade = smoothstep(0.5, 0.15, tickScreenW);
+    float tickFade = smoothstep(0.35, 0.08, tickScreenW);
     float tickAngle = fract(angle / (2.0 * 3.14159265) * tickCount);
-    float tickHalfW = max(0.02, tickScreenW * 1.5);
+    float tickHalfW = max(0.04, tickScreenW * 2.0);
     float tick = (smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle)) * tickFade;
-    // Ticks only in certain radius bands
     float tickBand = step(0.3, dist) * step(dist, 0.85);
-    // Major ticks every 8th
-    float majorTickCount = tickCount / 8.0;
+    // Major ticks every 4th
+    float majorTickCount = tickCount / 4.0;
     float majorTickScreenW = fwAngle / (2.0 * 3.14159265) * majorTickCount;
-    float majorTickFade = smoothstep(0.5, 0.15, majorTickScreenW);
+    float majorTickFade = smoothstep(0.35, 0.08, majorTickScreenW);
     float majorTickAngle = fract(angle / (2.0 * 3.14159265) * majorTickCount);
-    float majorTickHalfW = max(0.04, majorTickScreenW * 1.5);
+    float majorTickHalfW = max(0.06, majorTickScreenW * 2.0);
     float majorTick = (smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle)) * majorTickFade;
     tick = max(tick * 0.3, majorTick * 0.6) * tickBand;
 
@@ -470,8 +470,11 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
   const ringMatRef = useRef<THREE.ShaderMaterial>(null)
   // Scale factor relative to original 8.5 radius
   const s = radius / 8.5
-  useFrame((state, delta) => {
-    if (groupRef.current) groupRef.current.rotation.y += delta * 0.015
+  useFrame((state) => {
+    // B27v4: DON'T rotate the group — rotating the mesh breaks the ring shader
+    // because vDist = length(wp.xy) shifts with the modelMatrix rotation,
+    // causing circles to distort into horizontal lines at certain angles.
+    // The dots rotate via the pulse wave in the shader instead.
     if (ringMatRef.current) ringMatRef.current.uniforms.uTime.value = state.clock.elapsedTime
   })
 
@@ -505,9 +508,9 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
             varying float vDist;
             void main() {
               vUv = uv;
-              vec4 wp = modelMatrix * vec4(position, 1.0);
-              vDist = length(wp.xy);
-              gl_Position = projectionMatrix * viewMatrix * wp;
+              // B27v4: use LOCAL position for distance — immune to group rotation
+              vDist = length(position.xy);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
           `}
           fragmentShader={`
@@ -2260,8 +2263,8 @@ function PbrSceneInner({
         <>
           <ReflectiveFloor radius={floorRadius} />
           <FloorEdgeMist radius={floorRadius} />
-          <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
-          {/* P14: GridOverlay + PbrRingPlatform only on high preset (or when floorLinesEnabled) */}
+          {/* B27v3: ALL floor line components gated — TexturedPlatform was always-on and causing horizontal bars */}
+          {floorLinesEnabled && <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />}
           {floorLinesEnabled && <GridOverlay radius={floorRadius} />}
           {floorLinesEnabled && <PbrRingPlatform radius={ringPlatformRadius} />}
 

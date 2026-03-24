@@ -185,8 +185,12 @@ export function IntroSequence({
 
     if (!controls) return
 
-    const oc = controls as any
     const s = stateRef.current
+    // B28v2: Don't restart if already started — controls/camera ref changes
+    // from useThree() would re-fire this effect and reset the animation
+    if (s.started && !s.completed) return
+
+    const oc = controls as any
 
     // Start the intro
     s.elapsed = 0
