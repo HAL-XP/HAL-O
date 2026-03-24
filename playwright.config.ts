@@ -13,6 +13,9 @@ export default defineConfig({
   },
   // One retry on CI to absorb transient timing flakes; none locally
   retries: isCI ? 1 : 0,
+  // On CI: 1 worker to avoid multiple Electron instances fighting for resources.
+  // Locally: default (half CPU cores) for faster feedback.
+  workers: isCI ? 1 : undefined,
   // Exclude local-only test files from default runs:
   //   perf-*.spec.ts   — manual profiling, needs local GPU/high-res display
   //   screenshot-*.spec.ts — capture reference screenshots, not assertions

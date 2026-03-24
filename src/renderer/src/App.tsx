@@ -137,9 +137,15 @@ const FIRST_STEP_ID = 'wizard-mode'
 
 type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'configure'
 
+// Debug helper — sends to main process log file when --debug is active
+function dlog(tag: string, msg: string, data?: unknown) {
+  try { window.api?.debugLog(tag, msg, data) } catch { /* preload not ready */ }
+}
+
 export function App() {
   const { t } = useI18n()
   const [viewMode, setViewMode] = useState<ViewMode>('loading')
+  dlog('app', 'App() render', { viewMode: 'loading' })
   const [state, setState] = useState<AppState>({
     currentStepId: FIRST_STEP_ID,
     answers: {},

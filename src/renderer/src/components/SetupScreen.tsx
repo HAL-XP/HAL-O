@@ -50,6 +50,10 @@ export function SetupScreen({ onReady }: Props) {
   const [statuslineConfiguring, setStatuslineConfiguring] = useState(false)
   const [statuslineResult, setStatuslineResult] = useState<string | null>(null)
 
+  // Auto-launch countdown (must be declared here, not after conditional return, per Rules of Hooks)
+  const [countdown, setCountdown] = useState(-1)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const refresh = () => {
     setLoading(true)
     window.api.checkPrerequisites().then((s) => {
@@ -73,24 +77,12 @@ export function SetupScreen({ onReady }: Props) {
     if (coreGood && hasSeenSetup) onReady()
   }, [loading, status]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Conditional return AFTER all hooks ---
-
-  if (loading || !status) {
-    return (
-      <div className="setup-screen">
-        <h2>{t('setup.title')}</h2>
-        <p className="setup-subtitle">{t('setup.checking')}</p>
-        <div className="analysis-spinner" style={{ margin: '24px auto', display: 'block' }} />
-      </div>
-    )
-  }
-
-  const coreReady = status.gitInstalled && status.claudeCliInstalled
-  const allGood = coreReady && status.apiKeyFound && status.ghAuthenticated && status.pythonInstalled
+  // Compute allGood BEFORE conditional return so the useEffect below can reference it.
+  // When loading/status is null, these are safely false.
+  const coreReady = !!status && status.gitInstalled && status.claudeCliInstalled
+  const allGood = coreReady && !!status && status.apiKeyFound && status.ghAuthenticated && status.pythonInstalled
 
   // Auto-launch countdown when all prerequisites are green
-  const [countdown, setCountdown] = useState(allGood ? 10 : -1)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useEffect(() => {
     if (!allGood) { setCountdown(-1); return }
     setCountdown(10)
@@ -107,6 +99,18 @@ export function SetupScreen({ onReady }: Props) {
     }, 1000)
     return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
   }, [allGood]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // --- Conditional return AFTER all hooks ---
+
+  if (loading || !status) {
+    return (
+      <div className="setup-screen">
+        <h2>{t('setup.title')}</h2>
+        <p className="setup-subtitle">{t('setup.checking')}</p>
+        <div className="analysis-spinner" style={{ margin: '24px auto', display: 'block' }} />
+      </div>
+    )
+  }
 
   const handleContinue = () => {
     if (countdownRef.current) clearInterval(countdownRef.current)
