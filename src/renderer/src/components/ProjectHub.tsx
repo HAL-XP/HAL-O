@@ -134,6 +134,23 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return unsub
   }, [])
 
+  // M2: Cinematic demo mode — scripted camera sequence
+  const [cinematicActive, setCinematicActive] = useState(false)
+  useEffect(() => {
+    if (!window.api.onToggleCinematic) return
+    const unsub = window.api.onToggleCinematic((enabled: boolean) => setCinematicActive(enabled))
+    return unsub
+  }, [])
+  // ESC key exits cinematic mode
+  useEffect(() => {
+    if (!cinematicActive) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCinematicActive(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cinematicActive])
+
   // Project groups
   const {
     groups, assignments, getProjectGroup, assignProject,
@@ -615,6 +632,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenIde={handleOpenIde}
           onOpenIdeMenu={handleOpenIdeMenu}
           onOpenExternalTerminal={handleOpenExternalTerminal}
+          cinematicActive={cinematicActive}
+          onCinematicComplete={() => setCinematicActive(false)}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>

@@ -88,6 +88,14 @@ function createMenu(): void {
           label: 'Open Project Folder',
           click: () => shell.openPath(process.cwd()),
         },
+        { type: 'separator' },
+        {
+          label: 'Cinematic Demo Mode',
+          type: 'checkbox',
+          click: (item) => {
+            mainWindow?.webContents.send('toggle-cinematic', item.checked)
+          },
+        },
       ],
     },
   ]
@@ -117,6 +125,14 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow?.maximize()
     mainWindow?.show()
+
+    // M2: Auto-activate cinematic demo mode from --demo-cinematic flag
+    if (process.argv.includes('--demo-cinematic')) {
+      // Delay slightly to let the renderer initialize
+      setTimeout(() => {
+        mainWindow?.webContents.send('toggle-cinematic', true)
+      }, 2000)
+    }
   })
 
   // ── Frame-rate throttle: notify renderer when window loses/gains focus ──

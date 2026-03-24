@@ -338,6 +338,9 @@ export interface ElectronAPI {
 
   // A11: "Ship it!" flyby on git push detection
   onShipItFlyby: (callback: (info: { projectPath: string; projectName: string; shipIndex: number }) => void) => () => void
+
+  // M2: Cinematic demo mode
+  onToggleCinematic: (callback: (enabled: boolean) => void) => () => void
 }
 
 declare global {

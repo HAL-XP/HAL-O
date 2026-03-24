@@ -180,6 +180,13 @@ const api = {
     ipcRenderer.on('ship-it-flyby', listener)
     return () => ipcRenderer.removeListener('ship-it-flyby', listener)
   },
+
+  // M2: Cinematic demo mode — scripted camera sequence for marketing/trade shows
+  onToggleCinematic: (callback: (enabled: boolean) => void) => {
+    const listener = (_: unknown, enabled: boolean) => callback(enabled)
+    ipcRenderer.on('toggle-cinematic', listener)
+    return () => ipcRenderer.removeListener('toggle-cinematic', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -331,12 +331,13 @@ export function registerHubHandlers(): void {
 
   ipcMain.handle('get-launch-args', async () => {
     const args = process.argv.slice(2)
-    if (args.includes('--new')) return { mode: 'wizard' }
+    const cinematicDemo = args.includes('--demo-cinematic')
+    if (args.includes('--new')) return { mode: 'wizard', cinematicDemo }
     const convertIdx = args.indexOf('--convert')
-    if (convertIdx >= 0 && args[convertIdx + 1]) return { mode: 'convert', path: args[convertIdx + 1] }
+    if (convertIdx >= 0 && args[convertIdx + 1]) return { mode: 'convert', path: args[convertIdx + 1], cinematicDemo }
     const launchIdx = args.indexOf('--launch')
-    if (launchIdx >= 0 && args[launchIdx + 1]) return { mode: 'launch', path: args[launchIdx + 1] }
-    return { mode: 'hub' }
+    if (launchIdx >= 0 && args[launchIdx + 1]) return { mode: 'launch', path: args[launchIdx + 1], cinematicDemo }
+    return { mode: 'hub', cinematicDemo }
   })
 
   ipcMain.handle('get-github-user', async () => {

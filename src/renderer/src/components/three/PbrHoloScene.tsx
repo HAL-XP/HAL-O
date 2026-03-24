@@ -11,6 +11,7 @@ import { DataParticles } from './DataParticles'
 import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
+import { CinematicSequence } from './CinematicSequence'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
 
@@ -1406,6 +1407,9 @@ interface Props {
   onOpenIde?: (projectPath: string) => void
   onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
   onOpenExternalTerminal?: (projectPath: string) => void
+  // M2: Cinematic demo mode
+  cinematicActive?: boolean
+  onCinematicComplete?: () => void
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1444,6 +1448,9 @@ interface PbrSceneInnerProps {
   onOpenIde?: (projectPath: string) => void
   onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
   onOpenExternalTerminal?: (projectPath: string) => void
+  // M2: Cinematic demo mode
+  cinematicActive: boolean
+  onCinematicComplete?: () => void
 }
 
 function PbrSceneInner({
@@ -1453,6 +1460,7 @@ function PbrSceneInner({
   floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
   externalSessions, absorbingPid, onAbsorb,
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
+  cinematicActive, onCinematicComplete,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -1730,6 +1738,14 @@ function PbrSceneInner({
       <SceneReadyGate textureReady={textureLoaded} onReady={() => { setSceneReady(true); onSceneReady?.() }} />
       <ScenePhaseManager sceneReady={sceneReady} onPhaseChange={setScenePhase} />
 
+      {/* M2: Cinematic demo mode — scripted camera sequence */}
+      <CinematicSequence
+        active={cinematicActive}
+        onComplete={onCinematicComplete}
+        flybyRef={flybyRef}
+        loop={true}
+      />
+
       <PostFX enabled={scenePhase >= 3} />
     </>
   )
@@ -1745,7 +1761,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1863,6 +1879,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           onOpenIde={onOpenIde}
           onOpenIdeMenu={onOpenIdeMenu}
           onOpenExternalTerminal={onOpenExternalTerminal}
+          cinematicActive={cinematicActive}
+          onCinematicComplete={onCinematicComplete}
         />
       </ThreeThemeProvider>
     </Canvas>
