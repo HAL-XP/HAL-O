@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { PrerequisiteStatus, InstallLabels } from '../types'
 import { useI18n } from '../i18n'
 
@@ -88,7 +88,28 @@ export function SetupScreen({ onReady }: Props) {
   const coreReady = status.gitInstalled && status.claudeCliInstalled
   const allGood = coreReady && status.apiKeyFound && status.ghAuthenticated && status.pythonInstalled
 
+  // Auto-launch countdown when all prerequisites are green
+  const [countdown, setCountdown] = useState(allGood ? 10 : -1)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    if (!allGood) { setCountdown(-1); return }
+    setCountdown(10)
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current)
+          localStorage.setItem('hal-o-setup-done', '1')
+          onReady()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
+  }, [allGood]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleContinue = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current)
     localStorage.setItem('hal-o-setup-done', '1')
     onReady()
   }
@@ -401,7 +422,7 @@ export function SetupScreen({ onReady }: Props) {
       {/* Continue */}
       <div className="setup-continue">
         <button className="create-btn" onClick={handleContinue}>
-          {allGood ? 'Launch HAL-O' : coreReady ? 'Continue' : 'Skip Setup'}
+          {allGood ? (countdown > 0 ? `Launch HAL-O (${countdown})` : 'Launch HAL-O') : coreReady ? 'Continue' : 'Skip Setup'}
         </button>
         {!allGood && (
           <span className="setup-hint" style={{ marginTop: 8 }}>
