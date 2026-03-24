@@ -57,7 +57,7 @@ echo. >> "%LOG%"
 ::  ASCII Art Header
 :: ============================================================================
 echo.
-echo %CYAN%    ██╗  ██╗ █████╗ ██╗      ███████╗%RESET%
+echo %CYAN%    ██╗  ██╗ █████╗ ██╗       ██████╗%RESET%
 echo %CYAN%    ██║  ██║██╔══██╗██║      ██╔═══██╗%RESET%
 echo %CYAN%    ███████║███████║██║  ██╗  ██║   ██║%RESET%
 echo %CYAN%    ██╔══██║██╔══██║██║  ██║  ██║   ██║%RESET%
@@ -234,14 +234,12 @@ echo [Step 3] Checking Visual Studio Build Tools >> "%LOG%"
 set "HAS_VSBT=0"
 set "VSBT_PATH="
 
-:: Check common VS 2022 locations
+:: Check common VS 2022 locations (avoid parentheses in for list — x86 paths checked separately)
 for %%p in (
     "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
     "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
     "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat"
     "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
 ) do (
     if exist %%p (
         set "HAS_VSBT=1"
@@ -249,8 +247,18 @@ for %%p in (
     )
 )
 
+:: Check x86 paths separately (parentheses in "Program Files (x86)" break for-loop syntax)
+if "!HAS_VSBT!"=="0" if exist "!ProgramFiles(x86)!\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!ProgramFiles(x86)!\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+)
+if "!HAS_VSBT!"=="0" if exist "!ProgramFiles(x86)!\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!ProgramFiles(x86)!\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+)
+
 :: Also check via vswhere (the official way)
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "VSWHERE=!ProgramFiles(x86)!\Microsoft Visual Studio\Installer\vswhere.exe"
 if "%HAS_VSBT%"=="0" if exist "!VSWHERE!" (
     for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do (
         if exist "%%i\Common7\Tools\VsDevCmd.bat" (
