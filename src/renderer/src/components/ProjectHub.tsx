@@ -322,6 +322,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     if (!window.api.detectExternalSessions) return
     let cancelled = false
     const poll = () => {
+      // Skip polling when the tab/window is hidden (saves IPC + process enumeration)
+      if (document.hidden) return
       window.api.detectExternalSessions().then((sessions) => {
         if (cancelled) return
         // Only update state if the session list actually changed (avoid re-render churn)

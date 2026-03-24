@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useReducer, useCallback, useRef, useMemo } from 'react'
 
 export const VOICE_PROFILES = [
   { id: 'auto', label: 'AUTO (CONTEXT)' },
@@ -164,160 +164,173 @@ export interface SettingsState {
   updateIntroAnimation: (enabled: boolean) => void
 }
 
-export function useSettings(): SettingsState {
-  const [hubFontSize, setHubFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-hub-font') || '10'))
-  const [termFontSize, setTermFontSize] = useState(() => parseInt(localStorage.getItem('hal-o-term-font') || '13'))
-  const [voiceOut, setVoiceOut] = useState(() => localStorage.getItem('hal-o-voice-out') === 'true')
-  const [voiceProfile, setVoiceProfile] = useState<VoiceProfileId>(() => (localStorage.getItem('hal-o-voice-profile') as VoiceProfileId) || 'auto')
-  const [dockPosition, setDockPosition] = useState<DockPosition>(() => (localStorage.getItem('hal-o-dock') as DockPosition) || 'bottom')
-  const [screenOpacity, setScreenOpacity] = useState(() => parseFloat(localStorage.getItem('hal-o-screen-opacity') || '1'))
-  const [camera, setCamera] = useState<CameraSettings>(() => {
-    try { const c = localStorage.getItem('hal-o-camera'); return c ? JSON.parse(c) : DEFAULT_CAMERA } catch { return DEFAULT_CAMERA }
-  })
-  const [cameraTweaking, setCameraTweaking] = useState(() => localStorage.getItem('hal-o-camera-tweaking') === 'true')
-  const [particleDensity, setParticleDensity] = useState(() => {
-    const stored = localStorage.getItem('hal-o-particle-density')
-    if (stored !== null) {
-      const v = parseInt(stored)
-      // Migrate old 0-4 scale → 0-10 scale (v2) → 0-15 scale (v3)
-      if (v >= 0 && v <= 4 && localStorage.getItem('hal-o-particle-density-v2') === null) {
-        // v1→v3 direct: map 0-4 multipliers to closest 0-15 index
-        const V1_TO_V3 = [0, 3, 8, 10, 14] // old 0-4 mapped to new 0-15
-        const migrated = V1_TO_V3[v] ?? 8
-        localStorage.setItem('hal-o-particle-density', String(migrated))
-        localStorage.setItem('hal-o-particle-density-v2', '1')
-        localStorage.setItem('hal-o-particle-density-v3', '1')
-        return migrated
-      }
-      // v2→v3: map old 0-10 scale to new 0-15 scale by closest multiplier
-      if (v >= 0 && v <= 10 && localStorage.getItem('hal-o-particle-density-v3') === null) {
-        const V2_TO_V3 = [0, 3, 4, 4, 6, 8, 10, 11, 12, 13, 14]
-        const migrated = V2_TO_V3[v] ?? 8
-        localStorage.setItem('hal-o-particle-density', String(migrated))
-        localStorage.setItem('hal-o-particle-density-v3', '1')
-        return migrated
-      }
-      return v
-    }
-    return 8
-  })
-  const [renderQuality, setRenderQuality] = useState(() => {
-    const stored = localStorage.getItem('hal-o-render-quality')
-    return stored !== null ? parseFloat(stored) : Math.min(window.devicePixelRatio, 2)
-  })
-  const [rendererId, setRendererId] = useState<string>(() => localStorage.getItem('hal-o-renderer') || 'classic')
-  const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
-  const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
-  const [shipVfxEnabled, setShipVfxEnabled] = useState(() => localStorage.getItem('hal-o-ship-vfx') !== 'false')
-  const [sphereStyle, setSphereStyle] = useState<SphereStyleId>(() => {
-    // Migrate old boolean videoSphere to new sphereStyle
-    const legacy = localStorage.getItem('hal-o-video-sphere')
-    if (legacy === 'true') {
-      localStorage.setItem('hal-o-sphere-style', 'hal-eye')
-      localStorage.removeItem('hal-o-video-sphere')
-      return 'hal-eye'
-    }
-    return (localStorage.getItem('hal-o-sphere-style') as SphereStyleId) || 'wireframe'
-  })
-  const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
-  const [activityFeedback, setActivityFeedback] = useState(() => localStorage.getItem('hal-o-activity-feedback') !== 'false') // default ON
-  const [defaultTerminalModel, setDefaultTerminalModel] = useState<TerminalModelId>(() => (localStorage.getItem('hal-o-terminal-model') as TerminalModelId) || 'default')
-  const [introAnimation, setIntroAnimation] = useState(() => localStorage.getItem('hal-o-intro-animation') !== 'false') // default ON
-  const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
-    const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
-    return stored !== null ? parseFloat(stored) : 0.5
-  })
-  const [personality, setPersonality] = useState<PersonalitySettings>(() => {
-    try {
-      const stored = localStorage.getItem('hal-o-personality')
-      return stored ? { ...DEFAULT_PERSONALITY, ...JSON.parse(stored) } : DEFAULT_PERSONALITY
-    } catch { return DEFAULT_PERSONALITY }
-  })
+// ── Reducer: single state object replaces 21 separate useState calls ──
 
-  const updateRenderer = useCallback((id: string) => {
-    setRendererId(id)
-    localStorage.setItem('hal-o-renderer', id)
-  }, [])
-  const updateLayout = useCallback((id: string) => {
-    setLayoutId(id)
-    localStorage.setItem('hal-o-layout', id)
-  }, [])
-  const updateThreeTheme = useCallback((id: string) => {
-    setThreeTheme(id)
-    localStorage.setItem('hal-o-3d-theme', id)
-  }, [])
-  const updateHubFont = useCallback((size: number) => {
-    setHubFontSize(size)
-    localStorage.setItem('hal-o-hub-font', String(size))
-  }, [])
-  const updateTermFont = useCallback((size: number) => {
-    setTermFontSize(size)
-    localStorage.setItem('hal-o-term-font', String(size))
-  }, [])
-  const updateVoiceOut = useCallback((enabled: boolean) => {
-    setVoiceOut(enabled)
-    localStorage.setItem('hal-o-voice-out', String(enabled))
-  }, [])
-  const updateVoiceProfile = useCallback((id: VoiceProfileId) => {
-    setVoiceProfile(id)
-    localStorage.setItem('hal-o-voice-profile', id)
-  }, [])
-  const updateDockPosition = useCallback((pos: DockPosition) => {
-    setDockPosition(pos)
-    localStorage.setItem('hal-o-dock', pos)
-  }, [])
-  const updateScreenOpacity = useCallback((opacity: number) => {
-    setScreenOpacity(opacity)
-    localStorage.setItem('hal-o-screen-opacity', String(opacity))
-  }, [])
-  const updateCamera = useCallback((cam: CameraSettings) => {
-    setCamera(cam)
-    localStorage.setItem('hal-o-camera', JSON.stringify(cam))
-  }, [])
-  const updateCameraTweaking = useCallback((on: boolean) => {
-    setCameraTweaking(on)
-    localStorage.setItem('hal-o-camera-tweaking', String(on))
-  }, [])
-  const resetCamera = useCallback(() => {
-    setCamera(DEFAULT_CAMERA)
-    localStorage.setItem('hal-o-camera', JSON.stringify(DEFAULT_CAMERA))
-  }, [])
-  const updateParticleDensity = useCallback((v: number) => {
-    setParticleDensity(v)
-    localStorage.setItem('hal-o-particle-density', String(v))
-  }, [])
-  const updateRenderQuality = useCallback((v: number) => {
-    setRenderQuality(v)
-    localStorage.setItem('hal-o-render-quality', String(v))
-  }, [])
-  const updateShipVfxEnabled = useCallback((enabled: boolean) => {
-    setShipVfxEnabled(enabled)
-    localStorage.setItem('hal-o-ship-vfx', String(enabled))
-  }, [])
-  const updateSphereStyle = useCallback((style: SphereStyleId) => {
-    setSphereStyle(style)
-    localStorage.setItem('hal-o-sphere-style', style)
-  }, [])
-  const updateDefaultIde = useCallback((id: IdeOptionId) => {
-    setDefaultIde(id)
-    localStorage.setItem('hal-o-default-ide', id)
-  }, [])
-  const updateActivityFeedback = useCallback((enabled: boolean) => {
-    setActivityFeedback(enabled)
-    localStorage.setItem('hal-o-activity-feedback', String(enabled))
-  }, [])
-  const updateDefaultTerminalModel = useCallback((id: TerminalModelId) => {
-    setDefaultTerminalModel(id)
-    localStorage.setItem('hal-o-terminal-model', id)
-  }, [])
-  const updateIntroAnimation = useCallback((enabled: boolean) => {
-    setIntroAnimation(enabled)
-    localStorage.setItem('hal-o-intro-animation', String(enabled))
-  }, [])
-  const updateVoiceReactionIntensity = useCallback((v: number) => {
-    setVoiceReactionIntensity(v)
-    localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
-  }, [])
+/** Data-only slice of SettingsState (no callbacks) */
+interface SettingsData {
+  hubFontSize: number
+  termFontSize: number
+  voiceOut: boolean
+  voiceProfile: VoiceProfileId
+  dockPosition: DockPosition
+  screenOpacity: number
+  camera: CameraSettings
+  cameraTweaking: boolean
+  particleDensity: number
+  renderQuality: number
+  rendererId: string
+  layoutId: string
+  threeTheme: string
+  shipVfxEnabled: boolean
+  sphereStyle: SphereStyleId
+  voiceReactionIntensity: number
+  personality: PersonalitySettings
+  defaultIde: IdeOptionId
+  activityFeedback: boolean
+  defaultTerminalModel: TerminalModelId
+  introAnimation: boolean
+}
+
+type SettingsAction =
+  | { type: 'SET_HUB_FONT'; value: number }
+  | { type: 'SET_TERM_FONT'; value: number }
+  | { type: 'SET_VOICE_OUT'; value: boolean }
+  | { type: 'SET_VOICE_PROFILE'; value: VoiceProfileId }
+  | { type: 'SET_DOCK_POSITION'; value: DockPosition }
+  | { type: 'SET_SCREEN_OPACITY'; value: number }
+  | { type: 'SET_CAMERA'; value: CameraSettings }
+  | { type: 'SET_CAMERA_TWEAKING'; value: boolean }
+  | { type: 'SET_PARTICLE_DENSITY'; value: number }
+  | { type: 'SET_RENDER_QUALITY'; value: number }
+  | { type: 'SET_RENDERER'; value: string }
+  | { type: 'SET_LAYOUT'; value: string }
+  | { type: 'SET_THREE_THEME'; value: string }
+  | { type: 'SET_SHIP_VFX'; value: boolean }
+  | { type: 'SET_SPHERE_STYLE'; value: SphereStyleId }
+  | { type: 'SET_VOICE_REACTION_INTENSITY'; value: number }
+  | { type: 'SET_PERSONALITY'; key: keyof PersonalitySettings; value: number }
+  | { type: 'SET_PERSONALITY_PRESET'; value: PersonalitySettings }
+  | { type: 'SET_DEFAULT_IDE'; value: IdeOptionId }
+  | { type: 'SET_ACTIVITY_FEEDBACK'; value: boolean }
+  | { type: 'SET_DEFAULT_TERMINAL_MODEL'; value: TerminalModelId }
+  | { type: 'SET_INTRO_ANIMATION'; value: boolean }
+
+function settingsReducer(state: SettingsData, action: SettingsAction): SettingsData {
+  switch (action.type) {
+    case 'SET_HUB_FONT': return state.hubFontSize === action.value ? state : { ...state, hubFontSize: action.value }
+    case 'SET_TERM_FONT': return state.termFontSize === action.value ? state : { ...state, termFontSize: action.value }
+    case 'SET_VOICE_OUT': return state.voiceOut === action.value ? state : { ...state, voiceOut: action.value }
+    case 'SET_VOICE_PROFILE': return state.voiceProfile === action.value ? state : { ...state, voiceProfile: action.value }
+    case 'SET_DOCK_POSITION': return state.dockPosition === action.value ? state : { ...state, dockPosition: action.value }
+    case 'SET_SCREEN_OPACITY': return state.screenOpacity === action.value ? state : { ...state, screenOpacity: action.value }
+    case 'SET_CAMERA': return { ...state, camera: action.value }
+    case 'SET_CAMERA_TWEAKING': return state.cameraTweaking === action.value ? state : { ...state, cameraTweaking: action.value }
+    case 'SET_PARTICLE_DENSITY': return state.particleDensity === action.value ? state : { ...state, particleDensity: action.value }
+    case 'SET_RENDER_QUALITY': return state.renderQuality === action.value ? state : { ...state, renderQuality: action.value }
+    case 'SET_RENDERER': return state.rendererId === action.value ? state : { ...state, rendererId: action.value }
+    case 'SET_LAYOUT': return state.layoutId === action.value ? state : { ...state, layoutId: action.value }
+    case 'SET_THREE_THEME': return state.threeTheme === action.value ? state : { ...state, threeTheme: action.value }
+    case 'SET_SHIP_VFX': return state.shipVfxEnabled === action.value ? state : { ...state, shipVfxEnabled: action.value }
+    case 'SET_SPHERE_STYLE': return state.sphereStyle === action.value ? state : { ...state, sphereStyle: action.value }
+    case 'SET_VOICE_REACTION_INTENSITY': return state.voiceReactionIntensity === action.value ? state : { ...state, voiceReactionIntensity: action.value }
+    case 'SET_PERSONALITY': {
+      if (state.personality[action.key] === action.value) return state
+      return { ...state, personality: { ...state.personality, [action.key]: action.value } }
+    }
+    case 'SET_PERSONALITY_PRESET': return { ...state, personality: action.value }
+    case 'SET_DEFAULT_IDE': return state.defaultIde === action.value ? state : { ...state, defaultIde: action.value }
+    case 'SET_ACTIVITY_FEEDBACK': return state.activityFeedback === action.value ? state : { ...state, activityFeedback: action.value }
+    case 'SET_DEFAULT_TERMINAL_MODEL': return state.defaultTerminalModel === action.value ? state : { ...state, defaultTerminalModel: action.value }
+    case 'SET_INTRO_ANIMATION': return state.introAnimation === action.value ? state : { ...state, introAnimation: action.value }
+  }
+}
+
+/** Read initial values from localStorage (runs once) */
+function loadInitialState(): SettingsData {
+  // ── particle density migration ──
+  let particleDensity = 8
+  const storedPD = localStorage.getItem('hal-o-particle-density')
+  if (storedPD !== null) {
+    const v = parseInt(storedPD)
+    // Migrate old 0-4 scale -> 0-10 scale (v2) -> 0-15 scale (v3)
+    if (v >= 0 && v <= 4 && localStorage.getItem('hal-o-particle-density-v2') === null) {
+      const V1_TO_V3 = [0, 3, 8, 10, 14]
+      const migrated = V1_TO_V3[v] ?? 8
+      localStorage.setItem('hal-o-particle-density', String(migrated))
+      localStorage.setItem('hal-o-particle-density-v2', '1')
+      localStorage.setItem('hal-o-particle-density-v3', '1')
+      particleDensity = migrated
+    } else if (v >= 0 && v <= 10 && localStorage.getItem('hal-o-particle-density-v3') === null) {
+      const V2_TO_V3 = [0, 3, 4, 4, 6, 8, 10, 11, 12, 13, 14]
+      const migrated = V2_TO_V3[v] ?? 8
+      localStorage.setItem('hal-o-particle-density', String(migrated))
+      localStorage.setItem('hal-o-particle-density-v3', '1')
+      particleDensity = migrated
+    } else {
+      particleDensity = v
+    }
+  }
+
+  // ── sphere style migration ──
+  let sphereStyle: SphereStyleId = 'wireframe'
+  const legacyVideoSphere = localStorage.getItem('hal-o-video-sphere')
+  if (legacyVideoSphere === 'true') {
+    localStorage.setItem('hal-o-sphere-style', 'hal-eye')
+    localStorage.removeItem('hal-o-video-sphere')
+    sphereStyle = 'hal-eye'
+  } else {
+    sphereStyle = (localStorage.getItem('hal-o-sphere-style') as SphereStyleId) || 'wireframe'
+  }
+
+  // ── camera ──
+  let camera = DEFAULT_CAMERA
+  try {
+    const c = localStorage.getItem('hal-o-camera')
+    if (c) camera = JSON.parse(c)
+  } catch { /* use default */ }
+
+  // ── personality ──
+  let personality = DEFAULT_PERSONALITY
+  try {
+    const stored = localStorage.getItem('hal-o-personality')
+    if (stored) personality = { ...DEFAULT_PERSONALITY, ...JSON.parse(stored) }
+  } catch { /* use default */ }
+
+  // ── render quality ──
+  const storedRQ = localStorage.getItem('hal-o-render-quality')
+  const renderQuality = storedRQ !== null ? parseFloat(storedRQ) : Math.min(window.devicePixelRatio, 2)
+
+  // ── voice reaction intensity ──
+  const storedVRI = localStorage.getItem('hal-o-voice-reaction-intensity')
+  const voiceReactionIntensity = storedVRI !== null ? parseFloat(storedVRI) : 0.5
+
+  return {
+    hubFontSize: parseInt(localStorage.getItem('hal-o-hub-font') || '10'),
+    termFontSize: parseInt(localStorage.getItem('hal-o-term-font') || '13'),
+    voiceOut: localStorage.getItem('hal-o-voice-out') === 'true',
+    voiceProfile: (localStorage.getItem('hal-o-voice-profile') as VoiceProfileId) || 'auto',
+    dockPosition: (localStorage.getItem('hal-o-dock') as DockPosition) || 'bottom',
+    screenOpacity: parseFloat(localStorage.getItem('hal-o-screen-opacity') || '1'),
+    camera,
+    cameraTweaking: localStorage.getItem('hal-o-camera-tweaking') === 'true',
+    particleDensity,
+    renderQuality,
+    rendererId: localStorage.getItem('hal-o-renderer') || 'classic',
+    layoutId: localStorage.getItem('hal-o-layout') || 'dual-arc',
+    threeTheme: localStorage.getItem('hal-o-3d-theme') || 'tactical',
+    shipVfxEnabled: localStorage.getItem('hal-o-ship-vfx') !== 'false',
+    sphereStyle,
+    voiceReactionIntensity,
+    personality,
+    defaultIde: (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto',
+    activityFeedback: localStorage.getItem('hal-o-activity-feedback') !== 'false',
+    defaultTerminalModel: (localStorage.getItem('hal-o-terminal-model') as TerminalModelId) || 'default',
+    introAnimation: localStorage.getItem('hal-o-intro-animation') !== 'false',
+  }
+}
+
+export function useSettings(): SettingsState {
+  const [state, dispatch] = useReducer(settingsReducer, undefined, loadInitialState)
 
   // Debounced personality file write (150ms) — avoids spamming disk during slider drag
   const personalityWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -336,25 +349,187 @@ export function useSettings(): SettingsState {
     }, 150)
   }, [])
 
+  // ── Stable update callbacks (dispatch + localStorage in one call) ──
+
+  const updateHubFont = useCallback((size: number) => {
+    dispatch({ type: 'SET_HUB_FONT', value: size })
+    localStorage.setItem('hal-o-hub-font', String(size))
+  }, [])
+
+  const updateTermFont = useCallback((size: number) => {
+    dispatch({ type: 'SET_TERM_FONT', value: size })
+    localStorage.setItem('hal-o-term-font', String(size))
+  }, [])
+
+  const updateVoiceOut = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_VOICE_OUT', value: enabled })
+    localStorage.setItem('hal-o-voice-out', String(enabled))
+  }, [])
+
+  const updateVoiceProfile = useCallback((id: VoiceProfileId) => {
+    dispatch({ type: 'SET_VOICE_PROFILE', value: id })
+    localStorage.setItem('hal-o-voice-profile', id)
+  }, [])
+
+  const updateDockPosition = useCallback((pos: DockPosition) => {
+    dispatch({ type: 'SET_DOCK_POSITION', value: pos })
+    localStorage.setItem('hal-o-dock', pos)
+  }, [])
+
+  const updateScreenOpacity = useCallback((opacity: number) => {
+    dispatch({ type: 'SET_SCREEN_OPACITY', value: opacity })
+    localStorage.setItem('hal-o-screen-opacity', String(opacity))
+  }, [])
+
+  const updateCamera = useCallback((cam: CameraSettings) => {
+    dispatch({ type: 'SET_CAMERA', value: cam })
+    localStorage.setItem('hal-o-camera', JSON.stringify(cam))
+  }, [])
+
+  const updateCameraTweaking = useCallback((on: boolean) => {
+    dispatch({ type: 'SET_CAMERA_TWEAKING', value: on })
+    localStorage.setItem('hal-o-camera-tweaking', String(on))
+  }, [])
+
+  const resetCamera = useCallback(() => {
+    dispatch({ type: 'SET_CAMERA', value: DEFAULT_CAMERA })
+    localStorage.setItem('hal-o-camera', JSON.stringify(DEFAULT_CAMERA))
+  }, [])
+
+  const updateParticleDensity = useCallback((v: number) => {
+    dispatch({ type: 'SET_PARTICLE_DENSITY', value: v })
+    localStorage.setItem('hal-o-particle-density', String(v))
+  }, [])
+
+  const updateRenderQuality = useCallback((v: number) => {
+    dispatch({ type: 'SET_RENDER_QUALITY', value: v })
+    localStorage.setItem('hal-o-render-quality', String(v))
+  }, [])
+
+  const updateRenderer = useCallback((id: string) => {
+    dispatch({ type: 'SET_RENDERER', value: id })
+    localStorage.setItem('hal-o-renderer', id)
+  }, [])
+
+  const updateLayout = useCallback((id: string) => {
+    dispatch({ type: 'SET_LAYOUT', value: id })
+    localStorage.setItem('hal-o-layout', id)
+  }, [])
+
+  const updateThreeTheme = useCallback((id: string) => {
+    dispatch({ type: 'SET_THREE_THEME', value: id })
+    localStorage.setItem('hal-o-3d-theme', id)
+  }, [])
+
+  const updateShipVfxEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_SHIP_VFX', value: enabled })
+    localStorage.setItem('hal-o-ship-vfx', String(enabled))
+  }, [])
+
+  const updateSphereStyle = useCallback((style: SphereStyleId) => {
+    dispatch({ type: 'SET_SPHERE_STYLE', value: style })
+    localStorage.setItem('hal-o-sphere-style', style)
+  }, [])
+
+  const updateVoiceReactionIntensity = useCallback((v: number) => {
+    dispatch({ type: 'SET_VOICE_REACTION_INTENSITY', value: v })
+    localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
+  }, [])
+
+  const updateDefaultIde = useCallback((id: IdeOptionId) => {
+    dispatch({ type: 'SET_DEFAULT_IDE', value: id })
+    localStorage.setItem('hal-o-default-ide', id)
+  }, [])
+
+  const updateActivityFeedback = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_ACTIVITY_FEEDBACK', value: enabled })
+    localStorage.setItem('hal-o-activity-feedback', String(enabled))
+  }, [])
+
+  const updateDefaultTerminalModel = useCallback((id: TerminalModelId) => {
+    dispatch({ type: 'SET_DEFAULT_TERMINAL_MODEL', value: id })
+    localStorage.setItem('hal-o-terminal-model', id)
+  }, [])
+
+  const updateIntroAnimation = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_INTRO_ANIMATION', value: enabled })
+    localStorage.setItem('hal-o-intro-animation', String(enabled))
+  }, [])
+
   const updatePersonality = useCallback((key: keyof PersonalitySettings, value: number) => {
-    setPersonality(prev => {
-      const next = { ...prev, [key]: value }
-      localStorage.setItem('hal-o-personality', JSON.stringify(next))
-      writePersonalityFile(next)
-      return next
-    })
-  }, [writePersonalityFile])
+    dispatch({ type: 'SET_PERSONALITY', key, value })
+    // We need to read the latest state for localStorage + file write.
+    // The reducer handles immutability; we compute the new value here too for side effects.
+    const next = { ...state.personality, [key]: value }
+    localStorage.setItem('hal-o-personality', JSON.stringify(next))
+    writePersonalityFile(next)
+  }, [state.personality, writePersonalityFile])
 
   const applyPersonalityPreset = useCallback((presetName: string) => {
     const preset = PERSONALITY_PRESETS.find(p => p.name === presetName)
     if (!preset) return
-    setPersonality(preset.values)
+    dispatch({ type: 'SET_PERSONALITY_PRESET', value: preset.values })
     localStorage.setItem('hal-o-personality', JSON.stringify(preset.values))
     writePersonalityFile(preset.values, presetName)
   }, [writePersonalityFile])
 
-  return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback, defaultTerminalModel, introAnimation,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel, updateIntroAnimation,
-  }
+  // Build the return object with stable callback references via useMemo.
+  // The data fields come from the single reducer state; callbacks are stable (useCallback with []).
+  return useMemo(() => ({
+    // ── data ──
+    hubFontSize: state.hubFontSize,
+    termFontSize: state.termFontSize,
+    voiceOut: state.voiceOut,
+    voiceProfile: state.voiceProfile,
+    dockPosition: state.dockPosition,
+    screenOpacity: state.screenOpacity,
+    camera: state.camera,
+    cameraTweaking: state.cameraTweaking,
+    particleDensity: state.particleDensity,
+    renderQuality: state.renderQuality,
+    rendererId: state.rendererId,
+    layoutId: state.layoutId,
+    threeTheme: state.threeTheme,
+    shipVfxEnabled: state.shipVfxEnabled,
+    sphereStyle: state.sphereStyle,
+    voiceReactionIntensity: state.voiceReactionIntensity,
+    personality: state.personality,
+    defaultIde: state.defaultIde,
+    activityFeedback: state.activityFeedback,
+    defaultTerminalModel: state.defaultTerminalModel,
+    introAnimation: state.introAnimation,
+    // ── callbacks ──
+    updateHubFont,
+    updateTermFont,
+    updateVoiceOut,
+    updateVoiceProfile,
+    updateDockPosition,
+    updateScreenOpacity,
+    updateCamera,
+    updateCameraTweaking,
+    resetCamera,
+    updateParticleDensity,
+    updateRenderQuality,
+    updateRenderer,
+    updateLayout,
+    updateThreeTheme,
+    updateShipVfxEnabled,
+    updateSphereStyle,
+    updateVoiceReactionIntensity,
+    updatePersonality,
+    applyPersonalityPreset,
+    updateDefaultIde,
+    updateActivityFeedback,
+    updateDefaultTerminalModel,
+    updateIntroAnimation,
+  }), [
+    state,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile,
+    updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking,
+    resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer,
+    updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle,
+    updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset,
+    updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
+    updateIntroAnimation,
+  ])
 }

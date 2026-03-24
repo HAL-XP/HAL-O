@@ -80,6 +80,9 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
     let cancelled = false
 
     const poll = async () => {
+      // Skip polling when the tab/window is hidden (saves IPC + disk I/O)
+      if (document.hidden) return
+
       const paths = projectsRef.current.map(p => p.path)
       if (paths.length === 0) return
 
