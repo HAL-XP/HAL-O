@@ -261,6 +261,9 @@ export interface ElectronAPI {
 
   // Perf
   onWindowFocusChange: (callback: (focused: boolean) => void) => () => void
+
+  // A11: "Ship it!" flyby on git push detection
+  onShipItFlyby: (callback: (info: { projectPath: string; projectName: string; shipIndex: number }) => void) => () => void
 }
 
 declare global {

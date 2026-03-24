@@ -437,12 +437,13 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
           color="#00e5ff" intensity={2.0} distance={4} decay={2} />
 
         {/* === Running lights — red at stern wing edges === */}
+        {/* A10b: bumped radius 0.04→0.07 so lights stay ≥3 px at 0.6 scale */}
         <mesh position={[-0.96, 0.1, 1.9]}>
-          <sphereGeometry args={[0.04, 6, 6]} />
+          <sphereGeometry args={[0.07, 6, 6]} />
           <primitive object={MAT_RUNNING_RED} attach="material" />
         </mesh>
         <mesh position={[0.96, 0.1, 1.9]}>
-          <sphereGeometry args={[0.04, 6, 6]} />
+          <sphereGeometry args={[0.07, 6, 6]} />
           <primitive object={MAT_RUNNING_RED} attach="material" />
         </mesh>
 

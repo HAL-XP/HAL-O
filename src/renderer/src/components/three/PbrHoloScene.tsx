@@ -1425,6 +1425,16 @@ function PbrSceneInner({
     return () => clearInterval(interval)
   }, [vfxFrequency, shipVfxEnabled])
 
+  // A11: "Ship it!" flyby — triggered when git push is detected in any terminal
+  useEffect(() => {
+    if (!window.api.onShipItFlyby) return
+    const unsub = window.api.onShipItFlyby((info) => {
+      console.log(`[PbrScene] A11: Ship it! flyby for "${info.projectName}" (ship #${info.shipIndex})`)
+      flybyRef.current?.trigger()
+    })
+    return unsub
+  }, [])
+
   return (
     <>
       {showPerf && <Perf position="bottom-left" deepAnalyze />}

@@ -14,11 +14,38 @@ try {
 
 const SCROLLBACK_SIZE = 50000 // chars to keep for reconnection
 
+// ── A11: Git push detection — "Ship it!" flyby ──
+// Match lines that indicate a successful git push:
+//   "Enumerating objects: 5, done."
+//   "Writing objects: 100% (5/5)"
+//   "To github.com:user/repo.git" or "To https://github.com/..."
+//   "main -> main" (branch update confirmation)
+// We trigger on the branch-update line ("->") since it appears at the very end,
+// confirming the push actually succeeded. Fallback: "To <remote>" pattern.
+const GIT_PUSH_PATTERNS = [
+  /[a-zA-Z0-9_./-]+\s+->\s+[a-zA-Z0-9_./-]+/,   // "main -> main", "feature/x -> feature/x"
+  /To\s+\S+\.git\b/,                                // "To github.com:user/repo.git"
+  /To\s+https?:\/\/\S+/,                            // "To https://github.com/..."
+]
+const GIT_PUSH_COOLDOWN_MS = 5000 // 5s debounce — git push produces many output lines
+
+// FNV-1a hash: deterministic project name → ship index mapping.
+// Returns a 32-bit unsigned integer; caller should mod by ship count.
+function fnv1aHash(str: string): number {
+  let hash = 0x811c9dc5 // FNV offset basis
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) // FNV prime
+  }
+  return hash >>> 0 // unsigned
+}
+
 interface PtySession {
   pty: import('node-pty').IPty
   projectPath: string
   projectName: string
   scrollback: string // buffered output for reconnection after renderer reload
+  lastPushFlybyTime: number // A11: cooldown timestamp for git push flyby
 }
 
 export class TerminalManager {
@@ -65,6 +92,7 @@ export class TerminalManager {
       projectPath: options.cwd,
       projectName: options.projectName,
       scrollback: '',
+      lastPushFlybyTime: 0,
     }
 
     p.onData((data) => {
@@ -73,6 +101,28 @@ export class TerminalManager {
       if (session.scrollback.length > SCROLLBACK_SIZE) {
         session.scrollback = session.scrollback.slice(-SCROLLBACK_SIZE)
       }
+
+      // A11: Detect git push success — trigger "Ship it!" flyby
+      const now = Date.now()
+      if (now - session.lastPushFlybyTime > GIT_PUSH_COOLDOWN_MS) {
+        const matched = GIT_PUSH_PATTERNS.some((re) => re.test(data))
+        if (matched) {
+          session.lastPushFlybyTime = now
+          const TOTAL_SHIP_DESIGNS = 11
+          const shipIndex = fnv1aHash(session.projectName) % TOTAL_SHIP_DESIGNS
+          console.log(`[TerminalManager] A11: Git push detected in "${session.projectName}" — Ship it! flyby (ship #${shipIndex})`)
+          try {
+            if (this.window && !this.window.isDestroyed()) {
+              this.window.webContents.send('ship-it-flyby', {
+                projectPath: session.projectPath,
+                projectName: session.projectName,
+                shipIndex,
+              })
+            }
+          } catch { /* window destroyed during shutdown */ }
+        }
+      }
+
       try {
         if (this.window && !this.window.isDestroyed()) {
           this.window.webContents.send(`pty-data-${id}`, data)

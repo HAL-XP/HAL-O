@@ -151,6 +151,13 @@ const api = {
     ipcRenderer.on('window-focus-change', listener)
     return () => ipcRenderer.removeListener('window-focus-change', listener)
   },
+
+  // A11: "Ship it!" flyby — triggered when git push is detected in a terminal
+  onShipItFlyby: (callback: (info: { projectPath: string; projectName: string; shipIndex: number }) => void) => {
+    const listener = (_: unknown, info: { projectPath: string; projectName: string; shipIndex: number }) => callback(info)
+    ipcRenderer.on('ship-it-flyby', listener)
+    return () => ipcRenderer.removeListener('ship-it-flyby', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
