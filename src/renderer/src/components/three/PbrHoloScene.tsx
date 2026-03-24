@@ -1935,14 +1935,15 @@ function PbrSceneInner({
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
 
   // M2c: Intro fly-in animation — activates when scene first becomes ready
-  // Intro: fire exactly once per app lifetime (persisted in sessionStorage)
-  const [introActive, setIntroActive] = useState(false)
-  useEffect(() => {
-    if (sceneReady && introAnimation && !cinematicActive && !sessionStorage.getItem('hal-o-intro-done')) {
-      sessionStorage.setItem('hal-o-intro-done', '1')
-      setIntroActive(true)
-    }
-  }, [sceneReady, introAnimation, cinematicActive])
+  // Intro: DISABLED — looping bug needs investigation. Re-enable when fixed.
+  const introActive = false
+  // const [introActive, setIntroActive] = useState(false)
+  // useEffect(() => {
+  //   if (sceneReady && introAnimation && !cinematicActive && !sessionStorage.getItem('hal-o-intro-done')) {
+  //     sessionStorage.setItem('hal-o-intro-done', '1')
+  //     setIntroActive(true)
+  //   }
+  // }, [sceneReady, introAnimation, cinematicActive])
 
   // Interpolate fade values each frame based on current scene phase
   useFrame((_, delta) => {
