@@ -180,6 +180,19 @@ export function ConflictViewer({
   }, [focusedChunk])
 
   // ── Resolution logic ──
+  // Phase 5: Scroll to next unresolved chunk after resolving one
+  const scrollToNextUnresolved = useCallback((afterIndex: number, states: ChunkState[]) => {
+    const nextUnresolved = states.findIndex((s, i) => i > afterIndex && s.resolution === null)
+    if (nextUnresolved >= 0) {
+      setFocusedChunk(nextUnresolved)
+      // Scroll after a tick so the DOM updates first
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`conflict-chunk-${nextUnresolved}`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  }, [])
+
   const resolveChunk = useCallback((index: number, resolution: Resolution) => {
     setChunkStates(prev => {
       const next = [...prev]
@@ -197,6 +210,8 @@ export function ConflictViewer({
             customContent: smart,
             editing: false,
           }
+          // Phase 5: Auto-scroll to next unresolved after resolving
+          if (resolution !== 'custom') scrollToNextUnresolved(index, next)
           return next
         }
       }
@@ -210,9 +225,11 @@ export function ConflictViewer({
       if (resolution === 'custom' && !next[index].customContent && chunks[index]) {
         next[index].customContent = chunks[index].oursContent
       }
+      // Phase 5: Auto-scroll to next unresolved after resolving (skip for custom — user is editing)
+      if (resolution !== 'custom') scrollToNextUnresolved(index, next)
       return next
     })
-  }, [chunks, classifications])
+  }, [chunks, classifications, scrollToNextUnresolved])
 
   const setCustomContent = useCallback((index: number, content: string) => {
     setChunkStates(prev => {
@@ -448,6 +465,28 @@ export function ConflictViewer({
           >
             ESC
           </button>
+        </div>
+
+        {/* ── Phase 5: Progress bar ── */}
+        <div style={{
+          height: 3,
+          background: '#0f1624',
+          flexShrink: 0,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            width: `${chunks.length > 0 ? (resolvedCount / chunks.length) * 100 : 0}%`,
+            background: allResolved
+              ? 'linear-gradient(90deg, #22c55e, #4ade80)'
+              : 'linear-gradient(90deg, #3b82f6, #60a5fa)',
+            transition: 'width 0.4s ease, background 0.3s ease',
+            boxShadow: allResolved ? '0 0 8px #22c55e' : '0 0 6px #3b82f6',
+          }} />
         </div>
 
         {/* ── Keyboard hint bar ── */}
@@ -707,17 +746,26 @@ function ConflictChunkCard({
     : resolution === 'custom' ? '#f59e0b'
     : '#64748b'
 
+  // Phase 5: Resolved state — green border + slightly dimmed content
+  const isResolved = resolution !== null && !editing
+  const borderColor = isResolved
+    ? '#14532d' // dark green border for resolved chunks
+    : focused ? '#334155' : '#1e293b'
+
   return (
     <div
       id={`conflict-chunk-${index}`}
       onClick={onFocus}
       style={{
         marginBottom: 16,
-        border: `1px solid ${focused ? '#334155' : '#1e293b'}`,
+        border: `1px solid ${borderColor}`,
         borderRadius: 4,
-        background: focused ? '#0d1526' : '#0a0e17',
-        transition: 'border-color 0.15s, background 0.15s',
-        boxShadow: focused ? '0 0 12px rgba(59, 130, 246, 0.08)' : 'none',
+        background: isResolved ? '#050e09' : focused ? '#0d1526' : '#0a0e17',
+        transition: 'border-color 0.3s, background 0.3s, opacity 0.3s',
+        boxShadow: isResolved
+          ? '0 0 8px rgba(34, 197, 94, 0.06)'
+          : focused ? '0 0 12px rgba(59, 130, 246, 0.08)' : 'none',
+        opacity: isResolved && !focused ? 0.75 : 1,
       }}
     >
       {/* Chunk header */}
@@ -746,7 +794,11 @@ function ConflictChunkCard({
               padding: '1px 6px',
               borderRadius: 2,
               letterSpacing: 0.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
             }}>
+              {isResolved && <span style={{ fontSize: 10 }}>{'\u2714'}</span>}
               {resolvedLabel}
             </span>
           )}

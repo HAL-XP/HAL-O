@@ -14,7 +14,7 @@ import { UpgradeDialog } from './UpgradeDialog'
 import { PreviewGrid } from './PreviewGrid'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
-import { PbrHoloScene } from './three/PbrHoloScene'
+import { PbrHoloScene, dispatchSphereEvent } from './three/PbrHoloScene'
 import { DEMO_PROJECTS } from '../data/demo-projects'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
@@ -329,6 +329,23 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [conflictViewerState, setConflictViewerState] = useState<{ projectPath: string; filePath: string } | null>(null)
   const [selectedConflictFile, setSelectedConflictFile] = useState<string | null>(null)
 
+  // U18 Phase 5: Track resolved files per project for MergeGraph VFX
+  const [resolvedFilesMap, setResolvedFilesMap] = useState<Record<string, Set<string>>>({})
+
+  // U18 Phase 5: Sphere events — detect merge state transitions
+  const prevMergeCountRef = useRef(0)
+  useEffect(() => {
+    const currentMergeCount = Object.values(mergeStates).filter(s => s.inMerge).length
+    const prevCount = prevMergeCountRef.current
+
+    if (currentMergeCount > prevCount && prevCount === 0) {
+      // Merge newly detected — warning pulse
+      dispatchSphereEvent({ type: 'warning', intensity: 0.9 })
+    }
+
+    prevMergeCountRef.current = currentMergeCount
+  }, [mergeStates])
+
   const handleSelectConflictFile = useCallback((projectPath: string, filePath: string) => {
     setSelectedConflictFile(filePath)
     setConflictViewerState({ projectPath, filePath })
@@ -340,22 +357,45 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }, [])
 
   const handleConflictResolved = useCallback(() => {
+    // Phase 5: Track which file was just resolved for MergeGraph VFX
+    if (conflictViewerState) {
+      const { projectPath, filePath } = conflictViewerState
+      setResolvedFilesMap(prev => {
+        const existing = prev[projectPath] ?? new Set<string>()
+        const next = new Set(existing)
+        next.add(filePath)
+        return { ...prev, [projectPath]: next }
+      })
+      // Phase 5: Sphere success pulse on file resolution
+      dispatchSphereEvent({ type: 'success', intensity: 0.6 })
+    }
+
     // Refresh merge states after a file is resolved
     refetchMerge()
     // Close the viewer — user can click another file if needed
     setConflictViewerState(null)
     setSelectedConflictFile(null)
-  }, [refetchMerge])
+  }, [refetchMerge, conflictViewerState])
 
   const handleMergeAborted = useCallback(() => {
     setConflictViewerState(null)
     setSelectedConflictFile(null)
+    // Phase 5: Info pulse on abort
+    dispatchSphereEvent({ type: 'info', intensity: 0.5 })
+    // Clear resolved files tracking
+    setResolvedFilesMap({})
     refetchMerge()
   }, [refetchMerge])
 
   const handleMergeComplete = useCallback((_commitHash?: string) => {
     setConflictViewerState(null)
     setSelectedConflictFile(null)
+    // Phase 5: Full success event + ship flyby on merge completion
+    dispatchSphereEvent({ type: 'success', intensity: 1.0 })
+    // Trigger ship flyby via window event (SpaceshipFlyby listens for this)
+    ;(window as any).__haloDispatchSphereEvent?.({ type: 'push', intensity: 1.0 })
+    // Clear resolved files tracking
+    setResolvedFilesMap({})
     refetchMerge()
   }, [refetchMerge])
 
@@ -707,6 +747,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           commitGraphs={commitGraphs}
           selectedConflictFile={selectedConflictFile}
           onSelectConflictFile={handleSelectConflictFile}
+          resolvedFilesMap={resolvedFilesMap}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>

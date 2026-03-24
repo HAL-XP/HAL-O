@@ -1,8 +1,9 @@
-// ── U18 Phase 2: 3D Merge Conflict Graph Visualization ──
+// ── U18 Phase 2+5: 3D Merge Conflict Graph Visualization ──
 // Renders a visual representation of the merge conflict state inside the PBR scene.
-// Branches as colored tubes, commits as spheres, conflicting files as glowing red panels.
+// Branches as colored tubes, commits as spheres, conflicting files as glowing red/green panels.
+// Phase 5: Resolution VFX — panels transition red→green on resolve, particle burst, READY TO MERGE state.
 
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -18,6 +19,10 @@ const BRANCH_COLORS = {
 
 const CONFLICT_COLOR = new THREE.Color(0xef4444) // red
 const CONFLICT_GLOW_COLOR = new THREE.Color(0xff2222) // bright red for emissive
+
+// ── Phase 5: Resolution colors ──
+const RESOLVED_COLOR = new THREE.Color(0x22c55e) // green
+const RESOLVED_GLOW_COLOR = new THREE.Color(0x00ff66) // bright green for emissive
 
 // Layout geometry — manual arc positioning
 const GRAPH_CENTER_Y = 6    // above the HAL sphere
@@ -57,6 +62,89 @@ function BranchLabel({ position, label, color }: {
         {label}
       </div>
     </Html>
+  )
+}
+
+// ── Phase 5: Resolution Particle Burst ──
+// Short-lived particle spray emitted when a conflict file panel transitions to resolved.
+// Uses an InstancedMesh with per-instance velocities + fade — self-destructs after ~1s.
+
+const BURST_PARTICLE_COUNT = 24
+const BURST_LIFETIME = 1.2 // seconds
+
+function ResolutionParticleBurst({ position, onComplete }: {
+  position: [number, number, number]
+  onComplete: () => void
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const timeRef = useRef(0)
+
+  // Generate random velocities and offsets once
+  const velocities = useMemo(() => {
+    const v: THREE.Vector3[] = []
+    for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+      const angle = (i / BURST_PARTICLE_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
+      const speed = 1.5 + Math.random() * 2.0
+      const ySpeed = (Math.random() - 0.3) * 2.5
+      v.push(new THREE.Vector3(Math.cos(angle) * speed, ySpeed, Math.sin(angle) * speed * 0.4))
+    }
+    return v
+  }, [])
+
+  // Initialize transforms
+  useMemo(() => {
+    // Will be set in first useFrame
+  }, [])
+
+  const _dummy = useMemo(() => new THREE.Object3D(), [])
+  const _color = useMemo(() => new THREE.Color(), [])
+
+  useFrame((_, delta) => {
+    timeRef.current += delta
+    const t = timeRef.current
+    const mesh = meshRef.current
+    if (!mesh) return
+
+    if (t >= BURST_LIFETIME) {
+      onComplete()
+      return
+    }
+
+    const progress = t / BURST_LIFETIME
+    const fadeAlpha = 1 - progress * progress // quadratic fade
+
+    for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+      const vel = velocities[i]
+      _dummy.position.set(
+        vel.x * t * (1 - progress * 0.5),
+        vel.y * t - 2.0 * t * t, // gravity
+        vel.z * t * (1 - progress * 0.5),
+      )
+      const scale = (0.02 + Math.random() * 0.01) * fadeAlpha
+      _dummy.scale.setScalar(scale)
+      _dummy.updateMatrix()
+      mesh.setMatrixAt(i, _dummy.matrix)
+
+      // Color: start bright green, fade to cyan
+      _color.setHSL(0.38 - progress * 0.1, 1, 0.5 + fadeAlpha * 0.3)
+      mesh.setColorAt(i, _color)
+    }
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, BURST_PARTICLE_COUNT]} position={position}>
+      <sphereGeometry args={[1, 6, 4]} />
+      <meshStandardMaterial
+        emissive={RESOLVED_GLOW_COLOR}
+        emissiveIntensity={3.0}
+        toneMapped={false}
+        transparent
+        opacity={0.9}
+        depthWrite={false}
+      />
+    </instancedMesh>
   )
 }
 
@@ -136,32 +224,49 @@ function BranchTube({ points, color }: {
 
 const SELECTED_COLOR = new THREE.Color(0xff8800) // bright amber for selected panel
 
-function ConflictFilePanel({ position, fileName, chunkCount, selected, onClick }: {
+function ConflictFilePanel({ position, fileName, chunkCount, selected, resolved, onClick }: {
   position: [number, number, number]
   fileName: string
   chunkCount: number
   selected?: boolean
+  resolved?: boolean
   onClick?: () => void
 }) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null)
   const edgeMatRef = useRef<THREE.MeshStandardMaterial>(null)
   const timeRef = useRef(Math.random() * Math.PI * 2) // phase offset for pulsing
+  // Phase 5: Smooth color transition tracking (0 = red/conflict, 1 = green/resolved)
+  const resolveProgress = useRef(resolved ? 1 : 0)
 
-  // When selected, brighten the glow color
-  const edgeColor = selected ? SELECTED_COLOR : CONFLICT_GLOW_COLOR
-  const faceEmissive = selected ? SELECTED_COLOR : CONFLICT_COLOR
+  // When selected, brighten the glow color; when resolved, use green
+  const edgeColor = resolved ? RESOLVED_GLOW_COLOR : selected ? SELECTED_COLOR : CONFLICT_GLOW_COLOR
+  const faceEmissive = resolved ? RESOLVED_COLOR : selected ? SELECTED_COLOR : CONFLICT_COLOR
 
   useFrame((_, delta) => {
-    timeRef.current += delta * (selected ? 3.5 : 2.5)
+    // Phase 5: Animate resolve progress (500ms transition)
+    const targetProgress = resolved ? 1 : 0
+    if (resolveProgress.current !== targetProgress) {
+      resolveProgress.current += (targetProgress - resolveProgress.current) * Math.min(1, delta * 4)
+      if (Math.abs(resolveProgress.current - targetProgress) < 0.01) resolveProgress.current = targetProgress
+    }
+    const rp = resolveProgress.current
+
+    timeRef.current += delta * (resolved ? 1.5 : selected ? 3.5 : 2.5)
     const pulse = 0.5 + 0.5 * Math.sin(timeRef.current)
-    const intensity = selected ? 1.2 + pulse * 0.8 : 0.6 + pulse * 1.0
+    const baseIntensity = resolved ? 0.4 + pulse * 0.3 : selected ? 1.2 + pulse * 0.8 : 0.6 + pulse * 1.0
 
     if (matRef.current) {
-      matRef.current.emissiveIntensity = intensity * (selected ? 0.6 : 0.3)
-      matRef.current.opacity = selected ? 0.9 + pulse * 0.1 : 0.7 + pulse * 0.2
+      matRef.current.emissiveIntensity = baseIntensity * (resolved ? 0.4 : selected ? 0.6 : 0.3)
+      matRef.current.opacity = resolved ? 0.5 + pulse * 0.1 : selected ? 0.9 + pulse * 0.1 : 0.7 + pulse * 0.2
+      // Lerp emissive color between red and green
+      const c = matRef.current.emissive
+      c.lerpColors(CONFLICT_COLOR, RESOLVED_COLOR, rp)
     }
     if (edgeMatRef.current) {
-      edgeMatRef.current.emissiveIntensity = intensity * (selected ? 1.6 : 1.0)
+      edgeMatRef.current.emissiveIntensity = baseIntensity * (resolved ? 0.8 : selected ? 1.6 : 1.0)
+      const c = edgeMatRef.current.emissive
+      c.lerpColors(CONFLICT_GLOW_COLOR, RESOLVED_GLOW_COLOR, rp)
+      edgeMatRef.current.color.copy(c)
     }
   })
 
@@ -189,7 +294,7 @@ function ConflictFilePanel({ position, fileName, chunkCount, selected, onClick }
         <planeGeometry args={[CONFLICT_PANEL_W, CONFLICT_PANEL_H]} />
         <meshStandardMaterial
           ref={matRef}
-          color={selected ? '#1a0a00' : '#1a0000'}
+          color={resolved ? '#001a0a' : selected ? '#1a0a00' : '#1a0000'}
           emissive={faceEmissive}
           emissiveIntensity={0.5}
           metalness={0.1}
@@ -243,7 +348,7 @@ function ConflictFilePanel({ position, fileName, chunkCount, selected, onClick }
         <div
           onClick={(e) => { e.stopPropagation(); onClick?.() }}
           style={{
-            color: selected ? '#ffaa44' : '#ff6b6b',
+            color: resolved ? '#4ade80' : selected ? '#ffaa44' : '#ff6b6b',
             fontSize: 9,
             fontFamily: 'monospace',
             fontWeight: 600,
@@ -251,13 +356,23 @@ function ConflictFilePanel({ position, fileName, chunkCount, selected, onClick }
             pointerEvents: onClick ? 'auto' : 'none',
             userSelect: 'none',
             cursor: onClick ? 'pointer' : 'default',
-            textShadow: selected ? '0 0 8px #ff8800' : '0 0 6px #ef4444',
+            textShadow: resolved ? '0 0 8px #22c55e' : selected ? '0 0 8px #ff8800' : '0 0 6px #ef4444',
             lineHeight: 1.3,
             textAlign: 'center',
+            textDecoration: resolved ? 'line-through' : 'none',
+            opacity: resolved ? 0.7 : 1,
+            transition: 'opacity 0.5s, color 0.5s',
           }}>
-          <div>{shortName}</div>
-          <div style={{ fontSize: 7, color: selected ? '#ffcc88' : '#ff9999', opacity: 0.8 }}>
-            {chunkCount} conflict{chunkCount !== 1 ? 's' : ''}{selected ? ' — CLICK TO VIEW' : ''}
+          <div>{resolved ? '\u2714 ' : ''}{shortName}</div>
+          <div style={{
+            fontSize: 7,
+            color: resolved ? '#86efac' : selected ? '#ffcc88' : '#ff9999',
+            opacity: 0.8,
+          }}>
+            {resolved
+              ? 'RESOLVED'
+              : `${chunkCount} conflict${chunkCount !== 1 ? 's' : ''}${selected ? ' \u2014 CLICK TO VIEW' : ''}`
+            }
           </div>
         </div>
       </Html>
@@ -381,6 +496,64 @@ function MergeHudBanner({ position, mergeType, conflictCount, ourBranch, theirBr
   )
 }
 
+// ── Phase 5: READY TO MERGE Banner — pulsing green overlay ──
+
+function ReadyToMergeBanner({ position }: { position: [number, number, number] }) {
+  const matRef = useRef<THREE.MeshStandardMaterial>(null)
+  const timeRef = useRef(0)
+
+  useFrame((_, delta) => {
+    timeRef.current += delta
+    if (matRef.current) {
+      const pulse = 0.6 + 0.4 * Math.sin(timeRef.current * 2.5)
+      matRef.current.emissiveIntensity = pulse
+      matRef.current.opacity = 0.5 + pulse * 0.2
+    }
+  })
+
+  return (
+    <group position={position}>
+      {/* Background bar */}
+      <mesh>
+        <planeGeometry args={[5, 0.55]} />
+        <meshStandardMaterial
+          ref={matRef}
+          color="#001a0a"
+          emissive={RESOLVED_COLOR}
+          emissiveIntensity={0.7}
+          metalness={0.1}
+          roughness={0.7}
+          transparent
+          opacity={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      <Html center distanceFactor={12} zIndexRange={[200, 0]}>
+        <div style={{
+          color: '#4ade80',
+          fontSize: 14,
+          fontFamily: 'monospace',
+          fontWeight: 800,
+          letterSpacing: 4,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          textShadow: '0 0 12px #22c55e, 0 0 24px #22c55e44',
+          textTransform: 'uppercase',
+          lineHeight: 1.2,
+          textAlign: 'center',
+        }}>
+          <div>READY TO MERGE</div>
+          <div style={{ fontSize: 8, color: '#86efac', letterSpacing: 1, marginTop: 2, fontWeight: 600 }}>
+            ALL CONFLICTS RESOLVED
+          </div>
+        </div>
+      </Html>
+    </group>
+  )
+}
+
 // ── Main MergeGraph Component ──
 
 interface MergeGraphProps {
@@ -392,6 +565,10 @@ interface MergeGraphProps {
   selectedFile?: string | null
   /** Called when user clicks a conflict file panel in the 3D graph */
   onSelectFile?: (filePath: string) => void
+  /** Phase 5: Set of file paths that have been resolved (triggers green transition + particle burst) */
+  resolvedFiles?: Set<string>
+  /** Phase 5: True when all conflicts are resolved — shows READY TO MERGE overlay */
+  allResolved?: boolean
 }
 
 /**
@@ -404,15 +581,50 @@ interface MergeGraphProps {
  * - Conflict files float between the branches (red glow, pulsing)
  * - HUD banner at the top: "MERGE CONFLICTS"
  */
-export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y, selectedFile, onSelectFile }: MergeGraphProps) {
+export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y, selectedFile, onSelectFile, resolvedFiles, allResolved = false }: MergeGraphProps) {
   const groupRef = useRef<THREE.Group>(null)
   const fadeRef = useRef(0)
+  // Phase 5: Track active particle bursts by file path
+  const [activeBursts, setActiveBursts] = useState<Set<string>>(new Set())
+  // Phase 5: Track which files we've already seen as resolved (to trigger burst only once)
+  const seenResolvedRef = useRef<Set<string>>(new Set())
+
+  // Phase 5: Detect newly resolved files and trigger particle bursts
+  const resolvedSet = resolvedFiles ?? new Set<string>()
+  const newlyResolved: string[] = []
+  for (const fp of resolvedSet) {
+    if (!seenResolvedRef.current.has(fp)) {
+      newlyResolved.push(fp)
+    }
+  }
+  if (newlyResolved.length > 0) {
+    // Update seen set synchronously (refs don't trigger re-render)
+    for (const fp of newlyResolved) seenResolvedRef.current.add(fp)
+    // Schedule burst spawn (state update triggers re-render)
+    if (newlyResolved.some(fp => !activeBursts.has(fp))) {
+      // Use microtask to avoid setState-during-render
+      Promise.resolve().then(() => {
+        setActiveBursts(prev => {
+          const next = new Set(prev)
+          for (const fp of newlyResolved) next.add(fp)
+          return next
+        })
+      })
+    }
+  }
+
+  // Phase 5: Dim the whole graph when all resolved
+  const dimTarget = allResolved ? 0.5 : 1.0
 
   // Fade in on mount
   useFrame((_, delta) => {
     fadeRef.current = Math.min(1, fadeRef.current + delta * 2)
     if (groupRef.current) {
-      groupRef.current.scale.setScalar(fadeRef.current)
+      // Phase 5: Lerp scale toward dim target when all resolved
+      const targetScale = fadeRef.current * dimTarget
+      const current = groupRef.current.scale.x
+      const lerped = current + (targetScale - current) * Math.min(1, delta * 3)
+      groupRef.current.scale.setScalar(lerped)
       // Gentle float
       groupRef.current.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.08
     }
@@ -624,9 +836,28 @@ export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y, se
           fileName={file.path}
           chunkCount={file.chunks.length}
           selected={selectedFile === file.path}
+          resolved={resolvedSet.has(file.path)}
           onClick={onSelectFile ? () => onSelectFile(file.path) : undefined}
         />
       ))}
+
+      {/* Phase 5: Resolution particle bursts */}
+      {mergeState.conflictFiles.slice(0, 8).map((file, i) => {
+        if (!activeBursts.has(file.path) || !conflictPositions[i]) return null
+        return (
+          <ResolutionParticleBurst
+            key={`burst-${file.path}`}
+            position={conflictPositions[i]}
+            onComplete={() => {
+              setActiveBursts(prev => {
+                const next = new Set(prev)
+                next.delete(file.path)
+                return next
+              })
+            }}
+          />
+        )
+      })}
 
       {/* Overflow indicator when there are more than 8 conflict files */}
       {mergeState.conflictFiles.length > 8 && (
@@ -661,14 +892,19 @@ export function MergeGraph({ mergeState, commitGraph, baseY = GRAPH_CENTER_Y, se
         )
       })}
 
-      {/* Ambient red point light — casts a subtle red glow on the graph */}
+      {/* Ambient point light — red when conflicts, green when all resolved */}
       <pointLight
         position={[0, BRANCH_LENGTH_Y * 0.4, 2]}
-        color={CONFLICT_COLOR}
-        intensity={0.8}
+        color={allResolved ? RESOLVED_COLOR : CONFLICT_COLOR}
+        intensity={allResolved ? 1.2 : 0.8}
         distance={10}
         decay={2}
       />
+
+      {/* Phase 5: READY TO MERGE overlay when all conflicts resolved */}
+      {allResolved && (
+        <ReadyToMergeBanner position={[0, BRANCH_LENGTH_Y * 0.5, 1.2]} />
+      )}
     </group>
   )
 }

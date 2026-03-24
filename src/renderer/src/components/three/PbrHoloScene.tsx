@@ -1779,6 +1779,8 @@ interface Props {
   // U18 Phase 3: Conflict viewer interaction
   selectedConflictFile?: string | null
   onSelectConflictFile?: (projectPath: string, filePath: string) => void
+  // U18 Phase 5: Resolved files tracking for MergeGraph VFX
+  resolvedFilesMap?: Record<string, Set<string>>
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1830,6 +1832,8 @@ interface PbrSceneInnerProps {
   // U18 Phase 3: Conflict viewer interaction
   selectedConflictFile: string | null
   onSelectConflictFile?: (projectPath: string, filePath: string) => void
+  // U18 Phase 5: Resolved files tracking for MergeGraph VFX
+  resolvedFilesMap: Record<string, Set<string>>
 }
 
 function PbrSceneInner({
@@ -1843,6 +1847,7 @@ function PbrSceneInner({
   cinematicActive, onCinematicComplete,
   mergeStates, commitGraphs,
   selectedConflictFile, onSelectConflictFile,
+  resolvedFilesMap,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2050,6 +2055,10 @@ function PbrSceneInner({
       {Object.entries(mergeStates).map(([projectPath, mergeState]) => {
         if (!mergeState.inMerge) return null
         const graph = commitGraphs[projectPath] || []
+        const resolvedFiles = resolvedFilesMap[projectPath]
+        // Phase 5: Determine if all conflict files in this project are resolved
+        const allFilesResolved = resolvedFiles != null && mergeState.conflictFiles.length > 0 &&
+          mergeState.conflictFiles.every(f => resolvedFiles.has(f.path))
         return (
           <MergeGraph
             key={`merge-${projectPath}`}
@@ -2057,6 +2066,8 @@ function PbrSceneInner({
             commitGraph={graph}
             selectedFile={selectedConflictFile}
             onSelectFile={onSelectConflictFile ? (filePath) => onSelectConflictFile(projectPath, filePath) : undefined}
+            resolvedFiles={resolvedFiles}
+            allResolved={allFilesResolved}
           />
         )
       })}
@@ -2183,7 +2194,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {} }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2324,6 +2335,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           commitGraphs={commitGraphs}
           selectedConflictFile={selectedConflictFile ?? null}
           onSelectConflictFile={onSelectConflictFile}
+          resolvedFilesMap={resolvedFilesMap}
         />
       </ThreeThemeProvider>
     </Canvas>
