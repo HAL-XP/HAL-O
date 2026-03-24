@@ -2,7 +2,7 @@
   "name": "hal-o",
   "version": "1.0.1",
   "private": true,
-  "description": "HAL-O — Holographic Adaptive Layer for Claude Code projects",
+  "description": "HAL-O — Your personal Jarvis for code. Holographic dashboard, voice AI, embedded terminals. Open source.",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
