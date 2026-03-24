@@ -55,9 +55,11 @@ test.beforeAll(async () => {
   })
   await page.reload()
 
-  // Wait for the hub + canvas to render
-  await page.locator('canvas').first().waitFor({ timeout: 20000 }).catch(() => {})
-  await page.waitForTimeout(3000) // Let scene settle
+  // Wait for the hub + canvas to render (CI with xvfb is slow)
+  await page.locator('canvas').first().waitFor({ timeout: 30000 }).catch(() => {})
+  // Wait for the Settings button to confirm the hub is fully mounted
+  await page.locator('button[title="Settings"]').waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(1000) // Brief settle
 })
 
 test.afterAll(async () => {
