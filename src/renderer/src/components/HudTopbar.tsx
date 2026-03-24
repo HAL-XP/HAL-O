@@ -21,7 +21,7 @@ interface HudTopbarProps {
   onListeningChange: (listening: boolean) => void
   projectCount: number
   readyCount: number
-  projects?: ProjectInfo[]
+  allProjects?: ProjectInfo[]
   activeFilter?: FilterId
   onFilterChange?: (id: FilterId) => void
   isFavorite?: (path: string) => boolean
@@ -110,7 +110,7 @@ interface HudTopbarProps {
 export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
-  projectCount, readyCount, projects = [], activeFilter = 'all', onFilterChange, isFavorite = () => false,
+  projectCount, readyCount, allProjects = [], activeFilter = 'all', onFilterChange, isFavorite = () => false,
   hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
@@ -205,8 +205,8 @@ export function HudTopbar({
           <span className="hal-btn-label">ADD PROJECT</span>
         </button>
       </div>
-      {onFilterChange && projects.length > 0 && (
-        <FilterBar projects={projects} activeFilter={activeFilter} onFilterChange={onFilterChange} isFavorite={isFavorite} />
+      {onFilterChange && allProjects.length > 0 && (
+        <FilterBar projects={allProjects} activeFilter={activeFilter} onFilterChange={onFilterChange} isFavorite={isFavorite} />
       )}
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>

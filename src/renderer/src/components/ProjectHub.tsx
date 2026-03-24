@@ -715,7 +715,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
+          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
@@ -823,7 +823,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
+          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
@@ -906,7 +906,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
-          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
+          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}

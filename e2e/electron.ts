@@ -24,7 +24,6 @@ export async function launchApp(): Promise<{ app: ElectronApplication; page: Pag
   const app = await electron.launch({
     args: [
       resolve(ROOT, 'out/main/index.js'),
-      // Each test gets its own user-data dir to avoid localStorage lock contention
       `--user-data-dir=${uniqueUserDataDir()}`,
       // GitHub Actions runners require --no-sandbox for Electron.
       // --disable-gpu avoids WebGL issues on headless xvfb / CI runners.
