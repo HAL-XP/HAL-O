@@ -264,9 +264,11 @@ interface Props {
   onOpenIde?: (projectPath: string) => void
   onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
   onOpenExternalTerminal?: (projectPath: string) => void
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -354,6 +356,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
             onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
             onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
+            onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
           />
         )
       })}

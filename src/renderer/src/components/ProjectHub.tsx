@@ -74,6 +74,8 @@ interface Props {
   // Dock mode (Phase 2)
   dockMode?: boolean
   onDockModeChange?: (enabled: boolean) => void
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
 }
 
 function timeAgo(ms: number): string {
@@ -86,7 +88,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, onOpenBrowser }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -659,6 +661,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenIde={handleOpenIde}
           onOpenIdeMenu={handleOpenIdeMenu}
           onOpenExternalTerminal={handleOpenExternalTerminal}
+          onOpenBrowser={onOpenBrowser}
           cinematicActive={cinematicActive}
           onCinematicComplete={() => setCinematicActive(false)}
         />
@@ -733,6 +736,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenIde={handleOpenIde}
           onOpenIdeMenu={handleOpenIdeMenu}
           onOpenExternalTerminal={handleOpenExternalTerminal}
+          onOpenBrowser={onOpenBrowser}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>

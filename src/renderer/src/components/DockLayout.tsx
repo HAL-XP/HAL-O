@@ -151,6 +151,9 @@ export interface DockLayoutProps {
   // Dock mode toggle
   dockMode: boolean
   onDockModeChange: (enabled: boolean) => void
+
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +228,7 @@ export function DockLayout(props: DockLayoutProps) {
       onDefaultTerminalModelChange: props.onDefaultTerminalModelChange,
       dockMode: props.dockMode,
       onDockModeChange: props.onDockModeChange,
+      onOpenBrowser: props.onOpenBrowser,
     },
     terminal: {
       sessions: props.termSessions,
@@ -255,7 +259,7 @@ export function DockLayout(props: DockLayoutProps) {
     props.halSessionId, props.terminalCount, props.demo,
     props.defaultIde, props.onDefaultIdeChange,
     props.defaultTerminalModel, props.onDefaultTerminalModelChange,
-    props.dockMode, props.onDockModeChange,
+    props.dockMode, props.onDockModeChange, props.onOpenBrowser,
     props.termSessions, props.onCloseTerminal, props.onVoiceFocus,
   ])
 

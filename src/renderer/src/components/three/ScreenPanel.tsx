@@ -47,6 +47,8 @@ interface Props {
   onOpenIde?: () => void // click: open in preferred IDE
   onOpenIdeMenu?: (e: React.MouseEvent) => void // right-click: show IDE picker
   onOpenTerminal?: () => void // click: open external terminal at project path
+  // U11: Embedded browser
+  onOpenBrowser?: () => void // click: open project docs/README in embedded browser panel
 }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
@@ -188,7 +190,7 @@ export function ScreenPanelUpdater() {
 // Custom comparator ignores callback props (stable in behavior, unstable in reference due to inline arrows).
 const CALLBACK_PROPS = new Set([
   'onHover', 'onResume', 'onNewSession', 'onFiles', 'onRunApp', 'onAbsorb',
-  'onContextMenu', 'onOpenIde', 'onOpenIdeMenu', 'onOpenTerminal',
+  'onContextMenu', 'onOpenIde', 'onOpenIdeMenu', 'onOpenTerminal', 'onOpenBrowser',
 ])
 
 function screenPanelAreEqual(prev: Props, next: Props): boolean {
@@ -222,6 +224,7 @@ export const ScreenPanel = memo(function ScreenPanel({
   isExternal = false, isAbsorbing = false, onAbsorb,
   searchTarget, searchDimmed = false,
   ideLabel, onOpenIde, onOpenIdeMenu, onOpenTerminal,
+  onOpenBrowser,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -727,6 +730,15 @@ export const ScreenPanel = memo(function ScreenPanel({
                   title="Open external terminal"
                 >
                   {'>_'}
+                </button>
+              )}
+              {onOpenBrowser && (
+                <button
+                  onClick={onOpenBrowser}
+                  style={{ ...btnGhost, color: '#f59e0b', borderColor: 'rgba(245,158,11,0.3)' }}
+                  title="Open project docs in embedded browser"
+                >
+                  WEB
                 </button>
               )}
               <button

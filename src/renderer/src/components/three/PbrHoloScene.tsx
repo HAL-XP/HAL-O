@@ -1714,6 +1714,8 @@ interface Props {
   onOpenIde?: (projectPath: string) => void
   onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
   onOpenExternalTerminal?: (projectPath: string) => void
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
   // M2: Cinematic demo mode
   cinematicActive?: boolean
   onCinematicComplete?: () => void
@@ -1757,6 +1759,8 @@ interface PbrSceneInnerProps {
   onOpenIde?: (projectPath: string) => void
   onOpenIdeMenu?: (projectPath: string, e: React.MouseEvent) => void
   onOpenExternalTerminal?: (projectPath: string) => void
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
   // M2: Cinematic demo mode
   cinematicActive: boolean
   onCinematicComplete?: () => void
@@ -1769,6 +1773,7 @@ function PbrSceneInner({
   floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, sphereStyle, voiceReactionIntensity, activityFeedback,
   externalSessions, absorbingPid, onAbsorb,
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
+  onOpenBrowser,
   cinematicActive, onCinematicComplete,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -2032,6 +2037,7 @@ function PbrSceneInner({
             onOpenIde={onOpenIde ? () => onOpenIde(project.path) : undefined}
             onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
             onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
+            onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
             searchTarget={searchTargetPos}
             searchDimmed={isDimmed}
           />
@@ -2094,7 +2100,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2228,6 +2234,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           onOpenIde={onOpenIde}
           onOpenIdeMenu={onOpenIdeMenu}
           onOpenExternalTerminal={onOpenExternalTerminal}
+          onOpenBrowser={onOpenBrowser}
           cinematicActive={cinematicActive}
           onCinematicComplete={onCinematicComplete}
         />

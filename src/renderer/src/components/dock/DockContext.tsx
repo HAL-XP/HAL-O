@@ -73,6 +73,8 @@ export interface DockSceneProps {
   // Dock-mode toggle so Settings can show it
   dockMode: boolean
   onDockModeChange: (enabled: boolean) => void
+  // U11: Embedded browser
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
 }
 
 // ── Terminal props ──

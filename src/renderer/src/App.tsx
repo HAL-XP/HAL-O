@@ -18,6 +18,8 @@ import { ProjectConfigScreen } from './components/ProjectConfigScreen'
 import { TerminalView } from './components/TerminalView'
 import { DemoTerminalView } from './components/DemoTerminalView'
 import { DockLayout } from './components/DockLayout'
+import { BrowserPanel, makeBrowserTabId } from './components/BrowserPanel'
+import type { BrowserTab } from './components/BrowserPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 interface AppState {
@@ -149,6 +151,31 @@ export function App() {
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel } = useSettings()
+
+  // ── U11: Embedded browser panel state ──
+  const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([])
+
+  const openBrowserTab = useCallback((projectPath: string, projectName: string) => {
+    // Build a default URL: try GitHub pages or just a Google search for the project
+    const gitOwner = '' // could be resolved later
+    const url = `https://www.google.com/search?q=${encodeURIComponent(projectName + ' documentation')}`
+    const tab: BrowserTab = {
+      id: makeBrowserTabId(),
+      url,
+      title: projectName,
+      projectPath,
+      projectName,
+    }
+    setBrowserTabs(prev => [...prev, tab])
+  }, [])
+
+  const closeBrowserTab = useCallback((id: string) => {
+    setBrowserTabs(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const closeAllBrowserTabs = useCallback(() => {
+    setBrowserTabs([])
+  }, [])
 
   const updateWizardFont = useCallback((size: number) => {
     setWizardFontSize(size)
@@ -422,6 +449,7 @@ export function App() {
             onVoiceFocus={(id) => setVoiceFocus(id)}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
+            onOpenBrowser={openBrowserTab}
           />
         </ErrorBoundary>
       )
@@ -430,7 +458,8 @@ export function App() {
     // ── Classic layout: manual flex + draggable divider ──
     const hasRealTerminals = termSessions.length > 0
     const hasDemoTerminals = demo.enabled && demo.terminalCount > 0
-    const hasTerminals = hasRealTerminals || hasDemoTerminals
+    const hasBrowser = browserTabs.length > 0
+    const hasTerminals = hasRealTerminals || hasDemoTerminals || hasBrowser
     const isHorizontal = dockPosition === 'left' || dockPosition === 'right'
     const flexDir = isHorizontal ? (dockPosition === 'left' ? 'row-reverse' : 'row') : 'column'
     const hubSize = hasTerminals ? splitRatio : 100
@@ -500,6 +529,7 @@ export function App() {
             onDefaultTerminalModelChange={updateDefaultTerminalModel}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
+            onOpenBrowser={openBrowserTab}
           />
         </div>
         {hasTerminals && (
@@ -510,6 +540,19 @@ export function App() {
         )}
         {hasTerminals && (
           <div style={termStyle}>
+            {/* Browser panel rendered above terminals when browser tabs exist */}
+            {hasBrowser && (
+              <div style={{
+                height: (hasRealTerminals || hasDemoTerminals) ? '50%' : '100%',
+                borderBottom: (hasRealTerminals || hasDemoTerminals) ? '1px solid rgba(255,255,255,0.06)' : 'none',
+              }}>
+                <BrowserPanel
+                  tabs={browserTabs}
+                  onClose={closeBrowserTab}
+                  onCloseAll={closeAllBrowserTabs}
+                />
+              </div>
+            )}
             {demo.enabled ? (
               <DemoTerminalView
                 terminalCount={demo.terminalCount}
@@ -517,17 +560,19 @@ export function App() {
                 tabsMax={demo.tabsMax}
                 fontSize={termFontSize}
               />
-            ) : (
-              <TerminalView
-                sessions={termSessions}
-                onClose={closeTerminal}
-                voiceFocus={voiceFocus}
-                onVoiceFocus={(id) => setVoiceFocus(id)}
-                fontSize={termFontSize}
-                voiceOut={voiceOut}
-                voiceProfile={voiceProfile}
-              />
-            )}
+            ) : (hasRealTerminals && (
+              <div style={{ height: hasBrowser ? '50%' : '100%' }}>
+                <TerminalView
+                  sessions={termSessions}
+                  onClose={closeTerminal}
+                  voiceFocus={voiceFocus}
+                  onVoiceFocus={(id) => setVoiceFocus(id)}
+                  fontSize={termFontSize}
+                  voiceOut={voiceOut}
+                  voiceProfile={voiceProfile}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
