@@ -2418,8 +2418,11 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
     return () => observer.disconnect()
   }, [])
 
-  // Scale camera max distance with screen ring radius so users can always zoom out to see the full ring
-  const screenRadius = Math.max(8, projects.length * 0.55)
+  // UX3: Scale radius based on panel count so panels never overlap
+  // Arc per panel must be >= PANEL_W (2.8) + gap (0.6)
+  const PANEL_W = 2.8
+  const panelGap = 0.6
+  const screenRadius = projects.length <= 1 ? 8 : Math.max(8, ((PANEL_W + panelGap) * projects.length) / (2 * Math.PI))
   const floorRadius = Math.max(20, screenRadius * 1.8)
   const platformRadius = Math.max(12, screenRadius * 1.2)
   const ringPlatformRadius = Math.max(8.5, screenRadius * 1.0)

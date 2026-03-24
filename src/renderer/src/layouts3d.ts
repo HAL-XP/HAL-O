@@ -6,6 +6,18 @@
  * Y >= 1.0 keeps panels fully above the floor plane (Y=0). */
 const MIN_PANEL_Y = 1.0
 
+/** Panel dimensions in world units (must match ScreenPanel.tsx PANEL_W/H) */
+const PANEL_W = 2.8
+
+/** UX3: Compute minimum radius so panels don't overlap on a ring.
+ * Ensures the arc distance between adjacent panel centers >= panelWidth + gap. */
+function minRadiusForCount(count: number, gap = 0.6): number {
+  if (count <= 1) return 8
+  // Arc per panel = (2π × r) / count >= PANEL_W + gap
+  // → r >= (PANEL_W + gap) × count / (2π)
+  return Math.max(8, ((PANEL_W + gap) * count) / (2 * Math.PI))
+}
+
 export interface Screen3DPosition {
   position: [number, number, number]
   rotation: [number, number, number]
@@ -23,7 +35,7 @@ export type GroupLayout3DFn = (
 
 /** Single ring — screens evenly spaced around a circle */
 function layoutDefault(count: number): Screen3DPosition[] {
-  const radius = Math.max(8, count * 0.55)
+  const radius = minRadiusForCount(count)
   const yBase = MIN_PANEL_Y
   return Array.from({ length: count }, (_, i) => {
     const angle = (i / count) * Math.PI * 2 - Math.PI / 2
@@ -41,8 +53,8 @@ function layoutDualRing(count: number): Screen3DPosition[] {
 
   const outerCount = Math.ceil(count * 0.6)
   const innerCount = count - outerCount
-  const outerRadius = Math.max(9, count * 0.5)
-  const innerRadius = outerRadius * 0.55
+  const outerRadius = minRadiusForCount(outerCount)
+  const innerRadius = minRadiusForCount(innerCount, 0.4)
   const result: Screen3DPosition[] = []
 
   // Outer ring
@@ -72,7 +84,7 @@ function layoutStackedRings(count: number): Screen3DPosition[] {
 
   const tiers = count <= 12 ? 2 : 3
   const perTier = Math.ceil(count / tiers)
-  const baseRadius = Math.max(7, count * 0.35)
+  const baseRadius = minRadiusForCount(perTier, 0.4)
   const result: Screen3DPosition[] = []
   let placed = 0
 
@@ -97,7 +109,7 @@ function layoutStackedRings(count: number): Screen3DPosition[] {
 
 /** Spiral — screens descend in a helix pattern */
 function layoutSpiral(count: number): Screen3DPosition[] {
-  const radius = Math.max(7, count * 0.35)
+  const radius = minRadiusForCount(Math.ceil(count / 1.5), 0.3) // spiral wraps 1.5 turns
   const totalRotation = Math.PI * 2 * 1.5 // 1.5 full turns
   const yStart = 3.5
   const yEnd = MIN_PANEL_Y
@@ -124,7 +136,7 @@ function layoutGroupedRings(count: number, groupIndices: number[], groupCount: n
   // If no groups assigned, fall back to default ring
   if (groupCount === 0 || groupIndices.every((g) => g < 0)) return layoutDefault(count)
 
-  const radius = Math.max(8, count * 0.55)
+  const radius = minRadiusForCount(count)
   const yBase = MIN_PANEL_Y
   const result: Screen3DPosition[] = new Array(count)
 
@@ -190,7 +202,8 @@ function layoutStackedGroups(count: number, groupIndices: number[], groupCount: 
   if (buckets.has(-1)) tiers.push(buckets.get(-1)!)
 
   const tierCount = tiers.length
-  const baseRadius = Math.max(7, count * 0.35)
+  const maxTierSize = Math.max(...tiers.map(t => t.length))
+  const baseRadius = minRadiusForCount(maxTierSize, 0.4)
 
   for (let t = 0; t < tierCount; t++) {
     const tier = tiers[t]
