@@ -6,6 +6,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { getIconFilename, openTerminalAt, escapeCmdArg, isWin } from './platform'
 import { terminalManager } from './terminal-manager'
 import { HAL_O_VERSION } from './version'
+import { initDebugLog, debugLog, isDebugEnabled } from './debug-log'
 
 // ── B25: V8 GC pressure mitigation ──
 // Give V8 more old-gen heap headroom so major GC runs less frequently.
@@ -15,6 +16,9 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 if (isWin) {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 }
+
+// Initialize debug logging (only active with --debug flag or HAL_O_DEBUG=1)
+initDebugLog()
 
 /** Normalize cwd to a proper Windows path (handles Git Bash /d/... style) */
 function getWinCwd(): string {

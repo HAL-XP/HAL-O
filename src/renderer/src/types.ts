@@ -402,6 +402,9 @@ export interface ElectronAPI {
   abortMerge: (projectPath: string) => Promise<{ success: boolean; error?: string }>
   getCommitGraph: (projectPath: string, depth?: number) => Promise<_CommitNode[]>
   batchCheckMergeState: (projectPaths: string[]) => Promise<Record<string, boolean>>
+
+  // Debug logging (writes to _debug.log when --debug flag is set)
+  debugLog: (tag: string, message: string, data?: unknown) => void
 }
 
 declare global {

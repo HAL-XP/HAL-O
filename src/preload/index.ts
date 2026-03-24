@@ -225,6 +225,10 @@ const api = {
   getCommitGraph: (projectPath: string, depth?: number) => ipcRenderer.invoke('get-commit-graph', projectPath, depth),
   batchCheckMergeState: (projectPaths: string[]): Promise<Record<string, boolean>> =>
     ipcRenderer.invoke('batch-check-merge-state', projectPaths),
+
+  // Debug logging (only writes if --debug flag is set in main process)
+  debugLog: (tag: string, message: string, data?: unknown) =>
+    ipcRenderer.send('debug-log', tag, message, data),
 }
 
 contextBridge.exposeInMainWorld('api', api)
