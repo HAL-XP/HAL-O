@@ -310,7 +310,8 @@ export function registerSetupHandlers(): void {
       const hasStatusline = !!(
         settings.env?.CLAUDE_CODE_ENABLE_STATUSLINE ||
         settings.env?.CLAUDE_STATUSLINE ||
-        settings.statusline
+        settings.statusline ||
+        settings.statusLine
       )
       return { exists: true, hasStatusline, settingsPath: claudeSettingsPath }
     } catch {
