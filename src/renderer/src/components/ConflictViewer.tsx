@@ -1,11 +1,19 @@
-// ── U18 Phase 3: Interactive Conflict Viewer with Resolution Controls ──
+// ── U18 Phases 3+4: Interactive Conflict Viewer with Resolution Controls ──
 // Portal-based overlay that shows conflict chunks for a selected file.
 // Per-chunk resolution buttons: OURS | THEIRS | BOTH | EDIT
 // Apply All, Abort Merge, Complete Merge controls.
+// Phase 4: Conflict classification badges, auto-resolve trivial conflicts, smart BOTH merge.
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { ConflictChunk, MergeState } from '../types'
+import {
+  classifyAllConflicts,
+  smartBothMerge,
+  CLASSIFICATION_COLORS,
+  type ConflictClassification,
+  type ConflictKind,
+} from '../utils/conflict-classifier'
 
 // ── Types ──
 
@@ -63,6 +71,8 @@ export function ConflictViewer({
   // Parsed conflict chunks loaded from the main process
   const [chunks, setChunks] = useState<ConflictChunk[]>([])
   const [chunkStates, setChunkStates] = useState<ChunkState[]>([])
+  const [classifications, setClassifications] = useState<ConflictClassification[]>([])
+  const [autoResolvedCount, setAutoResolvedCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [applying, setApplying] = useState(false)
@@ -82,12 +92,35 @@ export function ConflictViewer({
     window.api.parseConflictFile(projectPath, filePath).then((parsed: ConflictChunk[]) => {
       if (cancelled) return
       setChunks(parsed)
-      setChunkStates(parsed.map(() => ({
-        resolution: null,
-        customContent: '',
-        editing: false,
-      })))
-      setFocusedChunk(0)
+
+      // ── Phase 4: Classify conflicts and auto-resolve trivial ones ──
+      const cls = classifyAllConflicts(parsed)
+      setClassifications(cls)
+
+      let autoCount = 0
+      const initialStates: ChunkState[] = parsed.map((_chunk, i) => {
+        const classification = cls[i]
+        if (classification.autoResolvable && classification.suggestedResolution) {
+          autoCount++
+          return {
+            resolution: classification.suggestedResolution,
+            customContent: classification.smartContent ?? '',
+            editing: false,
+          }
+        }
+        return {
+          resolution: null,
+          customContent: '',
+          editing: false,
+        }
+      })
+
+      setChunkStates(initialStates)
+      setAutoResolvedCount(autoCount)
+
+      // Focus the first unresolved chunk (skip auto-resolved ones)
+      const firstUnresolved = initialStates.findIndex(s => s.resolution === null)
+      setFocusedChunk(firstUnresolved >= 0 ? firstUnresolved : 0)
       setLoading(false)
     }).catch((err: unknown) => {
       if (cancelled) return
@@ -151,6 +184,23 @@ export function ConflictViewer({
     setChunkStates(prev => {
       const next = [...prev]
       if (!next[index]) return prev
+
+      // ── Phase 4: Smart BOTH merge ──
+      // When user picks BOTH and a smarter merge exists (e.g. deduplicated imports),
+      // transparently use it as a custom resolution with the smart content.
+      if (resolution === 'both' && classifications[index] && chunks[index]) {
+        const smart = smartBothMerge(chunks[index], classifications[index])
+        if (smart !== null) {
+          next[index] = {
+            ...next[index],
+            resolution: 'custom',
+            customContent: smart,
+            editing: false,
+          }
+          return next
+        }
+      }
+
       next[index] = {
         ...next[index],
         resolution,
@@ -162,7 +212,7 @@ export function ConflictViewer({
       }
       return next
     })
-  }, [chunks])
+  }, [chunks, classifications])
 
   const setCustomContent = useCallback((index: number, content: string) => {
     setChunkStates(prev => {
@@ -465,6 +515,36 @@ export function ConflictViewer({
             </div>
           )}
 
+          {/* Phase 4: Auto-resolve notification */}
+          {!loading && autoResolvedCount > 0 && (
+            <div style={{
+              background: '#052e1688',
+              border: '1px solid #14532d',
+              borderRadius: 4,
+              padding: '6px 12px',
+              color: '#4ade80',
+              fontSize: 10,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{
+                background: '#065f46',
+                color: '#4ade80',
+                fontSize: 9,
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: 2,
+                letterSpacing: 0.5,
+              }}>AUTO</span>
+              <span>
+                {autoResolvedCount} of {chunks.length} conflict{chunks.length !== 1 ? 's' : ''} auto-resolved
+                (identical, whitespace, or import dedup)
+              </span>
+            </div>
+          )}
+
           {chunks.map((chunk, i) => (
             <ConflictChunkCard
               key={chunk.id}
@@ -472,6 +552,7 @@ export function ConflictViewer({
               index={i}
               total={chunks.length}
               state={chunkStates[i]}
+              classification={classifications[i]}
               focused={focusedChunk === i}
               ourBranch={mergeState.ourBranch}
               theirBranch={mergeState.theirBranch}
@@ -587,6 +668,7 @@ interface ChunkCardProps {
   index: number
   total: number
   state: ChunkState | undefined
+  classification: ConflictClassification | undefined
   focused: boolean
   ourBranch: string
   theirBranch: string
@@ -598,7 +680,7 @@ interface ChunkCardProps {
 }
 
 function ConflictChunkCard({
-  chunk, index, total, state, focused, ourBranch, theirBranch,
+  chunk, index, total, state, classification, focused, ourBranch, theirBranch,
   onFocus, onResolve, onSetCustom, onCommitEdit, onCancelEdit,
 }: ChunkCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -668,6 +750,10 @@ function ConflictChunkCard({
               {resolvedLabel}
             </span>
           )}
+          {/* Phase 4: Classification badge */}
+          {classification && (
+            <ClassificationBadge kind={classification.kind} reason={classification.reason} />
+          )}
         </div>
 
         {/* Resolution buttons */}
@@ -685,10 +771,11 @@ function ConflictChunkCard({
             onClick={() => onResolve('theirs')}
           />
           <ResolutionButton
-            label="BOTH"
-            active={resolution === 'both'}
+            label={classification?.kind === 'IMPORT' ? 'MERGE' : 'BOTH'}
+            active={resolution === 'both' || (resolution === 'custom' && classification?.kind === 'IMPORT')}
             color="#10b981"
             onClick={() => onResolve('both')}
+            title={classification?.kind === 'IMPORT' ? 'Smart merge: deduplicate & sort imports' : 'Keep both sides'}
           />
           <ResolutionButton
             label="EDIT"
@@ -890,15 +977,17 @@ function CodeBlock({ content, lineStart, dim }: { content: string; lineStart?: n
 
 // ── Resolution Button ──
 
-function ResolutionButton({ label, active, color, onClick }: {
+function ResolutionButton({ label, active, color, onClick, title }: {
   label: string
   active: boolean
   color: string
   onClick: () => void
+  title?: string
 }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick() }}
+      title={title}
       style={{
         background: active ? color + '33' : 'transparent',
         border: `1px solid ${active ? color : '#334155'}`,
@@ -915,6 +1004,31 @@ function ResolutionButton({ label, active, color, onClick }: {
     >
       {label}
     </button>
+  )
+}
+
+// ── Phase 4: Classification Badge ──
+
+function ClassificationBadge({ kind, reason }: { kind: ConflictKind; reason: string }) {
+  const colors = CLASSIFICATION_COLORS[kind]
+  return (
+    <span
+      title={reason}
+      style={{
+        background: colors.bg,
+        color: colors.fg,
+        fontSize: 8,
+        fontWeight: 700,
+        padding: '1px 5px',
+        borderRadius: 2,
+        letterSpacing: 0.8,
+        cursor: 'default',
+        textTransform: 'uppercase',
+        opacity: 0.9,
+      }}
+    >
+      {kind}
+    </span>
   )
 }
 
