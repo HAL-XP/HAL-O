@@ -350,12 +350,12 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     // === Pulse wave expanding from center ===
     float pulse = smoothstep(0.3, 0.0, abs(dist - fract(uTime * 0.15))) * 0.25;
 
-    // === Combine ===
-    float intensity = (ringLine * 0.7 + tick * 0.4 + dot * 0.8 + pulse) * innerFade * edgeFade;
+    // === Combine (reduced for bloom — was creating visible line streaks) ===
+    float intensity = (ringLine * 0.3 + tick * 0.15 + dot * 0.4 + pulse * 0.5) * innerFade * edgeFade;
     vec3 color = baseColor * intensity;
 
-    // Glow: brighter at ring lines
-    float glow = intensity * 1.8;
+    // Glow: subtle, not overwhelming
+    float glow = intensity * 0.8;
 
     gl_FragColor = vec4(color * glow, intensity * edgeFade);
   }
