@@ -64,6 +64,12 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: 0
           CI: true
 
+      - name: Run E2E session3 tests
+        run: xvfb-run --auto-servernum npx playwright test e2e/session3.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
       - name: Run E2E wizard-flow tests
         run: xvfb-run --auto-servernum npx playwright test e2e/wizard-flow.spec.ts
         env:
@@ -134,6 +140,12 @@ jobs:
 
       - name: Run E2E smoke tests
         run: npx playwright test e2e/smoke.spec.ts e2e/setup-fresh.spec.ts
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: 0
+          CI: true
+
+      - name: Run E2E session3 tests
+        run: npx playwright test e2e/session3.spec.ts
         env:
           PLAYWRIGHT_BROWSERS_PATH: 0
           CI: true
