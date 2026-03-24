@@ -241,6 +241,122 @@ const cinematic: LayoutFn = (index, { w, h, total, cardW }) => {
   }
 }
 
+// ── Grid Wall ──
+// Cards arranged in a flat grid facing the camera with slight perspective tilt
+const gridWall: LayoutFn = (index, { w, h, total, cardW }) => {
+  const cols = Math.max(3, Math.min(8, Math.ceil(Math.sqrt(total * 1.2))))
+  const rows = Math.ceil(total / cols)
+  const col = index % cols
+  const row = Math.floor(index / cols)
+  const gapX = 16
+  const gapY = 14
+  const cardH = 48
+  const totalW = cols * cardW + (cols - 1) * gapX
+  const totalH = rows * cardH + (rows - 1) * gapY
+  const startX = (w - totalW) / 2
+  const startY = (h - totalH) / 2
+  // Slight perspective: cards near edges tilt inward
+  const normCol = cols > 1 ? (col - (cols - 1) / 2) / ((cols - 1) / 2) : 0
+  const normRow = rows > 1 ? (row - (rows - 1) / 2) / ((rows - 1) / 2) : 0
+  return {
+    left: startX + col * (cardW + gapX),
+    top: startY + row * (cardH + gapY),
+    transform: `perspective(900px) rotateY(${normCol * -4}deg) rotateX(${normRow * 3}deg)`,
+  }
+}
+
+// ── Honeycomb ──
+// True hexagonal packing with offset rows for a honeycomb pattern
+const honeycomb: LayoutFn = (index, { w, h, total, cardW }) => {
+  const hexW = cardW + 12
+  const hexH = 52
+  // Determine columns to fit the container
+  const cols = Math.max(3, Math.min(10, Math.ceil(Math.sqrt(total * 1.6))))
+  const rows = Math.ceil(total / cols)
+  const col = index % cols
+  const row = Math.floor(index / cols)
+  const isOddRow = row % 2 === 1
+  // Hex packing: odd rows offset by half a cell width
+  const offsetX = isOddRow ? hexW * 0.5 : 0
+  // Vertical spacing tighter than rectangular grid (hex factor ~0.866)
+  const vertSpacing = hexH * 0.88
+  const totalW = cols * hexW + hexW * 0.5
+  const totalH = rows * vertSpacing
+  const startX = (w - totalW) / 2
+  const startY = (h - totalH) / 2
+  return {
+    left: startX + col * hexW + offsetX,
+    top: startY + row * vertSpacing,
+    transform: `rotate(${isOddRow ? 1 : -1}deg)`,
+  }
+}
+
+// ── Timeline ──
+// Horizontal timeline: cards arranged left→right along a horizontal line
+// with alternating above/below positioning
+const timeline: LayoutFn = (index, { w, h, total, cardW }) => {
+  const margin = 40
+  const usableW = w - margin * 2 - cardW
+  const step = total > 1 ? usableW / (total - 1) : 0
+  const cx = margin + index * step
+  const cy = h * 0.5
+  // Alternate above and below the timeline axis
+  const isAbove = index % 2 === 0
+  const vertOffset = 38 + (index % 3) * 12  // stagger heights for visual interest
+  return {
+    left: cx,
+    top: isAbove ? cy - vertOffset - 18 : cy + vertOffset - 18,
+  }
+}
+
+// ── Orbit ──
+// Cards placed on elliptical orbits at varying radii — concentric rings with phase offsets
+const orbit: LayoutFn = (index, { w, h, total, cardW }) => {
+  const cx = w / 2
+  const cy = h * 0.48
+  const minRadius = Math.min(h * 0.15, 120)
+  const maxRadius = Math.min(h * 0.42, w * 0.38, 400)
+  // Distribute across multiple orbits
+  const numOrbits = Math.max(2, Math.ceil(total / 6))
+  const orbitIndex = index % numOrbits
+  const indexInOrbit = Math.floor(index / numOrbits)
+  const perOrbit = Math.ceil(total / numOrbits)
+  const t = numOrbits > 1 ? orbitIndex / (numOrbits - 1) : 0.5
+  const radius = minRadius + t * (maxRadius - minRadius)
+  // Phase offset per orbit to prevent overlap
+  const phaseOffset = orbitIndex * Math.PI * 0.37
+  const angle = (indexInOrbit / perOrbit) * Math.PI * 2 - Math.PI / 2 + phaseOffset
+  // Elliptical: compress Y for a 3D perspective feel
+  const ellipseRatio = 0.55
+  return {
+    left: cx + Math.cos(angle) * radius - cardW / 2,
+    top: cy + Math.sin(angle) * radius * ellipseRatio - 18,
+    transform: `perspective(600px) rotateX(${Math.sin(angle) * 8}deg) rotateY(${Math.cos(angle) * 6}deg)`,
+  }
+}
+
+// ── Matrix ──
+// Vertical columns with staggered heights — inspired by The Matrix digital rain
+const matrix: LayoutFn = (index, { w, h, total, cardW }) => {
+  const cols = Math.max(3, Math.min(12, Math.ceil(total / 3)))
+  const col = index % cols
+  const row = Math.floor(index / cols)
+  const gapX = 8
+  const totalW = cols * cardW + (cols - 1) * gapX
+  const startX = (w - totalW) / 2
+  // Each column starts at a different height (pseudo-random stagger based on column index)
+  const colPhase = ((col * 7 + 3) % 11) / 11  // deterministic pseudo-random 0..1
+  const startY = h * 0.04 + colPhase * h * 0.15
+  const spacing = Math.min(50, (h * 0.82) / Math.ceil(total / cols))
+  // Slight downward cascade: later rows slightly indented
+  const cascadeX = row * 2
+  return {
+    left: startX + col * (cardW + gapX) + cascadeX,
+    top: startY + row * spacing,
+    transform: `perspective(800px) translateZ(${-row * 6}px)`,
+  }
+}
+
 // ── Registry ──
 export const LAYOUT_FNS: Record<string, LayoutFn> = {
   'dual-arc': dualArc,
@@ -253,12 +369,20 @@ export const LAYOUT_FNS: Record<string, LayoutFn> = {
   'orbital': orbital,
   'hexagonal': hexagonal,
   'cinematic': cinematic,
+  'grid-wall': gridWall,
+  'honeycomb': honeycomb,
+  'timeline': timeline,
+  'orbit': orbit,
+  'matrix': matrix,
 }
 
 // Get center point and arc data for SVG connection lines
 export function getLayoutCenter(layoutId: string, w: number, h: number): { x: number; y: number } {
   if (layoutId === 'cinematic' || layoutId === 'data-hack') {
     return { x: w * 0.3, y: h * 0.45 }
+  }
+  if (layoutId === 'timeline') {
+    return { x: w / 2, y: h * 0.5 }
   }
   return { x: w / 2, y: h * 0.5 }
 }

@@ -25,6 +25,11 @@ export const LAYOUTS_CLASSIC = [
   { id: 'orbital', label: 'ORBITAL' },
   { id: 'hexagonal', label: 'HEXAGONAL' },
   { id: 'cinematic', label: 'CINEMATIC' },
+  { id: 'grid-wall', label: 'GRID WALL' },
+  { id: 'honeycomb', label: 'HONEYCOMB' },
+  { id: 'timeline', label: 'TIMELINE' },
+  { id: 'orbit', label: 'ORBIT' },
+  { id: 'matrix', label: 'MATRIX' },
 ] as const
 
 // Keep old export for backward compat
