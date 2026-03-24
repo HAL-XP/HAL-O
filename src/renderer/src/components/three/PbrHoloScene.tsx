@@ -65,6 +65,7 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 
 import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
 import { isFocusRecovering, onRecoveryChange } from '../../hooks/useFocusRecovery'
+import { isTerminalFocused } from '../TerminalPanel'
 import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
@@ -2412,7 +2413,19 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
       if (document.hidden) startThrottle(); else stopThrottle()
     }
     document.addEventListener('visibilitychange', onVisible)
+
+    // B30: Throttle to 5fps when terminal is focused (typing) — poll every 500ms
+    const termFocusPoll = setInterval(() => {
+      const termFocused = isTerminalFocused()
+      if (termFocused && !blurTimerRef.current) {
+        startThrottle()
+      } else if (!termFocused && !document.hidden && blurTimerRef.current) {
+        stopThrottle()
+      }
+    }, 500)
+
     return () => {
+      clearInterval(termFocusPoll)
       if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
       if (frameloopTimerRef.current) { clearTimeout(frameloopTimerRef.current); frameloopTimerRef.current = null }
       off?.()

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, memo } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -15,13 +15,17 @@ interface Props {
   voiceProfile?: VoiceProfileId
 }
 
+// B30: Notify 3D scene to throttle when terminal is focused
+let _terminalFocused = false
+export function isTerminalFocused(): boolean { return _terminalFocused }
+
 // Strip ANSI escape codes for TTS
 function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '')
 }
 
 
-export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
+export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = false, voiceProfile = 'auto' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -103,12 +107,25 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     termRef.current = term
     fitRef.current = fit
 
+    // B30: Batch xterm writes — accumulate data for one frame then write once
+    let writeBuf = ''
+    let writeRaf = 0
+    const flushWrite = () => {
+      if (writeBuf) {
+        term.write(writeBuf)
+        writeBuf = ''
+      }
+      writeRaf = 0
+    }
+
     // Connect to pty data stream (may fail if pty doesn't exist yet)
     let cleanupData = () => {}
     let cleanupExit = () => {}
     try {
     cleanupData = window.api.onPtyData(sessionId, (data) => {
-      term.write(data)
+      // Queue data for batched write instead of writing every event
+      writeBuf += data
+      if (!writeRaf) writeRaf = requestAnimationFrame(flushWrite)
 
       // Auto-speak response when this terminal is the voice response target
       const isVoiceTarget = (window as any).__voiceResponseTarget === sessionId
@@ -180,23 +197,33 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
     }
     container.addEventListener('contextmenu', onContextMenu)
 
-    // Handle resize — debounced to prevent display corruption during drag
+    // Handle resize — debounced to prevent display corruption and layout thrashing during drag
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     const resizeObserver = new ResizeObserver(() => {
       if (resizeTimer) clearTimeout(resizeTimer)
       resizeTimer = setTimeout(() => {
         fit.fit()
         window.api.ptyResize(sessionId, term.cols, term.rows)
-      }, 50)
+      }, 150)
     })
     resizeObserver.observe(container)
+
+    // B30: Track terminal focus to throttle 3D scene
+    const onFocusIn = () => { _terminalFocused = true }
+    const onFocusOut = () => { _terminalFocused = false }
+    container.addEventListener('focusin', onFocusIn)
+    container.addEventListener('focusout', onFocusOut)
 
     return () => {
       cleanupData()
       cleanupExit()
+      if (writeRaf) cancelAnimationFrame(writeRaf)
       if (resizeTimer) clearTimeout(resizeTimer)
       container.removeEventListener('contextmenu', onContextMenu)
+      container.removeEventListener('focusin', onFocusIn)
+      container.removeEventListener('focusout', onFocusOut)
       resizeObserver.disconnect()
+      _terminalFocused = false
       term.dispose()
     }
   }, [sessionId])
@@ -226,4 +253,4 @@ export function TerminalPanel({ sessionId, active, fontSize = 13, voiceOut = fal
       style={{ display: active ? 'block' : 'none' }}
     />
   )
-}
+})
