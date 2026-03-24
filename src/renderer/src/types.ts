@@ -156,6 +156,61 @@ export interface ProjectStats {
   fileCount: number
 }
 
+// ── S5: Upgrade types ──
+
+export interface UpgradeDiffLine {
+  type: 'context' | 'added' | 'removed' | 'header'
+  content: string
+  lineNumber?: number
+}
+
+export interface UpgradeSection {
+  id: string
+  label: string
+  relativePath: string
+  currentContent: string
+  newContent: string
+  diffLines: UpgradeDiffLine[]
+  hasChanges: boolean
+  existsOnDisk: boolean
+  hasUserCustomizations: boolean
+  type: 'claude-md' | 'rule' | 'hooks' | 'meta'
+}
+
+export interface UpgradePreview {
+  projectPath: string
+  projectName: string
+  currentVersion: number
+  targetVersion: number
+  currentAppVersion: string
+  targetAppVersion: string
+  sections: UpgradeSection[]
+  changedCount: number
+  hasExistingBackup: boolean
+  changelog: string[]
+}
+
+export interface UpgradeResult {
+  success: boolean
+  log: string[]
+  backupPath: string
+  upgradedSections: string[]
+  skippedSections: string[]
+}
+
+export interface RollbackResult {
+  success: boolean
+  log: string[]
+  restoredFiles: string[]
+}
+
+export interface UpgradeBackupEntry {
+  path: string
+  timestamp: string
+  rulesVersionBefore: number
+  fileCount: number
+}
+
 export interface EnlistConfig {
   projectPath: string
   agentName: string
@@ -225,6 +280,16 @@ export interface ElectronAPI {
   detectProjectIde: (projectPath: string) => Promise<string | null>
   getAvailableIdes: () => Promise<Array<{ id: string; name: string; shortLabel: string; available: boolean }>>
   openExternalTerminal: (projectPath: string) => Promise<{ success: boolean; error?: string }>
+
+  // S5: Versioning upgrade system
+  checkUpgradeAvailable: (projectPath: string) => Promise<{
+    available: boolean; reason: string; currentVersion?: number; targetVersion?: number
+    currentAppVersion?: string; targetAppVersion?: string; error?: string
+  }>
+  previewUpgrade: (projectPath: string) => Promise<{ success: boolean; preview?: UpgradePreview; error?: string }>
+  applyUpgrade: (projectPath: string, acceptedSectionIds: string[]) => Promise<UpgradeResult>
+  rollbackUpgrade: (projectPath: string, backupPath: string) => Promise<RollbackResult>
+  listUpgradeBackups: (projectPath: string) => Promise<UpgradeBackupEntry[]>
 
   // Continuation (D4)
   writeContinuation: (data: { step: string; reason: string; message: string }) => Promise<{ success: boolean; error?: string }>

@@ -3,7 +3,7 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-export const RULES_VERSION = 2
+export const RULES_VERSION = 3
 
 // Read version from package.json at build time
 let _version = '0.0.0'

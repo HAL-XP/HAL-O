@@ -8,6 +8,7 @@ import { useSceneReady } from '../hooks/useSceneReady'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { ProjectContextMenu } from './ProjectContextMenu'
+import { UpgradeDialog } from './UpgradeDialog'
 import { PreviewGrid } from './PreviewGrid'
 import { LAYOUT_FNS, getLayoutCenter } from '../layouts'
 import { HolographicScene } from './three/HolographicScene'
@@ -96,6 +97,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [absorbToast, setAbsorbToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const absorbToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectPath: string; projectName: string; rulesOutdated?: boolean } | null>(null)
+  const [upgradeTarget, setUpgradeTarget] = useState<{ path: string; name: string } | null>(null)
   const [preview2d, setPreview2d] = useState(false)
   const [voiceBlocked, setVoiceBlocked] = useState(false)
   const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,6 +116,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     if (voiceBlockedTimer.current) clearTimeout(voiceBlockedTimer.current)
     voiceBlockedTimer.current = setTimeout(() => setVoiceBlocked(false), 600)
   }, [])
+
+  // S5: Upgrade handler — opens UpgradeDialog
+  const handleUpgrade = useCallback((path: string, name: string) => {
+    setUpgradeTarget({ path, name })
+  }, [])
+
+  const refreshProjects = useCallback(() => {
+    if (demo?.enabled) return
+    window.api.scanProjects().then(p => setProjects(p)).catch(() => {})
+  }, [demo?.enabled])
 
   // Listen for 2D preview toggle from Dev menu
   useEffect(() => {
@@ -557,6 +569,16 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     )
   }
 
+  // S5: Upgrade dialog (position:fixed overlay, rendered once)
+  const upgradeDialog = upgradeTarget && (
+    <UpgradeDialog
+      projectPath={upgradeTarget.path}
+      projectName={upgradeTarget.name}
+      onClose={() => setUpgradeTarget(null)}
+      onUpgradeComplete={refreshProjects}
+    />
+  )
+
   // PBR Holographic renderer — reference-quality 3D
   if (rendererId === 'pbr-holo') {
     return (
@@ -626,7 +648,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           <ProjectContextMenu
             x={ctxMenu.x} y={ctxMenu.y}
             projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
-            onHide={hideProject} onConfigure={onConvertProject}
+            onHide={hideProject} onConfigure={onConvertProject} onUpgrade={handleUpgrade}
             rulesOutdated={ctxMenu.rulesOutdated}
             isFavorite={isFavorite(ctxMenu.projectPath)}
             onToggleFavorite={toggleFavorite}
@@ -637,6 +659,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             onClose={() => setCtxMenu(null)}
           />
         )}
+        {upgradeDialog}
       </div>
     )
   }
@@ -694,7 +717,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           <ProjectContextMenu
             x={ctxMenu.x} y={ctxMenu.y}
             projectPath={ctxMenu.projectPath} projectName={ctxMenu.projectName}
-            onHide={hideProject} onConfigure={onConvertProject}
+            onHide={hideProject} onConfigure={onConvertProject} onUpgrade={handleUpgrade}
             rulesOutdated={ctxMenu.rulesOutdated}
             isFavorite={isFavorite(ctxMenu.projectPath)}
             onToggleFavorite={toggleFavorite}
@@ -705,6 +728,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
             onClose={() => setCtxMenu(null)}
           />
         )}
+        {upgradeDialog}
       </div>
     )
   }
@@ -778,6 +802,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           projectName={ctxMenu.projectName}
           onHide={hideProject}
           onConfigure={onConvertProject}
+          onUpgrade={handleUpgrade}
           rulesOutdated={ctxMenu.rulesOutdated}
           isFavorite={isFavorite(ctxMenu.projectPath)}
           onToggleFavorite={toggleFavorite}
@@ -789,6 +814,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onClose={() => setCtxMenu(null)}
         />
       )}
+
+      {upgradeDialog}
 
       {/* HUD corners */}
       <div className="hal-hud-corner tl" />

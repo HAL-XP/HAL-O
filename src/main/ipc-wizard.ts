@@ -413,7 +413,7 @@ export function registerWizardHandlers(): void {
         if (existsSync(claudeMdPath)) {
           const existing = readFileSync(claudeMdPath, 'utf-8')
           // Check if HAL-O section already appended (either marker)
-          if (existing.includes('<!-- HAL-O additions -->') || existing.includes('## HAL-O Best Practices (auto-generated)')) {
+          if (existing.includes('<!-- HAL-O additions -->') || existing.includes('<!-- hal-o:') || existing.includes('## HAL-O Best Practices (auto-generated)')) {
             log.push('[SKIP] CLAUDE.md already has HAL-O section')
           } else {
             const appendSection = [

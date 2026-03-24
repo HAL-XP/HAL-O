@@ -1,3 +1,5 @@
+import { RULES_VERSION } from './version'
+
 interface ProjectConfig {
   name: string
   location: string
@@ -103,6 +105,7 @@ function hasNode(config: ProjectConfig): boolean {
 export function generateClaudeMd(config: ProjectConfig): string {
   const lines: string[] = []
 
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:header -->`)
   lines.push(`# ${config.name}`)
   lines.push('')
 
@@ -112,6 +115,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   }
 
   // Stack
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:stack -->`)
   lines.push('## Stack')
   lines.push(`- **Primary**: ${stackLabel(config.techStack)}`)
   if (config.languages.length) {
@@ -126,6 +130,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   lines.push('')
 
   // Key Conventions
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:conventions -->`)
   lines.push('## Key Conventions')
   lines.push('- API keys in `~/.claude_credentials` (bash-sourceable), never in repo')
   if (hasFrontend(config)) {
@@ -158,6 +163,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   lines.push('')
 
   // Performance tip
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:performance -->`)
   lines.push('## Performance')
   lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
   lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
@@ -245,6 +251,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
   }
 
   // Key Files
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:key-files -->`)
   lines.push('## Key Files')
   lines.push('| File | Purpose |')
   lines.push('|------|---------|')
@@ -253,6 +260,7 @@ export function generateClaudeMd(config: ProjectConfig): string {
     lines.push('| `_devlog/` | Session summaries, hours, decisions, experiments |')
   }
   lines.push('')
+  lines.push(`<!-- hal-o:v${RULES_VERSION}:footer -->`)
 
   return lines.join('\n')
 }
@@ -418,7 +426,8 @@ export function generateRuleFiles(config: ProjectConfig): Record<string, string>
 - No arbitrary hex colors -- use Tailwind tokens.`
       : '## Styling\n- Follow the project\'s styling conventions consistently.'
 
-    files['frontend.md'] = `# Frontend Rules
+    files['frontend.md'] = `<!-- hal-o:v${RULES_VERSION}:frontend -->
+# Frontend Rules
 
 ${styling}
 
@@ -430,7 +439,8 @@ ${styling}
   }
 
   if (config.rulesSetup.includes('ux')) {
-    files['ux.md'] = `# UX Principles
+    files['ux.md'] = `<!-- hal-o:v${RULES_VERSION}:ux -->
+# UX Principles
 
 ## 1. State-driven UI, never interaction-driven
 - All visual indicators derive from data state, not user clicks.
@@ -453,7 +463,8 @@ ${styling}
   }
 
   if (config.rulesSetup.includes('python-api')) {
-    files['python-api.md'] = `# API Rules (Python Backend)
+    files['python-api.md'] = `<!-- hal-o:v${RULES_VERSION}:python-api -->
+# API Rules (Python Backend)
 
 ## Server
 - Backend runs on \`localhost:8000\`.
@@ -474,7 +485,8 @@ After ANY change to Python files:
   }
 
   if (config.rulesSetup.includes('node-api')) {
-    files['node-api.md'] = `# API Rules (Node.js Backend)
+    files['node-api.md'] = `<!-- hal-o:v${RULES_VERSION}:node-api -->
+# API Rules (Node.js Backend)
 
 ## Server
 - Backend runs on \`localhost:3000\` (or configured port).
@@ -489,7 +501,8 @@ After ANY change to Python files:
   }
 
   if (config.rulesSetup.includes('banned-techniques')) {
-    files['banned-techniques.md'] = `# Banned Techniques (proven harmful or dead -- do NOT retry)
+    files['banned-techniques.md'] = `<!-- hal-o:v${RULES_VERSION}:banned-techniques -->
+# Banned Techniques (proven harmful or dead -- do NOT retry)
 
 ## Libraries
 - (none yet -- add entries as dead ends are discovered)
@@ -507,7 +520,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('go-api')) {
-    files['go-api.md'] = `# Go API Rules
+    files['go-api.md'] = `<!-- hal-o:v${RULES_VERSION}:go-api -->
+# Go API Rules
 
 ## Conventions
 - Use standard library \`net/http\` where possible.
@@ -526,7 +540,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('rust-api')) {
-    files['rust-api.md'] = `# Rust API Rules
+    files['rust-api.md'] = `<!-- hal-o:v${RULES_VERSION}:rust-api -->
+# Rust API Rules
 
 ## Conventions
 - Run \`cargo clippy\` before every commit. Fix all warnings.
@@ -545,7 +560,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('game-loop')) {
-    files['game-loop.md'] = `# Game Development Rules
+    files['game-loop.md'] = `<!-- hal-o:v${RULES_VERSION}:game-loop -->
+# Game Development Rules
 
 ## Game Loop
 - Main loop: handle input -> update state -> render. Always in that order.
@@ -564,7 +580,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('data-pipeline')) {
-    files['data-pipeline.md'] = `# Data Science Rules
+    files['data-pipeline.md'] = `<!-- hal-o:v${RULES_VERSION}:data-pipeline -->
+# Data Science Rules
 
 ## Notebook Conventions
 - Notebooks for exploration ONLY. Move proven code to \`src/\` as modules.
@@ -583,7 +600,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('mobile')) {
-    files['mobile.md'] = `# Mobile App Rules
+    files['mobile.md'] = `<!-- hal-o:v${RULES_VERSION}:mobile -->
+# Mobile App Rules
 
 ## Conventions
 - Use Expo SDK APIs over bare React Native when possible.
@@ -601,7 +619,8 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('profiling')) {
-    files['profiling.md'] = `# Performance Profiling
+    files['profiling.md'] = `<!-- hal-o:v${RULES_VERSION}:profiling -->
+# Performance Profiling
 
 ## Tools by Stack
 

@@ -110,6 +110,15 @@ const api = {
   writeDevToolsMeta: (projectPath: string, preference: 'later' | 'never') =>
     ipcRenderer.invoke('write-dev-tools-meta', projectPath, preference),
 
+  // S5: Versioning upgrade system
+  checkUpgradeAvailable: (projectPath: string) => ipcRenderer.invoke('check-upgrade-available', projectPath),
+  previewUpgrade: (projectPath: string) => ipcRenderer.invoke('preview-upgrade', projectPath),
+  applyUpgrade: (projectPath: string, acceptedSectionIds: string[]) =>
+    ipcRenderer.invoke('apply-upgrade', projectPath, acceptedSectionIds),
+  rollbackUpgrade: (projectPath: string, backupPath: string) =>
+    ipcRenderer.invoke('rollback-upgrade', projectPath, backupPath),
+  listUpgradeBackups: (projectPath: string) => ipcRenderer.invoke('list-upgrade-backups', projectPath),
+
   // Dev
   captureScreenshot: () => ipcRenderer.invoke('capture-screenshot'),
   reloadRenderer: () => ipcRenderer.invoke('reload-renderer'),

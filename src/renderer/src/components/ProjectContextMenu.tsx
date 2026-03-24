@@ -15,6 +15,7 @@ interface Props {
   projectName: string
   onHide: (path: string) => void
   onConfigure: (path: string) => void
+  onUpgrade?: (path: string, name: string) => void
   rulesOutdated?: boolean
   // Favorite toggle
   isFavorite?: boolean
@@ -31,7 +32,7 @@ interface Props {
 
 export function ProjectContextMenu({
   x, y, projectPath, projectName,
-  onHide, onConfigure, rulesOutdated,
+  onHide, onConfigure, onUpgrade, rulesOutdated,
   isFavorite = false, onToggleFavorite,
   groups = [], currentGroupId, onAssignGroup,
   currentIdeId, onSetProjectIde,
@@ -154,13 +155,13 @@ export function ProjectContextMenu({
       {/* Update HAL-O rules — shown only when outdated */}
       {rulesOutdated && (
         <button
-          onClick={() => { onConfigure(projectPath); onClose() }}
+          onClick={() => { if (onUpgrade) onUpgrade(projectPath, projectName); else onConfigure(projectPath); onClose() }}
           style={{ ...itemStyle, color: '#fb923c' }}
           onMouseEnter={hoverIn}
           onMouseLeave={hoverOut}
         >
           <span style={{ fontSize: '8px', color: '#fb923c' }}>&#x25B2;</span>
-          UPDATE HAL-O RULES
+          UPGRADE HAL-O RULES...
         </button>
       )}
 
