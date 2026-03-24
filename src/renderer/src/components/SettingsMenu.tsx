@@ -118,6 +118,8 @@ interface Props {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled: boolean
   onShipVfxEnabledChange: (enabled: boolean) => void
+  videoSphere: boolean
+  onVideoSphereChange: (enabled: boolean) => void
   voiceReactionIntensity: number
   onVoiceReactionIntensityChange: (v: number) => void
   personality: PersonalitySettings
@@ -178,7 +180,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, videoSphere, onVideoSphereChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -821,6 +823,25 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           }}
                         >
                           {shipVfxEnabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('VIDEO SPHERE') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">VIDEO SPHERE</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => onVideoSphereChange(!videoSphere)}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: videoSphere ? 'var(--primary)' : 'var(--text-dim)',
+                            borderColor: videoSphere ? 'var(--primary-dim)' : undefined,
+                          }}
+                        >
+                          {videoSphere ? 'ON' : 'OFF'}
                         </button>
                       </div>
                     </div>

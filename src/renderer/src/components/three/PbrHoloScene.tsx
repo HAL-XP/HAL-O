@@ -579,8 +579,136 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
   return { bass, mids, highs, volume, isActive: true }
 }
 
+// ── P4: Procedural HAL Eye Canvas — animated concentric rings pulsing outward ──
+// Renders at 30fps to a CanvasTexture used as emissiveMap on the inner core sphere.
+function useHalEyeTexture(enabled: boolean): THREE.CanvasTexture | null {
+  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
+  const animRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (!enabled) {
+      // Clean up if disabled
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+      animRef.current = 0
+      setTexture((prev) => { prev?.dispose(); return null })
+      return
+    }
+
+    const size = 256
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    setTexture(tex)
+
+    const ctx = canvas.getContext('2d')!
+    const cx = size / 2
+    const cy = size / 2
+
+    let lastDraw = 0
+    const FPS_INTERVAL = 1000 / 30 // 30fps cap
+
+    function draw(now: number) {
+      animRef.current = requestAnimationFrame(draw)
+
+      // Throttle to 30fps
+      if (now - lastDraw < FPS_INTERVAL) return
+      lastDraw = now
+
+      const t = now * 0.001 // seconds
+
+      ctx.clearRect(0, 0, size, size)
+
+      // Deep black background with subtle dark red gradient
+      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
+      bgGrad.addColorStop(0, 'rgba(40, 5, 5, 1)')
+      bgGrad.addColorStop(0.5, 'rgba(15, 2, 2, 1)')
+      bgGrad.addColorStop(1, 'rgba(0, 0, 0, 1)')
+      ctx.fillStyle = bgGrad
+      ctx.fillRect(0, 0, size, size)
+
+      // ── Concentric rings pulsing outward — HAL 9000 eye ──
+      const ringCount = 8
+      const maxRadius = cx * 0.92
+
+      for (let i = 0; i < ringCount; i++) {
+        // Each ring expands outward over time, wrapping when it exceeds max radius
+        const phase = (t * 0.4 + i / ringCount) % 1.0
+        const radius = phase * maxRadius
+
+        // Opacity: peak at center, fade at edges — with a sharper inner glow
+        const fadeIn = Math.min(1, phase * 4)        // quick fade in at center
+        const fadeOut = 1 - Math.pow(phase, 1.5)     // gradual fade out
+        const opacity = fadeIn * fadeOut * 0.7
+
+        if (opacity < 0.01) continue
+
+        // Color: deep red core transitioning to orange-red at outer rings
+        const hue = 0 + phase * 15 // 0 (red) to 15 (red-orange)
+        const sat = 100 - phase * 20 // saturated center, slightly less at edges
+        const light = 30 + (1 - phase) * 30 // brighter center
+
+        ctx.beginPath()
+        ctx.arc(cx, cy, Math.max(1, radius), 0, Math.PI * 2)
+        ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, ${opacity})`
+        ctx.lineWidth = 3 + (1 - phase) * 4 // thicker at center
+        ctx.stroke()
+      }
+
+      // ── Central bright spot — the "pupil" ──
+      const pulseScale = 1 + Math.sin(t * 2.5) * 0.15
+      const coreRadius = 12 * pulseScale
+      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius * 2)
+      coreGrad.addColorStop(0, 'rgba(255, 80, 20, 0.95)')
+      coreGrad.addColorStop(0.3, 'rgba(200, 30, 10, 0.7)')
+      coreGrad.addColorStop(0.6, 'rgba(140, 10, 5, 0.3)')
+      coreGrad.addColorStop(1, 'rgba(60, 0, 0, 0)')
+      ctx.beginPath()
+      ctx.arc(cx, cy, coreRadius * 2, 0, Math.PI * 2)
+      ctx.fillStyle = coreGrad
+      ctx.fill()
+
+      // ── Bright white-hot center pinpoint ──
+      const dotGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 4 * pulseScale)
+      dotGrad.addColorStop(0, 'rgba(255, 220, 180, 0.9)')
+      dotGrad.addColorStop(0.5, 'rgba(255, 120, 60, 0.5)')
+      dotGrad.addColorStop(1, 'rgba(200, 40, 10, 0)')
+      ctx.beginPath()
+      ctx.arc(cx, cy, 4 * pulseScale, 0, Math.PI * 2)
+      ctx.fillStyle = dotGrad
+      ctx.fill()
+
+      // ── Subtle rotating highlight — gives the eye a living quality ──
+      const highlightAngle = t * 0.7
+      const hx = cx + Math.cos(highlightAngle) * 20
+      const hy = cy + Math.sin(highlightAngle) * 20
+      const hlGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 35)
+      hlGrad.addColorStop(0, 'rgba(255, 100, 40, 0.12)')
+      hlGrad.addColorStop(1, 'rgba(255, 50, 20, 0)')
+      ctx.beginPath()
+      ctx.arc(hx, hy, 35, 0, Math.PI * 2)
+      ctx.fillStyle = hlGrad
+      ctx.fill()
+
+      tex.needsUpdate = true
+    }
+
+    animRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+      animRef.current = 0
+      tex.dispose()
+    }
+  }, [enabled])
+
+  return texture
+}
+
 // ── HAL Sphere — PBR version with audio-reactive animation ──
-function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { blockedInput?: boolean; voiceReactionIntensity?: number }) {
+function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, videoSphere = false }: { blockedInput?: boolean; voiceReactionIntensity?: number; videoSphere?: boolean }) {
   const theme = useThreeTheme()
   const wireRef     = useRef<THREE.Mesh>(null)
   const coreRef     = useRef<THREE.Mesh>(null)
@@ -589,9 +717,13 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
   const light1Ref   = useRef<THREE.PointLight>(null)
   const light2Ref   = useRef<THREE.PointLight>(null)
   const flashRef    = useRef(0)    // countdown timer for blocked flash
+  const videoMeshRef = useRef<THREE.Mesh>(null) // P4: video sphere mesh
   const audioDataRef = useRef(new Uint8Array(128))
   // Smoothed audio levels — exponential moving average for smooth animation
   const smoothedRef = useRef({ bass: 0, mids: 0, highs: 0, volume: 0 })
+
+  // P4: Procedural HAL eye texture — only active when videoSphere is enabled
+  const halEyeTexture = useHalEyeTexture(videoSphere)
 
   // ── U4: Sphere event visual feedback state ──
   // Active event overlay — layered additively on top of audio reactions
@@ -860,6 +992,26 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5 }: { 
           roughness={0.8}
         />
       </mesh>
+
+      {/* P4: Video texture sphere — procedural HAL eye animation mapped onto inner sphere */}
+      {videoSphere && halEyeTexture && (
+        <mesh ref={videoMeshRef} scale={0.6}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial
+            map={halEyeTexture}
+            emissiveMap={halEyeTexture}
+            emissive="#ff4400"
+            emissiveIntensity={1.5}
+            transparent
+            opacity={0.85}
+            toneMapped={false}
+            depthWrite={false}
+            metalness={0.2}
+            roughness={0.6}
+            side={THREE.FrontSide}
+          />
+        </mesh>
+      )}
 
       {/* Bright core — audio-reactive via coreRef */}
       <mesh ref={coreRef} scale={0.38}>
@@ -1397,6 +1549,7 @@ interface Props {
   showPerf?: boolean
   onSceneReady?: () => void
   shipVfxEnabled?: boolean
+  videoSphere?: boolean
   voiceReactionIntensity?: number
   // Session absorption (T3)
   externalSessions?: ExternalSession[]
@@ -1438,6 +1591,7 @@ interface PbrSceneInnerProps {
   ringPlatformRadius: number
   maxCamDistance: number
   shipVfxEnabled: boolean
+  videoSphere: boolean
   voiceReactionIntensity: number
   // Session absorption (T3)
   externalSessions: ExternalSession[]
@@ -1457,7 +1611,7 @@ function PbrSceneInner({
   projects, searchQuery, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
-  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, voiceReactionIntensity,
+  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, videoSphere, voiceReactionIntensity,
   externalSessions, absorbingPid, onAbsorb,
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
   cinematicActive, onCinematicComplete,
@@ -1627,7 +1781,7 @@ function PbrSceneInner({
       <GridOverlay radius={floorRadius} />
       <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
       <PbrRingPlatform radius={ringPlatformRadius} />
-      <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} />
+      <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} videoSphere={videoSphere} />
 
       {/* Ambient data particles — faded in at phase 3 */}
       <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
@@ -1761,7 +1915,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, videoSphere = false, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -1871,6 +2025,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           ringPlatformRadius={ringPlatformRadius}
           maxCamDistance={maxCamDistance}
           shipVfxEnabled={shipVfxEnabled}
+          videoSphere={videoSphere}
           voiceReactionIntensity={voiceReactionIntensity}
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}

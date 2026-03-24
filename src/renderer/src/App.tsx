@@ -147,7 +147,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, personality, defaultIde, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, videoSphere, voiceReactionIntensity, personality, defaultIde, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVideoSphere, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde } = useSettings()
 
   const updateWizardFont = useCallback((size: number) => {
     setWizardFontSize(size)
@@ -403,6 +403,8 @@ export function App() {
             onThreeThemeChange={updateThreeTheme}
             shipVfxEnabled={shipVfxEnabled}
             onShipVfxEnabledChange={updateShipVfxEnabled}
+            videoSphere={videoSphere}
+            onVideoSphereChange={updateVideoSphere}
             voiceReactionIntensity={voiceReactionIntensity}
             onVoiceReactionIntensityChange={updateVoiceReactionIntensity}
             personality={personality}

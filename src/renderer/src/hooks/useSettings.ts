@@ -110,6 +110,7 @@ export interface SettingsState {
   layoutId: string
   threeTheme: string
   shipVfxEnabled: boolean
+  videoSphere: boolean
   voiceReactionIntensity: number
   personality: PersonalitySettings
   defaultIde: IdeOptionId
@@ -128,6 +129,7 @@ export interface SettingsState {
   updateLayout: (id: string) => void
   updateThreeTheme: (id: string) => void
   updateShipVfxEnabled: (enabled: boolean) => void
+  updateVideoSphere: (enabled: boolean) => void
   updateVoiceReactionIntensity: (v: number) => void
   updatePersonality: (key: keyof PersonalitySettings, value: number) => void
   applyPersonalityPreset: (presetName: string) => void
@@ -179,6 +181,7 @@ export function useSettings(): SettingsState {
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
   const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
   const [shipVfxEnabled, setShipVfxEnabled] = useState(() => localStorage.getItem('hal-o-ship-vfx') !== 'false')
+  const [videoSphere, setVideoSphere] = useState(() => localStorage.getItem('hal-o-video-sphere') === 'true')
   const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
@@ -251,6 +254,10 @@ export function useSettings(): SettingsState {
     setShipVfxEnabled(enabled)
     localStorage.setItem('hal-o-ship-vfx', String(enabled))
   }, [])
+  const updateVideoSphere = useCallback((enabled: boolean) => {
+    setVideoSphere(enabled)
+    localStorage.setItem('hal-o-video-sphere', String(enabled))
+  }, [])
   const updateDefaultIde = useCallback((id: IdeOptionId) => {
     setDefaultIde(id)
     localStorage.setItem('hal-o-default-ide', id)
@@ -295,7 +302,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, personality, defaultIde,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, videoSphere, voiceReactionIntensity, personality, defaultIde,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVideoSphere, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
   }
 }
