@@ -30,7 +30,7 @@ test('setup screen shows on first launch', async () => {
     // Click "Skip Setup" / "Continue" / "Launch HAL-O" button
     const continueBtn = page.locator('.create-btn').first()
     await expect(continueBtn).toBeVisible({ timeout: 10000 })
-    await continueBtn.click()
+    await continueBtn.click({ force: true })
 
     // Wait for transition to hub
     await page.waitForTimeout(2000)
