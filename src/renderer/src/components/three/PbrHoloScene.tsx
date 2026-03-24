@@ -1338,7 +1338,7 @@ function PostFXInner() {
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={theme.bloom.radius} mipmapBlur width={512} height={512} />
+      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />
       <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={offset} />
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
