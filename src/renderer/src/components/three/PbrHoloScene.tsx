@@ -1451,68 +1451,8 @@ function SceneBackground() {
 }
 
 // ── AutoRotate Manager — pauses rotation on user interaction, resumes after delay ──
-// B31b: autoRotate is managed ONLY here (not as a JSX prop on OrbitControls).
-// Setting it declaratively caused React re-renders to re-apply autoRotate=true mid-drag,
-// creating teleport/jitter when the user manually orbits.
-// Also pauses during active search (U7) so search results stay in view.
-function AutoRotateManager({ searchActive = false }: { searchActive?: boolean }) {
-  const { controls } = useThree()
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const interactingRef = useRef(false)
-
-  // Imperatively enable auto-rotate on mount (replaces the removed JSX prop)
-  useEffect(() => {
-    if (!controls) return
-    const orbitControls = controls as any
-    orbitControls.autoRotate = !searchActive
-    orbitControls.autoRotateSpeed = 0.12
-  }, [controls]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Pause/resume auto-rotate when search state changes (U7)
-  useEffect(() => {
-    if (!controls) return
-    const orbitControls = controls as any
-    if (searchActive) {
-      orbitControls.autoRotate = false
-    } else if (!interactingRef.current) {
-      orbitControls.autoRotate = true
-    }
-  }, [searchActive, controls])
-
-  useEffect(() => {
-    if (!controls) return
-    const orbitControls = controls as any
-
-    const onStart = () => {
-      interactingRef.current = true
-      orbitControls.autoRotate = false
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-
-    const onEnd = () => {
-      interactingRef.current = false
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      // Don't resume auto-rotate while search is active (U7)
-      if (searchActive) return
-      // B31b: 500ms delay lets damping settle before auto-rotate resumes,
-      // preventing the snap-back jitter at drag release.
-      timeoutRef.current = setTimeout(() => {
-        orbitControls.autoRotate = true
-      }, 500)
-    }
-
-    orbitControls.addEventListener('start', onStart)
-    orbitControls.addEventListener('end', onEnd)
-
-    return () => {
-      orbitControls.removeEventListener('start', onStart)
-      orbitControls.removeEventListener('end', onEnd)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [controls, searchActive])
-
-  return null
-}
+// B31b: AutoRotateManager extracted to shared component (used by both PBR + Holo renderers)
+import { AutoRotateManager } from './AutoRotateManager'
 
 // ── Camera Driver — pushes settings changes into the actual Three.js camera + OrbitControls ──
 function CameraDriver({ distance, angle }: { distance: number; angle: number }) {
@@ -2348,7 +2288,7 @@ function PbrSceneInner({
         minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 2 - 0.03}
         enableDamping
-        dampingFactor={0.05}
+        dampingFactor={0.12}
         target={[0, 0.3, 0]}
       />
       <AutoRotateManager searchActive={searchActive} />

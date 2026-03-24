@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { AutoRotateManager } from './AutoRotateManager'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
@@ -369,10 +370,11 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
         maxDistance={maxCamDistance}
         minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 2 - 0.03}
-        autoRotate
-        autoRotateSpeed={0.15}
+        enableDamping
+        dampingFactor={0.12}
         target={[0, 0.3, 0]}
       />
+      <AutoRotateManager />
 
       <PostProcessing />
       {onSceneReady && <HoloSceneReadyGate onReady={onSceneReady} />}
