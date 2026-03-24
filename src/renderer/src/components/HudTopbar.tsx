@@ -8,6 +8,8 @@ import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings,
 import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
+import { FilterBar, type FilterId } from './FilterBar'
+import type { ProjectInfo } from '../types'
 
 interface HudTopbarProps {
   search: string
@@ -19,6 +21,10 @@ interface HudTopbarProps {
   onListeningChange: (listening: boolean) => void
   projectCount: number
   readyCount: number
+  projects?: ProjectInfo[]
+  activeFilter?: FilterId
+  onFilterChange?: (id: FilterId) => void
+  isFavorite?: (path: string) => boolean
   hubFontSize: number
   termFontSize: number
   wizardFontSize: number
@@ -104,7 +110,7 @@ interface HudTopbarProps {
 export function HudTopbar({
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
-  projectCount, readyCount,
+  projectCount, readyCount, projects = [], activeFilter = 'all', onFilterChange, isFavorite = () => false,
   hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
@@ -199,6 +205,9 @@ export function HudTopbar({
           <span className="hal-btn-label">ADD PROJECT</span>
         </button>
       </div>
+      {onFilterChange && projects.length > 0 && (
+        <FilterBar projects={projects} activeFilter={activeFilter} onFilterChange={onFilterChange} isFavorite={isFavorite} />
+      )}
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>
         <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => onSearchChange(e.target.value)} />

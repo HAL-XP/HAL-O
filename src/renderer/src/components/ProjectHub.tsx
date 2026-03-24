@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
+import { applyFilter, type FilterId } from './FilterBar'
 import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, SphereStyleId, DevlogSections, DevlogSectionKey, DevlogVerbosity } from '../hooks/useSettings'
 import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
@@ -116,6 +117,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState<FilterId>(() => (localStorage.getItem('hal-o-filter') as FilterId) || 'all')
+  const handleFilterChange = useCallback((id: FilterId) => {
+    setActiveFilter(id)
+    localStorage.setItem('hal-o-filter', id)
+  }, [])
   const [isListening, setIsListening] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const [showPerf, setShowPerf] = useState(false)
@@ -443,8 +449,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // Filter out hidden projects first, then apply search
   // In demo mode, skip the hidden filter — demo projects are synthetic
   const visibleProjects = useMemo(
-    () => demo?.enabled ? projects : projects.filter((p) => !isHidden(p.path)),
-    [projects, isHidden, demo?.enabled],
+    () => {
+      const base = demo?.enabled ? projects : projects.filter((p) => !isHidden(p.path))
+      return applyFilter(base, activeFilter, isFavorite)
+    },
+    [projects, isHidden, demo?.enabled, activeFilter, isFavorite],
   )
 
   const filteredUnsorted = search
@@ -706,6 +715,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
+          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
@@ -813,6 +823,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
+          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
@@ -895,6 +906,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
+          projects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
           hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
           particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
           renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}

@@ -1402,6 +1402,46 @@ textarea.text-input {
   white-space: nowrap;
 }
 
+/* ── Filter Bar ── */
+.hal-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+.hal-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: rgba(255,255,255,0.35);
+  font-size: calc(var(--hub-font, 10px) - 2px);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.hal-filter-btn:hover {
+  color: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.03);
+}
+.hal-filter-btn.active {
+  color: var(--primary);
+  border-color: var(--primary-dim);
+  background: rgba(132,204,22,0.06);
+}
+.hal-filter-icon { font-size: calc(var(--hub-font, 10px) - 1px); }
+.hal-filter-count {
+  font-size: calc(var(--hub-font, 10px) - 3px);
+  opacity: 0.6;
+  min-width: 10px;
+  text-align: center;
+}
+
 .hal-topbar-center {
   display: flex;
   align-items: center;
