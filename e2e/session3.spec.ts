@@ -43,6 +43,7 @@ test.beforeAll(async () => {
   // Configure demo mode with PBR renderer so all 3D features are available
   await page.evaluate(() => {
     localStorage.setItem('hal-o-setup-done', '1')
+    localStorage.setItem('hal-o-gpu-wizard-done', '1')
     localStorage.setItem('hal-o-demo-mode', 'true')
     localStorage.setItem('hal-o-renderer', 'pbr-holo')
     localStorage.setItem('hal-o-demo-cards', '12')
@@ -87,7 +88,7 @@ test('2 — Sphere style dropdown exists with 3 options', async () => {
   const panel = page.locator('.hal-settings-panel')
 
   // Expand the Scene section (collapsed by default)
-  await expandSection(panel, 'SCENE', page)
+  await expandSection(panel, 'GRAPHICS', page)
 
   // Find the SPHERE STYLE row and its select
   const sphereRow = panel.locator('.hal-settings-row', { hasText: 'SPHERE STYLE' })
@@ -137,7 +138,7 @@ test('4 — Particle density slider has 16 levels (max=15)', async () => {
   const panel = page.locator('.hal-settings-panel')
 
   // Expand Scene section
-  await expandSection(panel, 'SCENE', page)
+  await expandSection(panel, 'GRAPHICS', page)
 
   const particleRow = panel.locator('.hal-settings-row', { hasText: 'PARTICLE DENSITY' })
   await particleRow.scrollIntoViewIfNeeded()
@@ -182,8 +183,8 @@ test('6 — Default IDE dropdown exists', async () => {
   await openSettings(page)
   const panel = page.locator('.hal-settings-panel')
 
-  // Display section should be expanded by default, but ensure it
-  await expandSection(panel, 'DISPLAY', page)
+  // DEFAULT IDE is in the TERMINAL section
+  await expandSection(panel, 'TERMINAL', page)
 
   const ideRow = panel.locator('.hal-settings-row', { hasText: 'DEFAULT IDE' })
   await expect(ideRow).toBeVisible({ timeout: 3000 })
