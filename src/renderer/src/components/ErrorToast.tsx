@@ -97,8 +97,10 @@ export function ErrorToastContainer() {
   // Global error listeners
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      // Don't toast ResizeObserver errors — they're benign and noisy
+      // Don't toast benign/noisy errors
       if (event.message?.includes('ResizeObserver')) return
+      // xterm.js internal timing race — renderService not ready yet (harmless)
+      if (event.message?.includes("reading 'dimensions'")) return
       const { summary, suggestion, detail } = summarizeError(event.error || event.message)
       push(summary, suggestion, detail)
     }

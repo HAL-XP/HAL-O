@@ -1174,7 +1174,7 @@ function ConnectionBeams({ projects, groups, assignments, screenPositions, searc
   // Animate opacity: fade in smoothly, dim during search
   useFrame((_, delta) => {
     if (!matRef.current) return
-    const target = searchActive ? 0.03 : 0.15
+    const target = searchActive ? 0.01 : 0.06
     opacityRef.current += (target - opacityRef.current) * Math.min(1, delta * 3)
     matRef.current.opacity = opacityRef.current
   })
@@ -1187,9 +1187,9 @@ function ConnectionBeams({ projects, groups, assignments, screenPositions, searc
         ref={matRef}
         vertexColors
         transparent
-        opacity={0.15}
+        opacity={0.06}
         depthWrite={false}
-        toneMapped={false}
+        toneMapped
         linewidth={1}
       />
     </lineSegments>
