@@ -207,6 +207,13 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const [secScene, setSecScene] = useState(false)
   const [secHidden, setSecHidden] = useState(false)
   const [secDemo, setSecDemo] = useState(false)
+  const [secSystem, setSecSystem] = useState(false)
+
+  // X8: Launch on startup — local state synced with main process
+  const [launchOnStartup, setLaunchOnStartup] = useState(false)
+  useEffect(() => {
+    window.api?.getLaunchOnStartup?.().then((v) => setLaunchOnStartup(v)).catch(() => {})
+  }, [])
 
   // When searching, sections auto-expand; when cleared, collapse state is restored by saved flags
   const isExpanded = (flag: boolean) => searchActive || flag
@@ -289,6 +296,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const personalityLabels = ['HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET']
   const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'ACTIVITY FEEDBACK', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
   const hiddenLabels = ['HIDDEN PROJECTS']
+  const systemLabels = ['LAUNCH ON STARTUP']
   const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
 
   const sectionVisible = (labels: string[]) => !searchActive || labels.some((l) => l.toLowerCase().includes(searchLower))
@@ -922,6 +930,39 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                         <button className="hal-settings-preview-btn" onClick={onCameraReset} title="Reset to default view"
                           style={{ padding: '3px 10px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', width: 'auto', color: 'var(--text-dim)', borderColor: 'var(--border-dim, #333)' }}>RESET VIEW</button>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── SYSTEM section (X8) ── */}
+          {sectionVisible(systemLabels) && (
+            <>
+              <SectionHeader label="SYSTEM" expanded={isExpanded(secSystem)} onToggle={() => setSecSystem(!secSystem)} />
+              {isExpanded(secSystem) && (
+                <div className="hal-settings-section-body">
+                  {match('LAUNCH ON STARTUP') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">LAUNCH ON STARTUP</span>
+                      <div className="hal-settings-control">
+                        <button
+                          onClick={() => {
+                            const next = !launchOnStartup
+                            setLaunchOnStartup(next)
+                            window.api?.setLaunchOnStartup?.(next).catch(() => setLaunchOnStartup(!next))
+                          }}
+                          style={{
+                            width: 'auto',
+                            padding: '2px 8px',
+                            color: launchOnStartup ? '#22d3ee' : 'var(--text-dim)',
+                            borderColor: launchOnStartup ? '#22d3ee55' : undefined,
+                          }}
+                        >
+                          {launchOnStartup ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

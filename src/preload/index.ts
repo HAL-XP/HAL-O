@@ -157,6 +157,11 @@ const api = {
   writePersonality: (data: Record<string, unknown>) => ipcRenderer.invoke('write-personality', data),
   readPersonality: () => ipcRenderer.invoke('read-personality'),
 
+  // System (X8: watchdog heartbeat)
+  getLaunchOnStartup: (): Promise<boolean> => ipcRenderer.invoke('get-launch-on-startup'),
+  setLaunchOnStartup: (enabled: boolean): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('set-launch-on-startup', enabled),
+
   // Dev: 2D Preview Mode toggle
   onToggle2dPreview: (callback: (enabled: boolean) => void) => {
     const listener = (_: unknown, enabled: boolean) => callback(enabled)

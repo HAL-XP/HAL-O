@@ -1,10 +1,11 @@
 import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
 import { execSync, spawn } from 'child_process'
 import { registerIpcHandlers } from './ipc-handlers'
 import { getIconFilename, openTerminalAt, escapeCmdArg, isWin } from './platform'
 import { terminalManager } from './terminal-manager'
+import { HAL_O_VERSION } from './version'
 
 // ── B25: V8 GC pressure mitigation ──
 // Give V8 more old-gen heap headroom so major GC runs less frequently.
@@ -204,6 +205,78 @@ ipcMain.handle('capture-screenshot', async () => {
   return path
 })
 
+// ── Watchdog heartbeat writer (X8) ──
+
+const CLAUDE_DIR = join(process.env.USERPROFILE || process.env.HOME || '', '.claude')
+const HEARTBEAT_FILE = join(CLAUDE_DIR, 'hal-o-heartbeat.json')
+const SHUTDOWN_FILE = join(CLAUDE_DIR, 'hal-o-shutdown.json')
+const HEARTBEAT_INTERVAL_MS = 30_000
+
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+const appStartTime = Date.now()
+
+function writeHeartbeat(): void {
+  try {
+    mkdirSync(CLAUDE_DIR, { recursive: true })
+    const payload = {
+      pid: process.pid,
+      timestamp: new Date().toISOString(),
+      uptime: Math.round((Date.now() - appStartTime) / 1000),
+      version: HAL_O_VERSION,
+    }
+    writeFileSync(HEARTBEAT_FILE, JSON.stringify(payload, null, 2))
+  } catch { /* best effort — don't crash the app */ }
+}
+
+function startHeartbeat(): void {
+  writeHeartbeat() // immediate first beat
+  heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS)
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
+/** Remove heartbeat file and write shutdown signal so watchdog knows it was intentional */
+function cleanShutdown(reason: string): void {
+  stopHeartbeat()
+  try {
+    // Delete heartbeat — absence tells watchdog "not running"
+    if (existsSync(HEARTBEAT_FILE)) unlinkSync(HEARTBEAT_FILE)
+  } catch { /* best effort */ }
+  try {
+    // Write shutdown signal — watchdog checks: if shutdown newer than heartbeat → don't relaunch
+    mkdirSync(CLAUDE_DIR, { recursive: true })
+    writeFileSync(SHUTDOWN_FILE, JSON.stringify({
+      reason,
+      timestamp: new Date().toISOString(),
+    }, null, 2))
+  } catch { /* best effort */ }
+}
+
+// ── Launch on startup IPC (X8) ──
+
+ipcMain.handle('get-launch-on-startup', async () => {
+  try {
+    const settings = app.getLoginItemSettings()
+    return settings.openAtLogin
+  } catch {
+    return false
+  }
+})
+
+ipcMain.handle('set-launch-on-startup', async (_event, enabled: boolean) => {
+  try {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+})
+
 // ── App lifecycle ──
 
 // Suppress error dialogs — log to console instead, keep main process alive
@@ -220,6 +293,7 @@ app.whenReady().then(() => {
   registerIpcHandlers()
   createMenu()
   createWindow()
+  startHeartbeat()
 })
 
 app.on('before-quit', () => {
@@ -240,10 +314,12 @@ app.on('before-quit', () => {
 
     terminalManager.closeAll()
     unregisterPid('hal-o')
+    cleanShutdown('user-quit')
   } catch (err) {
     console.error('[HAL-O] before-quit error:', err)
     terminalManager.closeAll()
     unregisterPid('hal-o')
+    cleanShutdown('user-quit')
   }
 })
 

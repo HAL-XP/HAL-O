@@ -327,6 +327,10 @@ export interface ElectronAPI {
   voiceTranscribe: (audioBuffer: ArrayBuffer) => Promise<{ success: boolean; text: string; error?: string }>
   voiceSpeak: (text: string, profile?: string, lang?: string) => Promise<{ success: boolean; audioPath?: string; audioDataUrl?: string; error?: string }>
 
+  // System (X8: watchdog heartbeat)
+  getLaunchOnStartup: () => Promise<boolean>
+  setLaunchOnStartup: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+
   // Dev
   onToggle2dPreview: (callback: (enabled: boolean) => void) => () => void
 
