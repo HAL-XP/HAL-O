@@ -49,6 +49,8 @@ interface Props {
   onOpenTerminal?: () => void // click: open external terminal at project path
   // U11: Embedded browser
   onOpenBrowser?: () => void // click: open project docs/README in embedded browser panel
+  // U18: Merge conflict indicator
+  inMerge?: boolean // true when this project has active merge conflicts
 }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
@@ -225,6 +227,7 @@ export const ScreenPanel = memo(function ScreenPanel({
   searchTarget, searchDimmed = false,
   ideLabel, onOpenIde, onOpenIdeMenu, onOpenTerminal,
   onOpenBrowser,
+  inMerge = false,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -277,9 +280,9 @@ export const ScreenPanel = memo(function ScreenPanel({
   const healthColors = useMemo(() => getHealthColors(theme), [theme.warning, theme.error])
   const healthColor = healthColors[effectiveHealth]
   const accentHex = theme.screenEdgeHex
-  const edgeColor = isExternal ? '#c084fc' : (healthColor || groupColor || accentHex)
-  // Edge glow opacity: style.edgeGlowBase * health multiplier (P3), boosted for external (T3)
-  const edgeBaseOpacity = isExternal ? 0.7 : ((theme.style?.edgeGlowBase ?? 0.5) * HEALTH_EDGE_OPACITY_MULT[effectiveHealth])
+  const edgeColor = inMerge ? '#ef4444' : isExternal ? '#c084fc' : (healthColor || groupColor || accentHex)
+  // Edge glow opacity: style.edgeGlowBase * health multiplier (P3), boosted for external (T3) and merge (U18)
+  const edgeBaseOpacity = inMerge ? 0.9 : isExternal ? 0.7 : ((theme.style?.edgeGlowBase ?? 0.5) * HEALTH_EDGE_OPACITY_MULT[effectiveHealth])
 
   // Button styles derived from theme accent color
   const btnPrimary: React.CSSProperties = useMemo(() => ({
@@ -627,6 +630,16 @@ export const ScreenPanel = memo(function ScreenPanel({
                   padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
                 }} title="HAL-O rules update available">
                   UPDATE
+                </span>
+              )}
+              {inMerge && (
+                <span style={{
+                  fontSize: '7px', letterSpacing: '1px', color: '#ef4444',
+                  background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.5)',
+                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
+                  animation: 'extPulse 2s ease-in-out infinite',
+                }} title="Merge conflicts detected">
+                  MERGE
                 </span>
               )}
               {isFavorite && (

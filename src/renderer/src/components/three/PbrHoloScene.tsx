@@ -12,6 +12,7 @@ import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import { CinematicSequence } from './CinematicSequence'
+import { MergeGraph } from './MergeGraph'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
 
@@ -1772,6 +1773,9 @@ interface Props {
   // M2: Cinematic demo mode
   cinematicActive?: boolean
   onCinematicComplete?: () => void
+  // U18: Merge conflict 3D graph
+  mergeStates?: Record<string, import('../../types/merge').MergeState>
+  commitGraphs?: Record<string, import('../../types/merge').CommitNode[]>
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1817,6 +1821,9 @@ interface PbrSceneInnerProps {
   // M2: Cinematic demo mode
   cinematicActive: boolean
   onCinematicComplete?: () => void
+  // U18: Merge conflict 3D graph
+  mergeStates: Record<string, import('../../types/merge').MergeState>
+  commitGraphs: Record<string, import('../../types/merge').CommitNode[]>
 }
 
 function PbrSceneInner({
@@ -1828,6 +1835,7 @@ function PbrSceneInner({
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
   onOpenBrowser,
   cinematicActive, onCinematicComplete,
+  mergeStates, commitGraphs,
 }: PbrSceneInnerProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2031,6 +2039,19 @@ function PbrSceneInner({
       {/* Sonar pulse — HAL heartbeat */}
       {halOnline && <SonarPulse />}
 
+      {/* U18: 3D Merge Conflict Graphs — render for each project currently in merge */}
+      {Object.entries(mergeStates).map(([projectPath, mergeState]) => {
+        if (!mergeState.inMerge) return null
+        const graph = commitGraphs[projectPath] || []
+        return (
+          <MergeGraph
+            key={`merge-${projectPath}`}
+            mergeState={mergeState}
+            commitGraph={graph}
+          />
+        )
+      })}
+
       {/* B22 PERF: Single useFrame that detects camera movement + user interaction.
           ScreenPanel useFrame callbacks then skip work when camera is static or throttle
           during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
@@ -2092,6 +2113,7 @@ function PbrSceneInner({
             onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
             searchTarget={searchTargetPos}
             searchDimmed={isDimmed}
+            inMerge={!!mergeStates[project.path]?.inMerge}
           />
         )
       })}
@@ -2152,7 +2174,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {} }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2289,6 +2311,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           onOpenBrowser={onOpenBrowser}
           cinematicActive={cinematicActive}
           onCinematicComplete={onCinematicComplete}
+          mergeStates={mergeStates}
+          commitGraphs={commitGraphs}
         />
       </ThreeThemeProvider>
     </Canvas>

@@ -5,6 +5,7 @@ import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
 import { useSceneReady } from '../hooks/useSceneReady'
+import { useMergeDetection } from '../hooks/useMergeDetection'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
 import { ProjectContextMenu } from './ProjectContextMenu'
@@ -319,6 +320,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     const interval = setInterval(poll, 10_000)
     return () => { cancelled = true; clearInterval(interval) }
   }, [demo?.enabled])
+
+  // U18: Monitor all projects for merge conflicts (Phase 2 — 3D graph visualization)
+  const { mergeStates, commitGraphs } = useMergeDetection(projects, !demo?.enabled)
 
   // Filter out hidden projects first, then apply search
   // In demo mode, skip the hidden filter — demo projects are synthetic
@@ -664,6 +668,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenBrowser={onOpenBrowser}
           cinematicActive={cinematicActive}
           onCinematicComplete={() => setCinematicActive(false)}
+          mergeStates={mergeStates}
+          commitGraphs={commitGraphs}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>

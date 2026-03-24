@@ -3,10 +3,13 @@
 // Piggybacks on the same ~10s cadence as the external session scanner.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { ProjectInfo, MergeState } from '../types'
+import type { ProjectInfo, MergeState, CommitNode } from '../types'
 
 /** Merge state keyed by project path */
 export type MergeStates = Record<string, MergeState>
+
+/** Commit graphs keyed by project path */
+export type CommitGraphs = Record<string, CommitNode[]>
 
 /** Lightweight boolean map: path → inMerge (from batch check) */
 type MergeFlagMap = Record<string, boolean>
@@ -26,6 +29,7 @@ const POLL_INTERVAL = 10_000 // 10 seconds — same as external session scanner
  */
 export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = true) {
   const [mergeStates, setMergeStates] = useState<MergeStates>({})
+  const [commitGraphs, setCommitGraphs] = useState<CommitGraphs>({})
   const [mergeFlags, setMergeFlags] = useState<MergeFlagMap>({})
   const prevFlagsRef = useRef<MergeFlagMap>({})
 
@@ -33,24 +37,36 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
   const projectsRef = useRef(projects)
   projectsRef.current = projects
 
-  // Full fetch for projects that have conflicts
+  // Full fetch for projects that have conflicts — also fetches commit graphs for 3D visualization
   const fetchFullStates = useCallback(async (pathsInMerge: string[]) => {
     if (pathsInMerge.length === 0) {
       setMergeStates({})
+      setCommitGraphs({})
       return
     }
     const results: MergeStates = {}
+    const graphs: CommitGraphs = {}
     // Fetch in parallel — each is a separate IPC roundtrip
     const promises = pathsInMerge.map(async (path) => {
       try {
         const state = await window.api.detectMergeConflicts(path)
-        if (state.inMerge) results[path] = state
+        if (state.inMerge) {
+          results[path] = state
+          // Phase 2: also fetch commit graph for 3D visualization (shallow — 20 commits)
+          try {
+            const graph = await window.api.getCommitGraph(path, 20)
+            graphs[path] = graph
+          } catch {
+            graphs[path] = [] // graph is optional — visualization works without it
+          }
+        }
       } catch {
         // Silently ignore failures for individual projects
       }
     })
     await Promise.all(promises)
     setMergeStates(results)
+    setCommitGraphs(graphs)
   }, [])
 
   useEffect(() => {
@@ -107,11 +123,18 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
   /** Count of projects currently in merge state */
   const mergeCount = Object.values(mergeFlags).filter(Boolean).length
 
+  /** Get the commit graph for a project (or empty array if not in merge / not loaded) */
+  const getCommitGraph = useCallback((path: string): CommitNode[] => {
+    return commitGraphs[path] || []
+  }, [commitGraphs])
+
   return {
     mergeStates,
+    commitGraphs,
     mergeFlags,
     mergeCount,
     isProjectInMerge,
     getMergeState,
+    getCommitGraph,
   }
 }
