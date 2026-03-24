@@ -1,3 +1,7 @@
+// U18 merge types — import for use in ElectronAPI, re-export for consumers
+import type { ConflictChunk as _ConflictChunk, MergeState as _MergeState, CommitNode as _CommitNode } from './types/merge'
+export type { ConflictStatus, ConflictChunk, ConflictFile, MergeState, CommitNode } from './types/merge'
+
 export interface Choice {
   id: string
   label: string
@@ -378,6 +382,17 @@ export interface ElectronAPI {
 
   // U20: Terminal activity feedback — bytes/sec metering from PTY sessions
   onTerminalActivity: (callback: (info: { sessionId: string; projectPath: string; activityLevel: number }) => void) => () => void
+
+  // U18: Merge conflict detection & resolution
+  detectMergeConflicts: (projectPath: string) => Promise<_MergeState>
+  checkMergeState: (projectPath: string) => Promise<boolean>
+  parseConflictFile: (projectPath: string, filePath: string) => Promise<_ConflictChunk[]>
+  resolveConflictChunk: (projectPath: string, filePath: string, chunkId: number, resolution: string, customContent?: string) => Promise<{ success: boolean; error?: string }>
+  resolveConflictFile: (projectPath: string, filePath: string, resolutions: Array<{ chunkId: number; resolution: string; customContent?: string }>) => Promise<{ success: boolean; error?: string }>
+  completeMerge: (projectPath: string, commitMessage?: string) => Promise<{ success: boolean; error?: string; commitHash?: string }>
+  abortMerge: (projectPath: string) => Promise<{ success: boolean; error?: string }>
+  getCommitGraph: (projectPath: string, depth?: number) => Promise<_CommitNode[]>
+  batchCheckMergeState: (projectPaths: string[]) => Promise<Record<string, boolean>>
 }
 
 declare global {

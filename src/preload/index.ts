@@ -207,6 +207,22 @@ const api = {
     ipcRenderer.on('terminal-activity', listener)
     return () => ipcRenderer.removeListener('terminal-activity', listener)
   },
+
+  // U18: Merge conflict detection & resolution
+  detectMergeConflicts: (projectPath: string) => ipcRenderer.invoke('detect-merge-conflicts', projectPath),
+  checkMergeState: (projectPath: string): Promise<boolean> => ipcRenderer.invoke('check-merge-state', projectPath),
+  parseConflictFile: (projectPath: string, filePath: string) => ipcRenderer.invoke('parse-conflict-file', projectPath, filePath),
+  resolveConflictChunk: (projectPath: string, filePath: string, chunkId: number, resolution: string, customContent?: string) =>
+    ipcRenderer.invoke('resolve-conflict-chunk', projectPath, filePath, chunkId, resolution, customContent),
+  resolveConflictFile: (projectPath: string, filePath: string, resolutions: Array<{ chunkId: number; resolution: string; customContent?: string }>) =>
+    ipcRenderer.invoke('resolve-conflict-file', projectPath, filePath, resolutions),
+  completeMerge: (projectPath: string, commitMessage?: string): Promise<{ success: boolean; error?: string; commitHash?: string }> =>
+    ipcRenderer.invoke('complete-merge', projectPath, commitMessage),
+  abortMerge: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('abort-merge', projectPath),
+  getCommitGraph: (projectPath: string, depth?: number) => ipcRenderer.invoke('get-commit-graph', projectPath, depth),
+  batchCheckMergeState: (projectPaths: string[]): Promise<Record<string, boolean>> =>
+    ipcRenderer.invoke('batch-check-merge-state', projectPaths),
 }
 
 contextBridge.exposeInMainWorld('api', api)
