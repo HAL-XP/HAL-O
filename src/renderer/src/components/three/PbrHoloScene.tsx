@@ -64,6 +64,7 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 ;(window as any).__haloDispatchSphereEvent = dispatchSphereEvent
 
 import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
+import { isFocusRecovering, onRecoveryChange } from '../../hooks/useFocusRecovery'
 import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
@@ -2259,12 +2260,23 @@ function PbrSceneInner({
 }
 
 // ── InvalidateExporter — wires R3F invalidate() to a ref accessible outside Canvas ──
+// B29: Also performs burst-invalidation via useFrame during focus recovery window.
+// This replaces the old setTimeout-based burst (B24) which fired too early before React re-rendered.
 function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRefObject<(() => void) | null> }) {
   const { invalidate } = useThree()
+  const burstRef = useRef(false)
   useEffect(() => {
     invalidateRef.current = invalidate
-    return () => { invalidateRef.current = null }
+    // Start/stop burst invalidation when recovery state changes
+    const unsub = onRecoveryChange((recovering) => { burstRef.current = recovering })
+    // If already recovering on mount, start burst
+    if (isFocusRecovering()) burstRef.current = true
+    return () => { invalidateRef.current = null; unsub() }
   }, [invalidate, invalidateRef])
+  // During recovery: invalidate every frame to keep the render loop fully warm
+  useFrame(() => {
+    if (burstRef.current) invalidate()
+  })
   return null
 }
 
@@ -2314,13 +2326,18 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
 
   // ── Blur throttle: switch to demand frameloop when window loses focus ──
   // On blur: frameloop→demand + 5fps invalidate timer. On focus: frameloop→always.
-  // On focus recovery: burst-invalidate to ensure instant responsiveness (B24 fix).
+  // B29: Burst invalidation is now handled by InvalidateExporter's useFrame loop
+  // (driven by useFocusRecovery), replacing the old B24 setTimeout burst.
+  // The frameloop switch stays "demand" during recovery — InvalidateExporter's useFrame
+  // calls invalidate() every frame in demand mode, which is equivalent to "always" but
+  // avoids the React state update overhead during the critical recovery window.
   const [frameloop, setFrameloop] = useState<'always' | 'demand'>('always')
   const blurTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const invalidateRef = useRef<(() => void) | null>(null)
-  const warmupTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const frameloopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     const startThrottle = () => {
+      if (frameloopTimerRef.current) { clearTimeout(frameloopTimerRef.current); frameloopTimerRef.current = null }
       setFrameloop('demand')
       if (!blurTimerRef.current) {
         blurTimerRef.current = setInterval(() => { invalidateRef.current?.() }, 200)
@@ -2328,17 +2345,17 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
     }
     const stopThrottle = () => {
       if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
-      setFrameloop('always')
-      // Burst-invalidate: force several frames immediately so the render loop
-      // is fully warm before the user's first interaction lands. The React state
-      // update (setFrameloop) is async, but invalidate() triggers a frame even
-      // in "demand" mode, bridging the gap until "always" takes effect.
-      for (const t of warmupTimersRef.current) clearTimeout(t)
-      warmupTimersRef.current = []
-      const burst = [0, 8, 16, 32, 48]
-      for (const ms of burst) {
-        warmupTimersRef.current.push(setTimeout(() => { invalidateRef.current?.() }, ms))
-      }
+      // B29: Don't switch to "always" immediately — keep "demand" while the
+      // InvalidateExporter useFrame burst handles frame production.
+      // Defer the frameloop→always switch by 1.5s so the React state update
+      // doesn't cause a re-render storm during the recovery window.
+      if (frameloopTimerRef.current) clearTimeout(frameloopTimerRef.current)
+      frameloopTimerRef.current = setTimeout(() => {
+        setFrameloop('always')
+        frameloopTimerRef.current = null
+      }, 1500)
+      // Kick-start an immediate invalidation so the very first frame renders instantly
+      invalidateRef.current?.()
     }
     const off = window.api.onWindowFocusChange?.((focused) => {
       if (focused) stopThrottle(); else startThrottle()
@@ -2348,9 +2365,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      stopThrottle()
-      for (const t of warmupTimersRef.current) clearTimeout(t)
-      warmupTimersRef.current = []
+      if (blurTimerRef.current) { clearInterval(blurTimerRef.current); blurTimerRef.current = null }
+      if (frameloopTimerRef.current) { clearTimeout(frameloopTimerRef.current); frameloopTimerRef.current = null }
       off?.()
       document.removeEventListener('visibilitychange', onVisible)
     }

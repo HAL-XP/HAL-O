@@ -6,6 +6,7 @@ import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
 import { useSceneReady } from '../hooks/useSceneReady'
 import { useMergeDetection } from '../hooks/useMergeDetection'
+import { createStaggeredPoll } from '../hooks/useFocusRecovery'
 import { ConflictViewer } from './ConflictViewer'
 import { SceneRoot } from './three/SceneRoot'
 import { HudTopbar } from './HudTopbar'
@@ -315,15 +316,15 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // B25 FIX: Compare new sessions with current to avoid unnecessary re-renders.
   // Without this, setExternalSessions triggers a full component tree re-render every 10s
   // (including all ScreenPanel instances), which increases GC pressure from stale closures.
+  // B29 FIX: Use staggered poll so the first poll after alt-tab back is delayed 2s,
+  // preventing simultaneous IPC bursts from all polling subsystems.
   const externalSessionsRef = useRef(externalSessions)
   externalSessionsRef.current = externalSessions
   useEffect(() => {
     if (demo?.enabled) return // No real sessions to detect in demo
     if (!window.api.detectExternalSessions) return
     let cancelled = false
-    const poll = () => {
-      // Skip polling when the tab/window is hidden (saves IPC + process enumeration)
-      if (document.hidden) return
+    const rawPoll = () => {
       window.api.detectExternalSessions().then((sessions) => {
         if (cancelled) return
         // Only update state if the session list actually changed (avoid re-render churn)
@@ -333,9 +334,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         if (changed) setExternalSessions(sessions)
       }).catch(() => {})
     }
-    poll() // Initial check
+    const { poll, cleanup } = createStaggeredPoll(rawPoll, 2000)
+    poll() // Initial check (runs immediately since no recovery yet)
     const interval = setInterval(poll, 10_000)
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => { cancelled = true; clearInterval(interval); cleanup() }
   }, [demo?.enabled])
 
   // U18: Monitor all projects for merge conflicts (Phase 2 — 3D graph visualization)

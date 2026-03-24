@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ProjectInfo, MergeState, CommitNode } from '../types'
+import { createStaggeredPoll } from './useFocusRecovery'
 
 /** Merge state keyed by project path */
 export type MergeStates = Record<string, MergeState>
@@ -69,6 +70,7 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
     setCommitGraphs(graphs)
   }, [])
 
+  // B29: Stagger the first poll after focus recovery to avoid IPC burst
   useEffect(() => {
     if (!enabled) {
       setMergeFlags({})
@@ -79,10 +81,7 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
 
     let cancelled = false
 
-    const poll = async () => {
-      // Skip polling when the tab/window is hidden (saves IPC + disk I/O)
-      if (document.hidden) return
-
+    const rawPoll = async () => {
       const paths = projectsRef.current.map(p => p.path)
       if (paths.length === 0) return
 
@@ -108,9 +107,10 @@ export function useMergeDetection(projects: ProjectInfo[], enabled: boolean = tr
       }
     }
 
-    poll() // Initial check
+    const { poll, cleanup } = createStaggeredPoll(() => { rawPoll() }, 2000)
+    poll() // Initial check (runs immediately since no recovery yet)
     const interval = setInterval(poll, POLL_INTERVAL)
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => { cancelled = true; clearInterval(interval); cleanup() }
   }, [enabled, fetchFullStates])
 
   /** Check if a specific project path has an active merge */
