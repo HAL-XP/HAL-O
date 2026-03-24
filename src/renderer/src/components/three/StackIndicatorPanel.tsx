@@ -112,7 +112,7 @@ export function StackIndicatorPanel({ position, rotation, count, groupColor, gro
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[framePoints, 3]} />
         </bufferGeometry>
-        <lineBasicMaterial color={edgeColor} toneMapped={false} linewidth={1} />
+        <lineBasicMaterial color={edgeColor} transparent opacity={0.6} linewidth={1} />
       </lineLoop>
 
       {/* Emissive edge glow — dimmer than normal panels */}

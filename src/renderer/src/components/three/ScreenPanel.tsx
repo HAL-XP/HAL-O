@@ -515,27 +515,17 @@ export const ScreenPanel = memo(function ScreenPanel({
             willChange: 'opacity',
             position: 'relative',
           }}>
-            {/* CRT scanline overlay — sci-fi holographic display effect */}
+            {/* CRT effects disabled for performance — N panels × infinite CSS animations = lag
             <div style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              zIndex: 10,
+              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10,
               background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
               mixBlendMode: 'multiply',
             }} />
-            {/* Horizontal refresh line — sweeps down like a CRT beam */}
             <div style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              height: '2px',
+              position: 'absolute', left: 0, right: 0, height: '2px',
               background: `linear-gradient(90deg, transparent, ${edgeColor}44, transparent)`,
-              pointerEvents: 'none',
-              zIndex: 11,
-              animation: 'crtSweep 3s linear infinite',
-              opacity: 0.6,
-            }} />
+              pointerEvents: 'none', zIndex: 11, animation: 'crtSweep 3s linear infinite', opacity: 0.6,
+            }} /> */}
             <style>{`
               @keyframes crtSweep {
                 0% { top: -2px; }
