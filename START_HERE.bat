@@ -102,6 +102,7 @@ if defined ELECTRON_NO_ASAR (
 ::  Step 1/7: Check Node.js
 :: ============================================================================
 echo %BOLD%  [1/%TOTAL_STEPS%] Checking Node.js...%RESET%
+echo %DIM%    (JavaScript runtime — powers HAL-O's backend)%RESET%
 echo [Step 1] Checking Node.js >> "%LOG%"
 
 call node --version >nul 2>&1
@@ -202,6 +203,7 @@ set "STEP_NODE=1"
 ::  Step 2/7: Check npm
 :: ============================================================================
 echo %BOLD%  [2/%TOTAL_STEPS%] Checking npm...%RESET%
+echo %DIM%    (Package manager — installs HAL-O's dependencies)%RESET%
 echo [Step 2] Checking npm >> "%LOG%"
 
 echo [Step 2] Running npm --version >> "%LOG%"
@@ -225,7 +227,8 @@ set "STEP_NPM=1"
 :: ============================================================================
 ::  Step 3/7: Check Visual Studio Build Tools
 :: ============================================================================
-echo %BOLD%  [3/%TOTAL_STEPS%] Checking C++ build tools (needed for native modules)...%RESET%
+echo %BOLD%  [3/%TOTAL_STEPS%] Checking C++ build tools...%RESET%
+echo %DIM%    (Needed once to compile the embedded terminal engine)%RESET%
 echo [Step 3] Checking Visual Studio Build Tools >> "%LOG%"
 
 set "HAS_VSBT=0"
@@ -344,7 +347,7 @@ if "%HAS_VSBT%"=="1" (
 ::  Step 4/7: npm install
 :: ============================================================================
 echo %BOLD%  [4/%TOTAL_STEPS%] Installing dependencies...%RESET%
-echo %DIM%    This may take a few minutes on first run.%RESET%
+echo %DIM%    (Downloads all libraries HAL-O needs — first run takes a few minutes)%RESET%
 echo [Step 4] Running npm install >> "%LOG%"
 
 :: Check if node_modules exists and has expected packages
@@ -429,7 +432,8 @@ if "%STEP_VSBT%"=="0" (
     goto :step6
 )
 
-echo %BOLD%  [5/%TOTAL_STEPS%] Patching and rebuilding node-pty...%RESET%
+echo %BOLD%  [5/%TOTAL_STEPS%] Patching and rebuilding terminal engine...%RESET%
+echo %DIM%    (Fixes compatibility issues with the embedded terminal)%RESET%
 echo [Step 5] Applying node-pty patches >> "%LOG%"
 
 set "PTY_DIR=%REPO%\node_modules\node-pty"
@@ -607,6 +611,7 @@ if exist "%REPO%\_scripts\_rebuild.ps1" (
 ::  Step 6/7: Build the app
 :: ============================================================================
 echo %BOLD%  [6/%TOTAL_STEPS%] Building HAL-O...%RESET%
+echo %DIM%    (Compiling the app for your system — about 10 seconds)%RESET%
 echo [Step 6] Running electron-vite build >> "%LOG%"
 
 call npx electron-vite build >> "%LOG%" 2>&1
