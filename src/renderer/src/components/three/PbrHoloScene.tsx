@@ -1052,7 +1052,7 @@ function PbrSceneInner({
     // Min 0.5 keeps the bottom edge (panel height ~1 unit) clear of the floor surface.
     return raw.map((sp) => ({
       ...sp,
-      position: [sp.position[0], Math.max(0.5, sp.position[1]), sp.position[2]] as [number, number, number],
+      position: [sp.position[0], Math.max(1.0, sp.position[1]), sp.position[2]] as [number, number, number],
     }))
   }, [projects.length, layoutId, groupIndices, groups.length])
 

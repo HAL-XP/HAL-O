@@ -185,31 +185,29 @@ export function ScreenPanel({
 
   const edgeMeshRefs = useRef<THREE.Mesh[]>([])
 
-  const wasFrontRef = useRef(false)
+  const wasFrontRef = useRef<boolean | null>(null) // null = first frame, needs forced write
 
   useFrame(() => {
     if (groupRef.current) {
       const s = isHovered ? 1.04 : 1.0
       groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
-      // Back-face detection — only update DOM/visibility when state CHANGES (avoids per-frame DOM writes)
+      // Back-face detection
       _screenNormal.set(0, 0, 1)
       _screenNormal.applyQuaternion(groupRef.current.quaternion)
       _toCamera.subVectors(camera.position, groupRef.current.position).normalize()
       const dot = _screenNormal.dot(_toCamera)
-      const isFront = dot > -0.1
+      const isFront = dot > 0.05
 
+      // Update DOM only on state change OR first frame (null → force write)
       if (isFront !== wasFrontRef.current) {
         wasFrontRef.current = isFront
-        // Update edge glow visibility
         for (const m of edgeMeshRefs.current) { if (m) m.visible = isFront }
-        // Update Html overlay — only on change, not every frame
         if (htmlWrapRef.current) {
           htmlWrapRef.current.style.opacity = isFront ? '1' : '0'
           htmlWrapRef.current.style.pointerEvents = isFront ? 'auto' : 'none'
         }
       }
-      // Trigger stats load once (never re-triggers)
       if (isFront && !visible) setVisible(true)
     }
   })
@@ -254,7 +252,7 @@ export function ScreenPanel({
         <meshBasicMaterial color={edgeColor} toneMapped={false} transparent opacity={isHovered ? 0.9 : edgeBaseOpacity} />
       </mesh>
 
-      {/* HTML content */}
+      {/* HTML content — starts hidden, useFrame reveals when front-facing */}
       <Html
         transform
         distanceFactor={4}
@@ -272,10 +270,37 @@ export function ScreenPanel({
         <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
           fontFamily: "'Cascadia Code', 'Fira Code', monospace",
           color: '#c8dce8',
-          transition: 'opacity 0.3s ease',
+          transition: 'opacity 0.15s ease',
           willChange: 'opacity',
           position: 'relative',
         }}>
+          {/* CRT scanline overlay — sci-fi holographic display effect */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 10,
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
+            mixBlendMode: 'multiply',
+          }} />
+          {/* Horizontal refresh line — sweeps down like a CRT beam */}
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            height: '2px',
+            background: `linear-gradient(90deg, transparent, ${edgeColor}44, transparent)`,
+            pointerEvents: 'none',
+            zIndex: 11,
+            animation: 'crtSweep 3s linear infinite',
+            opacity: 0.6,
+          }} />
+          <style>{`
+            @keyframes crtSweep {
+              0% { top: -2px; }
+              100% { top: 100%; }
+            }
+          `}</style>
           {/* Scrolling background status text — very low opacity, behind content */}
           {effectiveHealthText && (
             <div style={{
