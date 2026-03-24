@@ -1345,7 +1345,9 @@ function PostFXInner() {
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />
+      {/* Bloom disabled — causes visible line streaks on camera movement from all bright emissive elements.
+           Re-enable when P14 (graphics quality presets) is implemented with scale-aware line widths.
+      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} /> */}
       {/* ChromaticAberration disabled — binary search confirmed it causes horizontal lines on bright edges */}
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
@@ -2144,13 +2146,14 @@ function PbrSceneInner({
       <ScreenPanelUpdater />
 
       {/* P5b: Curved particle energy trails between grouped projects */}
+      {/* GroupTrails disabled — purple arcs visible and distracting. Needs design rethink.
       <GroupTrails
         projects={projects}
         groups={groups}
         assignments={assignments}
         screenPositions={screenPositions}
         searchActive={searchActive}
-      />
+      /> */}
 
       {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {
