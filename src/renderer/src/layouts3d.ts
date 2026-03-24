@@ -33,17 +33,50 @@ export type GroupLayout3DFn = (
   groupCount: number,
 ) => Screen3DPosition[]
 
-/** Single ring — screens evenly spaced around a circle */
+/** Max panels per ring before auto-splitting into multiple rings.
+ * At 12 panels the arc gap is comfortable at any camera angle. */
+const MAX_PER_RING = 12
+
+/** Single ring for small counts, auto-splits into stacked rings for large counts */
 function layoutDefault(count: number): Screen3DPosition[] {
-  const radius = minRadiusForCount(count)
-  const yBase = MIN_PANEL_Y
-  return Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * Math.PI * 2 - Math.PI / 2
-    return {
-      position: [Math.cos(angle) * radius, yBase, Math.sin(angle) * radius] as [number, number, number],
-      rotation: [0, -angle + Math.PI / 2, 0] as [number, number, number],
+  if (count <= MAX_PER_RING) {
+    // Single ring — fits without overlap
+    const radius = minRadiusForCount(count)
+    const yBase = MIN_PANEL_Y
+    return Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2 - Math.PI / 2
+      return {
+        position: [Math.cos(angle) * radius, yBase, Math.sin(angle) * radius] as [number, number, number],
+        rotation: [0, -angle + Math.PI / 2, 0] as [number, number, number],
+      }
+    })
+  }
+  // Multiple rings — distribute evenly, offset rings vertically
+  const ringCount = Math.ceil(count / MAX_PER_RING)
+  const result: Screen3DPosition[] = []
+  let placed = 0
+  for (let ring = 0; ring < ringCount; ring++) {
+    const remaining = count - placed
+    const ringsLeft = ringCount - ring
+    const onThisRing = Math.ceil(remaining / ringsLeft)
+    const radius = minRadiusForCount(onThisRing)
+    // Stack rings vertically with enough space (card height 1.8 + 1.2 gap = 3.0)
+    const y = MIN_PANEL_Y + ring * 3.0
+    // Each higher ring is slightly smaller radius so it doesn't block the one below
+    const radiusScale = 1.0 - ring * 0.08
+    const finalRadius = radius * radiusScale
+    // Offset alternate rings by half-step so cards don't stack directly above each other
+    const angleOffset = ring % 2 === 0 ? 0 : Math.PI / onThisRing
+    for (let i = 0; i < onThisRing; i++) {
+      const angle = (i / onThisRing) * Math.PI * 2 - Math.PI / 2 + angleOffset
+      result.push({
+        position: [Math.cos(angle) * finalRadius, y, Math.sin(angle) * finalRadius],
+        rotation: [0, -angle + Math.PI / 2, 0],
+      })
+      placed++
     }
-  })
+  }
+  return result
 }
 
 /** Dual ring — outer ring + inner ring for overflow.
