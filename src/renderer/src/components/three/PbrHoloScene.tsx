@@ -1956,16 +1956,19 @@ function PbrSceneInner({
   const [sceneReady, setSceneReady] = useState(false)
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
 
-  // M2c: Intro fly-in animation — activates when scene first becomes ready
-  // Intro: DISABLED — looping bug needs investigation. Re-enable when fixed.
-  const introActive = false
-  // const [introActive, setIntroActive] = useState(false)
-  // useEffect(() => {
-  //   if (sceneReady && introAnimation && !cinematicActive && !sessionStorage.getItem('hal-o-intro-done')) {
-  //     sessionStorage.setItem('hal-o-intro-done', '1')
-  //     setIntroActive(true)
-  //   }
-  // }, [sceneReady, introAnimation, cinematicActive])
+  // M2c: Intro fly-in animation — activates when scene first becomes ready.
+  // B28 fix: sessionStorage guard checked synchronously at mount + in effect.
+  // Canvas remount resets React state but sessionStorage survives, preventing replay.
+  const introPlayedRef = useRef(sessionStorage.getItem('hal-o-intro-done') === '1')
+  const [introActive, setIntroActive] = useState(false)
+  useEffect(() => {
+    if (introPlayedRef.current) return // already played this session (survives remount)
+    if (sceneReady && introAnimation && !cinematicActive) {
+      introPlayedRef.current = true
+      sessionStorage.setItem('hal-o-intro-done', '1')
+      setIntroActive(true)
+    }
+  }, [sceneReady, introAnimation, cinematicActive])
 
   // PERF8: Interpolate fade values — targets match progressive mount phases
   useFrame((_, delta) => {
