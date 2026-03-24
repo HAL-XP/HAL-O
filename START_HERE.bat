@@ -135,11 +135,11 @@ if errorlevel 1 (
         )
         echo %GREEN%    ✓ Node.js installed! Refreshing PATH...%RESET%
         echo [Step 1] winget install succeeded >> "%LOG%"
-        :: Refresh PATH to pick up newly installed node
+        REM Refresh PATH to pick up newly installed node
         for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSPATH=%%b"
         for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USRPATH=%%b"
         set "PATH=!SYSPATH!;!USRPATH!"
-        :: Verify it works now
+        REM Verify it works now
         node --version >nul 2>&1
         if errorlevel 1 (
             echo %YELLOW%    Node.js was installed but this terminal can't see it yet.%RESET%
@@ -234,32 +234,39 @@ echo [Step 3] Checking Visual Studio Build Tools >> "%LOG%"
 set "HAS_VSBT=0"
 set "VSBT_PATH="
 
-:: Check common VS 2022 locations (avoid parentheses in for list — x86 paths checked separately)
-for %%p in (
-    "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
-) do (
-    if exist %%p (
-        set "HAS_VSBT=1"
-        set "VSBT_PATH=%%~p"
-    )
+:: Check common VS 2022 locations (individual checks — for-loop with quoted paths breaks on some locales)
+set "VS_BASE=C:\Program Files\Microsoft Visual Studio\2022"
+if "!HAS_VSBT!"=="0" if exist "!VS_BASE!\Community\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!VS_BASE!\Community\Common7\Tools\VsDevCmd.bat"
+)
+if "!HAS_VSBT!"=="0" if exist "!VS_BASE!\BuildTools\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!VS_BASE!\BuildTools\Common7\Tools\VsDevCmd.bat"
+)
+if "!HAS_VSBT!"=="0" if exist "!VS_BASE!\Professional\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!VS_BASE!\Professional\Common7\Tools\VsDevCmd.bat"
+)
+if "!HAS_VSBT!"=="0" if exist "!VS_BASE!\Enterprise\Common7\Tools\VsDevCmd.bat" (
+    set "HAS_VSBT=1"
+    set "VSBT_PATH=!VS_BASE!\Enterprise\Common7\Tools\VsDevCmd.bat"
 )
 
 :: Check x86 paths separately (parentheses in "Program Files (x86)" break for-loop syntax)
-if "!HAS_VSBT!"=="0" if exist "!ProgramFiles(x86)!\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" (
+set "VS_X86=!ProgramFiles(x86)!\Microsoft Visual Studio\2022"
+if "!HAS_VSBT!"=="0" if exist "!VS_X86!\Community\Common7\Tools\VsDevCmd.bat" (
     set "HAS_VSBT=1"
-    set "VSBT_PATH=!ProgramFiles(x86)!\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+    set "VSBT_PATH=!VS_X86!\Community\Common7\Tools\VsDevCmd.bat"
 )
-if "!HAS_VSBT!"=="0" if exist "!ProgramFiles(x86)!\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" (
+if "!HAS_VSBT!"=="0" if exist "!VS_X86!\BuildTools\Common7\Tools\VsDevCmd.bat" (
     set "HAS_VSBT=1"
-    set "VSBT_PATH=!ProgramFiles(x86)!\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
+    set "VSBT_PATH=!VS_X86!\BuildTools\Common7\Tools\VsDevCmd.bat"
 )
 
 :: Also check via vswhere (the official way)
 set "VSWHERE=!ProgramFiles(x86)!\Microsoft Visual Studio\Installer\vswhere.exe"
-if "%HAS_VSBT%"=="0" if exist "!VSWHERE!" (
+if "!HAS_VSBT!"=="0" if exist "!VSWHERE!" (
     for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do (
         if exist "%%i\Common7\Tools\VsDevCmd.bat" (
             set "HAS_VSBT=1"
@@ -288,14 +295,14 @@ if "%HAS_VSBT%"=="1" (
     set /p "VSBT_CHOICE=    Enter 1, 2, or 3: "
     if "!VSBT_CHOICE!"=="1" (
         echo.
-        :: Check admin rights
+        REM Check admin rights
         net session >nul 2>&1
         if errorlevel 1 (
             echo %YELLOW%    Installing build tools requires administrator rights.%RESET%
             echo %YELLOW%    Re-launching as administrator...%RESET%
             echo [Step 3] Elevating to admin for VSBT install >> "%LOG%"
             echo.
-            :: Create a temp script for elevated install
+            REM Create a temp script for elevated install
             echo @echo off > "%TEMP%\halo_install_vsbt.bat"
             echo title Installing Visual Studio Build Tools for HAL-O >> "%TEMP%\halo_install_vsbt.bat"
             echo echo Installing Visual Studio 2022 Build Tools... >> "%TEMP%\halo_install_vsbt.bat"
@@ -372,16 +379,16 @@ if exist "%REPO%\node_modules\electron\package.json" (
 if "%STEP_VSBT%"=="0" (
     echo %YELLOW%    Installing without native modules ^(no build tools^)...%RESET%
     echo [Step 4] npm install --ignore-scripts >> "%LOG%"
-    npm install --ignore-scripts >> "%LOG%" 2>&1
+    call npm install --ignore-scripts >> "%LOG%" 2>&1
 ) else (
-    npm install >> "%LOG%" 2>&1
+    call npm install >> "%LOG%" 2>&1
 )
 
 if errorlevel 1 (
     echo %RED%    ✗ npm install failed%RESET%
     echo [Step 4] FAIL: npm install failed >> "%LOG%"
     echo.
-    :: Check for common failures
+    REM Check for common failures
     findstr /i "node-pty" "%LOG%" >nul 2>&1
     if not errorlevel 1 (
         echo %YELLOW%    The failure appears related to node-pty ^(the terminal engine^).%RESET%
@@ -395,7 +402,7 @@ if errorlevel 1 (
         set /p "RETRY_CHOICE=    Enter 1 or 2: "
         if "!RETRY_CHOICE!"=="1" (
             echo %CYAN%    Retrying without native module compilation...%RESET%
-            npm install --ignore-scripts >> "%LOG%" 2>&1
+            call npm install --ignore-scripts >> "%LOG%" 2>&1
             if errorlevel 1 (
                 echo %RED%    ✗ npm install still failed. Check _setup.log for details.%RESET%
                 echo.
@@ -554,39 +561,8 @@ echo %DIM%    Rebuilding node-pty with Electron headers...%RESET%
 echo [Step 5] Running _rebuild.ps1 >> "%LOG%"
 
 if exist "%REPO%\_scripts\_rebuild.ps1" (
-    :: Update the rebuild script path dynamically in case repo moved
-    powershell -ExecutionPolicy Bypass -Command "& {
-        $vsDevCmd = $null
-        $paths = @(
-            'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat',
-            'C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat',
-            'C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat',
-            'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
-        )
-        foreach ($p in $paths) {
-            if (Test-Path $p) { $vsDevCmd = $p; break }
-        }
-        if (-not $vsDevCmd) {
-            # Try vswhere
-            $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-            if (Test-Path $vswhere) {
-                $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
-                if ($installPath) {
-                    $candidate = Join-Path $installPath 'Common7\Tools\VsDevCmd.bat'
-                    if (Test-Path $candidate) { $vsDevCmd = $candidate }
-                }
-            }
-        }
-        if (-not $vsDevCmd) {
-            Write-Host 'ERROR: Could not find VsDevCmd.bat'
-            exit 1
-        }
-        Write-Host \"Using: $vsDevCmd\"
-        $electronVersion = (Get-Content '%REPO%\node_modules\electron\package.json' | ConvertFrom-Json).version
-        Write-Host \"Electron version: $electronVersion\"
-        $env:PATH = \"$env:PATH;C:\Program Files\Git\cmd\"
-        cmd /c \"`\"$vsDevCmd`\" -arch=amd64 >nul 2>&1 && cd /d %REPO%\node_modules\node-pty && npx node-gyp rebuild --runtime=electron --target=$electronVersion --arch=x64 --dist-url=https://electronjs.org/headers 2>&1\"
-    }" >> "%LOG%" 2>&1
+    REM Call the rebuild script — it auto-detects VS edition and vswhere
+    powershell -ExecutionPolicy Bypass -File "%REPO%\_scripts\_rebuild.ps1" -ProjectRoot "%REPO%" >> "%LOG%" 2>&1
     if errorlevel 1 (
         echo %YELLOW%    ⚠ node-pty rebuild had issues ^(check log^)%RESET%
         echo [Step 5] Rebuild had issues >> "%LOG%"
@@ -603,7 +579,7 @@ if exist "%REPO%\_scripts\_rebuild.ps1" (
 ) else (
     echo %YELLOW%    ⚠ _scripts/_rebuild.ps1 not found — running @electron/rebuild instead%RESET%
     echo [Step 5] Fallback: npx electron-rebuild >> "%LOG%"
-    npx electron-rebuild -f -w node-pty >> "%LOG%" 2>&1
+    call npx electron-rebuild -f -w node-pty >> "%LOG%" 2>&1
     if errorlevel 1 (
         echo %YELLOW%    ⚠ electron-rebuild had issues%RESET%
         echo [Step 5] electron-rebuild had issues >> "%LOG%"
@@ -627,7 +603,7 @@ if errorlevel 1 (
     echo %YELLOW%    ⚠ Build had warnings or errors%RESET%
     echo [Step 6] Build had issues >> "%LOG%"
     echo.
-    :: Check if out/ directory was created (build may succeed with warnings)
+    REM Check if out/ directory was created - build may succeed with warnings
     if exist "%REPO%\out\main\index.js" (
         echo %GREEN%    ✓ Build output exists — continuing%RESET%
         echo [Step 6] Build output exists despite warnings >> "%LOG%"
