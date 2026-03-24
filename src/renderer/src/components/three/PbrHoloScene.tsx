@@ -1935,11 +1935,11 @@ function PbrSceneInner({
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
 
   // M2c: Intro fly-in animation — activates when scene first becomes ready
+  // Intro: fire exactly once per app lifetime (persisted in sessionStorage)
   const [introActive, setIntroActive] = useState(false)
-  const introFiredRef = useRef(false)
   useEffect(() => {
-    if (sceneReady && introAnimation && !introFiredRef.current && !cinematicActive) {
-      introFiredRef.current = true
+    if (sceneReady && introAnimation && !cinematicActive && !sessionStorage.getItem('hal-o-intro-done')) {
+      sessionStorage.setItem('hal-o-intro-done', '1')
       setIntroActive(true)
     }
   }, [sceneReady, introAnimation, cinematicActive])
@@ -2241,12 +2241,14 @@ function PbrSceneInner({
         loop={true}
       />
 
-      {/* M2c: Intro fly-in animation — plays once on app start */}
-      <IntroSequence
-        active={introActive}
-        onComplete={() => { setIntroActive(false); onIntroComplete?.() }}
-        finalTarget={[0, 0.3, 0]}
-      />
+      {/* M2c: Intro fly-in animation — plays once on app start, unmount when done */}
+      {introActive && (
+        <IntroSequence
+          active={true}
+          onComplete={() => { setIntroActive(false); onIntroComplete?.() }}
+          finalTarget={[0, 0.3, 0]}
+        />
+      )}
 
       <PostFX enabled={scenePhase >= 3} />
     </>
