@@ -338,46 +338,35 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     float t = smoothstep(0.2, 0.9, dist);
     vec3 baseColor = mix(uInnerColor, uOuterColor, t);
 
-    // B27 fix: screen-space anti-aliasing + density fade
-    // When rings/ticks become too dense on screen, fade them out entirely
-    // (like a mipmap) instead of letting them alias into horizontal bars.
+    // B27v5: Restore original density (80 rings, 72 ticks) now that the root
+    // cause (group rotation) is fixed. Keep fwidth anti-aliasing for sub-pixel
+    // cases but remove the aggressive density-fade that was hiding the detail.
     float fwDist = fwidth(dist);
     float fwAngle = fwidth(angle);
 
-    // === Concentric rings — fewer, thicker, anti-aliased ===
-    // B27v3: reduced density 80→20 to prevent sub-pixel aliasing at oblique angles
-    float ringDensity = 20.0;
+    // === Concentric rings — the signature look ===
+    float ringDensity = 80.0;
     float ringDist = fract(dist * ringDensity);
-    float ringScreenWidth = fwDist * ringDensity;
-    // Kill rings aggressively when they approach 1 pixel per period
-    float ringFade = smoothstep(0.35, 0.08, ringScreenWidth);
-    float ringHalfW = max(0.08, ringScreenWidth * 2.0);
-    float ringLine = (smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist)) * ringFade;
+    float ringWidth = 0.03 + 0.02 * sin(dist * 20.0);
+    float ringHalfW = max(ringWidth, fwDist * ringDensity * 1.5);
+    float ringLine = smoothstep(0.5 - ringHalfW, 0.5, ringDist) - smoothstep(0.5, 0.5 + ringHalfW, ringDist);
 
-    // Major rings (every 4th — visible at further distances)
-    float majorDensity = ringDensity / 4.0;
-    float majorRing = fract(dist * majorDensity);
-    float majorScreenW = fwDist * majorDensity;
-    float majorFade = smoothstep(0.35, 0.08, majorScreenW);
-    float majorHalfW = max(0.1, majorScreenW * 2.0);
-    float majorLine = (smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing)) * majorFade;
-    ringLine = max(ringLine * 0.4, majorLine * 0.8);
+    // Major rings (every 8th ring is brighter)
+    float majorRing = fract(dist * ringDensity / 8.0);
+    float majorHalfW = max(0.05, fwDist * ringDensity / 8.0 * 1.5);
+    float majorLine = smoothstep(0.5 - majorHalfW, 0.5, majorRing) - smoothstep(0.5, 0.5 + majorHalfW, majorRing);
+    ringLine = max(ringLine * 0.5, majorLine);
 
-    // === Tick marks — fewer, thicker ===
-    float tickCount = 36.0;
-    float tickScreenW = fwAngle / (2.0 * 3.14159265) * tickCount;
-    float tickFade = smoothstep(0.35, 0.08, tickScreenW);
+    // === Tick marks — radial lines at regular angles ===
+    float tickCount = 72.0;
     float tickAngle = fract(angle / (2.0 * 3.14159265) * tickCount);
-    float tickHalfW = max(0.04, tickScreenW * 2.0);
-    float tick = (smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle)) * tickFade;
+    float tickHalfW = max(0.02, fwAngle / (2.0 * 3.14159265) * tickCount * 1.5);
+    float tick = smoothstep(0.5 - tickHalfW, 0.5, tickAngle) - smoothstep(0.5, 0.5 + tickHalfW, tickAngle);
     float tickBand = step(0.3, dist) * step(dist, 0.85);
-    // Major ticks every 4th
-    float majorTickCount = tickCount / 4.0;
-    float majorTickScreenW = fwAngle / (2.0 * 3.14159265) * majorTickCount;
-    float majorTickFade = smoothstep(0.35, 0.08, majorTickScreenW);
-    float majorTickAngle = fract(angle / (2.0 * 3.14159265) * majorTickCount);
-    float majorTickHalfW = max(0.06, majorTickScreenW * 2.0);
-    float majorTick = (smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle)) * majorTickFade;
+    // Major ticks every 8th
+    float majorTickAngle = fract(angle / (2.0 * 3.14159265) * (tickCount / 8.0));
+    float majorTickHalfW = max(0.04, fwAngle / (2.0 * 3.14159265) * tickCount / 8.0 * 1.5);
+    float majorTick = smoothstep(0.5 - majorTickHalfW, 0.5, majorTickAngle) - smoothstep(0.5, 0.5 + majorTickHalfW, majorTickAngle);
     tick = max(tick * 0.3, majorTick * 0.6) * tickBand;
 
     // === Marker dots at intersections ===
