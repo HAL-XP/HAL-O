@@ -257,35 +257,59 @@ jobs:
             start_here_err.txt
           retention-days: 7
 
-  # -- Telegram notifications ------------------------------------------------
+  # -- Smart Telegram notifications ------------------------------------------
+  # Only notifies on STATE CHANGES:
+  #   - First red after green (or first ever red) = send failure alert
+  #   - Green after red = send recovery alert
+  #   - Red after red = SILENT (no spam)
+  #   - Green after green = SILENT
   # Requires repo secrets: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
-  # Add them at: Settings > Secrets and variables > Actions > New repository secret
 
-  notify-failure:
+  notify:
     needs: [test-linux, test-windows, test-start-here]
-    if: failure()
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Send Telegram notification
+      - name: Check previous run conclusion
+        id: prev
         run: |
+          # Get the conclusion of the most recent COMPLETED run before this one
+          PREV=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=master&status=completed&per_page=2" \
+            | jq -r '.workflow_runs[1].conclusion // "none"')
+          echo "conclusion=$PREV" >> "$GITHUB_OUTPUT"
+          echo "Previous run: $PREV"
+
+      - name: Determine current result
+        id: current
+        run: |
+          # Check if any needed job failed
+          CURRENT="${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}"
+          echo "conclusion=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "Current run: $CURRENT"
+
+      - name: Send notification on state change
+        run: |
+          PREV="${{ steps.prev.outputs.conclusion }}"
+          CURR="${{ steps.current.outputs.conclusion }}"
           MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          printf -v TEXT '🔴 CI FAILED: %s\nmaster · %s\n%s' "$MSG" "$SHORT_SHA" "$RUN_URL"
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="${TEXT}"
 
-  notify-success:
-    needs: [test-linux, test-windows, test-start-here]
-    if: success()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send Telegram notification
-        run: |
-          MSG=$(echo "${{ github.event.head_commit.message }}" | head -1)
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          printf -v TEXT '✅ %s\nmaster · %s' "$MSG" "$SHORT_SHA"
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="${TEXT}"
+          if [ "$CURR" = "failure" ] && [ "$PREV" != "failure" ]; then
+            # First failure — alert
+            printf -v TEXT '🔴 CI FAILED: %s\nmaster · %s\n%s' "$MSG" "$SHORT_SHA" "$RUN_URL"
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              --data-urlencode "text=$TEXT"
+            echo "Sent: first failure notification"
+          elif [ "$CURR" = "success" ] && [ "$PREV" = "failure" ]; then
+            # Recovery — green after red
+            printf -v TEXT '✅ CI RECOVERED: %s\nmaster · %s' "$MSG" "$SHORT_SHA"
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              --data-urlencode "text=$TEXT"
+            echo "Sent: recovery notification"
+          else
+            echo "Silent: $PREV -> $CURR (no state change)"
+          fi
