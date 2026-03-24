@@ -5,6 +5,8 @@
   "description": "HAL-O — Your personal Jarvis for code. Holographic dashboard, voice AI, embedded terminals. Open source.",
   "main": "./out/main/index.js",
   "scripts": {
+    "prebuild": "node -e \"require('fs').rmSync('node_modules/.vite',{recursive:true,force:true})\"",
+    "predev": "node -e \"require('fs').rmSync('node_modules/.vite',{recursive:true,force:true})\"",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
