@@ -392,8 +392,8 @@ export function ScreenPanel({
       <lineLoop ref={(el: any) => { if (el) edgeMeshRefs.current[4] = el }} geometry={_sharedFrameGeo}>
         <lineBasicMaterial
           color={edgeColor}
-          toneMapped={false}
           transparent
+          opacity={0.6}
           linewidth={1}
         />
       </lineLoop>
