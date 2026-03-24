@@ -1527,30 +1527,43 @@ function ScenePhaseManager({ sceneReady, onPhaseChange }: { sceneReady: boolean;
   return null
 }
 
-// ── Connection Beams — subtle glowing lines between projects in the same group (P5) ──
-// Uses star pattern: all group members connect to their group centroid.
-// Single BufferGeometry + LineSegments for performance (one draw call for ALL beams).
-const _beamColor = new THREE.Color()
+// ── P5b: Group Trails — curved particle energy trails between grouped projects ──
+// Particles flow along CatmullRom splines connecting projects in the same group.
+// Single InstancedMesh with small emissive spheres (max 50 particles total).
+const _trailColor = new THREE.Color()
+const _trailDummy = new THREE.Object3D()
+const MAX_TRAIL_PARTICLES = 50
 
-function ConnectionBeams({ projects, groups, assignments, screenPositions, searchActive }: {
+interface TrailCurve {
+  curve: THREE.CatmullRomCurve3
+  color: THREE.Color
+}
+
+interface TrailParticle {
+  curveIdx: number  // index into curves array
+  t: number         // 0→1 progress along curve
+  speed: number     // units per second (in t-space)
+  phase: number     // lifecycle phase offset for staggering
+}
+
+function GroupTrails({ projects, groups, assignments, screenPositions, searchActive }: {
   projects: ProjectInfo[]
   groups: ProjectGroup[]
   assignments: Record<string, string>
   screenPositions: { position: [number, number, number]; rotation: [number, number, number] }[]
   searchActive: boolean
 }) {
-  const lineRef = useRef<THREE.LineSegments>(null)
-  const matRef = useRef<THREE.LineBasicMaterial>(null)
-  const opacityRef = useRef(0) // fade-in on mount
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const opacityRef = useRef(0)
 
-  // Build beam geometry: group → member indices → centroid → line segments
-  const { geometry, segmentCount } = useMemo(() => {
+  // Build curved splines between group members (pairwise, not all-to-all for large groups)
+  const { curves, particleCount } = useMemo(() => {
+    const result: TrailCurve[] = []
     if (groups.length < 2 || screenPositions.length === 0) {
-      // Only render beams when 2+ groups exist — a single group creates an ugly starburst
-      return { geometry: new THREE.BufferGeometry(), segmentCount: 0 }
+      return { curves: result, particleCount: 0 }
     }
 
-    // Map each group id to its member project indices
+    // Map group id → member screen positions
     const groupMembers = new Map<string, number[]>()
     projects.forEach((p, i) => {
       const gId = assignments[p.path]
@@ -1561,100 +1574,140 @@ function ConnectionBeams({ projects, groups, assignments, screenPositions, searc
       groupMembers.set(gId, arr)
     })
 
-    // Count total line segments: each group with 2+ members = N segments (member→centroid)
-    let totalSegments = 0
-    for (const [, members] of groupMembers) {
-      if (members.length >= 2) totalSegments += members.length
-    }
-
-    if (totalSegments === 0) {
-      return { geometry: new THREE.BufferGeometry(), segmentCount: 0 }
-    }
-
-    // Allocate buffers: each segment = 2 vertices, each vertex = 3 floats (position) + 3 floats (color)
-    const positions = new Float32Array(totalSegments * 2 * 3)
-    const colors = new Float32Array(totalSegments * 2 * 3)
-    let offset = 0
-
+    // Build pairwise curves for groups with 2+ members
+    // For groups with many members, connect sequential pairs (ring topology) to avoid O(n^2) curves
     for (const [gId, members] of groupMembers) {
       if (members.length < 2) continue
       const group = groups.find((g) => g.id === gId)
       if (!group) continue
 
-      // Compute centroid
-      let cx = 0, cy = 0, cz = 0
-      let validCount = 0
-      for (const idx of members) {
-        const sp = screenPositions[idx]
-        if (!sp) continue
-        cx += sp.position[0]
-        cy += sp.position[1]
-        cz += sp.position[2]
-        validCount++
-      }
-      if (validCount < 2) continue
-      cx /= validCount
-      cy /= validCount
-      cz /= validCount
+      const color = new THREE.Color(group.color)
 
-      // Parse group color
-      _beamColor.set(group.color)
-      const r = _beamColor.r
-      const g = _beamColor.g
-      const b = _beamColor.b
+      // Ring topology: connect member[0]→[1], [1]→[2], ... [n-1]→[0]
+      for (let j = 0; j < members.length; j++) {
+        const idxA = members[j]
+        const idxB = members[(j + 1) % members.length]
+        const spA = screenPositions[idxA]
+        const spB = screenPositions[idxB]
+        if (!spA || !spB) continue
 
-      // Create line segments: each member → centroid
-      for (const idx of members) {
-        const sp = screenPositions[idx]
-        if (!sp) continue
-        const base = offset * 6 // 2 vertices * 3 components
-        // Vertex 1: project position
-        positions[base]     = sp.position[0]
-        positions[base + 1] = sp.position[1]
-        positions[base + 2] = sp.position[2]
-        // Vertex 2: centroid
-        positions[base + 3] = cx
-        positions[base + 4] = cy
-        positions[base + 5] = cz
-        // Colors (same for both vertices)
-        colors[base]     = r
-        colors[base + 1] = g
-        colors[base + 2] = b
-        colors[base + 3] = r
-        colors[base + 4] = g
-        colors[base + 5] = b
-        offset++
+        const pA = new THREE.Vector3(spA.position[0], spA.position[1], spA.position[2])
+        const pB = new THREE.Vector3(spB.position[0], spB.position[1], spB.position[2])
+
+        // Midpoint elevated by 2 units for a nice arc
+        const mid = new THREE.Vector3().lerpVectors(pA, pB, 0.5)
+        mid.y += 2.0
+
+        // 4-point CatmullRom: slightly inside start/end + elevated mid for smooth arc
+        const qA = new THREE.Vector3().lerpVectors(pA, mid, 0.15)
+        const qB = new THREE.Vector3().lerpVectors(pB, mid, 0.15)
+
+        const curve = new THREE.CatmullRomCurve3([pA, qA, mid, qB, pB], false, 'catmullrom', 0.5)
+        result.push({ curve, color })
       }
     }
 
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    return { geometry: geo, segmentCount: totalSegments }
+    if (result.length === 0) return { curves: result, particleCount: 0 }
+
+    // Distribute particles across curves, max total = MAX_TRAIL_PARTICLES
+    // Each curve gets at least 2 particles, proportionally distributed
+    const perCurve = Math.max(2, Math.floor(MAX_TRAIL_PARTICLES / result.length))
+    const total = Math.min(MAX_TRAIL_PARTICLES, perCurve * result.length)
+    return { curves: result, particleCount: total }
   }, [projects, groups, assignments, screenPositions])
 
-  // Animate opacity: fade in smoothly, dim during search
+  // Initialize particle state
+  const particles = useMemo(() => {
+    if (particleCount === 0 || curves.length === 0) return []
+    const perCurve = Math.floor(particleCount / curves.length)
+    const remainder = particleCount - perCurve * curves.length
+    const result: TrailParticle[] = []
+
+    for (let c = 0; c < curves.length; c++) {
+      const n = perCurve + (c < remainder ? 1 : 0)
+      for (let j = 0; j < n; j++) {
+        result.push({
+          curveIdx: c,
+          t: Math.random(), // staggered start positions
+          speed: 0.12 + Math.random() * 0.10, // 0.12-0.22 t/s → traversal in ~5-8s
+          phase: Math.random() * Math.PI * 2,
+        })
+      }
+    }
+    return result
+  }, [particleCount, curves.length])
+
+  // Sphere geometry + material (created once)
+  const geo = useMemo(() => new THREE.SphereGeometry(0.035, 4, 3), [])
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    toneMapped: false,
+  }), [])
+
+  // Animate particles along curves
   useFrame((_, delta) => {
-    if (!matRef.current) return
-    const target = searchActive ? 0.005 : 0.025
-    opacityRef.current += (target - opacityRef.current) * Math.min(1, delta * 3)
-    matRef.current.opacity = opacityRef.current
+    if (!meshRef.current || particles.length === 0 || curves.length === 0) return
+
+    // Fade opacity based on search state
+    const targetOpacity = searchActive ? 0.02 : 0.6
+    opacityRef.current += (targetOpacity - opacityRef.current) * Math.min(1, delta * 3)
+    mat.opacity = opacityRef.current
+
+    const mesh = meshRef.current
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i]
+      const trail = curves[p.curveIdx]
+      if (!trail) continue
+
+      // Advance along curve
+      p.t += p.speed * delta
+      if (p.t >= 1) {
+        p.t -= 1 // wrap around for continuous flow
+      }
+
+      // Lifecycle opacity: fade in at start, fade out at end
+      // Smooth triangle: ramp 0→1 over first 15%, hold, ramp 1→0 over last 15%
+      let lifeFade: number
+      if (p.t < 0.15) {
+        lifeFade = p.t / 0.15
+      } else if (p.t > 0.85) {
+        lifeFade = (1 - p.t) / 0.15
+      } else {
+        lifeFade = 1
+      }
+
+      // Get position on curve
+      const point = trail.curve.getPointAt(Math.min(p.t, 1))
+
+      // Scale by lifecycle fade (smaller when fading in/out)
+      const scale = 0.6 + lifeFade * 0.4
+      _trailDummy.position.copy(point)
+      _trailDummy.scale.setScalar(scale)
+      _trailDummy.updateMatrix()
+      mesh.setMatrixAt(i, _trailDummy.matrix)
+
+      // Per-instance color with lifecycle brightness
+      _trailColor.copy(trail.color)
+      // Brighten slightly for glow effect
+      _trailColor.multiplyScalar(0.8 + lifeFade * 0.6)
+      mesh.setColorAt(i, _trailColor)
+    }
+
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
   })
 
-  if (segmentCount === 0) return null
+  if (particleCount === 0) return null
 
   return (
-    <lineSegments ref={lineRef} geometry={geometry} frustumCulled={false}>
-      <lineBasicMaterial
-        ref={matRef}
-        vertexColors
-        transparent
-        opacity={0.025}
-        depthWrite={false}
-        toneMapped
-        linewidth={1}
-      />
-    </lineSegments>
+    <instancedMesh
+      ref={meshRef}
+      args={[geo, mat, particleCount]}
+      frustumCulled={false}
+    />
   )
 }
 
@@ -1983,15 +2036,14 @@ function PbrSceneInner({
           during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
       <ScreenPanelUpdater />
 
-      {/* P5 Connection beams — DISABLED: straight lines look bad from most camera angles.
-          Needs redesign: curved beams, energy particles along path, or proximity-based glow instead.
-      <ConnectionBeams
+      {/* P5b: Curved particle energy trails between grouped projects */}
+      <GroupTrails
         projects={projects}
         groups={groups}
         assignments={assignments}
         screenPositions={screenPositions}
         searchActive={searchActive}
-      /> */}
+      />
 
       {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {
