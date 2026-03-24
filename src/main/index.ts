@@ -6,6 +6,15 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { getIconFilename, openTerminalAt, escapeCmdArg, isWin } from './platform'
 import { terminalManager } from './terminal-manager'
 
+// ── B25: V8 GC pressure mitigation ──
+// Give V8 more old-gen heap headroom so major GC runs less frequently.
+// Default is ~1.5GB; with many Html DOM panels the GC traces DOM trees causing 100-200ms pauses.
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
+// Disable native occlusion calculation on Windows — causes spurious GC pauses during window interaction
+if (isWin) {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+}
+
 /** Normalize cwd to a proper Windows path (handles Git Bash /d/... style) */
 function getWinCwd(): string {
   let cwd = process.cwd()

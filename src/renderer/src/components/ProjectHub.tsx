@@ -286,13 +286,23 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   }, [])
 
   // Poll for external Claude CLI sessions every 10 seconds
+  // B25 FIX: Compare new sessions with current to avoid unnecessary re-renders.
+  // Without this, setExternalSessions triggers a full component tree re-render every 10s
+  // (including all ScreenPanel instances), which increases GC pressure from stale closures.
+  const externalSessionsRef = useRef(externalSessions)
+  externalSessionsRef.current = externalSessions
   useEffect(() => {
     if (demo?.enabled) return // No real sessions to detect in demo
     if (!window.api.detectExternalSessions) return
     let cancelled = false
     const poll = () => {
       window.api.detectExternalSessions().then((sessions) => {
-        if (!cancelled) setExternalSessions(sessions)
+        if (cancelled) return
+        // Only update state if the session list actually changed (avoid re-render churn)
+        const prev = externalSessionsRef.current
+        const changed = sessions.length !== prev.length ||
+          sessions.some((s, i) => s.pid !== prev[i]?.pid || s.projectPath !== prev[i]?.projectPath)
+        if (changed) setExternalSessions(sessions)
       }).catch(() => {})
     }
     poll() // Initial check

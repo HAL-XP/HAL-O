@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useEffect } from 'react'
+import { useRef, useMemo, useState, useEffect, memo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -182,7 +182,38 @@ export function ScreenPanelUpdater() {
   return null
 }
 
-export function ScreenPanel({
+// B25 PERF: React.memo prevents re-rendering ALL panels when parent state changes
+// (e.g. hoveredId change only affects 1-2 panels, the rest skip re-render).
+// Custom comparator ignores callback props (stable in behavior, unstable in reference due to inline arrows).
+const CALLBACK_PROPS = new Set([
+  'onHover', 'onResume', 'onNewSession', 'onFiles', 'onRunApp', 'onAbsorb',
+  'onContextMenu', 'onOpenIde', 'onOpenIdeMenu', 'onOpenTerminal',
+])
+
+function screenPanelAreEqual(prev: Props, next: Props): boolean {
+  for (const key of Object.keys(next) as (keyof Props)[]) {
+    if (CALLBACK_PROPS.has(key)) continue // skip callback reference comparison
+    if (key === 'position' || key === 'rotation') {
+      const a = prev[key] as [number, number, number]
+      const b = next[key] as [number, number, number]
+      if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) return false
+      continue
+    }
+    if (key === 'searchTarget') {
+      const a = prev.searchTarget
+      const b = next.searchTarget
+      if (a === b) continue
+      if (!a || !b) return false
+      if (a.position[0] !== b.position[0] || a.position[1] !== b.position[1] || a.position[2] !== b.position[2]) return false
+      if (a.rotation[0] !== b.rotation[0] || a.rotation[1] !== b.rotation[1] || a.rotation[2] !== b.rotation[2]) return false
+      continue
+    }
+    if (prev[key] !== next[key]) return false
+  }
+  return true
+}
+
+export const ScreenPanel = memo(function ScreenPanel({
   position, rotation, projectName, projectPath, stack, ready,
   isHovered, onHover, onResume, onNewSession, onFiles, runCmd, onRunApp,
   screenOpacity = 1, groupColor, healthStatus = 'ok', healthText,
@@ -642,4 +673,4 @@ export function ScreenPanel({
       )}
     </group>
   )
-}
+}, screenPanelAreEqual)
