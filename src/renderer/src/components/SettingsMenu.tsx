@@ -130,6 +130,9 @@ interface Props {
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
   demo?: DemoSettings
+  // Dock mode (Phase 2)
+  dockMode?: boolean
+  onDockModeChange?: (enabled: boolean) => void
 }
 
 // Per-voice audio cache: { profileId -> { text, audioDataUrl } }
@@ -180,7 +183,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo, dockMode = false, onDockModeChange }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -278,7 +281,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   // Collect which sections have at least one visible row when searching
   const presetsLabels = ['SAVE PRESET', 'LOAD PRESET']
   const displayLabels = ['RENDERER', 'LAYOUT', '3D STYLE', 'DEFAULT IDE']
-  const terminalLabels = ['TERMINAL DOCK']
+  const terminalLabels = ['TERMINAL DOCK', 'DOCK MODE']
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
   const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
   const personalityLabels = ['HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET']
@@ -518,6 +521,21 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                             <option key={d.id} value={d.id}>{d.label}</option>
                           ))}
                         </select>
+                      </div>
+                    </div>
+                  )}
+                  {match('DOCK MODE') && onDockModeChange && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">DOCK MODE</span>
+                      <div className="hal-settings-control">
+                        <label className="hal-toggle">
+                          <input
+                            type="checkbox"
+                            checked={dockMode}
+                            onChange={(e) => onDockModeChange(e.target.checked)}
+                          />
+                          <span className="hal-toggle-label">{dockMode ? 'ON' : 'OFF'}</span>
+                        </label>
                       </div>
                     </div>
                   )}

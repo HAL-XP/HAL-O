@@ -17,6 +17,7 @@ import { CreationProgress } from './components/CreationProgress'
 import { ProjectConfigScreen } from './components/ProjectConfigScreen'
 import { TerminalView } from './components/TerminalView'
 import { DemoTerminalView } from './components/DemoTerminalView'
+import { DockLayout } from './components/DockLayout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 interface AppState {
@@ -200,6 +201,13 @@ export function App() {
     window.addEventListener('mouseup', onUp)
   }, [dockPosition])
 
+  // Dock Mode: toggleable dockview-based layout (Phase 2)
+  const [dockMode, setDockMode] = useState(() => localStorage.getItem('hal-o-dock-mode') === '1')
+  const handleDockModeChange = useCallback((enabled: boolean) => {
+    setDockMode(enabled)
+    localStorage.setItem('hal-o-dock-mode', enabled ? '1' : '0')
+  }, [])
+
   // Compute derived values (always, even when setup screen is showing)
   const activeSteps = getActiveSteps(state.answers)
   const currentStepIndex = activeSteps.findIndex((s) => s.id === state.currentStepId)
@@ -333,6 +341,89 @@ export function App() {
   }
 
   if (viewMode === 'hub') {
+    // Shared callbacks for both layout modes
+    const hubOnNewProject = () => {
+      if (demo.enabled) return
+      setState({
+        currentStepId: FIRST_STEP_ID,
+        answers: {},
+        showReview: false,
+        isCreating: false,
+        creationLog: [],
+        creationDone: false,
+        createdPath: null,
+      })
+      setViewMode('wizard')
+    }
+    const hubOnConvertProject = (path: string) => {
+      if (demo.enabled) return
+      setConfigurePath(path)
+      setViewMode('configure')
+    }
+
+    // ── Dock Mode: dockview-based layout ──
+    if (dockMode && !demo.enabled) {
+      return (
+        <ErrorBoundary>
+          <DockLayout
+            onNewProject={hubOnNewProject}
+            onConvertProject={hubOnConvertProject}
+            onOpenTerminal={openTerminal}
+            voiceFocus={voiceFocus}
+            onVoiceFocusHub={() => setVoiceFocus('hub')}
+            hubFontSize={hubFontSize}
+            termFontSize={termFontSize}
+            wizardFontSize={wizardFontSize}
+            onWizardFontSize={updateWizardFont}
+            voiceOut={voiceOut}
+            voiceProfile={voiceProfile}
+            dockPosition={dockPosition}
+            screenOpacity={screenOpacity}
+            onHubFontSize={updateHubFont}
+            onTermFontSize={updateTermFont}
+            onVoiceOut={updateVoiceOut}
+            onVoiceProfileChange={updateVoiceProfile}
+            onDockPositionChange={updateDockPosition}
+            onScreenOpacityChange={updateScreenOpacity}
+            particleDensity={particleDensity}
+            onParticleDensityChange={updateParticleDensity}
+            renderQuality={renderQuality}
+            onRenderQualityChange={updateRenderQuality}
+            camera={camera}
+            onCameraChange={updateCamera}
+            onCameraReset={resetCamera}
+            onCameraMove={handleCameraMove}
+            rendererId={rendererId}
+            onRendererChange={updateRenderer}
+            layoutId={layoutId}
+            onLayoutChange={updateLayout}
+            threeTheme={threeTheme}
+            onThreeThemeChange={updateThreeTheme}
+            shipVfxEnabled={shipVfxEnabled}
+            onShipVfxEnabledChange={updateShipVfxEnabled}
+            sphereStyle={sphereStyle}
+            onSphereStyleChange={updateSphereStyle}
+            voiceReactionIntensity={voiceReactionIntensity}
+            onVoiceReactionIntensityChange={updateVoiceReactionIntensity}
+            personality={personality}
+            onPersonalityChange={updatePersonality}
+            onPersonalityPreset={applyPersonalityPreset}
+            halSessionId={getHalSessionId()}
+            terminalCount={termSessions.length}
+            demo={demo}
+            defaultIde={defaultIde}
+            onDefaultIdeChange={updateDefaultIde}
+            termSessions={termSessions}
+            onCloseTerminal={closeTerminal}
+            onVoiceFocus={(id) => setVoiceFocus(id)}
+            dockMode={dockMode}
+            onDockModeChange={handleDockModeChange}
+          />
+        </ErrorBoundary>
+      )
+    }
+
+    // ── Classic layout: manual flex + draggable divider ──
     const hasRealTerminals = termSessions.length > 0
     const hasDemoTerminals = demo.enabled && demo.terminalCount > 0
     const hasTerminals = hasRealTerminals || hasDemoTerminals
@@ -352,24 +443,8 @@ export function App() {
       <div className="app" style={{ display: 'flex', flexDirection: flexDir, height: '100vh' }}>
         <div style={hubStyle}>
           <ProjectHub
-            onNewProject={() => {
-              if (demo.enabled) return // Disable in demo mode
-              setState({
-                currentStepId: FIRST_STEP_ID,
-                answers: {},
-                showReview: false,
-                isCreating: false,
-                creationLog: [],
-                creationDone: false,
-                createdPath: null,
-              })
-              setViewMode('wizard')
-            }}
-            onConvertProject={(path) => {
-              if (demo.enabled) return // Disable in demo mode
-              setConfigurePath(path)
-              setViewMode('configure')
-            }}
+            onNewProject={hubOnNewProject}
+            onConvertProject={hubOnConvertProject}
             onOpenTerminal={demo.enabled ? undefined : openTerminal}
             voiceFocus={voiceFocus}
             onVoiceFocusHub={() => setVoiceFocus('hub')}
@@ -415,6 +490,8 @@ export function App() {
             demo={demo}
             defaultIde={defaultIde}
             onDefaultIdeChange={updateDefaultIde}
+            dockMode={dockMode}
+            onDockModeChange={handleDockModeChange}
           />
         </div>
         {hasTerminals && (

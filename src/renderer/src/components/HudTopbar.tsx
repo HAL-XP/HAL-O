@@ -67,6 +67,9 @@ interface HudTopbarProps {
   // IDE (U19)
   defaultIde?: IdeOptionId
   onDefaultIdeChange?: (id: IdeOptionId) => void
+  // Dock mode (Phase 2)
+  dockMode?: boolean
+  onDockModeChange?: (enabled: boolean) => void
 }
 
 export function HudTopbar({
@@ -84,6 +87,7 @@ export function HudTopbar({
   demo,
   onVoiceBlocked,
   defaultIde = 'auto', onDefaultIdeChange,
+  dockMode = false, onDockModeChange,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -166,6 +170,7 @@ export function HudTopbar({
           defaultIde={defaultIde} onDefaultIdeChange={onDefaultIdeChange ?? (() => {})}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
+          dockMode={dockMode} onDockModeChange={onDockModeChange}
         />
         <span className="hal-stat"><span className="hal-stat-n">{projectCount}</span><span className="hal-stat-label"> OPS</span></span>
         <span className="hal-stat"><span className="hal-stat-n hal-c-ok">{readyCount}</span><span className="hal-stat-label"> READY</span></span>

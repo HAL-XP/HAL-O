@@ -66,6 +66,9 @@ interface Props {
   // IDE (U19)
   defaultIde?: string
   onDefaultIdeChange?: (id: string) => void
+  // Dock mode (Phase 2)
+  dockMode?: boolean
+  onDockModeChange?: (enabled: boolean) => void
 }
 
 function timeAgo(ms: number): string {
@@ -78,7 +81,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, dockMode, onDockModeChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -593,6 +596,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
+          dockMode={dockMode} onDockModeChange={onDockModeChange}
         />
         {renderAbsorptionOverlay()}
       </div>
@@ -675,6 +679,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
+          dockMode={dockMode} onDockModeChange={onDockModeChange}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
@@ -744,6 +749,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
+          dockMode={dockMode} onDockModeChange={onDockModeChange}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -809,6 +815,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         demo={demo}
         onVoiceBlocked={handleVoiceBlocked}
         defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
+        dockMode={dockMode} onDockModeChange={onDockModeChange}
       />
 
       {/* Status label */}
