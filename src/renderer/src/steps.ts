@@ -42,20 +42,20 @@ export const STEPS: StepDef[] = [
   {
     id: 'wizard-mode',
     phase: 'basics',
-    question: 'How would you like to create the project?',
+    question: 'How would you like to set up your project?',
     type: 'choice',
     choices: [
+      {
+        id: 'quick',
+        label: 'QUICK SETUP (recommended)',
+        icon: '⚡',
+        description: 'Name it, we detect the stack, apply balanced defaults, done in seconds',
+      },
       {
         id: 'full',
         label: 'Full wizard',
         icon: '☰',
         description: '5-phase guided setup — stack, GitHub, Claude, extras',
-      },
-      {
-        id: 'quick',
-        label: 'Quick create',
-        icon: '⚡',
-        description: 'Name + auto-detect stack → create immediately with smart defaults',
       },
     ],
   },

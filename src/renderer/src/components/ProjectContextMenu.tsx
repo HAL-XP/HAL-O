@@ -141,7 +141,7 @@ export function ProjectContextMenu({
         HIDE FROM HUB
       </button>
 
-      {/* Configure HAL-O features */}
+      {/* Reconfigure / review project settings */}
       <button
         onClick={() => { onConfigure(projectPath); onClose() }}
         style={itemStyle}
@@ -149,7 +149,7 @@ export function ProjectContextMenu({
         onMouseLeave={hoverOut}
       >
         <span style={{ fontSize: '10px' }}>&#x2699;</span>
-        CONFIGURE HAL-O FEATURES...
+        REVIEW PROJECT SETTINGS...
       </button>
 
       {/* Update HAL-O rules — shown only when outdated */}

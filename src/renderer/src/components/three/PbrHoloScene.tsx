@@ -1329,7 +1329,7 @@ class PostFXErrorBoundary extends React.Component<{ children: React.ReactNode },
   render() { return this.state.hasError ? null : this.props.children }
 }
 
-function PostFXInner() {
+function PostFXInner({ bloomEnabled = true, chromaticAberrationEnabled = false }: { bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean }) {
   const theme = useThreeTheme()
   const { gl } = useThree()
   const chromaticVal = theme.style?.chromaticOffset ?? 0.0006
@@ -1345,20 +1345,20 @@ function PostFXInner() {
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />
-      {/* ChromaticAberration disabled — binary search confirmed it causes horizontal lines on bright edges */}
+      {bloomEnabled && <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />}
+      {chromaticAberrationEnabled && <ChromaticAberration offset={offset} blendFunction={BlendFunction.NORMAL} />}
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
   )
 }
 
-function PostFX({ enabled = true }: { enabled?: boolean }) {
+function PostFX({ enabled = true, bloomEnabled = true, chromaticAberrationEnabled = false }: { enabled?: boolean; bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean }) {
   const [ready, setReady] = useState(false)
   useEffect(() => { if (enabled) setReady(true) }, [enabled])
   if (!ready) return null
   return (
     <PostFXErrorBoundary>
-      <PostFXInner />
+      <PostFXInner bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} />
     </PostFXErrorBoundary>
   )
 }
@@ -1793,6 +1793,12 @@ interface Props {
   onSelectConflictFile?: (projectPath: string, filePath: string) => void
   // U18 Phase 5: Resolved files tracking for MergeGraph VFX
   resolvedFilesMap?: Record<string, Set<string>>
+  // P14: Graphics quality presets
+  graphicsPreset?: 'light' | 'medium' | 'high'
+  bloomEnabled?: boolean
+  chromaticAberrationEnabled?: boolean
+  floorLinesEnabled?: boolean
+  groupTrailsEnabled?: boolean
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1849,6 +1855,12 @@ interface PbrSceneInnerProps {
   onSelectConflictFile?: (projectPath: string, filePath: string) => void
   // U18 Phase 5: Resolved files tracking for MergeGraph VFX
   resolvedFilesMap: Record<string, Set<string>>
+  // P14: Graphics quality presets
+  graphicsPreset: 'light' | 'medium' | 'high'
+  bloomEnabled: boolean
+  chromaticAberrationEnabled: boolean
+  floorLinesEnabled: boolean
+  groupTrailsEnabled: boolean
 }
 
 function PbrSceneInner({
@@ -1864,6 +1876,7 @@ function PbrSceneInner({
   mergeStates, commitGraphs,
   selectedConflictFile, onSelectConflictFile,
   resolvedFilesMap,
+  graphicsPreset, bloomEnabled, chromaticAberrationEnabled, floorLinesEnabled, groupTrailsEnabled,
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2213,6 +2226,9 @@ function PbrSceneInner({
           <ReflectiveFloor radius={floorRadius} />
           <FloorEdgeMist radius={floorRadius} />
           <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
+          {/* P14: GridOverlay + PbrRingPlatform only on high preset (or when floorLinesEnabled) */}
+          {floorLinesEnabled && <GridOverlay radius={floorRadius} />}
+          {floorLinesEnabled && <PbrRingPlatform radius={ringPlatformRadius} />}
 
           {/* Ambient data particles — faded in at phase 3 */}
           <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
@@ -2250,15 +2266,16 @@ function PbrSceneInner({
         </>
       )}
 
-      {/* P5b: Curved particle energy trails between grouped projects */}
-      {/* GroupTrails disabled — purple arcs visible and distracting. Needs design rethink.
-      <GroupTrails
-        projects={projects}
-        groups={groups}
-        assignments={assignments}
-        screenPositions={screenPositions}
-        searchActive={searchActive}
-      /> */}
+      {/* P5b: Curved particle energy trails between grouped projects — toggle via Settings > Graphics */}
+      {groupTrailsEnabled && (
+        <GroupTrails
+          projects={projects}
+          groups={groups}
+          assignments={assignments}
+          screenPositions={screenPositions}
+          searchActive={searchActive}
+        />
+      )}
 
       <OrbitControls
         makeDefault
@@ -2281,7 +2298,7 @@ function PbrSceneInner({
       <SceneReadyGate textureReady={textureLoaded} onReady={() => { setSceneReady(true); onSceneReady?.() }} />
       <ScenePhaseManager sceneReady={sceneReady} onPhaseChange={setScenePhase} />
 
-      <PostFX enabled={scenePhase >= 3} />
+      <PostFX enabled={scenePhase >= 3} bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} />
     </>
   )
 }
@@ -2307,7 +2324,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {} }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2454,6 +2471,11 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           selectedConflictFile={selectedConflictFile ?? null}
           onSelectConflictFile={onSelectConflictFile}
           resolvedFilesMap={resolvedFilesMap}
+          graphicsPreset={graphicsPreset}
+          bloomEnabled={bloomEnabled}
+          chromaticAberrationEnabled={chromaticAberrationEnabled}
+          floorLinesEnabled={floorLinesEnabled}
+          groupTrailsEnabled={groupTrailsEnabled}
         />
       </ThreeThemeProvider>
     </Canvas>

@@ -44,6 +44,38 @@ export const SPHERE_STYLES = [
 
 export type SphereStyleId = typeof SPHERE_STYLES[number]['id']
 
+// ── Graphics Quality Presets (P14) ──
+
+export const GRAPHICS_PRESETS = [
+  { id: 'light', label: 'LIGHT' },
+  { id: 'medium', label: 'MEDIUM' },
+  { id: 'high', label: 'HIGH' },
+] as const
+
+export type GraphicsPresetId = typeof GRAPHICS_PRESETS[number]['id']
+
+/** Auto-detect a sensible default graphics preset based on WebGL renderer info. */
+function detectGraphicsPreset(): GraphicsPresetId {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    if (!gl) return 'medium'
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    if (!ext) return 'medium'
+    const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)?.toString().toLowerCase() ?? ''
+    // High-end: RTX 3000+, RTX 4000+, RTX 5000+, RX 7000+, Arc A-series
+    if (/rtx\s*(30[6-9]0|308\d|309\d|40[6-9]0|408\d|409\d|50[7-9]0|5090)/i.test(renderer)) return 'high'
+    if (/rx\s*7[0-9]{3}/i.test(renderer)) return 'high'
+    if (/arc\s*a7[0-9]/i.test(renderer)) return 'high'
+    // Integrated / low-end: Intel HD/UHD, Intel Iris, AMD APU, Mali, Adreno
+    if (/intel.*(hd|uhd|iris)|mali|adreno|llvmpipe|swiftshader/i.test(renderer)) return 'light'
+    // Everything else: mid-range dedicated GPUs
+    return 'medium'
+  } catch {
+    return 'medium'
+  }
+}
+
 export interface CameraSettings {
   particleHideDist: number  // units from camera where particles fade (default 4)
   cameraDistance: number    // distance from sphere center (default 19)
@@ -127,6 +159,43 @@ export const TOKEN_BUDGET_OPTIONS = [
   { id: 'aggressive' as const, label: 'AGGRESSIVE SAVER', description: 'Haiku subagents, 65% compaction, minimal CLAUDE.md' },
 ] as const
 
+// ── U23: Per-section devlog verbosity ──
+
+export type DevlogVerbosity = 'off' | 'haiku' | 'limited' | 'full'
+
+export const DEVLOG_SECTION_DEFS = [
+  { key: 'conventions',      label: 'CONVENTIONS',            tokens: '~20-40' },
+  { key: 'performance',      label: 'PERFORMANCE TIPS',       tokens: '~50' },
+  { key: 'keyFiles',         label: 'KEY FILES',              tokens: '~30' },
+  { key: 'profiling',        label: 'PROFILING RULES',        tokens: '~200' },
+  { key: 'hooksSetup',       label: 'HOOKS SETUP TIPS',       tokens: '~40' },
+  { key: 'sessionStart',     label: 'SESSION START PROTOCOL', tokens: '~60' },
+] as const
+
+export type DevlogSectionKey = typeof DEVLOG_SECTION_DEFS[number]['key']
+export type DevlogSections = Record<DevlogSectionKey, DevlogVerbosity>
+
+export const DEFAULT_DEVLOG_SECTIONS: DevlogSections = {
+  conventions: 'full',
+  performance: 'full',
+  keyFiles: 'full',
+  profiling: 'full',
+  hooksSetup: 'full',
+  sessionStart: 'full',
+}
+
+/** Pre-configure devlog sections when token budget preset changes */
+export function devlogSectionsForBudget(budget: TokenBudgetId): DevlogSections {
+  switch (budget) {
+    case 'full':
+      return { conventions: 'full', performance: 'full', keyFiles: 'full', profiling: 'full', hooksSetup: 'full', sessionStart: 'full' }
+    case 'balanced':
+      return { conventions: 'limited', performance: 'limited', keyFiles: 'full', profiling: 'haiku', hooksSetup: 'limited', sessionStart: 'limited' }
+    case 'aggressive':
+      return { conventions: 'off', performance: 'haiku', keyFiles: 'haiku', profiling: 'off', hooksSetup: 'off', sessionStart: 'off' }
+  }
+}
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -149,6 +218,12 @@ export interface SettingsState {
   activityFeedback: boolean
   defaultTerminalModel: TerminalModelId
   introAnimation: boolean
+  graphicsPreset: GraphicsPresetId
+  bloomEnabled: boolean
+  chromaticAberrationEnabled: boolean
+  floorLinesEnabled: boolean
+  groupTrailsEnabled: boolean
+  devlogSections: DevlogSections
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -172,6 +247,13 @@ export interface SettingsState {
   updateActivityFeedback: (enabled: boolean) => void
   updateDefaultTerminalModel: (id: TerminalModelId) => void
   updateIntroAnimation: (enabled: boolean) => void
+  updateGraphicsPreset: (preset: GraphicsPresetId) => void
+  updateBloomEnabled: (enabled: boolean) => void
+  updateChromaticAberrationEnabled: (enabled: boolean) => void
+  updateFloorLinesEnabled: (enabled: boolean) => void
+  updateGroupTrailsEnabled: (enabled: boolean) => void
+  updateDevlogSection: (key: DevlogSectionKey, value: DevlogVerbosity) => void
+  setAllDevlogSections: (value: DevlogVerbosity) => void
 }
 
 // ── Reducer: single state object replaces 21 separate useState calls ──
@@ -199,6 +281,12 @@ interface SettingsData {
   activityFeedback: boolean
   defaultTerminalModel: TerminalModelId
   introAnimation: boolean
+  graphicsPreset: GraphicsPresetId
+  bloomEnabled: boolean
+  chromaticAberrationEnabled: boolean
+  floorLinesEnabled: boolean
+  groupTrailsEnabled: boolean
+  devlogSections: DevlogSections
 }
 
 type SettingsAction =
@@ -224,6 +312,13 @@ type SettingsAction =
   | { type: 'SET_ACTIVITY_FEEDBACK'; value: boolean }
   | { type: 'SET_DEFAULT_TERMINAL_MODEL'; value: TerminalModelId }
   | { type: 'SET_INTRO_ANIMATION'; value: boolean }
+  | { type: 'SET_GRAPHICS_PRESET'; value: GraphicsPresetId }
+  | { type: 'SET_BLOOM_ENABLED'; value: boolean }
+  | { type: 'SET_CHROMATIC_ABERRATION_ENABLED'; value: boolean }
+  | { type: 'SET_FLOOR_LINES_ENABLED'; value: boolean }
+  | { type: 'SET_GROUP_TRAILS_ENABLED'; value: boolean }
+  | { type: 'SET_DEVLOG_SECTION'; key: DevlogSectionKey; value: DevlogVerbosity }
+  | { type: 'SET_ALL_DEVLOG_SECTIONS'; value: DevlogVerbosity }
 
 function settingsReducer(state: SettingsData, action: SettingsAction): SettingsData {
   switch (action.type) {
@@ -252,6 +347,20 @@ function settingsReducer(state: SettingsData, action: SettingsAction): SettingsD
     case 'SET_ACTIVITY_FEEDBACK': return state.activityFeedback === action.value ? state : { ...state, activityFeedback: action.value }
     case 'SET_DEFAULT_TERMINAL_MODEL': return state.defaultTerminalModel === action.value ? state : { ...state, defaultTerminalModel: action.value }
     case 'SET_INTRO_ANIMATION': return state.introAnimation === action.value ? state : { ...state, introAnimation: action.value }
+    case 'SET_GRAPHICS_PRESET': return state.graphicsPreset === action.value ? state : { ...state, graphicsPreset: action.value }
+    case 'SET_BLOOM_ENABLED': return state.bloomEnabled === action.value ? state : { ...state, bloomEnabled: action.value }
+    case 'SET_CHROMATIC_ABERRATION_ENABLED': return state.chromaticAberrationEnabled === action.value ? state : { ...state, chromaticAberrationEnabled: action.value }
+    case 'SET_FLOOR_LINES_ENABLED': return state.floorLinesEnabled === action.value ? state : { ...state, floorLinesEnabled: action.value }
+    case 'SET_GROUP_TRAILS_ENABLED': return state.groupTrailsEnabled === action.value ? state : { ...state, groupTrailsEnabled: action.value }
+    case 'SET_DEVLOG_SECTION': {
+      if (state.devlogSections[action.key] === action.value) return state
+      return { ...state, devlogSections: { ...state.devlogSections, [action.key]: action.value } }
+    }
+    case 'SET_ALL_DEVLOG_SECTIONS': {
+      const next: DevlogSections = {} as DevlogSections
+      for (const k of Object.keys(state.devlogSections) as DevlogSectionKey[]) next[k] = action.value
+      return { ...state, devlogSections: next }
+    }
   }
 }
 
@@ -314,6 +423,13 @@ function loadInitialState(): SettingsData {
   const storedVRI = localStorage.getItem('hal-o-voice-reaction-intensity')
   const voiceReactionIntensity = storedVRI !== null ? parseFloat(storedVRI) : 0.5
 
+  // ── devlog sections (U23) ──
+  let devlogSections = DEFAULT_DEVLOG_SECTIONS
+  try {
+    const stored = localStorage.getItem('hal-o-devlog-sections')
+    if (stored) devlogSections = { ...DEFAULT_DEVLOG_SECTIONS, ...JSON.parse(stored) }
+  } catch { /* use default */ }
+
   return {
     hubFontSize: parseInt(localStorage.getItem('hal-o-hub-font') || '10'),
     termFontSize: parseInt(localStorage.getItem('hal-o-term-font') || '13'),
@@ -336,6 +452,12 @@ function loadInitialState(): SettingsData {
     activityFeedback: localStorage.getItem('hal-o-activity-feedback') !== 'false',
     defaultTerminalModel: (localStorage.getItem('hal-o-terminal-model') as TerminalModelId) || 'default',
     introAnimation: localStorage.getItem('hal-o-intro-animation') !== 'false',
+    graphicsPreset: (localStorage.getItem('hal-o-graphics-preset') as GraphicsPresetId) || detectGraphicsPreset(),
+    bloomEnabled: localStorage.getItem('hal-o-bloom') !== 'false',
+    chromaticAberrationEnabled: localStorage.getItem('hal-o-chromatic-aberration') === 'true',
+    floorLinesEnabled: localStorage.getItem('hal-o-floor-lines') === 'true',
+    groupTrailsEnabled: localStorage.getItem('hal-o-group-trails') === 'true',
+    devlogSections,
   }
 }
 
@@ -466,6 +588,65 @@ export function useSettings(): SettingsState {
     localStorage.setItem('hal-o-intro-animation', String(enabled))
   }, [])
 
+  const updateGraphicsPreset = useCallback((preset: GraphicsPresetId) => {
+    dispatch({ type: 'SET_GRAPHICS_PRESET', value: preset })
+    localStorage.setItem('hal-o-graphics-preset', preset)
+    if (preset === 'light') {
+      dispatch({ type: 'SET_BLOOM_ENABLED', value: false }); localStorage.setItem('hal-o-bloom', 'false')
+      dispatch({ type: 'SET_CHROMATIC_ABERRATION_ENABLED', value: false }); localStorage.setItem('hal-o-chromatic-aberration', 'false')
+      dispatch({ type: 'SET_FLOOR_LINES_ENABLED', value: false }); localStorage.setItem('hal-o-floor-lines', 'false')
+      const capped = Math.min(window.devicePixelRatio, 1.5)
+      dispatch({ type: 'SET_RENDER_QUALITY', value: capped }); localStorage.setItem('hal-o-render-quality', String(capped))
+      dispatch({ type: 'SET_PARTICLE_DENSITY', value: 4 }); localStorage.setItem('hal-o-particle-density', '4')
+    } else if (preset === 'medium') {
+      dispatch({ type: 'SET_BLOOM_ENABLED', value: true }); localStorage.setItem('hal-o-bloom', 'true')
+      dispatch({ type: 'SET_CHROMATIC_ABERRATION_ENABLED', value: false }); localStorage.setItem('hal-o-chromatic-aberration', 'false')
+      dispatch({ type: 'SET_FLOOR_LINES_ENABLED', value: false }); localStorage.setItem('hal-o-floor-lines', 'false')
+      const normal = Math.min(window.devicePixelRatio, 2)
+      dispatch({ type: 'SET_RENDER_QUALITY', value: normal }); localStorage.setItem('hal-o-render-quality', String(normal))
+      dispatch({ type: 'SET_PARTICLE_DENSITY', value: 8 }); localStorage.setItem('hal-o-particle-density', '8')
+    } else if (preset === 'high') {
+      dispatch({ type: 'SET_BLOOM_ENABLED', value: true }); localStorage.setItem('hal-o-bloom', 'true')
+      dispatch({ type: 'SET_CHROMATIC_ABERRATION_ENABLED', value: true }); localStorage.setItem('hal-o-chromatic-aberration', 'true')
+      dispatch({ type: 'SET_FLOOR_LINES_ENABLED', value: true }); localStorage.setItem('hal-o-floor-lines', 'true')
+      dispatch({ type: 'SET_RENDER_QUALITY', value: window.devicePixelRatio }); localStorage.setItem('hal-o-render-quality', String(window.devicePixelRatio))
+      dispatch({ type: 'SET_PARTICLE_DENSITY', value: 10 }); localStorage.setItem('hal-o-particle-density', '10')
+    }
+  }, [])
+
+  const updateBloomEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_BLOOM_ENABLED', value: enabled })
+    localStorage.setItem('hal-o-bloom', String(enabled))
+  }, [])
+
+  const updateChromaticAberrationEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_CHROMATIC_ABERRATION_ENABLED', value: enabled })
+    localStorage.setItem('hal-o-chromatic-aberration', String(enabled))
+  }, [])
+
+  const updateFloorLinesEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_FLOOR_LINES_ENABLED', value: enabled })
+    localStorage.setItem('hal-o-floor-lines', String(enabled))
+  }, [])
+
+  const updateGroupTrailsEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_GROUP_TRAILS_ENABLED', value: enabled })
+    localStorage.setItem('hal-o-group-trails', String(enabled))
+  }, [])
+
+  const updateDevlogSection = useCallback((key: DevlogSectionKey, value: DevlogVerbosity) => {
+    dispatch({ type: 'SET_DEVLOG_SECTION', key, value })
+    const next = { ...state.devlogSections, [key]: value }
+    localStorage.setItem('hal-o-devlog-sections', JSON.stringify(next))
+  }, [state.devlogSections])
+
+  const setAllDevlogSections = useCallback((value: DevlogVerbosity) => {
+    dispatch({ type: 'SET_ALL_DEVLOG_SECTIONS', value })
+    const next: DevlogSections = {} as DevlogSections
+    for (const k of Object.keys(state.devlogSections) as DevlogSectionKey[]) next[k] = value
+    localStorage.setItem('hal-o-devlog-sections', JSON.stringify(next))
+  }, [state.devlogSections])
+
   const updatePersonality = useCallback((key: keyof PersonalitySettings, value: number) => {
     dispatch({ type: 'SET_PERSONALITY', key, value })
     // We need to read the latest state for localStorage + file write.
@@ -508,6 +689,12 @@ export function useSettings(): SettingsState {
     activityFeedback: state.activityFeedback,
     defaultTerminalModel: state.defaultTerminalModel,
     introAnimation: state.introAnimation,
+    graphicsPreset: state.graphicsPreset,
+    bloomEnabled: state.bloomEnabled,
+    chromaticAberrationEnabled: state.chromaticAberrationEnabled,
+    floorLinesEnabled: state.floorLinesEnabled,
+    groupTrailsEnabled: state.groupTrailsEnabled,
+    devlogSections: state.devlogSections,
     // ── callbacks ──
     updateHubFont,
     updateTermFont,
@@ -532,6 +719,13 @@ export function useSettings(): SettingsState {
     updateActivityFeedback,
     updateDefaultTerminalModel,
     updateIntroAnimation,
+    updateGraphicsPreset,
+    updateBloomEnabled,
+    updateChromaticAberrationEnabled,
+    updateFloorLinesEnabled,
+    updateGroupTrailsEnabled,
+    updateDevlogSection,
+    setAllDevlogSections,
   }), [
     state,
     updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile,
@@ -540,6 +734,8 @@ export function useSettings(): SettingsState {
     updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle,
     updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset,
     updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
-    updateIntroAnimation,
+    updateIntroAnimation, updateGraphicsPreset, updateBloomEnabled, updateChromaticAberrationEnabled,
+    updateFloorLinesEnabled, updateGroupTrailsEnabled,
+    updateDevlogSection, setAllDevlogSections,
   ])
 }

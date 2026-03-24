@@ -26,6 +26,7 @@ interface ProjectConfig {
   conventions: string[]
   skipPermissions: boolean
   tokenBudget: 'full' | 'balanced' | 'aggressive'
+  devlogSections?: Record<string, 'off' | 'haiku' | 'limited' | 'full'>
 }
 
 function stackLabel(tech: string): string {
@@ -101,6 +102,11 @@ function hasNode(config: ProjectConfig): boolean {
   return /node|express|nestjs/i.test(config.techStack)
 }
 
+/** Get the verbosity for a devlog section (defaults to 'full' when not set) */
+function sectionVerbosity(config: ProjectConfig, key: string): 'off' | 'haiku' | 'limited' | 'full' {
+  return config.devlogSections?.[key] ?? 'full'
+}
+
 // ── CLAUDE.md ──
 
 export function generateClaudeMd(config: ProjectConfig): string {
@@ -130,83 +136,111 @@ export function generateClaudeMd(config: ProjectConfig): string {
   }
   lines.push('')
 
-  // Key Conventions
-  lines.push(`<!-- hal-o:v${RULES_VERSION}:conventions -->`)
-  lines.push('## Key Conventions')
-  lines.push('- API keys in `~/.claude_credentials` (bash-sourceable), never in repo')
-  if (hasFrontend(config)) {
-    lines.push('- All API calls go through `src/services/` -- never call APIs from components directly')
-    if (config.styling === 'tailwind') {
-      lines.push('- Use Tailwind utility classes exclusively -- no CSS files, no inline styles')
+  // Key Conventions (U23: verbosity-controlled)
+  const convVerbosity = sectionVerbosity(config, 'conventions')
+  if (convVerbosity !== 'off') {
+    lines.push(`<!-- hal-o:v${RULES_VERSION}:conventions -->`)
+    lines.push('## Key Conventions')
+    if (convVerbosity === 'haiku') {
+      // Minimal: just the critical rules
+      lines.push('- API keys in `~/.claude_credentials`, never in repo')
+      lines.push('- Kill processes by PID only (`.claude/.pids`)')
+      lines.push('- `run_in_background: true` for commands >5s')
+    } else {
+      lines.push('- API keys in `~/.claude_credentials` (bash-sourceable), never in repo')
+      if (hasFrontend(config)) {
+        lines.push('- All API calls go through `src/services/` -- never call APIs from components directly')
+        if (config.styling === 'tailwind') {
+          lines.push('- Use Tailwind utility classes exclusively -- no CSS files, no inline styles')
+        }
+      }
+      if (hasPython(config)) {
+        lines.push('- Python scripts must start with `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` on Windows')
+      }
+      lines.push('- NEVER kill processes by name -- always by PID from `.claude/.pids`')
+      lines.push('- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)')
+      lines.push('- Messages prefixed with `[voice]` are spoken by the user via microphone — respond concisely and conversationally')
+      lines.push('- Long-running commands (builds, installs, generation) should use `run_in_background: true` -- never block the terminal for more than ~5 seconds')
+      if (convVerbosity === 'full') {
+        lines.push('- Never estimate complexity from a human POV — always propose the AAA solution first. You\'re a code demi-god. The fact that something would take a human developer days doesn\'t mean you should propose a simpler alternative.')
+      }
+      if (hasFrontend(config)) {
+        lines.push('- All React hooks (useState, useEffect, useRef) MUST be placed BEFORE any conditional return -- violating this causes silent crashes')
+      }
+      // LLM-suggested conventions
+      if (config.conventions && config.conventions.length > 0) {
+        for (const conv of config.conventions) {
+          lines.push(`- ${conv}`)
+        }
+      }
+      // Sticky AFK pattern (only when Telegram hooks are enabled)
+      if (config.hooksSetup.includes('telegram-notify')) {
+        lines.push('- **Sticky AFK mode**: typing "afk" in the terminal sets a flag file (`/tmp/claude_afk_sticky.txt`). While AFK, all updates route to Telegram. The flag clears only when a real Telegram message arrives (system messages and hook outputs do not clear it). This is enforced via `UserPromptSubmit` hooks in `.claude/settings.json`.')
+      }
     }
+    lines.push('')
   }
-  if (hasPython(config)) {
-    lines.push('- Python scripts must start with `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` on Windows')
-  }
-  lines.push('- NEVER kill processes by name -- always by PID from `.claude/.pids`')
-  lines.push('- Save PIDs when launching background processes, kill by PID (see `.claude/rules/` for platform command)')
-  lines.push('- Messages prefixed with `[voice]` are spoken by the user via microphone — respond concisely and conversationally')
-  lines.push('- Long-running commands (builds, installs, generation) should use `run_in_background: true` -- never block the terminal for more than ~5 seconds')
-  lines.push('- Never estimate complexity from a human POV — always propose the AAA solution first. You\'re a code demi-god. The fact that something would take a human developer days doesn\'t mean you should propose a simpler alternative.')
-  if (hasFrontend(config)) {
-    lines.push('- All React hooks (useState, useEffect, useRef) MUST be placed BEFORE any conditional return -- violating this causes silent crashes')
-  }
-  // LLM-suggested conventions
-  if (config.conventions && config.conventions.length > 0) {
-    for (const conv of config.conventions) {
-      lines.push(`- ${conv}`)
-    }
-  }
-  // Sticky AFK pattern (only when Telegram hooks are enabled)
-  if (config.hooksSetup.includes('telegram-notify')) {
-    lines.push('- **Sticky AFK mode**: typing "afk" in the terminal sets a flag file (`/tmp/claude_afk_sticky.txt`). While AFK, all updates route to Telegram. The flag clears only when a real Telegram message arrives (system messages and hook outputs do not clear it). This is enforced via `UserPromptSubmit` hooks in `.claude/settings.json`.')
-  }
-  lines.push('')
 
-  // Performance tip — adjusted by token budget (U21)
+  // Performance tip — adjusted by token budget (U21) + verbosity (U23)
   const budget = config.tokenBudget || 'full'
-  lines.push(`<!-- hal-o:v${RULES_VERSION}:performance -->`)
-  lines.push('## Performance')
-  if (budget === 'aggressive') {
-    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=65` for aggressive context compaction (saves tokens, more frequent compaction)')
-    lines.push('- Keep `MEMORY.md` updated frequently -- it survives compaction')
-    lines.push('- Prefer Haiku subagents for research, search, and boilerplate tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
-  } else if (budget === 'balanced') {
-    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` for balanced context compaction')
-    lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
-    lines.push('- Use Haiku subagents for routine tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
-  } else {
-    lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
-    lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+  const perfVerbosity = sectionVerbosity(config, 'performance')
+  if (perfVerbosity !== 'off') {
+    lines.push(`<!-- hal-o:v${RULES_VERSION}:performance -->`)
+    lines.push('## Performance')
+    if (perfVerbosity === 'haiku') {
+      const pct = budget === 'aggressive' ? '65' : budget === 'balanced' ? '75' : '80'
+      lines.push(`- \`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=${pct}\`, keep MEMORY.md current`)
+      if (budget !== 'full') lines.push('- Use Haiku subagents for routine tasks')
+    } else {
+      if (budget === 'aggressive') {
+        lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=65` for aggressive context compaction (saves tokens, more frequent compaction)')
+        lines.push('- Keep `MEMORY.md` updated frequently -- it survives compaction')
+        lines.push('- Prefer Haiku subagents for research, search, and boilerplate tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
+      } else if (budget === 'balanced') {
+        lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` for balanced context compaction')
+        lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+        lines.push('- Use Haiku subagents for routine tasks (`ANTHROPIC_SUBAGENT_MODEL=claude-haiku-4-0`)')
+      } else {
+        lines.push('- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` in your environment for earlier context compaction (preserves more working context in long sessions)')
+        lines.push('- Keep `MEMORY.md` updated at natural milestones -- it survives compaction and session boundaries')
+      }
+    }
+    lines.push('')
   }
-  lines.push('')
 
-  if (config.claudeMd === 'full' && budget !== 'aggressive') {
-    // Session Start Protocol (skipped in aggressive budget to save tokens)
+  const sessionVerbosity = sectionVerbosity(config, 'sessionStart')
+  if (config.claudeMd === 'full' && budget !== 'aggressive' && sessionVerbosity !== 'off') {
+    // Session Start Protocol (U23: verbosity-controlled)
     lines.push('## Session Start Protocol')
-    lines.push('When you see `SessionStart` hook output:')
-    lines.push('1. Read `MEMORY.md` for current state')
-    lines.push('2. Check git status, commit uncommitted work')
-    if (hasFrontend(config)) {
-      lines.push('3. Verify dev server runs: `npm run dev`')
-    }
-    if (hasPython(config)) {
-      lines.push(`${hasFrontend(config) ? '4' : '3'}. Verify API: \`curl -s http://localhost:8000/health\``)
+    if (sessionVerbosity === 'haiku') {
+      lines.push('On `SessionStart`: read MEMORY.md, check git status, verify servers.')
+    } else {
+      lines.push('When you see `SessionStart` hook output:')
+      lines.push('1. Read `MEMORY.md` for current state')
+      lines.push('2. Check git status, commit uncommitted work')
+      if (hasFrontend(config)) {
+        lines.push('3. Verify dev server runs: `npm run dev`')
+      }
+      if (hasPython(config)) {
+        lines.push(`${hasFrontend(config) ? '4' : '3'}. Verify API: \`curl -s http://localhost:8000/health\``)
+      }
     }
     lines.push('')
 
-    // What NOT To Do
-    lines.push('## What NOT To Do')
-    lines.push('- Do not commit API keys, `.env` files, or credentials to git')
-    if (hasFrontend(config)) {
-      lines.push('- Do not use `window.alert()` / `window.confirm()` -- use custom dialog components')
-      lines.push('- Do not call APIs directly from React components')
+    // What NOT To Do (included with session start; skipped in haiku)
+    if (sessionVerbosity !== 'haiku') {
+      lines.push('## What NOT To Do')
+      lines.push('- Do not commit API keys, `.env` files, or credentials to git')
+      if (hasFrontend(config)) {
+        lines.push('- Do not use `window.alert()` / `window.confirm()` -- use custom dialog components')
+        lines.push('- Do not call APIs directly from React components')
+      }
+      if (hasPython(config)) {
+        lines.push('- Do not call heavy APIs synchronously in API route handlers')
+      }
+      lines.push('- Do not skip verification -- always test changes before committing')
+      lines.push('')
     }
-    if (hasPython(config)) {
-      lines.push('- Do not call heavy APIs synchronously in API route handlers')
-    }
-    lines.push('- Do not skip verification -- always test changes before committing')
-    lines.push('')
 
     // Devlog
     if (config.devlog.length > 0) {
@@ -262,16 +296,25 @@ export function generateClaudeMd(config: ProjectConfig): string {
     }
   }
 
-  // Key Files
-  lines.push(`<!-- hal-o:v${RULES_VERSION}:key-files -->`)
-  lines.push('## Key Files')
-  lines.push('| File | Purpose |')
-  lines.push('|------|---------|')
-  lines.push('| `.claude/rules/` | Domain-specific rules (auto-loaded) |')
-  if (config.devlog.length > 0) {
-    lines.push('| `_devlog/` | Session summaries, hours, decisions, experiments |')
+  // Key Files (U23: verbosity-controlled)
+  const keyFilesVerbosity = sectionVerbosity(config, 'keyFiles')
+  if (keyFilesVerbosity !== 'off') {
+    lines.push(`<!-- hal-o:v${RULES_VERSION}:key-files -->`)
+    if (keyFilesVerbosity === 'haiku') {
+      lines.push('## Key Files')
+      lines.push('- `.claude/rules/` — domain rules (auto-loaded)')
+      if (config.devlog.length > 0) lines.push('- `_devlog/` — session logs')
+    } else {
+      lines.push('## Key Files')
+      lines.push('| File | Purpose |')
+      lines.push('|------|---------|')
+      lines.push('| `.claude/rules/` | Domain-specific rules (auto-loaded) |')
+      if (config.devlog.length > 0) {
+        lines.push('| `_devlog/` | Session summaries, hours, decisions, experiments |')
+      }
+    }
+    lines.push('')
   }
-  lines.push('')
   lines.push(`<!-- hal-o:v${RULES_VERSION}:footer -->`)
 
   return lines.join('\n')
@@ -282,25 +325,28 @@ export function generateClaudeMd(config: ProjectConfig): string {
 export function generateHooksSettings(config: ProjectConfig): object {
   const hooks: Record<string, any[]> = {}
 
-  if (config.hooksSetup.includes('session-start')) {
+  const hooksVerbosity = sectionVerbosity(config, 'hooksSetup')
+  if (config.hooksSetup.includes('session-start') && hooksVerbosity !== 'off') {
     const healthChecks: string[] = [
       'echo "=== SESSION INIT ==="',
       `echo "Project: ${config.name}"`,
-      'echo "---"',
-      'echo "Git status:"',
-      'git status --short 2>/dev/null | head -15',
     ]
-    if (hasFrontend(config)) {
+    if (hooksVerbosity !== 'haiku') {
       healthChecks.push('echo "---"')
-      healthChecks.push('echo "Frontend:"')
-      healthChecks.push('curl -sf http://localhost:5173 >/dev/null 2>&1 && echo " running" || echo " NOT running"')
-    }
-    if (hasPython(config)) {
+      healthChecks.push('echo "Git status:"')
+      healthChecks.push('git status --short 2>/dev/null | head -15')
+      if (hasFrontend(config)) {
+        healthChecks.push('echo "---"')
+        healthChecks.push('echo "Frontend:"')
+        healthChecks.push('curl -sf http://localhost:5173 >/dev/null 2>&1 && echo " running" || echo " NOT running"')
+      }
+      if (hasPython(config)) {
+        healthChecks.push('echo "---"')
+        healthChecks.push('echo "API:"')
+        healthChecks.push('curl -sf http://localhost:8000/health 2>/dev/null && echo " running" || echo " NOT running"')
+      }
       healthChecks.push('echo "---"')
-      healthChecks.push('echo "API:"')
-      healthChecks.push('curl -sf http://localhost:8000/health 2>/dev/null && echo " running" || echo " NOT running"')
     }
-    healthChecks.push('echo "---"')
     healthChecks.push('echo "ACTION: Read MEMORY.md for current state. Commit any uncommitted work."')
 
     const startupCmd = process.platform === 'win32'
@@ -638,7 +684,36 @@ Include the date and context. This file is auto-loaded every session.
   }
 
   if (config.rulesSetup.includes('profiling')) {
-    files['profiling.md'] = `<!-- hal-o:v${RULES_VERSION}:profiling -->
+    const profVerbosity = sectionVerbosity(config, 'profiling')
+    if (profVerbosity === 'off') {
+      // Skip profiling rules entirely
+    } else if (profVerbosity === 'haiku') {
+      files['profiling.md'] = `<!-- hal-o:v${RULES_VERSION}:profiling -->
+# Performance Profiling
+- Use r3f-perf, renderer.info, Chrome DevTools for measurement
+- Baseline protocol: measure before, change one thing, measure after
+- Targets: 60 FPS, minimal draw calls, stable JS heap, <16.6ms frame budget
+`
+    } else if (profVerbosity === 'limited') {
+      files['profiling.md'] = `<!-- hal-o:v${RULES_VERSION}:profiling -->
+# Performance Profiling
+
+## Key Tools
+- **r3f-perf**: \`<Perf position="top-left" deepAnalyze />\` inside Canvas
+- **renderer.info**: draw calls, triangles, geometries
+- **Chrome DevTools**: Performance tab (frame timing), Memory tab (heap)
+
+## Baseline Protocol
+1. Measure BEFORE optimization
+2. Change one thing at a time
+3. Measure AFTER — same conditions
+4. Log the delta to \`_devlog/perf/\`
+
+## Targets
+FPS ≥60 | Draw calls: minimize | JS Heap: stable | Frame budget <16.6ms
+`
+    } else {
+      files['profiling.md'] = `<!-- hal-o:v${RULES_VERSION}:profiling -->
 # Performance Profiling
 
 ## Tools by Stack
@@ -675,6 +750,7 @@ Include the date and context. This file is auto-loaded every session.
 | Frame budget | <16.6ms | useFrame timing |
 | IPC round-trip | <50ms | console.time/timeEnd |
 `
+    }
   }
 
   return files

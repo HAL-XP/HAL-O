@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { EnlistConfig, EnlistResult } from '../types'
+import { TOKEN_BUDGET_OPTIONS, type TokenBudgetId } from '../hooks/useSettings'
 import { Confetti } from './Confetti'
 import { playSuccess, playError } from '../hooks/useSounds'
 
@@ -88,6 +89,17 @@ export function ProjectConfigScreen({ projectPath, onBackToHub, onOpenInHub }: P
   const [selectedDevlog, setSelectedDevlog] = useState<string[]>(['summaries', 'hours', 'decisions', 'experiments'])
   const [addMemorySeed, setAddMemorySeed] = useState(true)
   const [addAgentTemplates, setAddAgentTemplates] = useState(false)
+
+  // ── Token budget ──
+  const [tokenBudget, setTokenBudget] = useState<TokenBudgetId>(() =>
+    (localStorage.getItem('hal-o-token-budget') as TokenBudgetId) || 'full'
+  )
+
+  // ── HAL-O self-detection ──
+  const isHalO = useMemo(() => {
+    const p = projectPath.replace(/\\/g, '/').toLowerCase()
+    return p.endsWith('/hal-o') || p.includes('/hal-o/')
+  }, [projectPath])
 
   // Configuration progress
   const [configLog, setConfigLog] = useState<string[]>([])
@@ -401,8 +413,12 @@ export function ProjectConfigScreen({ projectPath, onBackToHub, onOpenInHub }: P
           <div className="config-header">
             <div className="config-header-icon">&#x25C8;</div>
             <div>
-              <h2>PROJECT CONFIGURATION</h2>
-              <div className="config-header-sub">Select features to add</div>
+              <h2>{scan.halOMeta ? 'REVIEW PROJECT SETTINGS' : 'PROJECT CONFIGURATION'}</h2>
+              <div className="config-header-sub">
+                {scan.halOMeta
+                  ? 'Review and adjust your project configuration'
+                  : 'Select features to add'}
+              </div>
             </div>
           </div>
 
@@ -701,6 +717,73 @@ export function ProjectConfigScreen({ projectPath, onBackToHub, onOpenInHub }: P
                   <span className="config-status-icon ok">{'\u2713'}</span>
                   <span className="config-status-label">Rules version</span>
                   <span className="config-status-detail">v{scan.halOMeta.rulesVersion}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── SECTION: TOKEN BUDGET ── */}
+          <div className="config-section">
+            <div className="config-section-label">TOKEN BUDGET</div>
+            <div className="config-note">
+              Controls CLAUDE.md verbosity, compaction thresholds, and subagent model selection
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+              {TOKEN_BUDGET_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setTokenBudget(opt.id)
+                    localStorage.setItem('hal-o-token-budget', opt.id)
+                  }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '8px 12px',
+                    background: tokenBudget === opt.id ? 'rgba(34,211,238,0.1)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${tokenBudget === opt.id ? '#22d3ee55' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    color: tokenBudget === opt.id ? '#22d3ee' : 'var(--text-secondary, #8b8fa3)',
+                    textAlign: 'left',
+                    fontSize: '10px',
+                    fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+                    letterSpacing: '0.5px',
+                    width: '100%',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: '11px' }}>
+                    {tokenBudget === opt.id ? '\u25CF ' : '\u25CB '}{opt.label}
+                  </span>
+                  <span style={{ opacity: 0.6, marginTop: '2px', fontSize: '9px' }}>{opt.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── HAL-O self-detection notice ── */}
+          {isHalO && (
+            <div className="config-section">
+              <div style={{
+                padding: '10px 14px',
+                background: 'rgba(132,204,22,0.08)',
+                border: '1px solid rgba(132,204,22,0.25)',
+                borderRadius: '4px',
+                fontSize: '10px',
+                lineHeight: '1.6',
+                color: 'var(--text-secondary, #8b8fa3)',
+                fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+              }}>
+                <div style={{ color: '#84cc16', fontWeight: 700, letterSpacing: '1.5px', marginBottom: '4px', fontSize: '11px' }}>
+                  SELF-CONFIGURATION DETECTED
+                </div>
+                <div>
+                  This is the <span style={{ color: '#84cc16' }}>HAL-O</span> project itself.
+                  Changes here will optimize HAL-O's own agent rules, hooks, and CLAUDE.md.
+                  The existing configuration is already tuned for development — only modify
+                  if you know what you want to change.
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, SphereStyleId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, SphereStyleId, DevlogSections, DevlogSectionKey, DevlogVerbosity } from '../hooks/useSettings'
+import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
@@ -80,8 +81,23 @@ interface Props {
   // M2c: Intro fly-in animation
   introAnimation?: boolean
   onIntroAnimationChange?: (enabled: boolean) => void
+  // P14: Graphics quality presets
+  graphicsPreset?: 'light' | 'medium' | 'high'
+  onGraphicsPresetChange?: (preset: 'light' | 'medium' | 'high') => void
+  bloomEnabled?: boolean
+  onBloomEnabledChange?: (enabled: boolean) => void
+  chromaticAberrationEnabled?: boolean
+  onChromaticAberrationEnabledChange?: (enabled: boolean) => void
+  floorLinesEnabled?: boolean
+  onFloorLinesEnabledChange?: (enabled: boolean) => void
+  groupTrailsEnabled?: boolean
+  onGroupTrailsEnabledChange?: (enabled: boolean) => void
   // U11: Embedded browser
   onOpenBrowser?: (projectPath: string, projectName: string) => void
+  // U23: Devlog section verbosity
+  devlogSections?: DevlogSections
+  onDevlogSectionChange?: (key: DevlogSectionKey, value: DevlogVerbosity) => void
+  onSetAllDevlogSections?: (value: DevlogVerbosity) => void
 }
 
 function timeAgo(ms: number): string {
@@ -94,7 +110,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, onOpenBrowser }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -699,6 +715,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
           activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
+          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
+          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
+          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
+          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
+          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -710,6 +731,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
           projects={projects.map(p => ({ path: p.path, name: p.name }))}
+          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
         />
         {renderAbsorptionOverlay()}
       </div>
@@ -773,6 +795,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           selectedConflictFile={selectedConflictFile}
           onSelectConflictFile={handleSelectConflictFile}
           resolvedFilesMap={resolvedFilesMap}
+          graphicsPreset={graphicsPreset}
+          bloomEnabled={bloomEnabled}
+          chromaticAberrationEnabled={chromaticAberrationEnabled}
+          floorLinesEnabled={floorLinesEnabled}
+          groupTrailsEnabled={groupTrailsEnabled}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
@@ -794,6 +821,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
           activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
+          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
+          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
+          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
+          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
+          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -805,6 +837,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
           projects={projects.map(p => ({ path: p.path, name: p.name }))}
+          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
         />
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
@@ -869,6 +902,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
           activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
+          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
+          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
+          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
+          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
+          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -880,6 +918,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
           projects={projects.map(p => ({ path: p.path, name: p.name }))}
+          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
         />
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
@@ -940,6 +979,11 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
         shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
         activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
+          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
+          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
+          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
+          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
+          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
         voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
         personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
@@ -948,6 +992,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
         dockMode={dockMode} onDockModeChange={onDockModeChange}
         projects={projects.map(p => ({ path: p.path, name: p.name }))}
+        devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
       />
 
       {/* Status label */}

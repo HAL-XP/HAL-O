@@ -83,6 +83,9 @@ export function ScenePanel(_props: IDockviewPanelProps) {
         introAnimation={s.introAnimation}
         onIntroAnimationChange={s.onIntroAnimationChange}
         onOpenBrowser={s.onOpenBrowser}
+        devlogSections={s.devlogSections}
+        onDevlogSectionChange={s.onDevlogSectionChange}
+        onSetAllDevlogSections={s.onSetAllDevlogSections}
       />
     </div>
   )

@@ -4,7 +4,8 @@ import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
 import { TaskBoard } from './TaskBoard'
 import { useTasks } from '../hooks/useTasks'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId, TerminalModelId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId, TerminalModelId, DevlogSections, DevlogSectionKey, DevlogVerbosity } from '../hooks/useSettings'
+import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -79,8 +80,23 @@ interface HudTopbarProps {
   // Dock mode (Phase 2)
   dockMode?: boolean
   onDockModeChange?: (enabled: boolean) => void
+  // P14: Graphics quality presets
+  graphicsPreset?: 'light' | 'medium' | 'high'
+  onGraphicsPresetChange?: (preset: 'light' | 'medium' | 'high') => void
+  bloomEnabled?: boolean
+  onBloomEnabledChange?: (enabled: boolean) => void
+  chromaticAberrationEnabled?: boolean
+  onChromaticAberrationEnabledChange?: (enabled: boolean) => void
+  floorLinesEnabled?: boolean
+  onFloorLinesEnabledChange?: (enabled: boolean) => void
+  groupTrailsEnabled?: boolean
+  onGroupTrailsEnabledChange?: (enabled: boolean) => void
   // Task board — project list for filter dropdown
   projects?: Array<{ path: string; name: string }>
+  // U23: Devlog section verbosity
+  devlogSections?: DevlogSections
+  onDevlogSectionChange?: (key: DevlogSectionKey, value: DevlogVerbosity) => void
+  onSetAllDevlogSections?: (value: DevlogVerbosity) => void
 }
 
 export function HudTopbar({
@@ -102,7 +118,13 @@ export function HudTopbar({
   defaultIde = 'auto', onDefaultIdeChange,
   defaultTerminalModel = 'default', onDefaultTerminalModelChange,
   dockMode = false, onDockModeChange,
+  graphicsPreset = 'medium', onGraphicsPresetChange,
+  bloomEnabled = true, onBloomEnabledChange,
+  chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange,
+  floorLinesEnabled = false, onFloorLinesEnabledChange,
+  groupTrailsEnabled = false, onGroupTrailsEnabledChange,
   projects = [],
+  devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections,
 }: HudTopbarProps) {
   const pendingCount = projectCount - readyCount
 
@@ -211,6 +233,11 @@ export function HudTopbar({
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
           introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange ?? (() => {})}
           activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange ?? (() => {})}
+          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange ?? (() => {})}
+          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange ?? (() => {})}
+          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange ?? (() => {})}
+          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange ?? (() => {})}
+          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange ?? (() => {})}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
@@ -219,6 +246,8 @@ export function HudTopbar({
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
+          projects={projects} onConfigureProject={onConvertProject}
+          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange ?? (() => {})} onSetAllDevlogSections={onSetAllDevlogSections ?? (() => {})}
         />
         {/* Task Board button */}
         <button

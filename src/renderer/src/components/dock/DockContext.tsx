@@ -14,6 +14,9 @@ import type {
   CameraSettings,
   PersonalitySettings,
   SphereStyleId,
+  DevlogSections,
+  DevlogSectionKey,
+  DevlogVerbosity,
 } from '../../hooks/useSettings'
 import type { DemoSettings } from '../../hooks/useDemoSettings'
 
@@ -77,6 +80,10 @@ export interface DockSceneProps {
   onDockModeChange: (enabled: boolean) => void
   // U11: Embedded browser
   onOpenBrowser?: (projectPath: string, projectName: string) => void
+  // U23: Devlog section verbosity
+  devlogSections?: DevlogSections
+  onDevlogSectionChange?: (key: DevlogSectionKey, value: DevlogVerbosity) => void
+  onSetAllDevlogSections?: (value: DevlogVerbosity) => void
 }
 
 // ── Terminal props ──
