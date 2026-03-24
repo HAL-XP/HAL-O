@@ -52,8 +52,8 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fa
       pos[i3 + 1] = height
       pos[i3 + 2] = Math.sin(angle) * radius
 
-      // ~15% are "data stream" particles — faster, more vertical, in columns
-      const isStream = Math.random() < 0.15 ? 1.0 : 0.0
+      // ~8% are "data stream" particles — faster, more vertical, in columns (reduced from 15% to avoid visible streaks)
+      const isStream = Math.random() < 0.08 ? 1.0 : 0.0
 
       sd[i4] = Math.random() * Math.PI * 2   // phase offset for swirl
       sd[i4 + 1] = isStream ? (0.8 + Math.random() * 1.2) : (0.05 + Math.random() * 0.15) // vertical speed
@@ -94,7 +94,7 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fa
         vColor = color;
         // Streams are brighter; normal particles shimmer. Scaled by style particleBrightness.
         float shimmer = sin(uTime * 1.5 + position.x * 3.0 + position.z * 2.0) * 0.3 + 0.7;
-        vOpacity = (aStream > 0.5 ? 0.6 : shimmer * 0.35) * uFade * uBrightness;
+        vOpacity = (aStream > 0.5 ? 0.25 : shimmer * 0.25) * uFade * uBrightness;
 
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
@@ -103,7 +103,7 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fa
         vOpacity *= smoothstep(uHideDist, uHideDist * 2.0, camDist);
 
         // Size: streams slightly larger
-        float size = aStream > 0.5 ? 3.0 : (1.5 + sin(aSeed * 6.28 + uTime) * 0.5);
+        float size = aStream > 0.5 ? 2.0 : (1.2 + sin(aSeed * 6.28 + uTime) * 0.4);
         gl_PointSize = size * uPixelRatio * (200.0 / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
       }
