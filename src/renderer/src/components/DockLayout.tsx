@@ -126,6 +126,8 @@ export interface DockLayoutProps {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
+  introAnimation?: boolean
+  onIntroAnimationChange?: (enabled: boolean) => void
   activityFeedback?: boolean
   onActivityFeedbackChange?: (enabled: boolean) => void
   sphereStyle?: SphereStyleId
@@ -210,6 +212,8 @@ export function DockLayout(props: DockLayoutProps) {
       onThreeThemeChange: props.onThreeThemeChange,
       shipVfxEnabled: props.shipVfxEnabled,
       onShipVfxEnabledChange: props.onShipVfxEnabledChange,
+      introAnimation: props.introAnimation,
+      onIntroAnimationChange: props.onIntroAnimationChange,
       activityFeedback: props.activityFeedback,
       onActivityFeedbackChange: props.onActivityFeedbackChange,
       sphereStyle: props.sphereStyle,
@@ -252,6 +256,7 @@ export function DockLayout(props: DockLayoutProps) {
     props.rendererId, props.onRendererChange, props.layoutId, props.onLayoutChange,
     props.threeTheme, props.onThreeThemeChange,
     props.shipVfxEnabled, props.onShipVfxEnabledChange,
+    props.introAnimation, props.onIntroAnimationChange,
     props.activityFeedback, props.onActivityFeedbackChange,
     props.sphereStyle, props.onSphereStyleChange,
     props.voiceReactionIntensity, props.onVoiceReactionIntensityChange,

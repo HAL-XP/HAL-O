@@ -80,6 +80,8 @@ export function ScenePanel(_props: IDockviewPanelProps) {
         onDefaultTerminalModelChange={s.onDefaultTerminalModelChange}
         dockMode={s.dockMode}
         onDockModeChange={s.onDockModeChange}
+        introAnimation={s.introAnimation}
+        onIntroAnimationChange={s.onIntroAnimationChange}
         onOpenBrowser={s.onOpenBrowser}
       />
     </div>

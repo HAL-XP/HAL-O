@@ -138,6 +138,7 @@ export interface SettingsState {
   defaultIde: IdeOptionId
   activityFeedback: boolean
   defaultTerminalModel: TerminalModelId
+  introAnimation: boolean
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -160,6 +161,7 @@ export interface SettingsState {
   updateDefaultIde: (id: IdeOptionId) => void
   updateActivityFeedback: (enabled: boolean) => void
   updateDefaultTerminalModel: (id: TerminalModelId) => void
+  updateIntroAnimation: (enabled: boolean) => void
 }
 
 export function useSettings(): SettingsState {
@@ -220,6 +222,7 @@ export function useSettings(): SettingsState {
   const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
   const [activityFeedback, setActivityFeedback] = useState(() => localStorage.getItem('hal-o-activity-feedback') !== 'false') // default ON
   const [defaultTerminalModel, setDefaultTerminalModel] = useState<TerminalModelId>(() => (localStorage.getItem('hal-o-terminal-model') as TerminalModelId) || 'default')
+  const [introAnimation, setIntroAnimation] = useState(() => localStorage.getItem('hal-o-intro-animation') !== 'false') // default ON
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
     return stored !== null ? parseFloat(stored) : 0.5
@@ -307,6 +310,10 @@ export function useSettings(): SettingsState {
     setDefaultTerminalModel(id)
     localStorage.setItem('hal-o-terminal-model', id)
   }, [])
+  const updateIntroAnimation = useCallback((enabled: boolean) => {
+    setIntroAnimation(enabled)
+    localStorage.setItem('hal-o-intro-animation', String(enabled))
+  }, [])
   const updateVoiceReactionIntensity = useCallback((v: number) => {
     setVoiceReactionIntensity(v)
     localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
@@ -347,7 +354,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback, defaultTerminalModel,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, activityFeedback, defaultTerminalModel, introAnimation,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel, updateIntroAnimation,
   }
 }

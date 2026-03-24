@@ -150,7 +150,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, activityFeedback, updateActivityFeedback } = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback } = useSettings()
 
   // ── U11: Embedded browser panel state ──
   const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([])
@@ -449,6 +449,8 @@ export function App() {
             onVoiceFocus={(id) => setVoiceFocus(id)}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
+            introAnimation={introAnimation}
+            onIntroAnimationChange={updateIntroAnimation}
             onOpenBrowser={openBrowserTab}
           />
         </ErrorBoundary>
@@ -529,6 +531,8 @@ export function App() {
             onDefaultTerminalModelChange={updateDefaultTerminalModel}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
+            introAnimation={introAnimation}
+            onIntroAnimationChange={updateIntroAnimation}
             onOpenBrowser={openBrowserTab}
           />
         </div>

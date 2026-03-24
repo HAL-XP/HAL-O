@@ -12,6 +12,7 @@ import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import { CinematicSequence } from './CinematicSequence'
+import { IntroSequence } from './IntroSequence'
 import { MergeGraph } from './MergeGraph'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
@@ -1773,6 +1774,8 @@ interface Props {
   // M2: Cinematic demo mode
   cinematicActive?: boolean
   onCinematicComplete?: () => void
+  // M2c: Intro fly-in animation
+  introAnimation?: boolean
   // U18: Merge conflict 3D graph
   mergeStates?: Record<string, import('../../types/merge').MergeState>
   commitGraphs?: Record<string, import('../../types/merge').CommitNode[]>
@@ -1826,6 +1829,9 @@ interface PbrSceneInnerProps {
   // M2: Cinematic demo mode
   cinematicActive: boolean
   onCinematicComplete?: () => void
+  // M2c: Intro fly-in animation
+  introAnimation: boolean
+  onIntroComplete?: () => void
   // U18: Merge conflict 3D graph
   mergeStates: Record<string, import('../../types/merge').MergeState>
   commitGraphs: Record<string, import('../../types/merge').CommitNode[]>
@@ -1845,6 +1851,7 @@ function PbrSceneInner({
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
   onOpenBrowser,
   cinematicActive, onCinematicComplete,
+  introAnimation, onIntroComplete,
   mergeStates, commitGraphs,
   selectedConflictFile, onSelectConflictFile,
   resolvedFilesMap,
@@ -1926,6 +1933,16 @@ function PbrSceneInner({
   const [scenePhase, setScenePhase] = useState(0)
   const [sceneReady, setSceneReady] = useState(false)
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
+
+  // M2c: Intro fly-in animation — activates when scene first becomes ready
+  const [introActive, setIntroActive] = useState(false)
+  const introFiredRef = useRef(false)
+  useEffect(() => {
+    if (sceneReady && introAnimation && !introFiredRef.current && !cinematicActive) {
+      introFiredRef.current = true
+      setIntroActive(true)
+    }
+  }, [sceneReady, introAnimation, cinematicActive])
 
   // Interpolate fade values each frame based on current scene phase
   useFrame((_, delta) => {
@@ -2224,6 +2241,13 @@ function PbrSceneInner({
         loop={true}
       />
 
+      {/* M2c: Intro fly-in animation — plays once on app start */}
+      <IntroSequence
+        active={introActive}
+        onComplete={() => { setIntroActive(false); onIntroComplete?.() }}
+        finalTarget={[0, 0.3, 0]}
+      />
+
       <PostFX enabled={scenePhase >= 3} />
     </>
   )
@@ -2239,7 +2263,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {} }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {} }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2376,6 +2400,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           onOpenBrowser={onOpenBrowser}
           cinematicActive={cinematicActive}
           onCinematicComplete={onCinematicComplete}
+          introAnimation={introAnimation}
           mergeStates={mergeStates}
           commitGraphs={commitGraphs}
           selectedConflictFile={selectedConflictFile ?? null}
