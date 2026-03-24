@@ -5,8 +5,8 @@
   "description": "HAL-O — Your personal Jarvis for code. Holographic dashboard, voice AI, embedded terminals. Open source.",
   "main": "./out/main/index.js",
   "scripts": {
-    "prebuild": "node -e \"require('fs').rmSync('node_modules/.vite',{recursive:true,force:true})\"",
-    "predev": "node -e \"require('fs').rmSync('node_modules/.vite',{recursive:true,force:true})\"",
+    "prebuild": "node -e \"const f=require('fs'),p=require('path'),d=p.join(process.env.APPDATA||'','hal-o');['node_modules/.vite','node_modules/.cache'].forEach(x=>f.rmSync(x,{recursive:true,force:true}));['Code Cache','GPUCache','DawnGraphiteCache','DawnWebGPUCache','Cache'].forEach(x=>{try{f.rmSync(p.join(d,x),{recursive:true,force:true})}catch{}})\"",
+    "predev": "node -e \"const f=require('fs'),p=require('path'),d=p.join(process.env.APPDATA||'','hal-o');['node_modules/.vite','node_modules/.cache'].forEach(x=>f.rmSync(x,{recursive:true,force:true}));['Code Cache','GPUCache','DawnGraphiteCache','DawnWebGPUCache','Cache'].forEach(x=>{try{f.rmSync(p.join(d,x),{recursive:true,force:true})}catch{}})\"",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
