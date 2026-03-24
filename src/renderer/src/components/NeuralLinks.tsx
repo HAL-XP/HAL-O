@@ -38,7 +38,10 @@ export function NeuralLinks({ containerRef }: Props) {
     const opsList = container?.querySelector('.hal-ops-list')
 
     update()
-    const interval = setInterval(update, 200) // periodic refresh
+    const interval = setInterval(() => {
+      if (document.hidden) return // B29: skip updates when tab is hidden
+      update()
+    }, 200)
     opsList?.addEventListener('scroll', update)
     window.addEventListener('resize', update)
 

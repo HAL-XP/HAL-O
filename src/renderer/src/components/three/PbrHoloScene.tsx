@@ -2092,6 +2092,7 @@ function PbrSceneInner({
   useEffect(() => {
     if (!vfxFrequency || vfxFrequency <= 0) return
     const interval = setInterval(() => {
+      if (document.hidden) return // B29: skip VFX spawns when tab is hidden
       if (shipVfxEnabled) flybyRef.current?.trigger()
     }, vfxFrequency * 1000)
     return () => clearInterval(interval)
