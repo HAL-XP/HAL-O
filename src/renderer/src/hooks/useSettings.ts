@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 export const VOICE_PROFILES = [
   { id: 'auto', label: 'AUTO (CONTEXT)' },
@@ -49,6 +49,37 @@ export const DEFAULT_CAMERA: CameraSettings = {
 export const PARTICLE_DENSITY_LABELS = ['OFF', 'BARE', 'MINIMAL', 'VERY LOW', 'LOW', 'LOW-MED', 'MEDIUM', 'MED-HIGH', 'HIGH', 'HIGH+', 'VERY HIGH', 'ULTRA', 'ULTRA+', 'EXTREME', 'INSANE', 'MAX'] as const
 export const PARTICLE_DENSITY_MULTIPLIERS = [0, 0.03, 0.08, 0.15, 0.25, 0.4, 0.6, 0.85, 1.0, 1.3, 1.7, 2.2, 2.8, 3.5, 4.5, 6.0] as const
 
+// ── Personality Sliders (TARS System) ──
+
+export interface PersonalitySettings {
+  humor: number       // 0-100, default 50
+  formality: number   // 0-100, default 50
+  verbosity: number   // 0-100, default 50
+  dramatic: number    // 0-100, default 25
+}
+
+export const DEFAULT_PERSONALITY: PersonalitySettings = {
+  humor: 50,
+  formality: 50,
+  verbosity: 50,
+  dramatic: 25,
+}
+
+export interface PersonalityPreset {
+  name: string
+  label: string
+  values: PersonalitySettings
+}
+
+export const PERSONALITY_PRESETS: PersonalityPreset[] = [
+  { name: 'default',  label: 'DEFAULT',  values: { humor: 50, formality: 50, verbosity: 50, dramatic: 25 } },
+  { name: 'serious',  label: 'SERIOUS',  values: { humor: 10, formality: 80, verbosity: 60, dramatic: 10 } },
+  { name: 'tars',     label: 'TARS',     values: { humor: 75, formality: 40, verbosity: 30, dramatic: 30 } },
+  { name: 'movie',    label: 'MOVIE',    values: { humor: 30, formality: 50, verbosity: 50, dramatic: 90 } },
+  { name: 'butler',   label: 'BUTLER',   values: { humor: 20, formality: 95, verbosity: 70, dramatic: 15 } },
+  { name: 'chaos',    label: 'CHAOS',    values: { humor: 90, formality: 10, verbosity: 80, dramatic: 85 } },
+]
+
 export interface SettingsState {
   hubFontSize: number
   termFontSize: number
@@ -65,6 +96,7 @@ export interface SettingsState {
   threeTheme: string
   shipVfxEnabled: boolean
   voiceReactionIntensity: number
+  personality: PersonalitySettings
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -81,6 +113,8 @@ export interface SettingsState {
   updateThreeTheme: (id: string) => void
   updateShipVfxEnabled: (enabled: boolean) => void
   updateVoiceReactionIntensity: (v: number) => void
+  updatePersonality: (key: keyof PersonalitySettings, value: number) => void
+  applyPersonalityPreset: (presetName: string) => void
 }
 
 export function useSettings(): SettingsState {
@@ -131,6 +165,12 @@ export function useSettings(): SettingsState {
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
     return stored !== null ? parseFloat(stored) : 0.5
+  })
+  const [personality, setPersonality] = useState<PersonalitySettings>(() => {
+    try {
+      const stored = localStorage.getItem('hal-o-personality')
+      return stored ? { ...DEFAULT_PERSONALITY, ...JSON.parse(stored) } : DEFAULT_PERSONALITY
+    } catch { return DEFAULT_PERSONALITY }
   })
 
   const updateRenderer = useCallback((id: string) => {
@@ -198,8 +238,42 @@ export function useSettings(): SettingsState {
     localStorage.setItem('hal-o-voice-reaction-intensity', String(v))
   }, [])
 
+  // Debounced personality file write (150ms) — avoids spamming disk during slider drag
+  const personalityWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const writePersonalityFile = useCallback((p: PersonalitySettings, presetName?: string) => {
+    if (personalityWriteTimer.current) clearTimeout(personalityWriteTimer.current)
+    personalityWriteTimer.current = setTimeout(() => {
+      const matchedPreset = presetName || PERSONALITY_PRESETS.find(
+        pr => pr.values.humor === p.humor && pr.values.formality === p.formality &&
+              pr.values.verbosity === p.verbosity && pr.values.dramatic === p.dramatic
+      )?.name || null
+      window.api?.writePersonality?.({
+        ...p,
+        preset: matchedPreset,
+        updated: new Date().toISOString(),
+      }).catch(() => {})
+    }, 150)
+  }, [])
+
+  const updatePersonality = useCallback((key: keyof PersonalitySettings, value: number) => {
+    setPersonality(prev => {
+      const next = { ...prev, [key]: value }
+      localStorage.setItem('hal-o-personality', JSON.stringify(next))
+      writePersonalityFile(next)
+      return next
+    })
+  }, [writePersonalityFile])
+
+  const applyPersonalityPreset = useCallback((presetName: string) => {
+    const preset = PERSONALITY_PRESETS.find(p => p.name === presetName)
+    if (!preset) return
+    setPersonality(preset.values)
+    localStorage.setItem('hal-o-personality', JSON.stringify(preset.values))
+    writePersonalityFile(preset.values, presetName)
+  }, [writePersonalityFile])
+
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, voiceReactionIntensity, personality,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset,
   }
 }

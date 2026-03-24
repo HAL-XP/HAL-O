@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
-import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
 import { useFavoriteProjects } from '../hooks/useFavoriteProjects'
@@ -54,6 +54,9 @@ interface Props {
   onShipVfxEnabledChange?: (enabled: boolean) => void
   voiceReactionIntensity?: number
   onVoiceReactionIntensityChange?: (v: number) => void
+  personality: PersonalitySettings
+  onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
+  onPersonalityPreset: (presetName: string) => void
   halSessionId?: string | null
   terminalCount?: number
   demo?: DemoSettings
@@ -69,7 +72,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, halSessionId, terminalCount, demo }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -458,6 +461,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
+          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -519,6 +523,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
+          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -578,6 +583,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
+          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
@@ -637,6 +643,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
         onCameraChange={onCameraChange} onCameraReset={onCameraReset}
         onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+        shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+        voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
+        personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
         groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
         demo={demo}
         onVoiceBlocked={handleVoiceBlocked}

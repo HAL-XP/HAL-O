@@ -1066,6 +1066,136 @@ function ScenePhaseManager({ sceneReady, onPhaseChange }: { sceneReady: boolean;
   return null
 }
 
+// ── Connection Beams — subtle glowing lines between projects in the same group (P5) ──
+// Uses star pattern: all group members connect to their group centroid.
+// Single BufferGeometry + LineSegments for performance (one draw call for ALL beams).
+const _beamColor = new THREE.Color()
+
+function ConnectionBeams({ projects, groups, assignments, screenPositions, searchActive }: {
+  projects: ProjectInfo[]
+  groups: ProjectGroup[]
+  assignments: Record<string, string>
+  screenPositions: { position: [number, number, number]; rotation: [number, number, number] }[]
+  searchActive: boolean
+}) {
+  const lineRef = useRef<THREE.LineSegments>(null)
+  const matRef = useRef<THREE.LineBasicMaterial>(null)
+  const opacityRef = useRef(0) // fade-in on mount
+
+  // Build beam geometry: group → member indices → centroid → line segments
+  const { geometry, segmentCount } = useMemo(() => {
+    if (groups.length === 0 || screenPositions.length === 0) {
+      return { geometry: new THREE.BufferGeometry(), segmentCount: 0 }
+    }
+
+    // Map each group id to its member project indices
+    const groupMembers = new Map<string, number[]>()
+    projects.forEach((p, i) => {
+      const gId = assignments[p.path]
+      if (!gId) return
+      if (!groups.some((g) => g.id === gId)) return
+      const arr = groupMembers.get(gId) || []
+      arr.push(i)
+      groupMembers.set(gId, arr)
+    })
+
+    // Count total line segments: each group with 2+ members = N segments (member→centroid)
+    let totalSegments = 0
+    for (const [, members] of groupMembers) {
+      if (members.length >= 2) totalSegments += members.length
+    }
+
+    if (totalSegments === 0) {
+      return { geometry: new THREE.BufferGeometry(), segmentCount: 0 }
+    }
+
+    // Allocate buffers: each segment = 2 vertices, each vertex = 3 floats (position) + 3 floats (color)
+    const positions = new Float32Array(totalSegments * 2 * 3)
+    const colors = new Float32Array(totalSegments * 2 * 3)
+    let offset = 0
+
+    for (const [gId, members] of groupMembers) {
+      if (members.length < 2) continue
+      const group = groups.find((g) => g.id === gId)
+      if (!group) continue
+
+      // Compute centroid
+      let cx = 0, cy = 0, cz = 0
+      let validCount = 0
+      for (const idx of members) {
+        const sp = screenPositions[idx]
+        if (!sp) continue
+        cx += sp.position[0]
+        cy += sp.position[1]
+        cz += sp.position[2]
+        validCount++
+      }
+      if (validCount < 2) continue
+      cx /= validCount
+      cy /= validCount
+      cz /= validCount
+
+      // Parse group color
+      _beamColor.set(group.color)
+      const r = _beamColor.r
+      const g = _beamColor.g
+      const b = _beamColor.b
+
+      // Create line segments: each member → centroid
+      for (const idx of members) {
+        const sp = screenPositions[idx]
+        if (!sp) continue
+        const base = offset * 6 // 2 vertices * 3 components
+        // Vertex 1: project position
+        positions[base]     = sp.position[0]
+        positions[base + 1] = sp.position[1]
+        positions[base + 2] = sp.position[2]
+        // Vertex 2: centroid
+        positions[base + 3] = cx
+        positions[base + 4] = cy
+        positions[base + 5] = cz
+        // Colors (same for both vertices)
+        colors[base]     = r
+        colors[base + 1] = g
+        colors[base + 2] = b
+        colors[base + 3] = r
+        colors[base + 4] = g
+        colors[base + 5] = b
+        offset++
+      }
+    }
+
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    return { geometry: geo, segmentCount: totalSegments }
+  }, [projects, groups, assignments, screenPositions])
+
+  // Animate opacity: fade in smoothly, dim during search
+  useFrame((_, delta) => {
+    if (!matRef.current) return
+    const target = searchActive ? 0.03 : 0.15
+    opacityRef.current += (target - opacityRef.current) * Math.min(1, delta * 3)
+    matRef.current.opacity = opacityRef.current
+  })
+
+  if (segmentCount === 0) return null
+
+  return (
+    <lineSegments ref={lineRef} geometry={geometry} frustumCulled={false}>
+      <lineBasicMaterial
+        ref={matRef}
+        vertexColors
+        transparent
+        opacity={0.15}
+        depthWrite={false}
+        toneMapped={false}
+        linewidth={1}
+      />
+    </lineSegments>
+  )
+}
+
 // ── External session matching helper (T3) ──
 type ExternalSession = { pid: number; projectPath: string; projectName: string }
 
@@ -1326,6 +1456,15 @@ function PbrSceneInner({
           ScreenPanel useFrame callbacks then skip work when camera is static or throttle
           during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
       <ScreenPanelUpdater />
+
+      {/* Connection beams — subtle glowing lines between projects in the same group (P5) */}
+      <ConnectionBeams
+        projects={projects}
+        groups={groups}
+        assignments={assignments}
+        screenPositions={screenPositions}
+        searchActive={searchActive}
+      />
 
       {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {

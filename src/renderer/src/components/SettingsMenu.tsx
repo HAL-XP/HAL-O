@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, type VoiceProfileId, type DockPosition, type CameraSettings } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -115,6 +115,9 @@ interface Props {
   onShipVfxEnabledChange: (enabled: boolean) => void
   voiceReactionIntensity: number
   onVoiceReactionIntensityChange: (v: number) => void
+  personality: PersonalitySettings
+  onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
+  onPersonalityPreset: (presetName: string) => void
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
   demo?: DemoSettings
@@ -168,7 +171,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -186,6 +189,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const [secTerminal, setSecTerminal] = useState(true)
   const [secFonts, setSecFonts] = useState(true)
   const [secVoice, setSecVoice] = useState(false)
+  const [secPersonality, setSecPersonality] = useState(false)
   const [secScene, setSecScene] = useState(false)
   const [secHidden, setSecHidden] = useState(false)
   const [secDemo, setSecDemo] = useState(false)
@@ -268,6 +272,7 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
   const terminalLabels = ['TERMINAL DOCK']
   const fontsLabels = ['HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE']
   const voiceLabels = ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION']
+  const personalityLabels = ['HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET']
   const sceneLabels = ['SCREENS OPACITY', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SHIP VFX', 'PARTICLE HIDE DIST', 'SAVE CURRENT VIEW', 'RESET VIEW']
   const hiddenLabels = ['HIDDEN PROJECTS']
   const demoLabels = ['ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE']
@@ -608,6 +613,108 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                           style={{ flex: 1, accentColor: 'var(--primary)' }}
                         />
                         <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{voiceReactionIntensity.toFixed(1)}x</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── PERSONALITY section ── */}
+          {sectionVisible(personalityLabels) && (
+            <>
+              <SectionHeader label="PERSONALITY" expanded={isExpanded(secPersonality)} onToggle={() => setSecPersonality(!secPersonality)} />
+              {isExpanded(secPersonality) && (
+                <div className="hal-settings-section-body">
+                  {match('HUMOR') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">HUMOR</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range" min="0" max="100" step="1"
+                          value={personality.humor}
+                          onChange={(e) => onPersonalityChange('humor', parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{personality.humor}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('FORMALITY') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">FORMALITY</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range" min="0" max="100" step="1"
+                          value={personality.formality}
+                          onChange={(e) => onPersonalityChange('formality', parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{personality.formality}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('VERBOSITY') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">VERBOSITY</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range" min="0" max="100" step="1"
+                          value={personality.verbosity}
+                          onChange={(e) => onPersonalityChange('verbosity', parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{personality.verbosity}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('DRAMATIC') && (
+                    <div className="hal-settings-row">
+                      <span className="hal-settings-label">DRAMATIC</span>
+                      <div className="hal-settings-control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range" min="0" max="100" step="1"
+                          value={personality.dramatic}
+                          onChange={(e) => onPersonalityChange('dramatic', parseInt(e.target.value))}
+                          style={{ flex: 1, accentColor: 'var(--primary)' }}
+                        />
+                        <span style={{ fontSize: 'var(--hub-font, 10px)', color: 'var(--text-dim)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{personality.dramatic}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {match('PERSONALITY PRESET') && (
+                    <div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                      <span className="hal-settings-label" style={{ fontSize: 'calc(var(--hub-font, 10px) - 2px)' }}>PRESETS</span>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {PERSONALITY_PRESETS.map((preset) => {
+                          const isActive = personality.humor === preset.values.humor &&
+                            personality.formality === preset.values.formality &&
+                            personality.verbosity === preset.values.verbosity &&
+                            personality.dramatic === preset.values.dramatic
+                          return (
+                            <button
+                              key={preset.name}
+                              className="hal-settings-preview-btn"
+                              onClick={() => onPersonalityPreset(preset.name)}
+                              style={{
+                                width: 'auto',
+                                padding: '2px 8px',
+                                fontSize: 'calc(var(--hub-font, 10px) - 2px)',
+                                letterSpacing: '1px',
+                                color: isActive ? 'var(--primary)' : 'var(--text-dim)',
+                                borderColor: isActive ? 'var(--primary)' : undefined,
+                                background: isActive ? 'rgba(132, 204, 22, 0.08)' : undefined,
+                              }}
+                            >
+                              {preset.label}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   )}

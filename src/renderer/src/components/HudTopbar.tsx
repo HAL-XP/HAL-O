@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
-import type { VoiceProfileId, DockPosition, CameraSettings } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -54,6 +54,9 @@ interface HudTopbarProps {
   onShipVfxEnabledChange?: (enabled: boolean) => void
   voiceReactionIntensity?: number
   onVoiceReactionIntensityChange?: (v: number) => void
+  personality: PersonalitySettings
+  onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
+  onPersonalityPreset: (presetName: string) => void
   // Hidden projects
   hiddenPaths?: string[]
   onUnhide?: (path: string) => void
@@ -69,6 +72,7 @@ export function HudTopbar({
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
   voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange,
+  personality, onPersonalityChange, onPersonalityPreset,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
   hiddenPaths = [], onUnhide,
   demo,
@@ -150,6 +154,7 @@ export function HudTopbar({
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
+          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
         />

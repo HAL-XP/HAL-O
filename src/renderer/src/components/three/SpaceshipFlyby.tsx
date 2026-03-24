@@ -8,11 +8,8 @@ export interface SpaceshipFlybyHandle {
 
 // ── Scratch vectors — never allocate in animation loops ──
 const _pos = new THREE.Vector3()
-const _tangent = new THREE.Vector3()
 const _up = new THREE.Vector3(0, 1, 0)
 const _lookTarget = new THREE.Vector3()
-const _quat = new THREE.Quaternion()
-const _mat4 = new THREE.Matrix4()
 const _prevPos = new THREE.Vector3()
 const _curPos = new THREE.Vector3()
 
@@ -29,11 +26,37 @@ const FLIGHT_POINTS = [
 
 const FLIGHT_CURVE = new THREE.CatmullRomCurve3(FLIGHT_POINTS, false, 'catmullrom', 0.5)
 
-// A9: Slower — capital ship feel
-const FLYBY_DURATION = 11.0 // seconds
+// A10: Heavier — capital ship inertia (was 11s)
+const FLYBY_DURATION = 18.0 // seconds
 
-// A9: Larger trail to match the bigger ship
+// Trail particle budget
 const TRAIL_COUNT = 120
+
+// ── A10: Quintic ease-in-out for heavy inertia feel ──
+// Ship starts very slow (lumbering out of hyperspace), accelerates through the middle,
+// then gradually decelerates as it exits. Much more dramatic than quadratic.
+function quinticEaseInOut(t: number): number {
+  if (t < 0.5) {
+    return 16 * t * t * t * t * t
+  }
+  const p = -2 * t + 2
+  return 1 - (p * p * p * p * p) / 2
+}
+
+// Derivative of the quintic ease — gives us instantaneous "speed" (0..max)
+// Used to scale engine trail intensity proportional to velocity
+function quinticEaseInOutDerivative(t: number): number {
+  if (t < 0.5) {
+    return 80 * t * t * t * t // 5 * 16 * t^4
+  }
+  const p = -2 * t + 2
+  return 80 * (p * p * p * p) / 2 // chain rule, simplified: 5 * 16 * ((1-t)*2)^4 / 2
+  // = 40 * p^4
+}
+
+// Normalize derivative to 0..1 range — peak is at t=0.5 where derivative = 80*0.0625 = 5
+// Actually at t=0.5: 80*(0.5)^4 = 80*0.0625 = 5
+const QUINTIC_PEAK_DERIVATIVE = 5.0
 
 // ── Pre-compute hull geometry with native -Z nose orientation ──
 // Shape is drawn in XY plane (nose at +Y), extruded along +Z (hull thickness).
@@ -106,22 +129,29 @@ const MAT_RUNNING_RED = new THREE.MeshBasicMaterial({
   toneMapped: false,
 })
 
+// A10: Camera shake constants — very subtle rumble at closest approach
+const SHAKE_MAX_INTENSITY = 0.012  // max displacement in world units — barely perceptible
+const SHAKE_CLOSEST_T = 0.42       // approximate t value where ship is nearest sphere
+const SHAKE_FALLOFF = 0.15         // how quickly shake tapers off from closest point
+
 interface SpaceshipFlybyProps {
   enabled?: boolean
 }
 
 /**
  * Star Destroyer style capital ship flyby.
- * A9 — heavier movement: 11s duration, wider arc, 2.2x scale, Z-banking.
+ * A10 — heavier physics/inertia: 18s duration, quintic easing, scale 0.6,
+ * speed-proportional engine trail, subtle camera shake at closest approach.
  * Triggered via ref.trigger(). Pass enabled=false to make trigger() a no-op.
  */
 export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyProps>(function SpaceshipFlyby({ enabled = true }, ref) {
   const shipGroupRef = useRef<THREE.Group>(null)
   const trailRef = useRef<THREE.Points>(null)
+  const trailMatRef = useRef<THREE.ShaderMaterial>(null)
   const engine1GlowRef = useRef<THREE.PointLight>(null)
   const engine2GlowRef = useRef<THREE.PointLight>(null)
   const engine3GlowRef = useRef<THREE.PointLight>(null)
-  const { controls } = useThree()
+  const { controls, camera } = useThree()
 
   // Animation state — kept in refs to avoid re-renders
   const activeRef = useRef(false)
@@ -129,13 +159,15 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
   const trailIdxRef = useRef(0)
   const originalTargetRef = useRef<THREE.Vector3 | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Store original camera position for shake recovery
+  const cameraBaseRef = useRef(new THREE.Vector3())
 
   const [visible, setVisible] = useState(false)
 
   const trigger = useCallback(() => {
     if (!enabled) return
     if (activeRef.current) return
-    console.log('[Flyby] trigger() — Star Destroyer flyby starting')
+    console.log('[Flyby] trigger() — Star Destroyer flyby starting (A10: heavy inertia)')
 
     if (hideTimerRef.current !== null) {
       clearTimeout(hideTimerRef.current)
@@ -151,6 +183,9 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
       originalTargetRef.current = (controls as any).target.clone()
     }
 
+    // Snapshot camera base position for shake offset
+    cameraBaseRef.current.copy(camera.position)
+
     // Reset trail offscreen
     if (trailRef.current) {
       const posArr = trailRef.current.geometry.attributes.position.array as Float32Array
@@ -160,7 +195,7 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
       trailRef.current.geometry.attributes.position.needsUpdate = true
       trailRef.current.geometry.attributes.aOpacity.needsUpdate = true
     }
-  }, [controls, enabled])
+  }, [controls, enabled, camera])
 
   useImperativeHandle(ref, () => ({ trigger }), [trigger])
 
@@ -173,8 +208,13 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
     progressRef.current += delta / FLYBY_DURATION
     const t = Math.min(progressRef.current, 1)
 
-    // Ease-in-out — smooth entry and exit
-    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+    // A10: Quintic ease-in-out — dramatic heavy inertia
+    // Ship crawls at entry/exit, surges through the middle arc
+    const eased = quinticEaseInOut(t)
+
+    // Compute normalized speed (0..1) from easing derivative
+    const rawSpeed = quinticEaseInOutDerivative(t)
+    const normalizedSpeed = Math.min(rawSpeed / QUINTIC_PEAK_DERIVATIVE, 1)
 
     // Position ship
     FLIGHT_CURVE.getPointAt(eased, _pos)
@@ -192,7 +232,6 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
     FLIGHT_CURVE.getPointAt(tNext, _curPos)
     // Cross product of forward and the lateral offset gives us side direction
     const dX = _curPos.x - _prevPos.x
-    const dZ = _curPos.z - _prevPos.z
     // Bank angle: proportional to lateral curve, max ±25°
     const bankAngle = -dX * 0.55
     const clampedBank = Math.max(-0.44, Math.min(0.44, bankAngle))
@@ -200,16 +239,25 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
     // Apply Z-roll on top of the lookAt rotation
     shipGroupRef.current.rotateZ(clampedBank)
 
-    // Engine glow pulsing (3 engines)
-    const pulse = 3.5 + Math.sin(state.clock.elapsedTime * 20) * 1.2
-    if (engine1GlowRef.current) engine1GlowRef.current.intensity = pulse
-    if (engine2GlowRef.current) engine2GlowRef.current.intensity = pulse * 0.95
-    if (engine3GlowRef.current) engine3GlowRef.current.intensity = pulse * 0.9
+    // A10: Engine glow scales with speed — brighter during acceleration phase
+    const speedGlow = 0.3 + normalizedSpeed * 0.7  // 30% idle glow + 70% speed-driven
+    const basePulse = (2.0 + Math.sin(state.clock.elapsedTime * 20) * 0.8) * speedGlow
+    if (engine1GlowRef.current) engine1GlowRef.current.intensity = basePulse
+    if (engine2GlowRef.current) engine2GlowRef.current.intensity = basePulse * 0.95
+    if (engine3GlowRef.current) engine3GlowRef.current.intensity = basePulse * 0.9
+
+    // A10: Pass speed to trail shader for size scaling
+    if (trailMatRef.current) {
+      trailMatRef.current.uniforms.uSpeed.value = normalizedSpeed
+    }
 
     // Engine trail — deposit particles at ship's stern (3 exhaust points)
     if (trailRef.current) {
       const posArr = trailRef.current.geometry.attributes.position.array as Float32Array
       const opArr = trailRef.current.geometry.attributes.aOpacity.array as Float32Array
+
+      // A10: Trail spread scales with speed — tighter stream when slow, wider when fast
+      const spread = 0.08 + normalizedSpeed * 0.25
 
       // Deposit 3 particles per frame (one per engine)
       // Stern is at +Z (nose at -Z), so exhaust spawns at positive Z offsets
@@ -218,20 +266,37 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
         const i3 = idx * 3
         _v3Trail.copy(EXHAUST_OFFSETS[e])
         shipGroupRef.current.localToWorld(_v3Trail)
-        posArr[i3]     = _v3Trail.x + (Math.random() - 0.5) * 0.3
-        posArr[i3 + 1] = _v3Trail.y + (Math.random() - 0.5) * 0.3
-        posArr[i3 + 2] = _v3Trail.z + (Math.random() - 0.5) * 0.3
-        opArr[idx] = 1.0
+        posArr[i3]     = _v3Trail.x + (Math.random() - 0.5) * spread
+        posArr[i3 + 1] = _v3Trail.y + (Math.random() - 0.5) * spread
+        posArr[i3 + 2] = _v3Trail.z + (Math.random() - 0.5) * spread
+        // A10: Initial opacity proportional to speed — dimmer exhaust when coasting slow
+        opArr[idx] = 0.3 + normalizedSpeed * 0.7
         trailIdxRef.current++
       }
 
-      // Fade all trail particles — slower fade for longer trail
+      // Fade all trail particles — A10: fade rate inversely scales with speed
+      // Fast = longer trails, slow = shorter wisps
+      const fadeRate = 0.5 + (1 - normalizedSpeed) * 0.8
       for (let i = 0; i < TRAIL_COUNT; i++) {
-        opArr[i] = Math.max(0, opArr[i] - delta * 0.7)
+        opArr[i] = Math.max(0, opArr[i] - delta * fadeRate)
       }
 
       trailRef.current.geometry.attributes.position.needsUpdate = true
       trailRef.current.geometry.attributes.aOpacity.needsUpdate = true
+    }
+
+    // A10: Subtle camera shake at closest approach — rumble as mass passes nearby
+    const shakeProximity = Math.exp(-Math.pow((t - SHAKE_CLOSEST_T) / SHAKE_FALLOFF, 2))
+    const shakeIntensity = SHAKE_MAX_INTENSITY * shakeProximity * normalizedSpeed
+    if (shakeIntensity > 0.001) {
+      // High-frequency shake (different per axis for organic feel)
+      const time = state.clock.elapsedTime
+      const shakeX = Math.sin(time * 47) * shakeIntensity
+      const shakeY = Math.cos(time * 53) * shakeIntensity * 0.7
+      const shakeZ = Math.sin(time * 41 + 1.3) * shakeIntensity * 0.5
+      camera.position.x += shakeX
+      camera.position.y += shakeY
+      camera.position.z += shakeZ
     }
 
     // Flyby complete
@@ -253,8 +318,8 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
 
   return (
     <group visible={visible}>
-      {/* ── Star Destroyer — A9 scale 2.2x ── */}
-      <group ref={shipGroupRef} scale={2.2}>
+      {/* ── Star Destroyer — A10: scale 0.6 (max length ≈ sphere radius) ── */}
+      <group ref={shipGroupRef} scale={0.6}>
         {/* === Main wedge hull === */}
         {/* Geometry has rotateX(-π/2) baked in — nose natively at -Z, no rotation needed */}
         <mesh position={[0, 0.12, 0]}>
@@ -365,11 +430,11 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
 
         {/* Engine point lights */}
         <pointLight ref={engine1GlowRef} position={[-0.55, -0.05, 2.4]}
-          color="#00e5ff" intensity={3.5} distance={6} decay={2} />
+          color="#00e5ff" intensity={2.0} distance={4} decay={2} />
         <pointLight ref={engine2GlowRef} position={[0, -0.05, 2.6]}
-          color="#00e5ff" intensity={4} distance={7} decay={2} />
+          color="#00e5ff" intensity={2.5} distance={5} decay={2} />
         <pointLight ref={engine3GlowRef} position={[0.55, -0.05, 2.4]}
-          color="#00e5ff" intensity={3.5} distance={6} decay={2} />
+          color="#00e5ff" intensity={2.0} distance={4} decay={2} />
 
         {/* === Running lights — red at stern wing edges === */}
         <mesh position={[-0.96, 0.1, 1.9]}>
@@ -390,22 +455,26 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
           <bufferAttribute attach="attributes-aOpacity" args={[trailOpacities, 1]} />
         </bufferGeometry>
         <shaderMaterial
+          ref={trailMatRef}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
           uniforms={{
             uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+            uSpeed: { value: 0.0 },
           }}
           vertexShader={/* glsl */ `
             attribute float aOpacity;
             varying float vOpacity;
             uniform float uPixelRatio;
+            uniform float uSpeed;
 
             void main() {
               vOpacity = aOpacity;
               vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-              // A9: larger point size for bigger ship trail
-              gl_PointSize = aOpacity * 8.0 * uPixelRatio * (200.0 / -mvPos.z);
+              // A10: trail size scales with speed — thicker during acceleration, thinner at coast
+              float speedScale = 0.4 + uSpeed * 0.6;
+              gl_PointSize = aOpacity * 5.0 * speedScale * uPixelRatio * (200.0 / -mvPos.z);
               gl_Position = projectionMatrix * mvPos;
             }
           `}
@@ -416,7 +485,7 @@ export const SpaceshipFlyby = forwardRef<SpaceshipFlybyHandle, SpaceshipFlybyPro
               float d = length(gl_PointCoord - vec2(0.5));
               if (d > 0.5) discard;
               float alpha = smoothstep(0.5, 0.0, d) * vOpacity;
-              // Bright cyan core → blue-white fade
+              // Bright cyan core -> blue-white fade
               vec3 color = mix(vec3(0.0, 0.9, 1.0), vec3(0.8, 1.0, 1.0), vOpacity * 0.4);
               gl_FragColor = vec4(color, alpha * 0.85);
             }

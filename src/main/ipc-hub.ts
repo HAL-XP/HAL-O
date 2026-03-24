@@ -2,7 +2,7 @@
 // Owner: Agent B (Terminal + Core)
 
 import { ipcMain, shell } from 'electron'
-import { existsSync, readdirSync, readFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { exec, execSync } from 'child_process'
 import { join, normalize } from 'path'
 import { run } from './ipc-shared'
@@ -570,5 +570,28 @@ export function registerHubHandlers(): void {
     }
 
     return { success: true }
+  })
+
+  // ── Personality file write/read (TARS system) ──
+  const personalityPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'hal-o-personality.json')
+
+  ipcMain.handle('write-personality', async (_event, data: Record<string, unknown>) => {
+    try {
+      const dir = join(process.env.USERPROFILE || process.env.HOME || '', '.claude')
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      writeFileSync(personalityPath, JSON.stringify(data, null, 2), 'utf-8')
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  ipcMain.handle('read-personality', async () => {
+    try {
+      if (!existsSync(personalityPath)) return { humor: 50, formality: 50, verbosity: 50, dramatic: 25 }
+      return JSON.parse(readFileSync(personalityPath, 'utf-8'))
+    } catch {
+      return { humor: 50, formality: 50, verbosity: 50, dramatic: 25 }
+    }
   })
 }
