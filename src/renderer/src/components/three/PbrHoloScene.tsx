@@ -60,7 +60,7 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 
 // Also expose on window for use from terminal detection or other non-module code
 ;(window as any).__haloDispatchSphereEvent = dispatchSphereEvent
-import { DEFAULT_CAMERA, type CameraSettings } from '../../hooks/useSettings'
+import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
 import { StackIndicatorPanel } from './StackIndicatorPanel'
 import { ThreeThemeProvider, useThreeTheme } from '../../contexts/ThreeThemeContext'
@@ -708,7 +708,7 @@ function useHalEyeTexture(enabled: boolean): THREE.CanvasTexture | null {
 }
 
 // ── HAL Sphere — PBR version with audio-reactive animation ──
-function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, videoSphere = false }: { blockedInput?: boolean; voiceReactionIntensity?: number; videoSphere?: boolean }) {
+function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphereStyle = 'wireframe' }: { blockedInput?: boolean; voiceReactionIntensity?: number; sphereStyle?: SphereStyleId }) {
   const theme = useThreeTheme()
   const wireRef     = useRef<THREE.Mesh>(null)
   const coreRef     = useRef<THREE.Mesh>(null)
@@ -717,13 +717,19 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, vide
   const light1Ref   = useRef<THREE.PointLight>(null)
   const light2Ref   = useRef<THREE.PointLight>(null)
   const flashRef    = useRef(0)    // countdown timer for blocked flash
-  const videoMeshRef = useRef<THREE.Mesh>(null) // P4: video sphere mesh
+  const videoMeshRef = useRef<THREE.Mesh>(null) // P4: video sphere mesh (animated-core)
+  // HAL-eye iris ring refs for counter-rotation
+  const irisRing0Ref = useRef<THREE.Mesh>(null)
+  const irisRing1Ref = useRef<THREE.Mesh>(null)
+  const irisRing2Ref = useRef<THREE.Mesh>(null)
+  const irisRing3Ref = useRef<THREE.Mesh>(null)
+  const irisRingRefs = [irisRing0Ref, irisRing1Ref, irisRing2Ref, irisRing3Ref]
   const audioDataRef = useRef(new Uint8Array(128))
   // Smoothed audio levels — exponential moving average for smooth animation
   const smoothedRef = useRef({ bass: 0, mids: 0, highs: 0, volume: 0 })
 
-  // P4: Procedural HAL eye texture — only active when videoSphere is enabled
-  const halEyeTexture = useHalEyeTexture(videoSphere)
+  // P4: Procedural HAL eye texture — only active when sphereStyle is 'animated-core'
+  const halEyeTexture = useHalEyeTexture(sphereStyle === 'animated-core')
 
   // ── U4: Sphere event visual feedback state ──
   // Active event overlay — layered additively on top of audio reactions
@@ -881,6 +887,19 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, vide
       light2Ref.current.intensity = idleIntensity + midGlow
     }
 
+    // ── HAL-eye iris ring counter-rotation ──
+    if (sphereStyle === 'hal-eye') {
+      for (let i = 0; i < irisRingRefs.length; i++) {
+        const ref = irisRingRefs[i]
+        if (ref.current) {
+          const dir = i % 2 === 0 ? 1 : -1
+          const speed = 0.3 + i * 0.15
+          const audioBoost = isActive ? volume * 1.5 : 0
+          ref.current.rotation.z += delta * dir * (speed + audioBoost)
+        }
+      }
+    }
+
     // ── U4: Sphere event overlay — additive color/glow on top of audio ──
     const ev = eventRef.current
     if (ev.active) {
@@ -963,80 +982,211 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, vide
 
   return (
     <group position={[0, 1.3, 0]}>
-      {/* Wireframe globe */}
-      <mesh ref={wireRef}>
-        <sphereGeometry args={[1.3, 36, 24]} />
-        <meshStandardMaterial
-          color={sphereDark}
-          emissive={theme.sphereHex}
-          emissiveIntensity={0.6}
-          wireframe
-          transparent
-          opacity={0.7}
-          metalness={0.9}
-          roughness={0.2}
-          toneMapped={false}
-        />
-      </mesh>
 
-      {/* Inner volume — subtle fill */}
-      <mesh>
-        <sphereGeometry args={[1.25, 32, 32]} />
-        <meshStandardMaterial
-          color={sphereVeryDark}
-          emissive={theme.sphereHex}
-          emissiveIntensity={0.1}
-          transparent
-          opacity={0.15}
-          metalness={0.5}
-          roughness={0.8}
-        />
-      </mesh>
+      {/* ════════ WIREFRAME style — default sci-fi globe ════════ */}
+      {sphereStyle === 'wireframe' && (
+        <>
+          {/* Wireframe globe */}
+          <mesh ref={wireRef}>
+            <sphereGeometry args={[1.3, 36, 24]} />
+            <meshStandardMaterial
+              color={sphereDark}
+              emissive={theme.sphereHex}
+              emissiveIntensity={0.6}
+              wireframe
+              transparent
+              opacity={0.7}
+              metalness={0.9}
+              roughness={0.2}
+              toneMapped={false}
+            />
+          </mesh>
 
-      {/* P4: Video texture sphere — procedural HAL eye animation mapped onto inner sphere */}
-      {videoSphere && halEyeTexture && (
-        <mesh ref={videoMeshRef} scale={0.6}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshStandardMaterial
-            map={halEyeTexture}
-            emissiveMap={halEyeTexture}
-            emissive="#ff4400"
-            emissiveIntensity={1.5}
-            transparent
-            opacity={0.85}
-            toneMapped={false}
-            depthWrite={false}
-            metalness={0.2}
-            roughness={0.6}
-            side={THREE.FrontSide}
-          />
-        </mesh>
+          {/* Inner volume — subtle fill */}
+          <mesh>
+            <sphereGeometry args={[1.25, 32, 32]} />
+            <meshStandardMaterial
+              color={sphereVeryDark}
+              emissive={theme.sphereHex}
+              emissiveIntensity={0.1}
+              transparent
+              opacity={0.15}
+              metalness={0.5}
+              roughness={0.8}
+            />
+          </mesh>
+
+          {/* Bright core — audio-reactive via coreRef */}
+          <mesh ref={coreRef} scale={0.38}>
+            <sphereGeometry args={[1, 16, 16]} />
+            <meshStandardMaterial
+              color={theme.sphereHex}
+              emissive={theme.sphereGlowHex}
+              emissiveIntensity={baseGlowIntensity}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band — rotation speed driven by volume */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.3, 0.02, 8, 128]} />
+            <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+
+          {/* Latitude rings for globe detail */}
+          {[0.4, 0.8, -0.4, -0.8].map((y, i) => (
+            <mesh key={`lat-${i}`} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[Math.sqrt(1.3 * 1.3 - y * y), 0.006, 6, 64]} />
+              <meshStandardMaterial emissive={theme.sphereHex} emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
+            </mesh>
+          ))}
+        </>
       )}
 
-      {/* Bright core — audio-reactive via coreRef */}
-      <mesh ref={coreRef} scale={0.38}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshStandardMaterial
-          color={theme.sphereHex}
-          emissive={theme.sphereGlowHex}
-          emissiveIntensity={baseGlowIntensity}
-          toneMapped={false}
-        />
-      </mesh>
+      {/* ════════ HAL-EYE style — 3D HAL 9000 eye with iris rings ════════ */}
+      {sphereStyle === 'hal-eye' && (
+        <>
+          {/* Black bezel — torus ring around the lens housing */}
+          <mesh rotation={[0, 0, 0]}>
+            <torusGeometry args={[1.35, 0.12, 24, 64]} />
+            <meshStandardMaterial color="#0a0a0a" metalness={0.95} roughness={0.15} />
+          </mesh>
 
-      {/* Equatorial band — rotation speed driven by volume */}
-      <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[1.3, 0.02, 8, 128]} />
-        <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
-      </mesh>
+          {/* Glass lens — semi-transparent with physical material properties */}
+          <mesh>
+            <sphereGeometry args={[1.3, 48, 48]} />
+            <meshPhysicalMaterial
+              color="#1a0000"
+              transmission={0.3}
+              ior={1.5}
+              clearcoat={1}
+              clearcoatRoughness={0.05}
+              metalness={0.1}
+              roughness={0.05}
+              transparent
+              opacity={0.6}
+              envMapIntensity={0.5}
+              depthWrite={false}
+            />
+          </mesh>
 
-      {/* Latitude rings for globe detail */}
-      {[0.4, 0.8, -0.4, -0.8].map((y, i) => (
-        <mesh key={`lat-${i}`} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[Math.sqrt(1.3 * 1.3 - y * y), 0.006, 6, 64]} />
-          <meshStandardMaterial emissive={theme.sphereHex} emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
-        </mesh>
-      ))}
+          {/* 4 concentric iris rings — dark red to bright red, counter-rotating */}
+          {[
+            { radius: 0.35, tube: 0.06, color: '#660000', emissive: '#880000', intensity: 1.5 },
+            { radius: 0.55, tube: 0.05, color: '#880000', emissive: '#aa2200', intensity: 2.0 },
+            { radius: 0.78, tube: 0.04, color: '#aa1100', emissive: '#cc3300', intensity: 2.5 },
+            { radius: 1.02, tube: 0.035, color: '#cc2200', emissive: '#ff4400', intensity: 3.0 },
+          ].map((ring, i) => (
+            <mesh key={`iris-${i}`} ref={irisRingRefs[i]}>
+              <torusGeometry args={[ring.radius, ring.tube, 12, 64]} />
+              <meshStandardMaterial
+                color={ring.color}
+                emissive={ring.emissive}
+                emissiveIntensity={ring.intensity}
+                metalness={0.8}
+                roughness={0.2}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+
+          {/* Glowing center core — bright red emissive pupil */}
+          <mesh ref={coreRef} scale={0.25}>
+            <sphereGeometry args={[1, 24, 24]} />
+            <meshStandardMaterial
+              color="#ff2200"
+              emissive="#ff4400"
+              emissiveIntensity={6}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Bloom halo disc — large flat disc behind the eye for bloom glow */}
+          <mesh position={[0, 0, -0.1]} rotation={[0, 0, 0]}>
+            <circleGeometry args={[1.6, 48]} />
+            <meshBasicMaterial
+              color="#ff2200"
+              transparent
+              opacity={0.04}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band — shared with wireframe for audio reactivity */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.35, 0.015, 8, 128]} />
+            <meshStandardMaterial emissive="#ff4400" emissiveIntensity={1.5} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+
+          {/* Wireframe ref (invisible but needed for audio reactivity on refs) */}
+          <mesh ref={wireRef} visible={false}>
+            <sphereGeometry args={[1.3, 8, 8]} />
+            <meshStandardMaterial wireframe transparent opacity={0} />
+          </mesh>
+        </>
+      )}
+
+      {/* ════════ ANIMATED-CORE style — canvas texture eye + semi-transparent wireframe shell ════════ */}
+      {sphereStyle === 'animated-core' && (
+        <>
+          {/* Semi-transparent wireframe shell */}
+          <mesh ref={wireRef}>
+            <sphereGeometry args={[1.3, 36, 24]} />
+            <meshStandardMaterial
+              color={sphereDark}
+              emissive={theme.sphereHex}
+              emissiveIntensity={0.4}
+              wireframe
+              transparent
+              opacity={0.35}
+              metalness={0.9}
+              roughness={0.2}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* P4: Procedural HAL eye canvas texture mapped onto inner sphere */}
+          {halEyeTexture && (
+            <mesh ref={videoMeshRef} scale={0.6}>
+              <sphereGeometry args={[1, 32, 32]} />
+              <meshStandardMaterial
+                map={halEyeTexture}
+                emissiveMap={halEyeTexture}
+                emissive="#ff4400"
+                emissiveIntensity={1.5}
+                transparent
+                opacity={0.85}
+                toneMapped={false}
+                depthWrite={false}
+                metalness={0.2}
+                roughness={0.6}
+                side={THREE.FrontSide}
+              />
+            </mesh>
+          )}
+
+          {/* Bright core — audio-reactive via coreRef */}
+          <mesh ref={coreRef} scale={0.38}>
+            <sphereGeometry args={[1, 16, 16]} />
+            <meshStandardMaterial
+              color={theme.sphereHex}
+              emissive={theme.sphereGlowHex}
+              emissiveIntensity={baseGlowIntensity}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band — rotation speed driven by volume */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.3, 0.02, 8, 128]} />
+            <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+        </>
+      )}
+
+      {/* ════════ SHARED across all styles ════════ */}
 
       {/* Atmospheric glow — expands with overall volume */}
       <mesh ref={glowRef}>
@@ -1549,7 +1699,7 @@ interface Props {
   showPerf?: boolean
   onSceneReady?: () => void
   shipVfxEnabled?: boolean
-  videoSphere?: boolean
+  sphereStyle?: SphereStyleId
   voiceReactionIntensity?: number
   // Session absorption (T3)
   externalSessions?: ExternalSession[]
@@ -1591,7 +1741,7 @@ interface PbrSceneInnerProps {
   ringPlatformRadius: number
   maxCamDistance: number
   shipVfxEnabled: boolean
-  videoSphere: boolean
+  sphereStyle: SphereStyleId
   voiceReactionIntensity: number
   // Session absorption (T3)
   externalSessions: ExternalSession[]
@@ -1611,7 +1761,7 @@ function PbrSceneInner({
   projects, searchQuery, isFullySetup, onOpenTerminal, halOnline, layoutId, terminalCount, vfxFrequency,
   groups, assignments, camera, onCameraMove, blockedInput, onProjectContextMenu, isFavorite,
   screenOpacity, particleDensity, showPerf, onSceneReady,
-  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, videoSphere, voiceReactionIntensity,
+  floorRadius, platformRadius, ringPlatformRadius, maxCamDistance, shipVfxEnabled, sphereStyle, voiceReactionIntensity,
   externalSessions, absorbingPid, onAbsorb,
   getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal,
   cinematicActive, onCinematicComplete,
@@ -1781,7 +1931,7 @@ function PbrSceneInner({
       <GridOverlay radius={floorRadius} />
       <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />
       <PbrRingPlatform radius={ringPlatformRadius} />
-      <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} videoSphere={videoSphere} />
+      <PbrHalSphere blockedInput={blockedInput} voiceReactionIntensity={voiceReactionIntensity} sphereStyle={sphereStyle} />
 
       {/* Ambient data particles — faded in at phase 3 */}
       <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
@@ -1915,7 +2065,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, videoSphere = false, voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, cinematicActive = false, onCinematicComplete }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2025,7 +2175,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           ringPlatformRadius={ringPlatformRadius}
           maxCamDistance={maxCamDistance}
           shipVfxEnabled={shipVfxEnabled}
-          videoSphere={videoSphere}
+          sphereStyle={sphereStyle}
           voiceReactionIntensity={voiceReactionIntensity}
           externalSessions={externalSessions}
           absorbingPid={absorbingPid}

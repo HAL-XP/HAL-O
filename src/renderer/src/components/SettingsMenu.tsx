@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
-import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId } from '../hooks/useSettings'
+import { VOICE_PROFILES, DOCK_POSITIONS, DEFAULT_CAMERA, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
@@ -118,8 +118,8 @@ interface Props {
   onThreeThemeChange: (id: string) => void
   shipVfxEnabled: boolean
   onShipVfxEnabledChange: (enabled: boolean) => void
-  videoSphere: boolean
-  onVideoSphereChange: (enabled: boolean) => void
+  sphereStyle: SphereStyleId
+  onSphereStyleChange: (style: SphereStyleId) => void
   voiceReactionIntensity: number
   onVoiceReactionIntensityChange: (v: number) => void
   personality: PersonalitySettings
@@ -180,7 +180,7 @@ function SectionHeader({ label, expanded, onToggle }: SectionHeaderProps) {
   )
 }
 
-export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, videoSphere, onVideoSphereChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
+export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, rendererId, layoutId, threeTheme, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange, shipVfxEnabled, onShipVfxEnabledChange, sphereStyle, onSphereStyleChange, voiceReactionIntensity, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, defaultIde, onDefaultIdeChange, hiddenPaths = [], onUnhide, demo }: Props) {
   const [open, setOpen] = useState(false)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [cameraSaved, setCameraSaved] = useState(false)
@@ -828,21 +828,19 @@ export function SettingsMenu({ hubFontSize, termFontSize, wizardFontSize, onWiza
                     </div>
                   )}
 
-                  {match('VIDEO SPHERE') && (
+                  {match('SPHERE STYLE') && (
                     <div className="hal-settings-row">
-                      <span className="hal-settings-label">VIDEO SPHERE</span>
+                      <span className="hal-settings-label">SPHERE STYLE</span>
                       <div className="hal-settings-control">
-                        <button
-                          onClick={() => onVideoSphereChange(!videoSphere)}
-                          style={{
-                            width: 'auto',
-                            padding: '2px 8px',
-                            color: videoSphere ? 'var(--primary)' : 'var(--text-dim)',
-                            borderColor: videoSphere ? 'var(--primary-dim)' : undefined,
-                          }}
+                        <select
+                          value={sphereStyle}
+                          onChange={(e) => onSphereStyleChange(e.target.value as SphereStyleId)}
+                          style={{ width: '100%', textTransform: 'uppercase' }}
                         >
-                          {videoSphere ? 'ON' : 'OFF'}
-                        </button>
+                          {SPHERE_STYLES.map((s) => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   )}

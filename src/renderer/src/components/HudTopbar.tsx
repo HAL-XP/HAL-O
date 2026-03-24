@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { MicButton } from './MicButton'
 import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
 
@@ -52,8 +52,8 @@ interface HudTopbarProps {
   onApplyPreset?: (preset: GroupPreset) => void
   shipVfxEnabled?: boolean
   onShipVfxEnabledChange?: (enabled: boolean) => void
-  videoSphere?: boolean
-  onVideoSphereChange?: (enabled: boolean) => void
+  sphereStyle?: SphereStyleId
+  onSphereStyleChange?: (style: SphereStyleId) => void
   voiceReactionIntensity?: number
   onVoiceReactionIntensityChange?: (v: number) => void
   personality: PersonalitySettings
@@ -76,7 +76,7 @@ export function HudTopbar({
   hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, renderQuality, camera, rendererId, layoutId, threeTheme,
   onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onParticleDensityChange, onRenderQualityChange, onCameraChange, onCameraReset, onRendererChange, onLayoutChange, onThreeThemeChange,
   shipVfxEnabled = true, onShipVfxEnabledChange,
-  videoSphere = false, onVideoSphereChange,
+  sphereStyle = 'wireframe', onSphereStyleChange,
   voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange,
   personality, onPersonalityChange, onPersonalityPreset,
   groups = [], onCreateGroup, onDeleteGroup, onRenameGroup, onReorderGroups, onApplyPreset,
@@ -160,7 +160,7 @@ export function HudTopbar({
           onCameraChange={onCameraChange} onCameraReset={onCameraReset}
           onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
           shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
-          videoSphere={videoSphere} onVideoSphereChange={onVideoSphereChange ?? (() => {})}
+          sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
           personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
           defaultIde={defaultIde} onDefaultIdeChange={onDefaultIdeChange ?? (() => {})}

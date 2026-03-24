@@ -34,6 +34,16 @@ export const DOCK_POSITIONS = [
 
 export type DockPosition = typeof DOCK_POSITIONS[number]['id']
 
+// ── Sphere Style Picker (P4 enhancement) ──
+
+export const SPHERE_STYLES = [
+  { id: 'wireframe', label: 'WIREFRAME' },
+  { id: 'hal-eye', label: 'HAL 9000 EYE' },
+  { id: 'animated-core', label: 'ANIMATED CORE' },
+] as const
+
+export type SphereStyleId = typeof SPHERE_STYLES[number]['id']
+
 export interface CameraSettings {
   particleHideDist: number  // units from camera where particles fade (default 4)
   cameraDistance: number    // distance from sphere center (default 19)
@@ -110,7 +120,7 @@ export interface SettingsState {
   layoutId: string
   threeTheme: string
   shipVfxEnabled: boolean
-  videoSphere: boolean
+  sphereStyle: SphereStyleId
   voiceReactionIntensity: number
   personality: PersonalitySettings
   defaultIde: IdeOptionId
@@ -129,7 +139,7 @@ export interface SettingsState {
   updateLayout: (id: string) => void
   updateThreeTheme: (id: string) => void
   updateShipVfxEnabled: (enabled: boolean) => void
-  updateVideoSphere: (enabled: boolean) => void
+  updateSphereStyle: (style: SphereStyleId) => void
   updateVoiceReactionIntensity: (v: number) => void
   updatePersonality: (key: keyof PersonalitySettings, value: number) => void
   applyPersonalityPreset: (presetName: string) => void
@@ -181,7 +191,16 @@ export function useSettings(): SettingsState {
   const [layoutId, setLayoutId] = useState<string>(() => localStorage.getItem('hal-o-layout') || 'dual-arc')
   const [threeTheme, setThreeTheme] = useState<string>(() => localStorage.getItem('hal-o-3d-theme') || 'tactical')
   const [shipVfxEnabled, setShipVfxEnabled] = useState(() => localStorage.getItem('hal-o-ship-vfx') !== 'false')
-  const [videoSphere, setVideoSphere] = useState(() => localStorage.getItem('hal-o-video-sphere') === 'true')
+  const [sphereStyle, setSphereStyle] = useState<SphereStyleId>(() => {
+    // Migrate old boolean videoSphere to new sphereStyle
+    const legacy = localStorage.getItem('hal-o-video-sphere')
+    if (legacy === 'true') {
+      localStorage.setItem('hal-o-sphere-style', 'hal-eye')
+      localStorage.removeItem('hal-o-video-sphere')
+      return 'hal-eye'
+    }
+    return (localStorage.getItem('hal-o-sphere-style') as SphereStyleId) || 'wireframe'
+  })
   const [defaultIde, setDefaultIde] = useState<IdeOptionId>(() => (localStorage.getItem('hal-o-default-ide') as IdeOptionId) || 'auto')
   const [voiceReactionIntensity, setVoiceReactionIntensity] = useState(() => {
     const stored = localStorage.getItem('hal-o-voice-reaction-intensity')
@@ -254,9 +273,9 @@ export function useSettings(): SettingsState {
     setShipVfxEnabled(enabled)
     localStorage.setItem('hal-o-ship-vfx', String(enabled))
   }, [])
-  const updateVideoSphere = useCallback((enabled: boolean) => {
-    setVideoSphere(enabled)
-    localStorage.setItem('hal-o-video-sphere', String(enabled))
+  const updateSphereStyle = useCallback((style: SphereStyleId) => {
+    setSphereStyle(style)
+    localStorage.setItem('hal-o-sphere-style', style)
   }, [])
   const updateDefaultIde = useCallback((id: IdeOptionId) => {
     setDefaultIde(id)
@@ -302,7 +321,7 @@ export function useSettings(): SettingsState {
   }, [writePersonalityFile])
 
   return {
-    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, videoSphere, voiceReactionIntensity, personality, defaultIde,
-    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateVideoSphere, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
+    hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde,
+    updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde,
   }
 }
