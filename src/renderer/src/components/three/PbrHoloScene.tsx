@@ -1951,14 +1951,15 @@ function PbrSceneInner({
           during active orbit/zoom, eliminating 100x per-panel vector math per frame. */}
       <ScreenPanelUpdater />
 
-      {/* Connection beams — subtle glowing lines between projects in the same group (P5) */}
+      {/* P5 Connection beams — DISABLED: straight lines look bad from most camera angles.
+          Needs redesign: curved beams, energy particles along path, or proximity-based glow instead.
       <ConnectionBeams
         projects={projects}
         groups={groups}
         assignments={assignments}
         screenPositions={screenPositions}
         searchActive={searchActive}
-      />
+      /> */}
 
       {/* Screens — skip stacked (hidden) projects when stack info is active */}
       {projects.map((project, i) => {
