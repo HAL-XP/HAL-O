@@ -165,6 +165,17 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return () => window.removeEventListener('keydown', onKey)
   }, [cinematicActive])
 
+  // M2+: Cinematic sphere style override — the cinematic dispatches style changes via custom events
+  useEffect(() => {
+    if (!onSphereStyleChange) return
+    const handler = (e: Event) => {
+      const style = (e as CustomEvent).detail?.style
+      if (style) onSphereStyleChange(style)
+    }
+    window.addEventListener('halo-cinematic-sphere-style', handler)
+    return () => window.removeEventListener('halo-cinematic-sphere-style', handler)
+  }, [onSphereStyleChange])
+
   // Project groups
   const {
     groups, assignments, getProjectGroup, assignProject,

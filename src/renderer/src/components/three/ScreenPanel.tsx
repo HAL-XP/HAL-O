@@ -381,7 +381,9 @@ export const ScreenPanel = memo(function ScreenPanel({
     }
 
     // ── U20: Activity-driven edge glow — read from global map, smooth EMA ──
-    const rawActivity = terminalActivityMap.get(projectPath) ?? 0
+    // M2+: Cinematic activity override — if the cinematic is injecting fake activity, use that
+    const cinematicActivity = (window as any).__haloCinematicActivity as number | undefined
+    const rawActivity = terminalActivityMap.get(projectPath) ?? cinematicActivity ?? 0
     const actNorm = rawActivity / 100 // 0-1
     const actDelta = actNorm - smoothActivityRef.current
     // Fast attack (0.15), slow release (0.03)

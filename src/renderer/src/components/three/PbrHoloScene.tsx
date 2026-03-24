@@ -1853,6 +1853,51 @@ function PbrSceneInner({
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
   const prevTermCountRef = useRef(terminalCount)
 
+  // M2+: Cinematic merge simulation — fake merge state for the demo sequence
+  const [cinematicMerge, setCinematicMerge] = useState<import('../../types/merge').MergeState | null>(null)
+  const [cinematicMergeResolved, setCinematicMergeResolved] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const phase = (e as CustomEvent).detail?.phase as string
+      if (phase === 'start') {
+        setCinematicMerge({
+          inMerge: true,
+          mergeType: 'merge',
+          conflictFiles: [
+            { path: 'src/components/App.tsx', status: 'UU', chunks: [] },
+            { path: 'src/hooks/useAuth.ts', status: 'UU', chunks: [] },
+            { path: 'src/styles/theme.css', status: 'UU', chunks: [] },
+          ],
+          ourBranch: 'main',
+          theirBranch: 'feature/holographic-ui',
+        })
+        setCinematicMergeResolved(null)
+      } else if (phase === 'resolve') {
+        setCinematicMergeResolved(new Set([
+          'src/components/App.tsx',
+          'src/hooks/useAuth.ts',
+          'src/styles/theme.css',
+        ]))
+      } else if (phase === 'clear') {
+        setCinematicMerge(null)
+        setCinematicMergeResolved(null)
+      }
+    }
+    window.addEventListener('halo-cinematic-merge', handler)
+    return () => window.removeEventListener('halo-cinematic-merge', handler)
+  }, [])
+
+  // Merge states — overlay cinematic merge on top of real merge states
+  const effectiveMergeStates = useMemo(() => {
+    if (!cinematicMerge) return mergeStates
+    return { ...mergeStates, '__cinematic__': cinematicMerge }
+  }, [mergeStates, cinematicMerge])
+
+  const effectiveResolvedFilesMap = useMemo(() => {
+    if (!cinematicMergeResolved) return resolvedFilesMap
+    return { ...resolvedFilesMap, '__cinematic__': cinematicMergeResolved }
+  }, [resolvedFilesMap, cinematicMergeResolved])
+
   // U20: Listen for terminal-activity IPC events — writes to global map for ScreenPanel to read
   useEffect(() => {
     if (!activityFeedback || !window.api?.onTerminalActivity) return
@@ -2051,11 +2096,11 @@ function PbrSceneInner({
       {/* Sonar pulse — HAL heartbeat */}
       {halOnline && <SonarPulse />}
 
-      {/* U18: 3D Merge Conflict Graphs — render for each project currently in merge */}
-      {Object.entries(mergeStates).map(([projectPath, mergeState]) => {
+      {/* U18: 3D Merge Conflict Graphs — render for each project currently in merge (+ cinematic overlay) */}
+      {Object.entries(effectiveMergeStates).map(([projectPath, mergeState]) => {
         if (!mergeState.inMerge) return null
         const graph = commitGraphs[projectPath] || []
-        const resolvedFiles = resolvedFilesMap[projectPath]
+        const resolvedFiles = effectiveResolvedFilesMap[projectPath]
         // Phase 5: Determine if all conflict files in this project are resolved
         const allFilesResolved = resolvedFiles != null && mergeState.conflictFiles.length > 0 &&
           mergeState.conflictFiles.every(f => resolvedFiles.has(f.path))

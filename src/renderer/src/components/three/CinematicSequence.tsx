@@ -1,13 +1,21 @@
 /**
- * CinematicSequence — Scripted camera sequence for marketing videos & trade shows (M2).
+ * CinematicSequence — Full feature showcase for marketing videos & trade shows (M2).
  *
- * Features:
- * - Array of keyframes with position, lookAt target, FOV, and optional action triggers
+ * 6-act cinematic script (~42 seconds) that demonstrates ALL visual features:
+ * - Act 1: "The Command Center" — wide establishing orbit, particle reveal
+ * - Act 2: "The Brain" — HAL sphere zoom, style switch to HAL eye, iris rotation
+ * - Act 3: "The Fleet" — ship flyby with camera tracking, engine trail
+ * - Act 4: "Mission Control" — panel closeups, terminal activity simulation
+ * - Act 5: "The Resolution" — merge conflict graph, resolution VFX, celebration
+ * - Act 6: "Finale" — epic wide pullback, full scene, fade to loop
+ *
+ * Technical:
  * - CatmullRom spline interpolation for smooth camera paths (no jank)
- * - Cubic ease-in-out for time progression within each segment
+ * - Quintic ease-in-out for cinematic weight
  * - Disables OrbitControls during playback, restores on finish/cancel
- * - Triggers events at specific keyframes (ship flyby, sphere pulse)
- * - Shows subtle "DEMO MODE" badge in corner via Html overlay
+ * - Triggers events at specific keyframes (ship flyby, sphere pulse, style switch,
+ *   terminal activity, merge simulation)
+ * - Shows subtle "CINEMATIC MODE" badge + act label overlay
  * - Loops seamlessly for trade-show kiosk mode
  */
 import { useRef, useEffect, useCallback, useState } from 'react'
@@ -16,13 +24,21 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import { dispatchSphereEvent } from './PbrHoloScene'
+import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
 
 // ── Types ──
 
 export type CinematicAction =
   | { type: 'ship-flyby' }
-  | { type: 'sphere-pulse'; eventType?: 'success' | 'info' | 'push'; intensity?: number }
+  | { type: 'sphere-pulse'; eventType?: 'success' | 'error' | 'warning' | 'info' | 'push'; intensity?: number }
   | { type: 'audio-demo'; enabled: boolean }
+  | { type: 'sphere-style'; style: 'wireframe' | 'hal-eye' | 'animated-core' }
+  | { type: 'activity-boost'; level: number; projectPaths?: string[] }
+  | { type: 'activity-clear' }
+  | { type: 'merge-simulate' }
+  | { type: 'merge-resolve' }
+  | { type: 'merge-clear' }
+  | { type: 'particle-burst' }
 
 export interface CinematicKeyframe {
   /** Camera world position */
@@ -37,110 +53,344 @@ export interface CinematicKeyframe {
   hold?: number
   /** Actions to trigger when arriving at this keyframe */
   actions?: CinematicAction[]
-  /** Label shown in the DEMO MODE badge during this segment */
+  /** Actions to trigger at the START of moving toward this keyframe (t=0) */
+  earlyActions?: CinematicAction[]
+  /** Label shown in the CINEMATIC MODE badge during this segment */
   label?: string
+  /** Act number (1-6) for the progress bar display */
+  act?: number
 }
 
-// ── Default Cinematic Sequence ──
-// Designed for a scene with screens at radius ~8, sphere at [0,1.3,0], floor at y=0.
+// ── Act titles for the HUD overlay ──
+const ACT_TITLES: Record<number, string> = {
+  1: 'THE COMMAND CENTER',
+  2: 'THE BRAIN',
+  3: 'THE FLEET',
+  4: 'MISSION CONTROL',
+  5: 'THE RESOLUTION',
+  6: 'FINALE',
+}
+
+// ── Default Cinematic Sequence — 6-Act Feature Showcase ──
+// Scene: screens at radius ~8, sphere at [0,1.3,0], floor at y=0.
+// Total runtime: ~42 seconds per loop.
 
 const DEFAULT_SEQUENCE: CinematicKeyframe[] = [
-  // 0: Wide establishing shot — high orbit, full scene visible
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 1: "THE COMMAND CENTER" (0-8s)
+  // Wide establishing orbit showing full scene — ring platform, particles, panels.
+  // Camera slowly rises revealing the scope of the holographic dashboard.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF0: Starting position — slightly below eye level, looking up at the scene
   {
-    position: [0, 12, 22],
-    target: [0, 0.5, 0],
-    fov: 48,
-    duration: 0, // instant (start position)
-    hold: 2.0,
-    label: 'ESTABLISHING SHOT',
-  },
-  // 1: Slow orbit to side — showing depth of scene
-  {
-    position: [18, 10, 14],
-    target: [0, 0.5, 0],
-    fov: 46,
-    duration: 6.0,
-    hold: 1.0,
-    label: 'SCENE OVERVIEW',
-  },
-  // 2: Swoop down toward sphere — dramatic zoom-in
-  {
-    position: [6, 3.5, 6],
-    target: [0, 1.3, 0],
-    fov: 38,
-    duration: 4.0,
-    hold: 2.5,
+    position: [0, 3, 24],
+    target: [0, 1.5, 0],
+    fov: 52,
+    duration: 0, // instant start
+    hold: 0.5,
     actions: [
-      { type: 'sphere-pulse', eventType: 'info', intensity: 1.0 },
+      { type: 'sphere-style', style: 'wireframe' },
+      { type: 'activity-clear' },
+      { type: 'merge-clear' },
+    ],
+    label: 'ESTABLISHING SHOT',
+    act: 1,
+  },
+
+  // KF1: Rise and orbit right — revealing the full ring of panels
+  {
+    position: [14, 10, 18],
+    target: [0, 0.8, 0],
+    fov: 48,
+    duration: 4.0,
+    hold: 0.3,
+    earlyActions: [
+      { type: 'sphere-pulse', eventType: 'info', intensity: 0.4 },
+    ],
+    label: 'REVEALING THE DASHBOARD',
+    act: 1,
+  },
+
+  // KF2: Continue orbit to show depth — panels visible from the side
+  {
+    position: [20, 12, 6],
+    target: [0, 1.0, 0],
+    fov: 46,
+    duration: 3.5,
+    hold: 0.2,
+    label: 'PANORAMIC SWEEP',
+    act: 1,
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 2: "THE BRAIN" (8-14s)
+  // Smooth zoom toward HAL sphere. Style switch to HAL eye mid-zoom.
+  // Sphere pulse event as camera arrives. Hold on closeup showing iris.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF3: Begin zoom toward sphere — switch to HAL eye during approach
+  {
+    position: [8, 5, 10],
+    target: [0, 1.3, 0],
+    fov: 40,
+    duration: 2.5,
+    hold: 0.0,
+    earlyActions: [
+      { type: 'sphere-style', style: 'hal-eye' },
       { type: 'audio-demo', enabled: true },
     ],
-    label: 'HAL SPHERE',
+    label: 'APPROACHING HAL',
+    act: 2,
   },
-  // 3: Pan across project panels — arc through the screen ring
+
+  // KF4: Close-up on HAL sphere — iris rings rotating, core glowing
   {
-    position: [-8, 4, 8],
-    target: [-5, 2.5, 0],
-    fov: 42,
-    duration: 5.0,
-    hold: 1.5,
+    position: [3.5, 2.0, 4.5],
+    target: [0, 1.3, 0],
+    fov: 32,
+    duration: 2.0,
+    hold: 2.0,
+    actions: [
+      { type: 'sphere-pulse', eventType: 'info', intensity: 1.0 },
+    ],
+    label: 'HAL 9000 ONLINE',
+    act: 2,
+  },
+
+  // KF5: Slight orbit around sphere to show 3D depth of the eye
+  {
+    position: [-2.5, 2.5, 5.0],
+    target: [0, 1.3, 0],
+    fov: 34,
+    duration: 1.5,
+    hold: 0.5,
     actions: [
       { type: 'audio-demo', enabled: false },
     ],
-    label: 'PROJECT PANELS',
+    label: 'IRIS DETAIL',
+    act: 2,
   },
-  // 4: Ship flyby trigger — pull back to wide angle for dramatic pass
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 3: "THE FLEET" (14-20s)
+  // Camera pulls back. Ship flyby crosses through the frame.
+  // Camera tracks the ship briefly (follow shot). Engine trail visible.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF6: Pull back to wide angle for dramatic ship entry
   {
-    position: [-14, 8, 12],
+    position: [-12, 7, 14],
     target: [0, 2, 0],
     fov: 50,
-    duration: 3.5,
-    hold: 0.5,
+    duration: 2.0,
+    hold: 0.3,
+    earlyActions: [
+      { type: 'sphere-style', style: 'wireframe' },
+    ],
     actions: [
       { type: 'ship-flyby' },
       { type: 'sphere-pulse', eventType: 'push', intensity: 1.0 },
     ],
-    label: 'STAR DESTROYER FLYBY',
+    label: 'INCOMING TRANSMISSION',
+    act: 3,
   },
-  // 5: Follow ship trajectory — track the flyby
+
+  // KF7: Track the ship as it passes — camera sweeps to follow
   {
-    position: [8, 6, 10],
-    target: [4, 3, -2],
+    position: [4, 5, 12],
+    target: [8, 3, -2],
     fov: 44,
-    duration: 5.0,
-    hold: 1.5,
-    label: 'TRACKING SHOT',
+    duration: 3.0,
+    hold: 0.5,
+    label: 'TRACKING FLYBY',
+    act: 3,
   },
-  // 6: Panel closeup — zoom into a specific screen area
+
+  // KF8: Continue tracking — ship exits, camera settles toward panels
   {
-    position: [5, 3.0, 6],
+    position: [10, 4, 8],
     target: [6, 2.5, 2],
-    fov: 32,
-    duration: 3.5,
-    hold: 3.0,
-    label: 'PANEL CLOSEUP',
+    fov: 42,
+    duration: 1.2,
+    hold: 0.0,
+    label: 'SHIP DEPARTING',
+    act: 3,
   },
-  // 7: Dramatic pull-back to wide finale
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 4: "MISSION CONTROL" (20-28s)
+  // Camera orbits to show panel closeups — git stats, activity bars.
+  // Trigger terminal activity simulation for visual edge glow pulsing.
+  // Zoom into one panel showing file count, commit info.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF9: Pan to panel area — start activity simulation
   {
-    position: [0, 14, 24],
+    position: [7, 3.0, 6],
+    target: [7, 2.5, 1],
+    fov: 36,
+    duration: 2.0,
+    hold: 1.5,
+    earlyActions: [
+      { type: 'activity-boost', level: 85 },
+    ],
+    actions: [
+      { type: 'sphere-pulse', eventType: 'info', intensity: 0.5 },
+    ],
+    label: 'PANEL TELEMETRY',
+    act: 4,
+  },
+
+  // KF10: Close-up on a specific panel — showing enriched content
+  {
+    position: [6, 2.8, 4.5],
+    target: [7.5, 2.5, 0.5],
+    fov: 28,
+    duration: 1.5,
+    hold: 2.0,
+    actions: [
+      { type: 'activity-boost', level: 95 },
+    ],
+    label: 'GIT STATS / ACTIVITY',
+    act: 4,
+  },
+
+  // KF11: Orbit to show another panel cluster
+  {
+    position: [-5, 3.5, 7],
+    target: [-6, 2.5, 1],
+    fov: 34,
+    duration: 2.0,
+    hold: 1.0,
+    actions: [
+      { type: 'activity-boost', level: 60 },
+    ],
+    label: 'MULTI-PROJECT VIEW',
+    act: 4,
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 5: "THE RESOLUTION" (28-35s)
+  // Merge conflict appearance — warning sphere event.
+  // MergeGraph fades in above sphere — branch tubes, red conflict panels.
+  // Camera flies through merge graph. Trigger resolution — panels turn green.
+  // Success sphere event + ship flyby celebration.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF12: Pull back to see sphere + merge area — trigger merge
+  {
+    position: [0, 6, 12],
+    target: [0, 5, 0],
+    fov: 44,
+    duration: 2.0,
+    hold: 0.5,
+    earlyActions: [
+      { type: 'activity-clear' },
+    ],
+    actions: [
+      { type: 'merge-simulate' },
+      { type: 'sphere-pulse', eventType: 'warning', intensity: 1.0 },
+    ],
+    label: 'MERGE CONFLICT DETECTED',
+    act: 5,
+  },
+
+  // KF13: Zoom into the merge graph floating above sphere
+  {
+    position: [3, 7, 6],
+    target: [0, 6, 0],
+    fov: 38,
+    duration: 2.0,
+    hold: 1.5,
+    actions: [
+      { type: 'sphere-pulse', eventType: 'error', intensity: 0.6 },
+    ],
+    label: 'CONFLICT GRAPH',
+    act: 5,
+  },
+
+  // KF14: Orbit around merge graph, then trigger resolution
+  {
+    position: [-3, 7.5, 5],
+    target: [0, 6, 0],
+    fov: 40,
+    duration: 1.5,
+    hold: 1.0,
+    actions: [
+      { type: 'merge-resolve' },
+      { type: 'sphere-pulse', eventType: 'success', intensity: 1.0 },
+      { type: 'particle-burst' },
+    ],
+    label: 'CONFLICTS RESOLVED',
+    act: 5,
+  },
+
+  // KF15: Celebration — ship flyby + pull back
+  {
+    position: [0, 8, 14],
+    target: [0, 3, 0],
+    fov: 48,
+    duration: 1.5,
+    hold: 0.5,
+    actions: [
+      { type: 'ship-flyby' },
+      { type: 'merge-clear' },
+    ],
+    label: 'MISSION ACCOMPLISHED',
+    act: 5,
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACT 6: "FINALE" (35-42s)
+  // Camera pulls way back for epic wide shot. All features visible.
+  // Slow orbit with full effects. Seamless loop point.
+  // ═══════════════════════════════════════════════════════════════
+
+  // KF16: Epic wide pullback — full scene glory
+  {
+    position: [0, 14, 26],
+    target: [0, 0.5, 0],
+    fov: 50,
+    duration: 3.0,
+    hold: 0.5,
+    earlyActions: [
+      { type: 'sphere-style', style: 'animated-core' },
+    ],
+    actions: [
+      { type: 'sphere-pulse', eventType: 'success', intensity: 0.6 },
+    ],
+    label: 'FULL SCENE',
+    act: 6,
+  },
+
+  // KF17: Slow orbit to complete the circle — ends near start position
+  {
+    position: [-16, 12, 16],
     target: [0, 0.5, 0],
     fov: 48,
-    duration: 5.0,
-    hold: 3.0,
+    duration: 3.5,
+    hold: 0.5,
+    label: 'GRAND ORBIT',
+    act: 6,
+  },
+
+  // KF18: Final position — close to KF0 start for seamless loop
+  {
+    position: [0, 4, 24],
+    target: [0, 1.5, 0],
+    fov: 52,
+    duration: 3.0,
+    hold: 0.0,
     actions: [
-      { type: 'sphere-pulse', eventType: 'success', intensity: 0.8 },
+      { type: 'sphere-style', style: 'wireframe' },
     ],
-    label: 'FINALE',
+    label: 'LOOP POINT',
+    act: 6,
   },
 ]
 
 // ── Easing ──
-
-/** Cubic ease-in-out: smooth acceleration/deceleration */
-function cubicEaseInOut(t: number): number {
-  return t < 0.5
-    ? 4 * t * t * t
-    : 1 - Math.pow(-2 * t + 2, 3) / 2
-}
 
 /** Quintic ease-in-out for very smooth, cinematic feel */
 function quinticEaseInOut(t: number): number {
@@ -174,6 +424,40 @@ function catmullRom(out: THREE.Vector3, p0: THREE.Vector3, p1: THREE.Vector3, p2
   return out
 }
 
+// ── Fake merge state for cinematic Act 5 ──
+// Dispatched via window event so PbrHoloScene can inject it into the MergeGraph.
+
+function dispatchCinematicMerge(phase: 'start' | 'resolve' | 'clear'): void {
+  window.dispatchEvent(new CustomEvent('halo-cinematic-merge', { detail: { phase } }))
+}
+
+// ── Fake terminal activity injection for Act 4 ──
+// Writes directly to the global terminalActivityMap so ScreenPanel edge glow reacts.
+
+function injectFakeActivity(level: number, projectPaths?: string[]): void {
+  // If specific paths given, use those. Otherwise inject for all known paths,
+  // or if the map is empty, create a few synthetic entries.
+  const paths = projectPaths ?? Array.from(terminalActivityMap.keys())
+  if (paths.length === 0) {
+    // Synthetic paths for demo mode — ScreenPanel reads by exact match so these
+    // only light up if demo projects match. Use window global as fallback.
+    ;(window as any).__haloCinematicActivity = level
+  }
+  for (const p of paths) {
+    terminalActivityMap.set(p, level)
+  }
+  setTerminalActivityMax(level)
+}
+
+function clearFakeActivity(): void {
+  // Reset all entries to 0
+  for (const key of terminalActivityMap.keys()) {
+    terminalActivityMap.set(key, 0)
+  }
+  setTerminalActivityMax(0)
+  ;(window as any).__haloCinematicActivity = 0
+}
+
 // ── Component ──
 
 interface CinematicSequenceProps {
@@ -201,6 +485,8 @@ export function CinematicSequence({
 }: CinematicSequenceProps) {
   const { camera, controls } = useThree()
   const [currentLabel, setCurrentLabel] = useState('')
+  const [currentAct, setCurrentAct] = useState(0)
+  const [totalElapsed, setTotalElapsed] = useState(0)
 
   // Playback state refs (avoid re-renders during animation)
   const stateRef = useRef({
@@ -208,10 +494,15 @@ export function CinematicSequence({
     segmentTime: 0,        // elapsed time within current segment
     phase: 'move' as 'move' | 'hold', // are we moving or holding?
     actionsTriggered: false,
+    earlyActionsTriggered: false,
     wasAutoRotate: true,
     wasFov: 48,
     started: false,
+    totalTime: 0,          // total elapsed time for progress bar
   })
+
+  // Pre-compute total sequence duration for progress bar
+  const totalDuration = sequence.reduce((sum, kf) => sum + kf.duration + (kf.hold ?? 0), 0)
 
   // Store saved orbit controls state for restoration
   const savedControlsRef = useRef<{
@@ -220,6 +511,9 @@ export function CinematicSequence({
     enableZoom: boolean
     enabled: boolean
   } | null>(null)
+
+  // Store original sphere style for restoration
+  const savedSphereStyleRef = useRef<string | null>(null)
 
   // ── Activate/Deactivate ──
   useEffect(() => {
@@ -246,8 +540,10 @@ export function CinematicSequence({
       // Reset playback state
       stateRef.current.segmentIndex = 0
       stateRef.current.segmentTime = 0
+      stateRef.current.totalTime = 0
       stateRef.current.phase = sequence[0].duration === 0 ? 'hold' : 'move'
       stateRef.current.actionsTriggered = sequence[0].duration === 0
+      stateRef.current.earlyActionsTriggered = false
       stateRef.current.started = true
 
       // Snap to first keyframe if instant (duration = 0)
@@ -261,6 +557,7 @@ export function CinematicSequence({
         // Trigger first-keyframe actions
         triggerActions(kf.actions)
         setCurrentLabel(kf.label || '')
+        setCurrentAct(kf.act || 0)
       }
     } else if (stateRef.current.started) {
       // Restore orbit controls
@@ -276,11 +573,24 @@ export function CinematicSequence({
       perspCam.fov = stateRef.current.wasFov
       perspCam.updateProjectionMatrix()
 
-      // Clean up audio demo
+      // Clean up all cinematic side effects
       ;(window as any).__haloAudioDemo = false
+      ;(window as any).__haloCinematicActivity = 0
+      clearFakeActivity()
+      dispatchCinematicMerge('clear')
+
+      // Restore sphere style
+      if (savedSphereStyleRef.current) {
+        window.dispatchEvent(new CustomEvent('halo-cinematic-sphere-style', {
+          detail: { style: savedSphereStyleRef.current },
+        }))
+        savedSphereStyleRef.current = null
+      }
 
       stateRef.current.started = false
       setCurrentLabel('')
+      setCurrentAct(0)
+      setTotalElapsed(0)
     }
   }, [active, controls, camera, sequence])
 
@@ -292,14 +602,58 @@ export function CinematicSequence({
         case 'ship-flyby':
           flybyRef?.current?.trigger()
           break
+
         case 'sphere-pulse':
           dispatchSphereEvent({
             type: action.eventType ?? 'info',
             intensity: action.intensity ?? 1.0,
           })
           break
+
         case 'audio-demo':
           ;(window as any).__haloAudioDemo = action.enabled
+          break
+
+        case 'sphere-style':
+          // Save original style on first switch
+          if (!savedSphereStyleRef.current) {
+            savedSphereStyleRef.current = localStorage.getItem('hal-o-sphere-style') || 'wireframe'
+          }
+          // Dispatch event for ProjectHub to pick up
+          window.dispatchEvent(new CustomEvent('halo-cinematic-sphere-style', {
+            detail: { style: action.style },
+          }))
+          break
+
+        case 'activity-boost':
+          injectFakeActivity(action.level, action.projectPaths)
+          // Also trigger a sphere pulse for visual feedback
+          if (action.level > 70) {
+            dispatchSphereEvent({ type: 'info', intensity: (action.level / 100) * 0.4 })
+          }
+          break
+
+        case 'activity-clear':
+          clearFakeActivity()
+          break
+
+        case 'merge-simulate':
+          dispatchCinematicMerge('start')
+          break
+
+        case 'merge-resolve':
+          dispatchCinematicMerge('resolve')
+          break
+
+        case 'merge-clear':
+          dispatchCinematicMerge('clear')
+          break
+
+        case 'particle-burst':
+          // Dispatch a rapid succession of sphere events for a burst effect
+          dispatchSphereEvent({ type: 'success', intensity: 1.0 })
+          setTimeout(() => dispatchSphereEvent({ type: 'info', intensity: 0.8 }), 150)
+          setTimeout(() => dispatchSphereEvent({ type: 'push', intensity: 0.6 }), 300)
           break
       }
     }
@@ -311,6 +665,14 @@ export function CinematicSequence({
 
     const delta = rawDelta * speed
     const s = stateRef.current
+
+    // Track total elapsed time for progress bar
+    s.totalTime += delta
+    // Update React state at ~4fps for progress bar (avoid per-frame re-render)
+    if (Math.floor(s.totalTime * 4) !== Math.floor((s.totalTime - delta) * 4)) {
+      setTotalElapsed(s.totalTime)
+    }
+
     const numKeyframes = sequence.length
 
     // Current keyframe
@@ -329,8 +691,10 @@ export function CinematicSequence({
             // Reset to beginning
             s.segmentIndex = 0
             s.segmentTime = 0
+            s.totalTime = 0
             s.phase = sequence[0].duration === 0 ? 'hold' : 'move'
             s.actionsTriggered = sequence[0].duration === 0
+            s.earlyActionsTriggered = false
 
             if (sequence[0].duration === 0) {
               const kf = sequence[0]
@@ -341,6 +705,7 @@ export function CinematicSequence({
               camera.lookAt(...kf.target)
               triggerActions(kf.actions)
               setCurrentLabel(kf.label || '')
+              setCurrentAct(kf.act || 0)
             }
           } else {
             onComplete?.()
@@ -351,14 +716,22 @@ export function CinematicSequence({
         s.segmentTime = 0
         s.phase = 'move'
         s.actionsTriggered = false
+        s.earlyActionsTriggered = false
         setCurrentLabel(sequence[nextIndex].label || '')
+        setCurrentAct(sequence[nextIndex].act || 0)
       }
       return
     }
 
     // ── Moving between keyframes ──
     s.segmentTime += delta
-    const targetKf = curKf // We're moving TOWARD segmentIndex (from segmentIndex-1)
+
+    // Trigger early actions at the start of the move phase
+    if (!s.earlyActionsTriggered) {
+      s.earlyActionsTriggered = true
+      const kf = sequence[s.segmentIndex]
+      triggerActions(kf.earlyActions)
+    }
 
     // When segmentIndex is 0 with duration 0, we already handled that.
     // For segments 1..N, we interpolate from segmentIndex-1 to segmentIndex.
@@ -430,6 +803,9 @@ export function CinematicSequence({
   // ── Demo Mode Badge (HTML overlay inside R3F) ──
   if (!active) return null
 
+  const progress = totalDuration > 0 ? Math.min(1, totalElapsed / totalDuration) : 0
+  const actTitle = ACT_TITLES[currentAct] || ''
+
   return (
     <Html
       fullscreen
@@ -445,10 +821,10 @@ export function CinematicSequence({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
-        gap: 4,
+        gap: 6,
         pointerEvents: 'none',
       }}>
-        {/* DEMO MODE badge */}
+        {/* CINEMATIC MODE badge */}
         <div style={{
           fontFamily: "'Cascadia Code', 'Fira Code', monospace",
           fontSize: 10,
@@ -464,6 +840,21 @@ export function CinematicSequence({
         }}>
           CINEMATIC MODE
         </div>
+
+        {/* Act number + title */}
+        {currentAct > 0 && (
+          <div style={{
+            fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: 2,
+            color: 'rgba(255, 255, 255, 0.5)',
+            textTransform: 'uppercase',
+          }}>
+            ACT {currentAct} &mdash; {actTitle}
+          </div>
+        )}
+
         {/* Current segment label */}
         {currentLabel && (
           <div style={{
@@ -471,12 +862,31 @@ export function CinematicSequence({
             fontSize: 8,
             fontWeight: 600,
             letterSpacing: 2,
-            color: 'rgba(255, 255, 255, 0.35)',
+            color: 'rgba(255, 255, 255, 0.3)',
             textTransform: 'uppercase',
           }}>
             {currentLabel}
           </div>
         )}
+
+        {/* Progress bar */}
+        <div style={{
+          width: 120,
+          height: 2,
+          background: 'rgba(255, 255, 255, 0.08)',
+          borderRadius: 1,
+          overflow: 'hidden',
+          marginTop: 2,
+        }}>
+          <div style={{
+            width: `${progress * 100}%`,
+            height: '100%',
+            background: 'rgba(255, 68, 68, 0.5)',
+            borderRadius: 1,
+            transition: 'width 0.25s linear',
+          }} />
+        </div>
+
         <style>{`
           @keyframes cinematicPulse {
             0%, 100% { opacity: 0.7; }
