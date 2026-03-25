@@ -2358,6 +2358,427 @@ textarea.text-input {
   padding: 6px 0 2px 8px;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   UX12: Full-screen video-game-style Settings Overlay
+   All classes prefixed with .hal-so- (Settings Overlay)
+   Uses CSS custom properties for theme re-skinning
+   ═════════════════════════════════════════════════════════════════ */
+
+/* ── Backdrop ── */
+.hal-so-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.hal-so-backdrop.hal-so-open {
+  opacity: 1;
+}
+
+/* ── Container (the panel itself) ── */
+.hal-so-container {
+  width: calc(100vw - 80px);
+  max-width: 960px;
+  height: calc(100vh - 80px);
+  max-height: 720px;
+  background: rgba(8, 12, 18, 0.96);
+  border: 1px solid var(--primary-dim, rgba(101, 163, 13, 0.4));
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out, border-color 0.3s;
+}
+
+.hal-so-container-open {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* ── Header ── */
+.hal-so-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--primary-dim, rgba(101, 163, 13, 0.2));
+  flex-shrink: 0;
+  transition: border-color 0.3s;
+}
+
+.hal-so-header-title {
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: var(--primary, #84cc16);
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: color 0.3s;
+}
+
+.hal-so-header-search {
+  flex: 1;
+  max-width: 280px;
+}
+
+.hal-so-header-search input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text, #e2e4f0);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.hal-so-header-search input:focus {
+  border-color: var(--primary-dim, rgba(101, 163, 13, 0.5));
+}
+
+.hal-so-header-search input::placeholder {
+  color: var(--text-dim, #5a5e73);
+}
+
+.hal-so-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim, #5a5e73);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.hal-so-close-btn:hover {
+  color: var(--error, #f87171);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ── Body: tabs + panel ── */
+.hal-so-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Tab bar (left) ── */
+.hal-so-tabs {
+  width: 190px;
+  min-width: 190px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.hal-so-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text-dim, #5a5e73);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.hal-so-tab:hover {
+  color: var(--text, #e2e4f0);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hal-so-tab-active {
+  color: var(--primary, #84cc16);
+  border-left-color: var(--primary, #84cc16);
+  background: rgba(132, 204, 22, 0.06);
+  transition: color 0.3s, border-left-color 0.3s, background 0.3s;
+}
+
+.hal-so-tab-active:hover {
+  color: var(--primary, #84cc16);
+}
+
+.hal-so-tab-dim {
+  opacity: 0.35;
+}
+
+.hal-so-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  transition: color 0.3s;
+}
+
+.hal-so-tab-label {
+  white-space: nowrap;
+}
+
+.hal-so-tab-match-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary, #84cc16);
+  flex-shrink: 0;
+  margin-left: auto;
+  animation: hal-so-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes hal-so-dot-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Panel (right) ── */
+.hal-so-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 28px 28px;
+}
+
+.hal-so-panel::-webkit-scrollbar {
+  width: 5px;
+}
+.hal-so-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hal-so-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.hal-so-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.hal-so-panel-content {
+  max-width: 560px;
+}
+
+/* ── Section title (large tracked uppercase) ── */
+.hal-so-section-title {
+  font-size: 14px;
+  letter-spacing: 5px;
+  color: var(--primary, #84cc16);
+  margin-bottom: 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--primary-dim, rgba(101, 163, 13, 0.2));
+  font-weight: 600;
+  transition: color 0.3s, border-color 0.3s;
+}
+
+/* ── Subsection label ── */
+.hal-so-subsection-label {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: var(--text-secondary, #8b8fa3);
+  margin-bottom: 10px;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+/* ── Divider ── */
+.hal-so-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 14px 0 12px;
+}
+
+/* ── Settings row ── */
+.hal-so-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.hal-so-row-col {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* ── Label ── */
+.hal-so-label {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--text-dim, #5a5e73);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  flex-shrink: 0;
+}
+
+/* ── Toggle button ── */
+.hal-so-toggle {
+  width: 48px;
+  padding: 3px 0;
+  font-size: 11px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  letter-spacing: 1px;
+  text-align: center;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.hal-so-toggle:hover {
+  filter: brightness(1.15);
+}
+
+/* ── Slider ── */
+.hal-so-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 280px;
+}
+
+.hal-so-slider-val {
+  font-size: 11px;
+  color: var(--text-dim, #5a5e73);
+  text-align: right;
+  flex-shrink: 0;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Select dropdown ── */
+.hal-so-select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: var(--text, #e2e4f0);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 5px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 140px;
+}
+
+.hal-so-select:focus {
+  border-color: var(--primary-dim, rgba(101, 163, 13, 0.5));
+}
+
+.hal-so-select option {
+  background: #0a0f14;
+  color: var(--text, #e2e4f0);
+}
+
+/* ── Action button ── */
+.hal-so-action-btn {
+  background: transparent;
+  border: 1px solid var(--border, #2a2d42);
+  color: var(--text-dim, #5a5e73);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hal-so-action-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hal-so-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Budget button ── */
+.hal-so-budget-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.hal-so-budget-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Tip box ── */
+.hal-so-tip {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #f59e0b;
+}
+
+/* ── Range slider styling ── */
+.hal-so-panel input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  outline: none;
+}
+
+.hal-so-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary, #84cc16);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.hal-so-panel input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px var(--primary, rgba(132, 204, 22, 0.4));
+}
+
 /* ── 2D Preview Grid ── */
 .preview-grid-container {
   position: absolute;

@@ -51,7 +51,13 @@ interface Props {
   inMerge?: boolean // true when this project has active merge conflicts
   // UX7: Intro camera spline — called when this panel's Html is mounted (front-facing card loaded)
   onHtmlMounted?: (projectPath: string) => void
+  // Tactical Sectors: staggered entry animation — delay in ms before this card starts scaling in
+  sectorEntryDelay?: number // when > 0, card starts at scale 0 and animates to 1 over 300ms after delay
 }
+
+// ── Sector entry animation token — incremented on each sector switch to trigger re-animation ──
+let _sectorEntryToken = 0
+export function triggerSectorEntry(): void { _sectorEntryToken++ }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
 function getHealthColors(theme: ReturnType<typeof useThreeTheme>): Record<HealthStatus, string> {
@@ -254,12 +260,16 @@ export const ScreenPanel = memo(function ScreenPanel({
   onOpenBrowser,
   inMerge = false,
   onHtmlMounted,
+  sectorEntryDelay = -1,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
   const htmlWrapRef = useRef<HTMLDivElement>(null)
   const { camera } = useThree()
   const [stats, setStats] = useState<ProjectStats | null>(null)
+
+  // Sector entry animation state
+  const sectorEntryRef = useRef({ token: _sectorEntryToken, scale: sectorEntryDelay >= 0 ? 0 : 1, startTime: 0 })
 
   // Track if panel has ever been front-facing (triggers Html mount — never unmounts after) (B22 PERF)
   const [htmlMounted, setHtmlMounted] = useState(false)
@@ -463,7 +473,28 @@ export const ScreenPanel = memo(function ScreenPanel({
     // UX16: keyboard selection gets same scale bump as hover (persistent until deselected)
     const isSelected = _selectedPath === projectPath
     const isHovered = _hoveredPath === projectPath
-    const s = (isHovered || isSelected) ? 1.04 : 1.0
+    let s = (isHovered || isSelected) ? 1.04 : 1.0
+
+    // Sector entry animation — staggered scale-up from 0 to 1
+    const seRef = sectorEntryRef.current
+    if (seRef.token !== _sectorEntryToken) {
+      // New sector switch detected — reset animation
+      seRef.token = _sectorEntryToken
+      seRef.scale = 0
+      seRef.startTime = performance.now() + (sectorEntryDelay >= 0 ? sectorEntryDelay : 0)
+    }
+    if (seRef.scale < 1) {
+      const now = performance.now()
+      if (now >= seRef.startTime) {
+        // Animate over 300ms with ease-out
+        const elapsed = now - seRef.startTime
+        const t = Math.min(elapsed / 300, 1)
+        // Ease out cubic: 1 - (1-t)^3
+        seRef.scale = 1 - Math.pow(1 - t, 3)
+      }
+      s *= seRef.scale
+    }
+
     groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
 
     // UX16: Selection-driven edge glow boost — brighter than hover for clear visual distinction

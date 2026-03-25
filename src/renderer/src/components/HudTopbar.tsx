@@ -4,7 +4,7 @@ import { SettingsMenu } from './SettingsMenu'
 import { GroupsPanel } from './GroupsPanel'
 import { TaskBoard } from './TaskBoard'
 import { useTasks } from '../hooks/useTasks'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId, TerminalModelId, DevlogSections, DevlogSectionKey, DevlogVerbosity } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, IdeOptionId, SphereStyleId, TerminalModelId, DevlogSections, DevlogSectionKey, DevlogVerbosity, SettingsState } from '../hooks/useSettings'
 import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import type { ProjectGroup, GroupPreset } from '../hooks/useProjectGroups'
@@ -12,6 +12,7 @@ import { FilterBar, type FilterId } from './FilterBar'
 import type { ProjectInfo } from '../types'
 
 interface HudTopbarProps {
+  settings: SettingsState
   search: string
   onSearchChange: (value: string) => void
   onNewProject: () => void
@@ -113,6 +114,7 @@ interface HudTopbarProps {
 }
 
 export function HudTopbar({
+  settings,
   search, onSearchChange, onNewProject, onConvertProject,
   voiceFocus, halSessionId, onListeningChange,
   projectCount, readyCount, allProjects = [], activeFilter = 'all', onFilterChange, isFavorite = () => false,
@@ -239,37 +241,12 @@ export function HudTopbar({
           />
         )}
         <SettingsMenu
-          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize}
-          voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
-          camera={camera}
-          rendererId={rendererId as any} layoutId={layoutId as any} threeTheme={threeTheme}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut}
-          onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange as any} onLayoutChange={onLayoutChange as any} onThreeThemeChange={onThreeThemeChange}
-          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange ?? (() => {})}
-          introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange ?? (() => {})}
-          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange ?? (() => {})}
-          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange ?? (() => {})}
-          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange ?? (() => {})}
-          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange ?? (() => {})}
-          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange ?? (() => {})}
-          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange ?? (() => {})}
-          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange ?? (() => {})}
-          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange ?? (() => {})}
-          onRedetectGpu={onRedetectGpu}
-          sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
-          voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}
-          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
-          defaultIde={defaultIde} onDefaultIdeChange={onDefaultIdeChange ?? (() => {})}
-          defaultTerminalModel={defaultTerminalModel} onDefaultTerminalModelChange={onDefaultTerminalModelChange ?? (() => {})}
+          settings={settings}
+          wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize}
           hiddenPaths={hiddenPaths} onUnhide={onUnhide}
           demo={demo}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
-          projects={projects} onConfigureProject={onConvertProject}
-          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange ?? (() => {})} onSetAllDevlogSections={onSetAllDevlogSections ?? (() => {})}
+          onRedetectGpu={onRedetectGpu}
         />
         {/* Task Board button */}
         <button

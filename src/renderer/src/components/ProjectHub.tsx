@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ProjectInfo } from '../types'
 import { applyFilter, type FilterId } from './FilterBar'
-import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, SphereStyleId, DevlogSections, DevlogSectionKey, DevlogVerbosity } from '../hooks/useSettings'
+import type { VoiceProfileId, DockPosition, CameraSettings, PersonalitySettings, SphereStyleId, DevlogSections, DevlogSectionKey, DevlogVerbosity, SettingsState } from '../hooks/useSettings'
 import { DEFAULT_DEVLOG_SECTIONS } from '../hooks/useSettings'
 import { useProjectGroups } from '../hooks/useProjectGroups'
 import { useHiddenProjects } from '../hooks/useHiddenProjects'
@@ -26,9 +26,12 @@ import type { FocusZone } from '../hooks/useFocusZone'
 import { useHubKeyboard } from '../hooks/useHubKeyboard'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../layouts3d'
 import type { Screen3DPosition } from '../layouts3d'
+import { useSectors, getSectorHudText } from '../hooks/useSectors'
+import { SectorHud } from './SectorHud'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
+  settings: SettingsState
   onNewProject: () => void
   onConvertProject: (path: string) => void
   onOpenTerminal?: (projectPath: string, projectName: string, resume: boolean) => void
@@ -114,6 +117,9 @@ interface Props {
   onSetAllDevlogSections?: (value: DevlogVerbosity) => void
   // UX16: Focus zone — enables hub keyboard navigation when 'hub'
   focusZone?: FocusZone
+  // Tactical Sectors
+  cardsPerSector?: number
+  onCardsPerSectorChange?: (n: number) => void
 }
 
 function timeAgo(ms: number): string {
@@ -126,7 +132,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone }: Props) {
+export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone, cardsPerSector = 16, onCardsPerSectorChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -536,46 +542,81 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
   const readyCount = visibleProjects.filter(isFullySetup).length
 
+  // ── Tactical Sectors: paginate allSorted into sectors ──
+  const sectors = useSectors(allSorted, cardsPerSector, isFavorite)
+
+  // The projects that get passed to the 3D renderer = current sector's projects
+  // When search is active, pass ALL projects so cross-sector search works
+  const rendererProjects = search ? allSorted : sectors.sectorProjects
+
+  // Phase 2: Dispatch sphere event + HUD text on sector change
+  const prevSectorRef = useRef(sectors.currentSector)
+  useEffect(() => {
+    if (prevSectorRef.current !== sectors.currentSector && sectors.hasSectors) {
+      // Sphere event: brief white surge
+      dispatchSphereEvent({ type: 'info', intensity: 0.6 })
+      prevSectorRef.current = sectors.currentSector
+    }
+  }, [sectors.currentSector, sectors.hasSectors])
+
+  // Reset to sector 0 when filter changes (spec: filter changes reset to sector 1)
+  const prevFilterRef = useRef(activeFilter)
+  useEffect(() => {
+    if (prevFilterRef.current !== activeFilter) {
+      prevFilterRef.current = activeFilter
+      sectors.switchSector(0)
+    }
+  }, [activeFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── UX16 Phase 2: Compute 3D layout positions for keyboard navigation ──
   // Mirror the same layout computation that PbrHoloScene uses, so the keyboard
   // hook can sort cards by orbital angle and provide positions to CameraEaser.
+  // Uses rendererProjects (sector-scoped) for both keyboard nav and renderer.
   const groupIndicesForNav = useMemo(() => {
-    if (groups.length === 0) return allSorted.map(() => -1)
+    if (groups.length === 0) return rendererProjects.map(() => -1)
     const groupIdToIndex = new Map(groups.map((g, i) => [g.id, i]))
-    return allSorted.map((p) => {
+    return rendererProjects.map((p) => {
       const gId = assignments[p.path]
       if (!gId) return -1
       return groupIdToIndex.get(gId) ?? -1
     })
-  }, [allSorted, groups, assignments])
+  }, [rendererProjects, groups, assignments])
 
   const navPositions: Screen3DPosition[] = useMemo(() => {
     const groupFn = GROUP_LAYOUT_3D_FNS[layoutId]
     const raw = groupFn
-      ? groupFn(allSorted.length, groupIndicesForNav, groups.length)
-      : (LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default'])(allSorted.length)
+      ? groupFn(rendererProjects.length, groupIndicesForNav, groups.length)
+      : (LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default'])(rendererProjects.length)
     // Safety clamp Y (same as PbrHoloScene)
     return raw.map((sp) => ({
       ...sp,
       position: [sp.position[0], Math.max(1.0, sp.position[1]), sp.position[2]] as [number, number, number],
     }))
-  }, [allSorted.length, layoutId, groupIndicesForNav, groups.length])
+  }, [rendererProjects.length, layoutId, groupIndicesForNav, groups.length])
 
-  const navProjectPaths = useMemo(() => allSorted.map((p) => p.path), [allSorted])
+  const navProjectPaths = useMemo(() => rendererProjects.map((p) => p.path), [rendererProjects])
 
   const handleKeyboardResume = useCallback((projectPath: string) => {
+    // Cross-sector search: if project is in a different sector, switch there first
+    const sectorIdx = sectors.findProjectSector(projectPath)
+    if (sectorIdx >= 0 && sectorIdx !== sectors.currentSector) {
+      sectors.switchSector(sectorIdx)
+    }
     const project = allSorted.find((p) => p.path === projectPath)
     if (project && onOpenTerminal) {
       onOpenTerminal(projectPath, project.name, true)
     }
-  }, [allSorted, onOpenTerminal])
+  }, [allSorted, onOpenTerminal, sectors])
 
-  // UX16: Activate hub keyboard navigation (arrow keys, Enter, Escape, /)
+  // UX16: Activate hub keyboard navigation (arrow keys, Enter, Escape, /, [, ])
   useHubKeyboard({
     focusZone: focusZone ?? 'hub',
     projectPaths: navProjectPaths,
     positions: navPositions,
     onResume: handleKeyboardResume,
+    onNextSector: sectors.nextSector,
+    onPrevSector: sectors.prevSector,
+    totalSectors: sectors.totalSectors,
   })
 
   // Layout positioning
@@ -771,6 +812,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenTerminal={onOpenTerminal}
         />
         <HudTopbar
+          settings={settings}
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
@@ -827,7 +869,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     return (
       <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
         <PbrHoloScene
-          projects={allSorted}
+          projects={rendererProjects}
           searchQuery={search}
           listening={isListening && voiceFocus === 'hub'}
           isFullySetup={isFullySetup}
@@ -876,13 +918,28 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           groupTrailsEnabled={groupTrailsEnabled}
           autoRotateEnabled={autoRotateEnabled}
           autoRotateSpeed={autoRotateSpeed}
+          sectorTransitioning={sectors.transitioning}
+          sectorDirection={sectors.transitionDirection}
+          sectorHue={sectors.sectorHue}
+          sectorHudText={sectors.hasSectors ? getSectorHudText(sectors.currentSector, sectors.totalSectors, sectors.sectorProjects.length) : undefined}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
             <span className="hal-scene-overlay-text">{loadingMsg}</span>
           </div>
         )}
+        {/* Tactical Sectors HUD — bottom-center indicator */}
+        <SectorHud
+          currentSector={sectors.currentSector}
+          totalSectors={sectors.totalSectors}
+          onPrev={sectors.prevSector}
+          onNext={sectors.nextSector}
+          onJump={sectors.switchSector}
+          transitioning={sectors.transitioning}
+          sectorHue={sectors.sectorHue}
+        />
         <HudTopbar
+          settings={settings}
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
@@ -971,6 +1028,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
         )}
 
         <HudTopbar
+          settings={settings}
           search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
           voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
           projectCount={visibleProjects.length} readyCount={readyCount}
@@ -1054,6 +1112,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
 
       {/* Top HUD bar */}
       <HudTopbar
+        settings={settings}
         search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
         voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
         projectCount={projects.length} readyCount={readyCount}

@@ -164,7 +164,8 @@ export function App() {
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
   // UX16: Focus zone management — 'hub' or 'terminal'
   const { focusZone } = useFocusZone(termSessions.length > 0 || (demo.enabled && (demo.terminalCount ?? 0) > 0))
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback, graphicsPreset, updateGraphicsPreset, bloomEnabled, updateBloomEnabled, chromaticAberrationEnabled, updateChromaticAberrationEnabled, floorLinesEnabled, updateFloorLinesEnabled, groupTrailsEnabled, updateGroupTrailsEnabled, autoRotateEnabled, updateAutoRotateEnabled, autoRotateSpeed, updateAutoRotateSpeed, devlogSections, updateDevlogSection, setAllDevlogSections } = useSettings()
+  const settingsState = useSettings()
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback, graphicsPreset, updateGraphicsPreset, bloomEnabled, updateBloomEnabled, chromaticAberrationEnabled, updateChromaticAberrationEnabled, floorLinesEnabled, updateFloorLinesEnabled, groupTrailsEnabled, updateGroupTrailsEnabled, autoRotateEnabled, updateAutoRotateEnabled, autoRotateSpeed, updateAutoRotateSpeed, cardsPerSector, updateCardsPerSector, devlogSections, updateDevlogSection, setAllDevlogSections } = settingsState
 
   // ── U11: Embedded browser panel state ──
   const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([])
@@ -528,6 +529,8 @@ export function App() {
             onAutoRotateEnabledChange={updateAutoRotateEnabled}
             autoRotateSpeed={autoRotateSpeed}
             onAutoRotateSpeedChange={updateAutoRotateSpeed}
+            cardsPerSector={cardsPerSector}
+            onCardsPerSectorChange={updateCardsPerSector}
             onRedetectGpu={handleRedetectGpu}
             onOpenBrowser={openBrowserTab}
           />
@@ -557,6 +560,7 @@ export function App() {
       <div className="app" style={{ display: 'flex', flexDirection: flexDir, height: '100vh' }}>
         <div style={hubStyle}>
           <ProjectHub
+            settings={settingsState}
             onNewProject={hubOnNewProject}
             onConvertProject={hubOnConvertProject}
             onOpenTerminal={demo.enabled ? undefined : openTerminal}
@@ -626,6 +630,8 @@ export function App() {
             onAutoRotateEnabledChange={updateAutoRotateEnabled}
             autoRotateSpeed={autoRotateSpeed}
             onAutoRotateSpeedChange={updateAutoRotateSpeed}
+            cardsPerSector={cardsPerSector}
+            onCardsPerSectorChange={updateCardsPerSector}
             onRedetectGpu={handleRedetectGpu}
             onOpenBrowser={openBrowserTab}
             devlogSections={devlogSections}

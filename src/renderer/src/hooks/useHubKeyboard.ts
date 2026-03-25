@@ -101,6 +101,11 @@ export interface UseHubKeyboardOptions {
   projectPaths: string[]
   positions: Screen3DPosition[]
   onResume: (projectPath: string) => void
+  /** Sector navigation callbacks — when provided, [ ] switch sectors and arrow keys wrap across sectors */
+  onNextSector?: () => void
+  onPrevSector?: () => void
+  /** Total sectors — used to decide if sector navigation is enabled */
+  totalSectors?: number
 }
 
 export function useHubKeyboard({
@@ -108,6 +113,9 @@ export function useHubKeyboard({
   projectPaths,
   positions,
   onResume,
+  onNextSector,
+  onPrevSector,
+  totalSectors = 1,
 }: UseHubKeyboardOptions): void {
   const orbitalRef = useRef<OrbitalEntry[]>([])
   const pathSetRef = useRef<Set<string>>(new Set())
@@ -169,6 +177,19 @@ export function useHubKeyboard({
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
 
     const orbital = orbitalRef.current
+
+    // Sector navigation: [ and ] switch sectors
+    if (e.key === ']' && totalSectors > 1 && onNextSector) {
+      e.preventDefault()
+      onNextSector()
+      return
+    }
+    if (e.key === '[' && totalSectors > 1 && onPrevSector) {
+      e.preventDefault()
+      onPrevSector()
+      return
+    }
+
     if (orbital.length === 0 && e.key !== '/' && e.key !== 'Escape') return
 
     const currentPath = getSelectedPath()
@@ -183,6 +204,13 @@ export function useHubKeyboard({
         if (currentIdx < 0) {
           // Nothing selected — select first card
           selectByOrbitalIndex(0)
+        } else if (currentIdx === orbital.length - 1 && totalSectors > 1 && onNextSector) {
+          // At last card — cross-sector wrap: advance to next sector + select first card
+          onNextSector()
+          // Selection will reset when new sector projects arrive
+          setSelectedPath(null)
+          setSelectedCardPosition(null)
+          saveSelectedCard(null)
         } else {
           // Next card clockwise (higher angle)
           selectByOrbitalIndex(currentIdx + 1)
@@ -195,6 +223,13 @@ export function useHubKeyboard({
         if (orbital.length === 0) return
         if (currentIdx < 0) {
           selectByOrbitalIndex(orbital.length - 1)
+        } else if (currentIdx === 0 && totalSectors > 1 && onPrevSector) {
+          // At first card — cross-sector wrap: back to previous sector + select last card
+          onPrevSector()
+          // Selection will reset when new sector projects arrive
+          setSelectedPath(null)
+          setSelectedCardPosition(null)
+          saveSelectedCard(null)
         } else {
           selectByOrbitalIndex(currentIdx - 1)
         }
@@ -280,7 +315,7 @@ export function useHubKeyboard({
       default:
         break
     }
-  }, [focusZone, selectByOrbitalIndex, onResume])
+  }, [focusZone, selectByOrbitalIndex, onResume, onNextSector, onPrevSector, totalSectors])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

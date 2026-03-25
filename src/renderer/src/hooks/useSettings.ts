@@ -244,6 +244,7 @@ export interface SettingsState {
   groupTrailsEnabled: boolean
   autoRotateEnabled: boolean
   autoRotateSpeed: number
+  cardsPerSector: number
   devlogSections: DevlogSections
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
@@ -275,6 +276,7 @@ export interface SettingsState {
   updateGroupTrailsEnabled: (enabled: boolean) => void
   updateAutoRotateEnabled: (enabled: boolean) => void
   updateAutoRotateSpeed: (speed: number) => void
+  updateCardsPerSector: (count: number) => void
   updateDevlogSection: (key: DevlogSectionKey, value: DevlogVerbosity) => void
   setAllDevlogSections: (value: DevlogVerbosity) => void
 }
@@ -311,6 +313,7 @@ interface SettingsData {
   groupTrailsEnabled: boolean
   autoRotateEnabled: boolean
   autoRotateSpeed: number
+  cardsPerSector: number
   devlogSections: DevlogSections
 }
 
@@ -344,6 +347,7 @@ type SettingsAction =
   | { type: 'SET_GROUP_TRAILS_ENABLED'; value: boolean }
   | { type: 'SET_AUTO_ROTATE_ENABLED'; value: boolean }
   | { type: 'SET_AUTO_ROTATE_SPEED'; value: number }
+  | { type: 'SET_CARDS_PER_SECTOR'; value: number }
   | { type: 'SET_DEVLOG_SECTION'; key: DevlogSectionKey; value: DevlogVerbosity }
   | { type: 'SET_ALL_DEVLOG_SECTIONS'; value: DevlogVerbosity }
 
@@ -381,6 +385,7 @@ function settingsReducer(state: SettingsData, action: SettingsAction): SettingsD
     case 'SET_GROUP_TRAILS_ENABLED': return state.groupTrailsEnabled === action.value ? state : { ...state, groupTrailsEnabled: action.value }
     case 'SET_AUTO_ROTATE_ENABLED': return state.autoRotateEnabled === action.value ? state : { ...state, autoRotateEnabled: action.value }
     case 'SET_AUTO_ROTATE_SPEED': return state.autoRotateSpeed === action.value ? state : { ...state, autoRotateSpeed: action.value }
+    case 'SET_CARDS_PER_SECTOR': return state.cardsPerSector === action.value ? state : { ...state, cardsPerSector: action.value }
     case 'SET_DEVLOG_SECTION': {
       if (state.devlogSections[action.key] === action.value) return state
       return { ...state, devlogSections: { ...state.devlogSections, [action.key]: action.value } }
@@ -497,6 +502,7 @@ function loadInitialState(): SettingsData {
     groupTrailsEnabled: localStorage.getItem('hal-o-group-trails') === 'true',
     autoRotateEnabled: localStorage.getItem('hal-o-auto-rotate') !== 'false',
     autoRotateSpeed: parseFloat(localStorage.getItem('hal-o-auto-rotate-speed') || '0.12'),
+    cardsPerSector: parseInt(localStorage.getItem('hal-o-cards-per-sector') || '16'),
     devlogSections,
   }
 }
@@ -684,6 +690,12 @@ export function useSettings(): SettingsState {
     localStorage.setItem('hal-o-auto-rotate-speed', String(speed))
   }, [])
 
+  const updateCardsPerSector = useCallback((count: number) => {
+    const clamped = Math.max(8, Math.min(24, count))
+    dispatch({ type: 'SET_CARDS_PER_SECTOR', value: clamped })
+    localStorage.setItem('hal-o-cards-per-sector', String(clamped))
+  }, [])
+
   const updateDevlogSection = useCallback((key: DevlogSectionKey, value: DevlogVerbosity) => {
     dispatch({ type: 'SET_DEVLOG_SECTION', key, value })
     const next = { ...state.devlogSections, [key]: value }
@@ -746,6 +758,7 @@ export function useSettings(): SettingsState {
     groupTrailsEnabled: state.groupTrailsEnabled,
     autoRotateEnabled: state.autoRotateEnabled,
     autoRotateSpeed: state.autoRotateSpeed,
+    cardsPerSector: state.cardsPerSector,
     devlogSections: state.devlogSections,
     // ── callbacks ──
     updateHubFont,
@@ -778,6 +791,7 @@ export function useSettings(): SettingsState {
     updateGroupTrailsEnabled,
     updateAutoRotateEnabled,
     updateAutoRotateSpeed,
+    updateCardsPerSector,
     updateDevlogSection,
     setAllDevlogSections,
   }), [
@@ -790,7 +804,7 @@ export function useSettings(): SettingsState {
     updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
     updateIntroAnimation, updateGraphicsPreset, updateBloomEnabled, updateChromaticAberrationEnabled,
     updateFloorLinesEnabled, updateGroupTrailsEnabled,
-    updateAutoRotateEnabled, updateAutoRotateSpeed,
+    updateAutoRotateEnabled, updateAutoRotateSpeed, updateCardsPerSector,
     updateDevlogSection, setAllDevlogSections,
   ])
 }

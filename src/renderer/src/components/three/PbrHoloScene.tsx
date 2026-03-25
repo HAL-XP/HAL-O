@@ -6,7 +6,7 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
-import { ScreenPanel, ScreenPanelUpdater, onFocusRecovery } from './ScreenPanel'
+import { ScreenPanel, ScreenPanelUpdater, onFocusRecovery, triggerSectorEntry } from './ScreenPanel'
 import { DataParticles } from './DataParticles'
 import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
@@ -2078,6 +2078,11 @@ interface Props {
   // UX9: Auto-rotate settings
   autoRotateEnabled?: boolean
   autoRotateSpeed?: number
+  // Tactical Sectors — transition animation
+  sectorTransitioning?: boolean
+  sectorDirection?: number
+  sectorHue?: string
+  sectorHudText?: string
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -2143,6 +2148,11 @@ interface PbrSceneInnerProps {
   // UX9: Auto-rotate settings
   autoRotateEnabled: boolean
   autoRotateSpeed: number
+  // Tactical Sectors
+  sectorTransitioning: boolean
+  sectorDirection: number
+  sectorHue: string
+  sectorHudText: string
 }
 
 function PbrSceneInner({
@@ -2160,6 +2170,7 @@ function PbrSceneInner({
   resolvedFilesMap,
   graphicsPreset, bloomEnabled, chromaticAberrationEnabled, floorLinesEnabled, groupTrailsEnabled,
   autoRotateEnabled, autoRotateSpeed,
+  sectorTransitioning, sectorDirection, sectorHue, sectorHudText,
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2242,6 +2253,37 @@ function PbrSceneInner({
       setTerminalActivityMax(0)
     }
   }, [activityFeedback])
+
+  // ── Tactical Sectors: transition animation state ──
+  // Track sector transition for staggered card stream-in/out animation.
+  // sectorAnimPhase: 0 = idle, 1 = streaming out, 2 = streaming in
+  const sectorAnimRef = useRef({ phase: 0, elapsed: 0, totalCards: 0 })
+  const prevSectorTransitioning = useRef(false)
+
+  useEffect(() => {
+    if (sectorTransitioning && !prevSectorTransitioning.current) {
+      // Start stream-out phase
+      sectorAnimRef.current = { phase: 1, elapsed: 0, totalCards: projects.length }
+    }
+    prevSectorTransitioning.current = sectorTransitioning
+  }, [sectorTransitioning, projects.length])
+
+  // Advance sector animation phases via useFrame
+  useFrame((_, delta) => {
+    const anim = sectorAnimRef.current
+    if (anim.phase === 0) return
+    anim.elapsed += delta
+    if (anim.phase === 1 && anim.elapsed > 0.3) {
+      // Switch to stream-in phase
+      anim.phase = 2
+      anim.elapsed = 0
+    }
+    if (anim.phase === 2 && anim.elapsed > 0.35) {
+      // Done
+      anim.phase = 0
+      anim.elapsed = 0
+    }
+  })
 
   // Scene loading phase state
   const [textureLoaded, setTextureLoaded] = useState(false)
@@ -2683,7 +2725,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12 }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12, sectorTransitioning = false, sectorDirection = 0, sectorHue = '#00f5ff', sectorHudText = '' }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2799,6 +2841,10 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           groupTrailsEnabled={groupTrailsEnabled}
           autoRotateEnabled={autoRotateEnabled}
           autoRotateSpeed={autoRotateSpeed}
+          sectorTransitioning={sectorTransitioning}
+          sectorDirection={sectorDirection}
+          sectorHue={sectorHue}
+          sectorHudText={sectorHudText}
         />
       </ThreeThemeProvider>
     </Canvas>
