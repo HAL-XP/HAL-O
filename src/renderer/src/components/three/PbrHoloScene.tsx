@@ -936,8 +936,10 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
     // Sample audio / demo data
     const raw = readAudioData(audioDataRef.current, t)
 
-    // Smooth with EMA: fast attack (0.3), slow release (0.05)
-    const smoothFactor = raw.isActive ? 0.25 : 0.04
+    // Smooth with EMA: fast attack (0.6 = reaches ~88% of peak in 3 frames at 60fps),
+    // slow release (0.05 = gradual tail-off). Higher attack ensures the sphere
+    // visually peaks within ~50ms of audio onset rather than ramping slowly.
+    const smoothFactor = raw.isActive ? 0.6 : 0.04
     const s = smoothedRef.current
     s.bass   += (raw.bass   - s.bass)   * smoothFactor
     s.mids   += (raw.mids   - s.mids)   * smoothFactor

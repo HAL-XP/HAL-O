@@ -32,6 +32,9 @@ function getOrCreateAnalyser(): { ctx: AudioContext; analyser: AnalyserNode } {
   _ctx = new AudioContext()
   _analyser = _ctx.createAnalyser()
   _analyser.fftSize = 256
+  // Low smoothing = fast response. Browser default is 0.8 which causes ~300ms ramp-up lag.
+  // 0.3 gives near-instant FFT reaction while still smoothing single-frame spikes.
+  _analyser.smoothingTimeConstant = 0.3
   _analyser.connect(_ctx.destination)
 
   // Register on window so PbrHoloScene can read it every animation frame
@@ -70,6 +73,11 @@ export function playWithAnalyser(url: string): HTMLAudioElement {
   audio.onerror = () => {
     ;(window as any).__halSpeaking = false
   }
+
+  // Immediate visual kick — fires on the first frame of audio so the sphere reacts
+  // instantly, bridging the gap while the AnalyserNode FFT buffer fills up (~2 frames).
+  const dispatch = (window as any).__haloDispatchSphereEvent as ((e: { type: string; intensity: number }) => void) | undefined
+  if (dispatch) dispatch({ type: 'info', intensity: 0.6 })
 
   audio.play().catch(() => {
     ;(window as any).__halSpeaking = false
