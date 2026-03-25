@@ -49,6 +49,8 @@ interface Props {
   onOpenBrowser?: () => void // click: open project docs/README in embedded browser panel
   // U18: Merge conflict indicator
   inMerge?: boolean // true when this project has active merge conflicts
+  // UX7: Intro camera spline — called when this panel's Html is mounted (front-facing card loaded)
+  onHtmlMounted?: (projectPath: string) => void
 }
 
 // Health-based edge glow colors — status overrides use theme semantic colors when available (P3)
@@ -243,6 +245,7 @@ export const ScreenPanel = memo(function ScreenPanel({
   ideLabel, onOpenIde, onOpenIdeMenu, onOpenTerminal,
   onOpenBrowser,
   inMerge = false,
+  onHtmlMounted,
 }: Props) {
   const theme = useThreeTheme()
   const groupRef = useRef<THREE.Group>(null)
@@ -254,6 +257,13 @@ export const ScreenPanel = memo(function ScreenPanel({
   const [htmlMounted, setHtmlMounted] = useState(false)
   // isFront ref: true = facing camera. Starts null (unknown).
   const wasFrontRef = useRef<boolean | null>(null)
+
+  // UX7: Notify parent when Html is mounted (so intro spline can wait for all cards to load)
+  useEffect(() => {
+    if (htmlMounted && onHtmlMounted) {
+      onHtmlMounted(projectPath)
+    }
+  }, [htmlMounted, projectPath, onHtmlMounted])
 
   // Lazy-load stats when screen becomes visible (front-facing)
   // If demoStats is provided (demo projects), use it directly without IPC

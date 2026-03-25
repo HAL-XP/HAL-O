@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react'
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
 import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
@@ -2229,19 +2229,74 @@ function PbrSceneInner({
   const [sceneReady, setSceneReady] = useState(false)
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
 
+  // UX7: Track which project cards have mounted their Html (front-facing cards loaded)
+  const mountedCardsRef = useRef<Set<string>>(new Set())
+  const cardMountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [cardsReady, setCardsReady] = useState(false)
+
+  // UX7: Reset mounted cards when projects list changes
+  useEffect(() => {
+    mountedCardsRef.current.clear()
+    setCardsReady(false)
+    if (cardMountTimeoutRef.current) {
+      clearTimeout(cardMountTimeoutRef.current)
+      cardMountTimeoutRef.current = null
+    }
+    if (projects.length === 0) {
+      setCardsReady(true)
+    }
+  }, [projects.length])
+
+  // UX7: Callback fired when a ScreenPanel's Html is mounted
+  const onCardHtmlMounted = useCallback((projectPath: string) => {
+    mountedCardsRef.current.add(projectPath)
+    // Check if all visible (front-facing) cards are mounted
+    // If no projects exist, skip the gate (cardsReady = true immediately)
+    if (projects.length === 0) {
+      setCardsReady(true)
+      return
+    }
+    // Consider cards ready when at least 80% of projects have mounted
+    const readyThreshold = Math.ceil(projects.length * 0.8)
+    if (mountedCardsRef.current.size >= readyThreshold) {
+      setCardsReady(true)
+      if (cardMountTimeoutRef.current) {
+        clearTimeout(cardMountTimeoutRef.current)
+        cardMountTimeoutRef.current = null
+      }
+    }
+  }, [projects.length])
+
+  // UX7: 5s safety timeout — if cards haven't loaded after 5s, start intro anyway
+  useEffect(() => {
+    if (cardsReady || !sceneReady) return
+    if (cardMountTimeoutRef.current) return
+    cardMountTimeoutRef.current = setTimeout(() => {
+      console.warn('[HAL-O] Card mount safety timeout — starting intro after 5s')
+      setCardsReady(true)
+    }, 5000)
+    return () => {
+      if (cardMountTimeoutRef.current) {
+        clearTimeout(cardMountTimeoutRef.current)
+        cardMountTimeoutRef.current = null
+      }
+    }
+  }, [cardsReady, sceneReady])
+
   // M2c: Intro fly-in animation — activates when scene first becomes ready.
   // B28 fix: sessionStorage guard checked synchronously at mount + in effect.
   // Canvas remount resets React state but sessionStorage survives, preventing replay.
+  // UX7: Also wait for cards to be ready (all front-facing cards have mounted Html)
   const introPlayedRef = useRef(sessionStorage.getItem('hal-o-intro-done') === '1')
   const [introActive, setIntroActive] = useState(false)
   useEffect(() => {
     if (introPlayedRef.current) return // already played this session (survives remount)
-    if (sceneReady && introAnimation && !cinematicActive) {
+    if (sceneReady && cardsReady && introAnimation && !cinematicActive) {
       introPlayedRef.current = true
       sessionStorage.setItem('hal-o-intro-done', '1')
       setIntroActive(true)
     }
-  }, [sceneReady, introAnimation, cinematicActive])
+  }, [sceneReady, cardsReady, introAnimation, cinematicActive])
 
   // PERF8: Interpolate fade values — targets match progressive mount phases
   useFrame((_, delta) => {
@@ -2458,6 +2513,7 @@ function PbrSceneInner({
                 searchTarget={searchTargetPos}
                 searchDimmed={isDimmed}
                 inMerge={!!mergeStates[project.path]?.inMerge}
+                onHtmlMounted={onCardHtmlMounted}
               />
             )
           })}
