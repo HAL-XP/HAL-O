@@ -817,6 +817,9 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
   const smoothedRef = useRef({ bass: 0, mids: 0, highs: 0, volume: 0 })
   // UX10: Colorshift — smoothed hue for lerp-based transitions
   const colorshiftHueRef = useRef(0.5) // start at cyan (180°/360 = 0.5)
+  // UX10: Colorshift — reusable Color objects to avoid per-frame allocations
+  const colorshiftColorRef = useRef(new THREE.Color())
+  const colorshiftGlowRef = useRef(new THREE.Color())
 
   // P4: Procedural HAL eye texture — only active when sphereStyle is 'animated-core'
   const halEyeTexture = useHalEyeTexture(sphereStyle === 'animated-core')
@@ -990,17 +993,19 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       }
     }
 
-    // ── UX10: Pulse style — scale breathing tied to terminal activity ──
+    // ── UX10: Pulse style — scale breathing tied to terminal activity + audio ──
     if (sphereStyle === 'pulse') {
-      const activity = terminalActivityMax // 0-100
-      // Frequency: 0.5 Hz idle → 4.0 Hz max activity
-      const freq = 0.5 + (activity / 100) * 3.5
-      // Amplitude: 0.02 idle → 0.18 max activity
-      const amplitude = 0.02 + (activity / 100) * 0.16
-      // Perlin-like noise variation using cheap trig combination
-      const noise = Math.sin(t * 7.3) * Math.cos(t * 5.1) * 0.3
-      // Pulse equation: base 1.0 + sinusoidal breathing + noise modulation
-      const pulseScale = 1.0 + Math.sin(t * freq * Math.PI * 2) * amplitude * (1 + noise)
+      // Combined intensity: terminal activity OR audio volume (whichever is higher)
+      const combinedIntensity = Math.max(terminalActivityMax / 100, volume * vri / 5)
+      // Frequency: 0.5 Hz idle → 4.0 Hz at peak intensity
+      const freq = 0.5 + combinedIntensity * 3.5
+      // Amplitude: 0.02 idle → 0.18 at peak intensity
+      const amplitude = 0.02 + combinedIntensity * 0.16
+      // Organic Perlin-like noise modulation (spec formula: sin(t*freq + sin(t*1.3)*0.5))
+      const noisePhase = Math.sin(t * 1.3) * 0.5
+      const pulseWave = Math.sin(t * freq * Math.PI * 2 + noisePhase)
+      // Pulse equation: base 1.0 + modulated breathing
+      const pulseScale = 1.0 + pulseWave * amplitude
 
       // Apply multiplicatively to wireRef (existing audio scale is already set above)
       if (wireRef.current) {
@@ -1012,31 +1017,41 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
         const currentScale = coreRef.current.scale.x
         coreRef.current.scale.setScalar(currentScale * pulseScale)
       }
+      // Apply multiplicatively to glowRef (atmospheric glow breathes with sphere)
+      if (glowRef.current) {
+        const currentScale = glowRef.current.scale.x
+        glowRef.current.scale.setScalar(currentScale * pulseScale)
+      }
       // Also pulse the equatorial band emissive intensity with the breathing
       if (equatorRef.current) {
         const eqMat = equatorRef.current.material as THREE.MeshStandardMaterial
-        eqMat.emissiveIntensity += Math.abs(Math.sin(t * freq * Math.PI * 2)) * amplitude * 8
+        eqMat.emissiveIntensity += Math.abs(pulseWave) * amplitude * 8
       }
     }
 
-    // ── UX10: Colorshift style — hue rotation based on terminal activity ──
+    // ── UX10: Colorshift style — hue rotation based on terminal activity + audio ──
     if (sphereStyle === 'colorshift') {
-      const activity = terminalActivityMax // 0-100
-      // Map activity 0-100 to target hue:
-      //   0 → 180° (cyan)  = 0.5
-      //  50 → 120° (green) = 0.333
-      //  75 → 30°  (orange)= 0.083
-      // 100 → 0°   (red)   = 0.0
+      // Combined intensity: terminal activity OR audio volume (whichever is higher)
+      const combinedActivity = Math.max(terminalActivityMax, volume * vri * 20) // 0-100 scale
+      const activity = Math.min(combinedActivity, 100)
+      // Map activity 0-100 to target hue (spec breakpoints):
+      //   0-30  → 180° (cyan)   = 0.5
+      //  30-60  → 120° (green)  = 0.333
+      //  60-85  →  30° (orange) = 0.083
+      //  85-100 →   0° (red)    = 0.0
       let targetHue: number
-      if (activity <= 50) {
-        // 0→50 maps to 0.5 (cyan) → 0.333 (green)
-        targetHue = 0.5 - (activity / 50) * (0.5 - 0.333)
-      } else if (activity <= 75) {
-        // 50→75 maps to 0.333 (green) → 0.083 (orange)
-        targetHue = 0.333 - ((activity - 50) / 25) * (0.333 - 0.083)
+      if (activity <= 30) {
+        // 0→30 maps to 0.5 (cyan) → 0.333 (green)
+        targetHue = 0.5 - (activity / 30) * (0.5 - 0.333)
+      } else if (activity <= 60) {
+        // 30→60 maps to 0.333 (green) → 0.083 (orange)
+        targetHue = 0.333 - ((activity - 30) / 30) * (0.333 - 0.083)
+      } else if (activity <= 85) {
+        // 60→85 maps to 0.083 (orange) → 0.0 (red)
+        targetHue = 0.083 - ((activity - 60) / 25) * 0.083
       } else {
-        // 75→100 maps to 0.083 (orange) → 0.0 (red)
-        targetHue = 0.083 - ((activity - 75) / 25) * 0.083
+        // 85→100: hold at red (0.0)
+        targetHue = 0.0
       }
       // Smooth transition: lerp current hue toward target hue each frame
       const lerpSpeed = 2.0 * delta // ~2 units/sec convergence
@@ -1044,9 +1059,14 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       colorshiftHueRef.current += (targetHue - currentHue) * Math.min(lerpSpeed, 1.0)
       const hue = colorshiftHueRef.current
 
-      // Build the shifted color — full saturation, moderate lightness
-      const shiftedColor = new THREE.Color().setHSL(hue, 0.9, 0.5)
-      const shiftedGlow = new THREE.Color().setHSL(hue, 1.0, 0.6)
+      // Dynamic saturation: 0.7 (idle) → 1.0 (peak activity)
+      const saturation = 0.7 + (activity / 100) * 0.3
+      // Dynamic lightness: 0.45 (idle) → 0.6 (peak activity)
+      const lightness = 0.45 + (activity / 100) * 0.15
+
+      // Build the shifted colors — reuse refs to avoid per-frame allocations
+      const shiftedColor = colorshiftColorRef.current.setHSL(hue, saturation, lightness)
+      const shiftedGlow = colorshiftGlowRef.current.setHSL(hue, Math.min(saturation + 0.1, 1.0), lightness + 0.1)
 
       // Apply to wireframe emissive
       if (wireRef.current) {
