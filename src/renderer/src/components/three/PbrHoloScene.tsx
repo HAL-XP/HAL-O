@@ -176,14 +176,15 @@ function useRadialAlphaMap(size = 512): THREE.Texture {
     const ctx = canvas.getContext('2d')!
     const cx = size / 2
     const cy = size / 2
-    // UX11: Radial gradient — opaque through ring area, tight fade at edge
+    // UX11: Radial gradient — opaque through ring area, aggressive fade kills edge
     // Floor radius = ringPlatformRadius * 1.2, so rings occupy ~83% of disc
-    // Keep fully opaque through 80%, then smooth fade to nothing at edge
+    // Fully opaque through 75%, hard fade to zero by 92% — edge is invisible
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
     grad.addColorStop(0, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.78, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.86, 'rgba(255,255,255,0.5)')
-    grad.addColorStop(0.93, 'rgba(255,255,255,0.1)')
+    grad.addColorStop(0.75, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.82, 'rgba(255,255,255,0.4)')
+    grad.addColorStop(0.88, 'rgba(255,255,255,0.05)')
+    grad.addColorStop(0.92, 'rgba(255,255,255,0)')
     grad.addColorStop(1, 'rgba(255,255,255,0)')
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, size, size)
@@ -204,7 +205,7 @@ function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-      <circleGeometry args={[radius, 128]} />
+      <circleGeometry args={[radius, 512]} />
       <MeshReflectorMaterial
         mirror={0.15}
         resolution={768}
@@ -308,7 +309,7 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
-      <circleGeometry args={[radius, 128]} />
+      <circleGeometry args={[radius, 512]} />
       <shaderMaterial
         ref={matRef}
         transparent
@@ -464,7 +465,7 @@ function TexturedPlatform({ radius = 12, onLoad }: { radius?: number; onLoad?: (
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <circleGeometry args={[radius, 128]} />
+      <circleGeometry args={[radius, 512]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={RING_PLATFORM_VERT}

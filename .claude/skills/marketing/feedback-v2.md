@@ -49,6 +49,12 @@ Each screenshot must look DIFFERENT — vary these between shots:
 - **Sphere styles**: vary between `wireframe`, `hal-eye`, `animated-core` via `hal-o-sphere-style` localStorage
 - **Excited sphere**: use Photo Mode to fake activity — `setActivity(90)`, `setAudioDemo(true)`, `sphereEvent('info', 1.0)` — makes the sphere pulse, glow, and react. Don't just show a dormant sphere — show it ALIVE
 
+### General Notes (from user review v3)
+- **More diversity**: take MORE shots, organized by category (themes, layouts, sphere styles, features)
+- **Effects at max**: when showing activity/voice features, set everything to max (`setActivity(100)`, `setAudioDemo(true)`, voice reaction at max). Let effects "play" for several seconds before capturing.
+- **Terminal shots need 20s+ wait**: terminals fill slowly in demo mode, 10s is not enough
+- **Each cool feature deserves its own screenshot**: don't try to cram everything into one shot
+
 ### Shot List
 1. **Hero**: PBR full hub, heroAngle, activity=60, sphere pulsing — THE money shot
 2. **Card close-up**: closeUp, activity=80, pause rotation — readable card content

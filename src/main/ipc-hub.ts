@@ -635,6 +635,29 @@ export function registerHubHandlers(): void {
     }
   })
 
+  // ── B37: Dual-persist favorites (localStorage + JSON file backup) ──
+  const favPath = join(process.env.APPDATA || '', 'hal-o', 'favorites.json')
+
+  ipcMain.handle('save-favorites', async (_event, paths: string[]) => {
+    try {
+      const dir = join(process.env.APPDATA || '', 'hal-o')
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      writeFileSync(favPath, JSON.stringify(paths, null, 2), 'utf-8')
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('load-favorites', async () => {
+    try {
+      if (!existsSync(favPath)) return []
+      return JSON.parse(readFileSync(favPath, 'utf-8'))
+    } catch {
+      return []
+    }
+  })
+
   ipcMain.handle('read-personality', async () => {
     try {
       if (!existsSync(personalityPath)) return { humor: 50, formality: 50, verbosity: 50, dramatic: 25 }

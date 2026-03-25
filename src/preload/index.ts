@@ -155,6 +155,10 @@ const api = {
   voiceTranscribe: (audioBuffer: ArrayBuffer) => ipcRenderer.invoke('voice-transcribe', audioBuffer),
   voiceSpeak: (text: string, profile?: string, lang?: string) => ipcRenderer.invoke('voice-speak', text, profile, lang),
 
+  // Favorites (B37: dual-persist — localStorage + file backup)
+  saveFavorites: (paths: string[]) => ipcRenderer.invoke('save-favorites', paths),
+  loadFavorites: (): Promise<string[]> => ipcRenderer.invoke('load-favorites'),
+
   // Personality (TARS system)
   writePersonality: (data: Record<string, unknown>) => ipcRenderer.invoke('write-personality', data),
   readPersonality: () => ipcRenderer.invoke('read-personality'),
