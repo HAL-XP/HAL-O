@@ -1,0 +1,9 @@
+{
+  "feature": "sectors-2",
+  "title": "Tactical Sectors - Sector 2",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Second sector after ] navigation"
+}

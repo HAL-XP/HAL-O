@@ -1,0 +1,9 @@
+{
+  "feature": "ux16-keyboard",
+  "title": "UX16 Keyboard Navigation",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Card selection via arrow keys and search via /"
+}

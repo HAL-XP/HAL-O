@@ -1,0 +1,9 @@
+{
+  "feature": "ux12-settings",
+  "title": "Full-screen game settings menu",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Settings overlay with 7 tabs, theme changed"
+}

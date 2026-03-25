@@ -1,0 +1,9 @@
+{
+  "feature": "p4c-pulse",
+  "title": "Sphere Pulse Style",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Sphere breathing with activity=80"
+}

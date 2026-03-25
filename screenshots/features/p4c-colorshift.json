@@ -1,0 +1,9 @@
+{
+  "feature": "p4c-colorshift",
+  "title": "Sphere Colorshift Style",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Sphere red at activity=100, colorshift mode"
+}

@@ -1,0 +1,9 @@
+{
+  "feature": "ux7-loading",
+  "title": "Intro Loading Overlay",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "Loading screen with witty messages before scene appears"
+}

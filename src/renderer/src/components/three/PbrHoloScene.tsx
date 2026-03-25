@@ -111,7 +111,7 @@ let _photoModeFlybyRef: { current: { trigger: () => void } | null } = { current:
   topDown: () => (window as any).__haloPhotoMode?.setCamera(0, 20, 1),
 }
 
-import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
+import { terminalActivityMap, terminalActivityMax, setTerminalActivityMax } from './terminalActivity'
 import { isFocusRecovering, onRecoveryChange } from '../../hooks/useFocusRecovery'
 import { isTerminalFocused } from '../TerminalPanel'
 
@@ -167,45 +167,91 @@ function PerfStatsExporter() {
   return null
 }
 
-// ── Procedural radial alpha texture — fully opaque center, soft fade to transparent at edges (P11) ──
-function useRadialAlphaMap(size = 512): THREE.Texture {
-  return useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
-    const cx = size / 2
-    const cy = size / 2
-    // UX11: Radial gradient — opaque through ring area, aggressive fade kills edge
-    // Floor radius = ringPlatformRadius * 1.2, so rings occupy ~83% of disc
-    // Fully opaque through 75%, hard fade to zero by 92% — edge is invisible
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
-    grad.addColorStop(0, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.75, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.82, 'rgba(255,255,255,0.4)')
-    grad.addColorStop(0.88, 'rgba(255,255,255,0.05)')
-    grad.addColorStop(0.92, 'rgba(255,255,255,0)')
-    grad.addColorStop(1, 'rgba(255,255,255,0)')
-    ctx.fillStyle = grad
-    ctx.fillRect(0, 0, size, size)
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.needsUpdate = true
-    return tex
-  }, [size])
-}
-
-// ── Reflective Floor Platform (P11: radial alpha fade at edges) ──
+// ── Reflective Floor Platform — shader-injected analytical alpha edge ──
+// Option C: uses useEffect to chain onto MeshReflectorMaterial's existing onBeforeCompile,
+// preserving reflections while injecting a smoothstep radial fade into the fragment shader.
+//
+// The geometry is oversized (radius * 1.2) — the shader fade hits zero at 82% of floorRadius,
+// so the polygon boundary at 120% is always fully transparent at any camera angle.
 function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
   const theme = useThreeTheme()
-  const alphaMap = useRadialAlphaMap(512)
+  const meshRef = useRef<THREE.Mesh>(null)
+  // Oversized geometry: disc extends 20% beyond visible floor radius.
+  // The shader fade hits zero at 82% of floorRadius, so the polygon edge
+  // at 120% is always in the fully-transparent zone — invisible at any angle.
+  const geoRadius = radius * 1.2
+
   // Derive a dark floor color from the screen face
   const floorColor = useMemo(() => {
     return theme.screenFaceHex
   }, [theme.screenFaceHex])
 
+  // Chain our radial alpha patch onto the existing onBeforeCompile of MeshReflectorMaterial.
+  // We do this via useEffect after mount so we don't replace the built-in reflection shader.
+  useEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    const mat = mesh.material as THREE.MeshStandardMaterial & { needsUpdate: boolean }
+    const original = mat.onBeforeCompile.bind(mat)
+
+    mat.onBeforeCompile = (shader, renderer) => {
+      // Run the existing drei reflector patches first (reflection uniforms + shader mods)
+      original(shader, renderer)
+
+      // Now inject our analytical radial alpha on top
+      shader.uniforms.uFloorRadius = { value: radius }
+
+      // Inject vFloorWorldDist varying into vertex shader.
+      // We compute world XZ distance using the raw position attribute and modelMatrix
+      // — no dependency on USE_WORLDPOS define. The floor mesh is flat so raw position
+      // equals transformed position; modelMatrix.m30/m32 hold the mesh translation.
+      //
+      // MeshReflectorMaterial's onBeforeCompile already ran and replaced
+      // #include <project_vertex> with "#include <project_vertex>\n  my_vUv = ..."
+      // so the token "#include <project_vertex>" still exists and our replace() matches it.
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+varying float vFloorWorldDist;`
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+// Compute XZ world distance — works without USE_WORLDPOS define
+vec4 _floorWorldPos = modelMatrix * vec4(position, 1.0);
+vFloorWorldDist = length(_floorWorldPos.xz);`
+        )
+
+      // Inject varying + uniform declaration into fragment shader, then override alpha
+      // after all other lighting/reflection ops via dithering_fragment replacement
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+varying float vFloorWorldDist;
+uniform float uFloorRadius;`
+        )
+        .replace(
+          '#include <dithering_fragment>',
+          `#include <dithering_fragment>
+// Analytical radial fade — mathematically perfect circle edge at any resolution.
+// Fully opaque from center to 70% of radius, hard zero at 82%.
+// Geometry extends to 120% of floorRadius so the polygon boundary is always
+// in the fully-transparent zone — invisible at any camera angle on 4K displays.
+float _radialT = vFloorWorldDist / uFloorRadius;
+float _radialAlpha = 1.0 - smoothstep(0.70, 0.82, _radialT);
+gl_FragColor.a *= _radialAlpha;`
+        )
+    }
+
+    // Trigger shader recompilation
+    mat.needsUpdate = true
+  }, [radius]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-      <circleGeometry args={[radius, 512]} />
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+      <circleGeometry args={[geoRadius, 128]} />
       <MeshReflectorMaterial
         mirror={0.15}
         resolution={768}
@@ -216,7 +262,6 @@ function ReflectiveFloor({ radius = 16 }: { radius?: number }) {
         color={floorColor}
         blur={[300, 300]}
         transparent
-        alphaMap={alphaMap}
       />
     </mesh>
   )
@@ -308,8 +353,11 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
   }), [gridRGB, radius])
 
   return (
+    // Geometry is 20% larger than uRadius so the polygon edge sits at 120% radius —
+    // the shader's edge fade hits zero at uRadius (100%), making the polygon
+    // boundary always fully transparent regardless of camera angle.
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
-      <circleGeometry args={[radius, 512]} />
+      <circleGeometry args={[radius * 1.2, 128]} />
       <shaderMaterial
         ref={matRef}
         transparent
@@ -339,7 +387,8 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
             float cellScreenSize = 1.0 / max(fw.x, fw.y);
             float distanceFade = smoothstep(2.0, 5.0, cellScreenSize);
             line *= distanceFade;
-            // P11: wider edge fade (40% of radius) to match floor alpha fade
+            // Analytical radial edge fade — zero at uRadius, geometry extends to
+            // 1.2 * uRadius so polygon boundary is always in the zero-alpha zone.
             float fadeStart = uRadius * 0.55;
             float edge = smoothstep(uRadius, fadeStart, dist);
             vec3 color = uGridColor * line * 0.5;
@@ -378,8 +427,9 @@ const RING_PLATFORM_FRAG = /* glsl */ `
     float dist = length(centered) * 2.0; // 0 at center, 1 at edge
     float angle = atan(centered.y, centered.x);
 
-    // Fade out at edges
-    float edgeFade = smoothstep(1.0, 0.92, dist);
+    // Fade out at edges — tightened so alpha hits zero at dist=0.95 (not 1.0)
+    // giving a 5% UV-space buffer before the polygon boundary at dist=1.0.
+    float edgeFade = smoothstep(0.95, 0.82, dist);
     // Fade out at center
     float innerFade = smoothstep(0.15, 0.25, dist);
 
@@ -464,8 +514,10 @@ function TexturedPlatform({ radius = 12, onLoad }: { radius?: number; onLoad?: (
   })
 
   return (
+    // 128 segments is sufficient since the shader's edgeFade hits zero at dist=0.95
+    // — the polygon boundary at dist=1.0 is always in the fully-transparent zone.
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <circleGeometry args={[radius, 512]} />
+      <circleGeometry args={[radius, 128]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={RING_PLATFORM_VERT}
@@ -609,8 +661,13 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
               float pulse = smoothstep(0.3, 0.0, abs(vDist - mod(uTime * 2.0, 9.0))) * 0.3;
               line += pulse;
 
+              // Analytical outer edge fade — hits zero at vDist=8.0, well before
+              // the ringGeometry outer boundary at vDist=radius (default 8.5).
+              // Polygon edge of ringGeometry is always in the fully-transparent zone.
+              float outerFade = smoothstep(8.0, 7.5, vDist);
+
               vec3 color = lineColor * line * 0.8;
-              float alpha = line * 0.8;
+              float alpha = line * 0.8 * outerFade;
 
               gl_FragColor = vec4(color, alpha);
             }

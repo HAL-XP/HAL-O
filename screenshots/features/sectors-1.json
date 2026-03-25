@@ -1,0 +1,9 @@
+{
+  "feature": "sectors-1",
+  "title": "Tactical Sectors - Sector 1",
+  "date": "2026-03-25",
+  "theme": "default",
+  "renderer": "pbr-holo",
+  "demoMode": true,
+  "notes": "First sector view with cards"
+}
