@@ -932,6 +932,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
         <SectorHud
           currentSector={sectors.currentSector}
           totalSectors={sectors.totalSectors}
+          sectorProjectCount={sectors.sectorProjects.length}
           onPrev={sectors.prevSector}
           onNext={sectors.nextSector}
           onJump={sectors.switchSector}

@@ -2264,6 +2264,8 @@ function PbrSceneInner({
     if (sectorTransitioning && !prevSectorTransitioning.current) {
       // Start stream-out phase
       sectorAnimRef.current = { phase: 1, elapsed: 0, totalCards: projects.length }
+      // Trigger staggered entry animation on all ScreenPanels
+      triggerSectorEntry()
     }
     prevSectorTransitioning.current = sectorTransitioning
   }, [sectorTransitioning, projects.length])
@@ -2576,6 +2578,7 @@ function PbrSceneInner({
                 searchDimmed={isDimmed}
                 inMerge={!!mergeStates[project.path]?.inMerge}
                 onHtmlMounted={onCardHtmlMounted}
+                sectorEntryDelay={sectorTransitioning ? i * 20 : -1}
               />
             )
           })}
