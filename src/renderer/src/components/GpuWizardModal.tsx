@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { GRAPHICS_PRESETS, type GraphicsPresetId, detectGraphicsPreset, getGpuRendererName } from '../hooks/useSettings'
 
 const STORAGE_KEY = 'hal-o-gpu-wizard-done'
+const COUNTDOWN_TOTAL = window.process?.argv?.includes('--fast-wizards') ? 1 : 10
 
 const PRESET_DETAILS: Record<string, { icon: string; desc: string; color: string }> = {
   light:  { icon: '\u26A1', desc: 'Bloom off, reduced particles, capped DPI', color: '#4ade80' },
@@ -19,7 +20,11 @@ interface Props {
 export function GpuWizardModal({ onAccept, onCustomize }: Props) {
   const [gpuName, setGpuName] = useState('Detecting...')
   const [recommended, setRecommended] = useState<GraphicsPresetId>('medium')
-  const [selected, setSelected] = useState<GraphicsPresetId>('medium') // brief visual highlight before dismiss
+  const [selected, setSelected] = useState<GraphicsPresetId>('medium')
+  const [countdown, setCountdown] = useState(COUNTDOWN_TOTAL)
+  const countdownRef = useRef(countdown)
+  countdownRef.current = countdown
+  const dismissedRef = useRef(false)
 
   useEffect(() => {
     const name = getGpuRendererName()
@@ -29,7 +34,24 @@ export function GpuWizardModal({ onAccept, onCustomize }: Props) {
     setSelected(preset)
   }, [])
 
+  // Auto-dismiss countdown — accepts recommended preset when it hits 0
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1 && !dismissedRef.current) {
+          dismissedRef.current = true
+          localStorage.setItem(STORAGE_KEY, '1')
+          onAccept(recommended)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [recommended, onAccept])
+
   const handleCustomize = () => {
+    dismissedRef.current = true
     localStorage.setItem(STORAGE_KEY, '1')
     onCustomize()
   }
@@ -58,7 +80,7 @@ export function GpuWizardModal({ onAccept, onCustomize }: Props) {
               <button
                 key={p.id}
                 className={`gpu-wizard-preset-card ${isRec ? 'recommended' : ''}`}
-                onClick={() => { setSelected(p.id); localStorage.setItem(STORAGE_KEY, '1'); onAccept(p.id) }}
+                onClick={() => { dismissedRef.current = true; setSelected(p.id); localStorage.setItem(STORAGE_KEY, '1'); onAccept(p.id) }}
                 style={{ '--preset-color': detail.color } as React.CSSProperties}
               >
                 <div className="gpu-wizard-preset-icon">{detail.icon}</div>
@@ -79,6 +101,13 @@ export function GpuWizardModal({ onAccept, onCustomize }: Props) {
             <div className="gpu-wizard-preset-desc">{PRESET_DETAILS.customize.desc}</div>
           </button>
         </div>
+
+        {/* Auto-accept countdown */}
+        {countdown > 0 && (
+          <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Cascadia Code', monospace" }}>
+            Auto-accepting <span style={{ color: PRESET_DETAILS[recommended]?.color, fontWeight: 700 }}>{recommended.toUpperCase()}</span> in <span style={{ color: '#00e5ff', fontWeight: 700 }}>{countdown}s</span>
+          </div>
+        )}
 
         {/* Reassurance */}
         <div className="gpu-wizard-hint" style={{ textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '8px' }}>

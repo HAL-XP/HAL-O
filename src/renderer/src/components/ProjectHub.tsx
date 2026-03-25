@@ -145,7 +145,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Scene loading overlay — staged reveal
-  const { ready: sceneReady, dismissed: sceneDismissed, onSceneReady, reset: resetSceneReady } = useSceneReady()
+  const { ready: sceneReady, dismissed: sceneDismissed, onSceneReady, reset: resetSceneReady, loadingMsg } = useSceneReady()
 
   // Reset overlay when renderer changes
   useEffect(() => {
@@ -815,8 +815,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           groupTrailsEnabled={groupTrailsEnabled}
         />
         {!sceneDismissed && (
-          <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
-            <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+          <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
+            <span className="hal-scene-overlay-text">{loadingMsg}</span>
           </div>
         )}
         <HudTopbar
@@ -897,8 +897,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenBrowser={onOpenBrowser}
         />
         {!sceneDismissed && (
-          <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
-            <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+          <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
+            <span className="hal-scene-overlay-text">{loadingMsg}</span>
           </div>
         )}
 
@@ -965,8 +965,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
     <div className="hal-room" ref={containerRef} onClick={onVoiceFocusHub} style={{ '--hub-font': `${hubFontSize}px` } as React.CSSProperties}>
       <SceneRoot projectCount={visibleProjects.length} listening={isListening && voiceFocus === 'hub'} showPerf={showPerf} onSceneReady={onSceneReady} renderQuality={renderQuality} />
       {!sceneDismissed && (
-        <div className={`hal-scene-overlay${sceneReady ? ' faded' : ''}`}>
-          <span className="hal-scene-overlay-text">INITIALIZING SYSTEMS...</span>
+        <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
+          <span className="hal-scene-overlay-text">{loadingMsg}</span>
         </div>
       )}
 

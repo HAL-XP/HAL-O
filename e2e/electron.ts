@@ -25,6 +25,9 @@ export async function launchApp(): Promise<{ app: ElectronApplication; page: Pag
     args: [
       resolve(ROOT, 'out/main/index.js'),
       `--user-data-dir=${uniqueUserDataDir()}`,
+      '--fast-wizards',
+      // UNCAP_FPS=1 npx playwright test ... → disables vsync for true GPU headroom benchmarks
+      ...(process.env.UNCAP_FPS ? ['--uncap-fps'] : []),
       // GitHub Actions runners require --no-sandbox for Electron.
       // --disable-gpu avoids WebGL issues on headless xvfb / CI runners.
       ...(isCI ? ['--no-sandbox', '--disable-gpu-sandbox', '--disable-gpu'] : []),

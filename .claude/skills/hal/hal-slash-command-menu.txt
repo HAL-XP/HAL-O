@@ -1,0 +1,20 @@
+
+HAL-O COMMAND CENTER
+====================
+
+INSTANCE            STATUS & CI         BUILD & DEPLOY
+  Y  yours              W  wazzup           P  push
+  M  mine             C  ci               S  ship
+                      B  board            N  nuke
+TESTING                                   R  relaunch
+  T  test           TASKS                 X  clean
+  Q  qa               D  todo <text>
+  F  perf             U  queue <text>   MODE
+                                          I  silent
+TOOLS               FUN                   L  loud
+  H  html <text>      Z  zog zog
+  V  save state
+  E  rules
+  G  marketing
+
+  ?  help — details on each command

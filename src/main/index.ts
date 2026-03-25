@@ -16,6 +16,11 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 if (isWin) {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 }
+// --uncap-fps: disable vsync for benchmarking (shows true GPU headroom on fast machines)
+if (process.argv.includes('--uncap-fps')) {
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+}
 
 // Initialize debug logging (only active with --debug flag or HAL_O_DEBUG=1)
 initDebugLog()

@@ -63,6 +63,54 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 // Also expose on window for use from terminal detection or other non-module code
 ;(window as any).__haloDispatchSphereEvent = dispatchSphereEvent
 
+// ── Photo Mode API — window globals for staging marketing screenshots ──
+// Usage from DevTools or Playwright page.evaluate():
+//   window.__haloPhotoMode.triggerFlyby()    — spawn spaceship
+//   window.__haloPhotoMode.setActivity(80)   — fake terminal activity on all projects
+//   window.__haloPhotoMode.sphereEvent(type, intensity) — trigger sphere glow
+//   window.__haloPhotoMode.pauseAutoRotate() — freeze rotation for framing
+//   window.__haloPhotoMode.resumeAutoRotate()
+//   window.__haloPhotoMode.setAudioDemo(true) — fake audio for sphere pulse
+let _photoModeFlybyRef: { current: { trigger: () => void } | null } = { current: null }
+;(window as any).__haloPhotoMode = {
+  triggerFlyby: () => _photoModeFlybyRef.current?.trigger(),
+  setActivity: (level: number) => {
+    // Set fake activity on all projects in the terminalActivityMap
+    const map = terminalActivityMap as Map<string, number>
+    for (const key of map.keys()) map.set(key, level)
+    // Also set a default for projects not yet in map
+    setTerminalActivityMax(level)
+  },
+  sphereEvent: (type: string = 'info', intensity: number = 1.0) => {
+    dispatchSphereEvent({ type: type as any, intensity })
+  },
+  pauseAutoRotate: () => {
+    const w = window as any
+    if (w.__haloOrbitControls) w.__haloOrbitControls.autoRotate = false
+  },
+  resumeAutoRotate: () => {
+    const w = window as any
+    if (w.__haloOrbitControls) w.__haloOrbitControls.autoRotate = true
+  },
+  setAudioDemo: (on: boolean) => {
+    ;(window as any).__haloAudioDemo = on
+  },
+  // Set camera position for framing — [x, y, z]
+  setCamera: (x: number, y: number, z: number) => {
+    const w = window as any
+    if (w.__haloCamera) {
+      w.__haloCamera.position.set(x, y, z)
+      w.__haloCamera.lookAt(0, 0.3, 0)
+      if (w.__haloOrbitControls) w.__haloOrbitControls.update()
+    }
+  },
+  // Preset camera angles
+  closeUp: () => (window as any).__haloPhotoMode?.setCamera(0, 6, 10),
+  wideShot: () => (window as any).__haloPhotoMode?.setCamera(0, 12, 22),
+  heroAngle: () => (window as any).__haloPhotoMode?.setCamera(5, 8, 14),
+  topDown: () => (window as any).__haloPhotoMode?.setCamera(0, 20, 1),
+}
+
 import { terminalActivityMap, setTerminalActivityMax } from './terminalActivity'
 import { isFocusRecovering, onRecoveryChange } from '../../hooks/useFocusRecovery'
 import { isTerminalFocused } from '../TerminalPanel'
@@ -128,14 +176,14 @@ function useRadialAlphaMap(size = 512): THREE.Texture {
     const ctx = canvas.getContext('2d')!
     const cx = size / 2
     const cy = size / 2
-    // Radial gradient: opaque center → transparent edges
-    // Inner 60% is fully opaque, then smooth falloff from 60% to 100% radius
+    // UX11: Radial gradient — opaque through ring area, tight fade at edge
+    // Floor radius = ringPlatformRadius * 1.2, so rings occupy ~83% of disc
+    // Keep fully opaque through 80%, then smooth fade to nothing at edge
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
     grad.addColorStop(0, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.55, 'rgba(255,255,255,1)')
-    grad.addColorStop(0.75, 'rgba(255,255,255,0.6)')
-    grad.addColorStop(0.88, 'rgba(255,255,255,0.2)')
-    grad.addColorStop(0.96, 'rgba(255,255,255,0.04)')
+    grad.addColorStop(0.78, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.86, 'rgba(255,255,255,0.5)')
+    grad.addColorStop(0.93, 'rgba(255,255,255,0.1)')
     grad.addColorStop(1, 'rgba(255,255,255,0)')
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, size, size)
@@ -1441,6 +1489,14 @@ function SceneBackground() {
 // B31b: AutoRotateManager extracted to shared component (used by both PBR + Holo renderers)
 import { AutoRotateManager } from './AutoRotateManager'
 
+// ── Stable orbit target (avoid new array ref each render) ──
+const ORBIT_TARGET: [number, number, number] = [0, 0.3, 0]
+
+// ── B34 fix: flag to break the CameraSync → CameraDriver feedback loop ──
+// When CameraSync reports orbit position back to settings, CameraDriver must ignore
+// the resulting prop change — otherwise it snaps camera.position.x to 0 (losing azimuth).
+let _cameraFromOrbit = false
+
 // ── Camera Driver — pushes settings changes into the actual Three.js camera + OrbitControls ──
 function CameraDriver({ distance, angle }: { distance: number; angle: number }) {
   const { camera, controls } = useThree()
@@ -1448,13 +1504,20 @@ function CameraDriver({ distance, angle }: { distance: number; angle: number }) 
   const prevAngle = useRef(angle)
 
   useEffect(() => {
-    // Only drive camera when settings changed (not from orbit sync)
+    // B34: Skip if this change came from orbit sync (user dragging)
+    if (_cameraFromOrbit) {
+      _cameraFromOrbit = false
+      prevDist.current = distance
+      prevAngle.current = angle
+      return
+    }
+    // Only drive camera when settings changed significantly (slider drag)
     if (Math.abs(distance - prevDist.current) > 0.3 || Math.abs(angle - prevAngle.current) > 0.5) {
       const angleRad = (angle * Math.PI) / 180
       const y = Math.sin(angleRad) * distance
       const z = Math.cos(angleRad) * distance
       camera.position.set(0, y, z)
-      camera.lookAt(0, 0, 0)
+      camera.lookAt(0, 0.3, 0)
       if (controls && 'update' in controls) (controls as any).update()
       prevDist.current = distance
       prevAngle.current = angle
@@ -1482,6 +1545,7 @@ function CameraSync({ onCameraMove }: { onCameraMove: (distance: number, angle: 
     if (Math.abs(distance - last.distance) < 0.5 && Math.abs(angle - last.angle) < 1) return
 
     lastReportRef.current = { distance, angle, time: now }
+    _cameraFromOrbit = true  // B34: tell CameraDriver to ignore the resulting prop change
     onCameraMove(distance, angle)
   })
 
@@ -1865,6 +1929,16 @@ function PbrSceneInner({
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
+  // Wire photo mode API to flyby ref
+  useEffect(() => {
+    _photoModeFlybyRef.current = flybyRef.current
+  }, [])
+  // Expose orbit controls + camera to photo mode
+  const { controls: orbitCtl, camera: threeCamera } = useThree()
+  useEffect(() => {
+    if (orbitCtl) (window as any).__haloOrbitControls = orbitCtl
+    if (threeCamera) (window as any).__haloCamera = threeCamera
+  }, [orbitCtl, threeCamera])
   const prevTermCountRef = useRef(terminalCount)
 
   // M2+: Cinematic merge simulation — fake merge state for the demo sequence
@@ -2276,7 +2350,7 @@ function PbrSceneInner({
         maxPolarAngle={Math.PI / 2 - 0.03}
         enableDamping
         dampingFactor={0.12}
-        target={[0, 0.3, 0]}
+        target={ORBIT_TARGET}
       />
       <AutoRotateManager searchActive={searchActive} />
 
@@ -2350,9 +2424,10 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
   const PANEL_W = 2.8
   const panelGap = 0.6
   const screenRadius = projects.length <= 1 ? 8 : Math.max(8, ((PANEL_W + panelGap) * projects.length) / (2 * Math.PI))
-  const floorRadius = Math.max(20, screenRadius * 1.8)
   const platformRadius = Math.max(12, screenRadius * 1.2)
   const ringPlatformRadius = Math.max(8.5, screenRadius * 1.0)
+  // UX11: Floor disc matches ring platform radius + 20% buffer. Alpha fade handles the edge.
+  const floorRadius = Math.max(12, ringPlatformRadius * 1.2)
   const maxCamDistance = Math.max(40, screenRadius * 2.5)
 
   // Compute camera position from settings

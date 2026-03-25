@@ -247,8 +247,8 @@ export function SettingsMenu({
     <button className="hal-settings-btn" onClick={() => setOpen(!open)} title="Settings">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
     </button>
-    {open && createPortal(
-      <div className="hal-settings-panel" ref={panelRef} style={(() => { const rect = ref.current?.getBoundingClientRect(); const font = panelFont + 'px'; if (!rect) return { '--hub-font': font } as React.CSSProperties; return { position: 'fixed' as const, top: rect.bottom + 6, right: window.innerWidth - rect.right, '--hub-font': font } as React.CSSProperties })()}>
+    {createPortal(
+      <div className="hal-settings-panel" ref={panelRef} style={(() => { const rect = ref.current?.getBoundingClientRect(); const font = panelFont + 'px'; const pos = rect ? { position: 'fixed' as const, top: rect.bottom + 6, right: window.innerWidth - rect.right } : { position: 'fixed' as const, top: 40, right: 8 }; return { ...pos, '--hub-font': font, visibility: open ? 'visible' as const : 'hidden' as const, opacity: open ? 1 : 0, pointerEvents: open ? 'auto' as const : 'none' as const, transition: 'opacity 0.12s ease' } as React.CSSProperties })()}>
         <div className="hal-settings-title">SETTINGS</div>
         <div style={{ marginBottom: 8 }}><input type="text" className="hal-settings-select" placeholder="SEARCH SETTINGS..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', padding: '5px 8px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', boxSizing: 'border-box' }} autoComplete="off" spellCheck={false} /></div>
 
@@ -309,7 +309,7 @@ export function SettingsMenu({
           {isEx(secVoice) && (<div className="hal-settings-section-body">
             {m('VOICE OUTPUT') && (<div className="hal-settings-row"><span className="hal-settings-label">VOICE OUTPUT</span><div className="hal-settings-control"><Toggle value={voiceOut} onChange={onVoiceOut} /></div></div>)}
             {m('VOICE PROFILE') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="hal-settings-label">VOICE PROFILE</span><div style={{ display: 'flex', gap: 4, width: '100%' }}><select className="hal-settings-select" style={{ flex: 1 }} value={voiceProfile} onChange={(e) => onVoiceProfileChange(e.target.value as VoiceProfileId)}>{VOICE_PROFILES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select><button className="hal-settings-preview-btn" onClick={() => previewProfile(voiceProfile === 'auto' ? 'narrator' : voiceProfile)} disabled={!!previewing} title={previewing ? 'Playing ' + previewing + '...' : 'Preview voice'}>{previewing ? '...' : '\u25B6'}</button></div></div>)}
-            {m('VOICE REACTION') && <Slider label="VOICE REACTION" min={0} max={5} step={0.1} value={voiceReactionIntensity} onChange={onVoiceReactionIntensityChange} fmt={(v) => v.toFixed(1) + 'x'} w={36} />}
+            {m('VOICE REACTION') && <Slider label="VOICE REACTION" min={0} max={10} step={0.1} value={voiceReactionIntensity} onChange={onVoiceReactionIntensityChange} fmt={(v) => v.toFixed(1) + 'x'} w={36} />}
           </div>)}</>)}
 
         {/* 7. PERSONALITY */}

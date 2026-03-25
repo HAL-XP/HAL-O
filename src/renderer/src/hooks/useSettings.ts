@@ -40,6 +40,11 @@ export const SPHERE_STYLES = [
   { id: 'wireframe', label: 'WIREFRAME' },
   { id: 'hal-eye', label: 'HAL 9000 EYE' },
   { id: 'animated-core', label: 'ANIMATED CORE' },
+  { id: 'pulse', label: 'PULSE RATE' },
+  { id: 'corona', label: 'CORONA FLARE' },
+  { id: 'particles', label: 'PARTICLE ERUPTION' },
+  { id: 'colorshift', label: 'COLOR SHIFT' },
+  { id: 'lightning', label: 'LIGHTNING ARCS' },
 ] as const
 
 export type SphereStyleId = typeof SPHERE_STYLES[number]['id']
@@ -444,7 +449,7 @@ function loadInitialState(): SettingsData {
 
   // ── voice reaction intensity ──
   const storedVRI = localStorage.getItem('hal-o-voice-reaction-intensity')
-  const voiceReactionIntensity = storedVRI !== null ? parseFloat(storedVRI) : 0.5
+  const voiceReactionIntensity = storedVRI !== null ? parseFloat(storedVRI) : 5.0
 
   // ── devlog sections (U23) ──
   let devlogSections = DEFAULT_DEVLOG_SECTIONS

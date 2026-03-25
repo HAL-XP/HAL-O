@@ -339,6 +339,11 @@ export const ScreenPanel = memo(function ScreenPanel({
   useFrame(() => {
     if (!groupRef.current) return
 
+    // ── PERF: Back-facing cards run at reduced frequency (every 30th frame ≈ 0.5s at 60fps) ──
+    // They still get activity/health updates, just not every frame.
+    const isBackFacing = wasFrontRef.current === false
+    const reducedFrame = isBackFacing && (_frameCounter % 30 !== 0)
+
     // ── Search position lerp (U7) — animate toward search target or back to layout ──
     const tp = searchTarget ? searchTarget.position : position
     const tr = searchTarget ? searchTarget.rotation : rotation
@@ -358,67 +363,72 @@ export const ScreenPanel = memo(function ScreenPanel({
       groupRef.current.rotation.z += (tr[2] - groupRef.current.rotation.z) * lerpFactor
     }
 
-    // ── Search dim fade (U7) — smoothly fade non-matching panels ──
-    const dimTarget = searchDimmed ? 0.08 : 1
-    const dimDelta = dimTarget - dimOpacityRef.current
-    // Only update materials when dim is actually changing (> 0.5% difference)
-    if (Math.abs(dimDelta) > 0.005) {
-      dimOpacityRef.current += dimDelta * 0.08
-      // Apply dim to face mesh material opacity
-      if (faceMeshRef.current) {
-        const mat = faceMeshRef.current.material as THREE.MeshStandardMaterial
-        mat.opacity = screenOpacity * dimOpacityRef.current
-        mat.transparent = mat.opacity < 1
+    // ── PERF: Skip visual updates for back-facing cards (except every 30th frame) ──
+    if (reducedFrame && !panelMoving) {
+      // Still do hover scale (cheap) and back-face check below
+    } else {
+      // ── Search dim fade (U7) — smoothly fade non-matching panels ──
+      const dimTarget = searchDimmed ? 0.08 : 1
+      const dimDelta = dimTarget - dimOpacityRef.current
+      // Only update materials when dim is actually changing (> 0.5% difference)
+      if (Math.abs(dimDelta) > 0.005) {
+        dimOpacityRef.current += dimDelta * 0.08
+        // Apply dim to face mesh material opacity
+        if (faceMeshRef.current) {
+          const mat = faceMeshRef.current.material as THREE.MeshStandardMaterial
+          mat.opacity = screenOpacity * dimOpacityRef.current
+          mat.transparent = mat.opacity < 1
+        }
+        // Apply dim to edge meshes + frame line
+        const hoverDim = _hoveredPath === projectPath
+        for (const m of edgeMeshRefs.current) {
+          if (!m) continue
+          const mat = (m as any).material as THREE.Material & { opacity: number }
+          if (!mat) continue
+          const baseOp = hoverDim ? 0.9 : edgeBaseOpacity
+          mat.opacity = baseOp * dimOpacityRef.current
+        }
+        // Apply dim to HTML content
+        if (htmlWrapRef.current) {
+          const vis = wasFrontRef.current !== false
+          htmlWrapRef.current.style.opacity = vis ? String(Math.min(1, dimOpacityRef.current)) : '0'
+          htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.3) ? 'auto' : 'none'
+        }
       }
-      // Apply dim to edge meshes + frame line
-      const hoverDim = _hoveredPath === projectPath
-      for (const m of edgeMeshRefs.current) {
-        if (!m) continue
-        const mat = (m as any).material as THREE.Material & { opacity: number }
-        if (!mat) continue
-        const baseOp = hoverDim ? 0.9 : edgeBaseOpacity
-        mat.opacity = baseOp * dimOpacityRef.current
-      }
-      // Apply dim to HTML content
-      if (htmlWrapRef.current) {
-        const vis = wasFrontRef.current !== false
-        htmlWrapRef.current.style.opacity = vis ? String(Math.min(1, dimOpacityRef.current)) : '0'
-        htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.3) ? 'auto' : 'none'
-      }
-    }
 
-    // ── U20: Activity-driven edge glow — read from global map, smooth EMA ──
-    // M2+: Cinematic activity override — if the cinematic is injecting fake activity, use that
-    const cinematicActivity = (window as any).__haloCinematicActivity as number | undefined
-    const rawActivity = terminalActivityMap.get(projectPath) ?? cinematicActivity ?? 0
-    const actNorm = rawActivity / 100 // 0-1
-    const actDelta = actNorm - smoothActivityRef.current
-    // Fast attack (0.15), slow release (0.03)
-    const actSmooth = actDelta > 0 ? 0.15 : 0.03
-    smoothActivityRef.current += actDelta * actSmooth
-    const sa = smoothActivityRef.current
-    // Drive edge glow when activity > threshold
-    if (sa > 0.05) {
-      const hoverAct = _hoveredPath === projectPath
-      for (const m of edgeMeshRefs.current) {
-        if (!m) continue
-        const mat = (m as any).material as THREE.MeshBasicMaterial | undefined
-        if (!mat) continue
-        // Boost opacity: base + up to 0.4 extra from activity
-        const baseOp = hoverAct ? 0.9 : edgeBaseOpacity
-        const activityBoost = sa * 0.4
-        mat.opacity = Math.min(1, (baseOp + activityBoost) * dimOpacityRef.current)
+      // ── U20: Activity-driven edge glow — read from global map, smooth EMA ──
+      // M2+: Cinematic activity override — if the cinematic is injecting fake activity, use that
+      const cinematicActivity = (window as any).__haloCinematicActivity as number | undefined
+      const rawActivity = terminalActivityMap.get(projectPath) ?? cinematicActivity ?? 0
+      const actNorm = rawActivity / 100 // 0-1
+      const actDelta = actNorm - smoothActivityRef.current
+      // Fast attack (0.15), slow release (0.03)
+      const actSmooth = actDelta > 0 ? 0.15 : 0.03
+      smoothActivityRef.current += actDelta * actSmooth
+      const sa = smoothActivityRef.current
+      // Drive edge glow when activity > threshold
+      if (sa > 0.05) {
+        const hoverAct = _hoveredPath === projectPath
+        for (const m of edgeMeshRefs.current) {
+          if (!m) continue
+          const mat = (m as any).material as THREE.MeshBasicMaterial | undefined
+          if (!mat) continue
+          // Boost opacity: base + up to 0.4 extra from activity
+          const baseOp = hoverAct ? 0.9 : edgeBaseOpacity
+          const activityBoost = sa * 0.4
+          mat.opacity = Math.min(1, (baseOp + activityBoost) * dimOpacityRef.current)
+        }
       }
-    }
-    // Drive DOM activity indicator bar imperatively (no React re-render)
-    if (activityBarRef.current) {
-      if (sa > 0.2) {
-        activityBarRef.current.style.display = 'flex'
-        activityBarRef.current.style.opacity = String(Math.min(1, sa * 1.2))
-        // Faster pulse for higher activity
-        activityBarRef.current.style.animationDuration = sa > 0.5 ? '0.8s' : '1.5s'
-      } else {
-        activityBarRef.current.style.display = 'none'
+      // Drive DOM activity indicator bar imperatively (no React re-render)
+      if (activityBarRef.current) {
+        if (sa > 0.2) {
+          activityBarRef.current.style.display = 'flex'
+          activityBarRef.current.style.opacity = String(Math.min(1, sa * 1.2))
+          // Faster pulse for higher activity
+          activityBarRef.current.style.animationDuration = sa > 0.5 ? '0.8s' : '1.5s'
+        } else {
+          activityBarRef.current.style.display = 'none'
+        }
       }
     }
 
