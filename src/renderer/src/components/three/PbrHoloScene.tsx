@@ -1088,8 +1088,11 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
     // baseScale=1.0 (idle), scaleRange=0.3 (max scale=1.3 at full volume).
     // voiceReactionIntensity scales the range so the slider affects all sphere motion.
     const rawScaleVolume = raw.isActive ? raw.volume * vri : 0
-    // Wireframe stretches aggressively — 0.6 range for very visible 1:1 audio reaction
-    const sphereScaleDirect = 1.0 + rawScaleVolume * 0.6
+    // Wireframe scale: 0.3 range (half of 0.6), with minimal smoothing for natural feel
+    // Smoothed via simple lerp: 80% new + 20% previous = fast but not jittery
+    const _targetScale = 1.0 + rawScaleVolume * 0.3
+    const _prevScale = (wireRef.current?.scale.x ?? 1.0)
+    const sphereScaleDirect = _prevScale + (_targetScale - _prevScale) * 0.8
 
     // ── Wireframe globe — scale 1:1 with volume, rotation speed with smoothed volume ──
     if (wireRef.current) {
