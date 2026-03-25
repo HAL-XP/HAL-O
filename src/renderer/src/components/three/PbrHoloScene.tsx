@@ -71,7 +71,21 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 //   window.__haloPhotoMode.pauseAutoRotate() — freeze rotation for framing
 //   window.__haloPhotoMode.resumeAutoRotate()
 //   window.__haloPhotoMode.setAudioDemo(true) — fake audio for sphere pulse
+//   window.__haloPhotoMode.setCamera(x,y,z)  — snap camera (OrbitControls disabled until resumeAutoRotate)
+//   window.__haloPhotoMode.animateCamera(keyframes) — smooth camera animation inside useFrame
+//   window.__haloPhotoMode.stopAnimation()   — abort in-progress animation
 let _photoModeFlybyRef: { current: { trigger: () => void } | null } = { current: null }
+
+// Module-level camera animation state — read inside useFrame by PhotoModeAnimator.
+// Using module-level (not React state) so page.evaluate() calls take effect
+// immediately without triggering re-renders or losing state across frames.
+export interface PhotoAnimKeyframe { t: number; pos: [number, number, number] }
+let _photoAnimKeyframes: PhotoAnimKeyframe[] | null = null
+let _photoAnimStart = 0
+
+// Pending snap-camera request — consumed by PhotoModeAnimator on the next frame
+let _photoSnapPending: [number, number, number] | null = null
+
 ;(window as any).__haloPhotoMode = {
   triggerFlyby: () => _photoModeFlybyRef.current?.trigger(),
   setActivity: (level: number) => {
@@ -90,21 +104,39 @@ let _photoModeFlybyRef: { current: { trigger: () => void } | null } = { current:
   },
   resumeAutoRotate: () => {
     const w = window as any
-    if (w.__haloOrbitControls) w.__haloOrbitControls.autoRotate = true
+    if (w.__haloOrbitControls) {
+      w.__haloOrbitControls.autoRotate = true
+      w.__haloOrbitControls.enabled = true
+    }
   },
   setAudioDemo: (on: boolean) => {
     ;(window as any).__haloAudioDemo = on
   },
-  // Set camera position for framing — [x, y, z]
+  // Snap camera to [x, y, z] — processed inside useFrame so OrbitControls cannot
+  // overwrite it. OrbitControls is disabled until resumeAutoRotate() is called.
   setCamera: (x: number, y: number, z: number) => {
+    _photoAnimKeyframes = null   // cancel any running animation
+    _photoSnapPending = [x, y, z]
+  },
+  // Animate camera through keyframes: [{ t: ms, pos: [x,y,z] }, ...]
+  // The animation runs inside useFrame — immune to OrbitControls overwrite.
+  // OrbitControls is re-enabled automatically when the animation completes.
+  animateCamera: (keyframes: PhotoAnimKeyframe[]) => {
+    if (!keyframes || keyframes.length === 0) return
+    _photoSnapPending = null
+    _photoAnimKeyframes = keyframes
+    _photoAnimStart = performance.now()
+  },
+  // Abort a running animateCamera() and re-enable OrbitControls
+  stopAnimation: () => {
+    _photoAnimKeyframes = null
+    _photoSnapPending = null
     const w = window as any
-    if (w.__haloCamera) {
-      w.__haloCamera.position.set(x, y, z)
-      w.__haloCamera.lookAt(0, 0.3, 0)
-      if (w.__haloOrbitControls) w.__haloOrbitControls.update()
+    if (w.__haloOrbitControls) {
+      w.__haloOrbitControls.enabled = true
     }
   },
-  // Preset camera angles
+  // Preset camera angles (processed inside useFrame via setCamera)
   closeUp: () => (window as any).__haloPhotoMode?.setCamera(0, 6, 10),
   wideShot: () => (window as any).__haloPhotoMode?.setCamera(0, 12, 22),
   heroAngle: () => (window as any).__haloPhotoMode?.setCamera(5, 8, 14),
@@ -1775,6 +1807,84 @@ import { AutoRotateManager } from './AutoRotateManager'
 // UX16 Phase 2: Smooth camera easing to selected card
 import { CameraEaser } from './CameraEaser'
 
+// ── PhotoModeAnimator — drives camera animation / snap inside useFrame ──
+// This component lives inside the R3F Canvas so it can use useFrame and useThree.
+// It reads the module-level _photoAnimKeyframes / _photoSnapPending flags set by
+// window.__haloPhotoMode.animateCamera() / setCamera() and applies them to the
+// camera BEFORE OrbitControls.update() can overwrite them.
+function PhotoModeAnimator() {
+  const { camera, controls } = useThree()
+
+  useFrame(() => {
+    const oc = controls as any
+
+    // ── Snap camera (setCamera) ──
+    if (_photoSnapPending) {
+      const [x, y, z] = _photoSnapPending
+      _photoSnapPending = null
+      // Disable OrbitControls so it cannot overwrite on this frame or subsequent frames
+      if (oc) {
+        oc.enabled = false
+        oc.autoRotate = false
+      }
+      camera.position.set(x, y, z)
+      camera.lookAt(0, 0.3, 0)
+      return
+    }
+
+    // ── Keyframe animation (animateCamera) ──
+    if (!_photoAnimKeyframes || _photoAnimKeyframes.length === 0) return
+
+    const elapsed = performance.now() - _photoAnimStart
+    const keyframes = _photoAnimKeyframes
+    const lastKf = keyframes[keyframes.length - 1]
+
+    // Disable OrbitControls for the duration of the animation
+    if (oc) {
+      oc.enabled = false
+      oc.autoRotate = false
+    }
+
+    // Clamp elapsed to the animation duration
+    const t = Math.min(elapsed, lastKf.t)
+
+    // Find the surrounding keyframe segment
+    let segStart = keyframes[0]
+    let segEnd = keyframes[keyframes.length - 1]
+    for (let i = 0; i < keyframes.length - 1; i++) {
+      if (t >= keyframes[i].t && t <= keyframes[i + 1].t) {
+        segStart = keyframes[i]
+        segEnd = keyframes[i + 1]
+        break
+      }
+    }
+
+    // Compute local t within the segment [0, 1]
+    const segDuration = segEnd.t - segStart.t
+    const localT = segDuration > 0 ? (t - segStart.t) / segDuration : 1
+
+    // Smooth-step easing (ease-in-out cubic)
+    const smooth = localT * localT * (3 - 2 * localT)
+
+    const x = segStart.pos[0] + (segEnd.pos[0] - segStart.pos[0]) * smooth
+    const y = segStart.pos[1] + (segEnd.pos[1] - segStart.pos[1]) * smooth
+    const z = segStart.pos[2] + (segEnd.pos[2] - segStart.pos[2]) * smooth
+
+    camera.position.set(x, y, z)
+    camera.lookAt(0, 0.3, 0)
+
+    // Animation complete — clear keyframes and re-enable OrbitControls
+    if (elapsed >= lastKf.t) {
+      _photoAnimKeyframes = null
+      if (oc) {
+        oc.enabled = true
+      }
+    }
+  })
+
+  return null
+}
+
 // ── Stable orbit target (avoid new array ref each render) ──
 const ORBIT_TARGET: [number, number, number] = [0, 0.3, 0]
 
@@ -2754,6 +2864,8 @@ function PbrSceneInner({
       <AutoRotateManager searchActive={searchActive} enabled={autoRotateEnabled} speed={autoRotateSpeed} />
       {/* UX16 Phase 2: Smooth camera orbit to keyboard-selected card */}
       <CameraEaser />
+      {/* Photo Mode: drives animateCamera() / setCamera() inside useFrame, immune to OrbitControls overwrite */}
+      <PhotoModeAnimator />
 
       <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
       {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
