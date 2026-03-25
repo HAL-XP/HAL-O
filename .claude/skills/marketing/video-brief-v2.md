@@ -14,7 +14,22 @@
 - Settings menu FONT IS TOO SMALL — bump `hal-o-hub-font` to 16 or 18 before opening settings
 - Ship version: ship was NOT visible — deprioritize for now, focus on v1
 
-## Video 1: Short Teaser (12 seconds) — V3 camera plan
+## Video 1: Short Teaser — V9 camera plan (latest)
+
+### CRITICAL FIXES FROM V8 REVIEW:
+1. **Buffer frames**: F0-F57 are blank/setup. Trim in post or start recording AFTER scene is ready.
+2. **F234 teleport**: animateCamera→stopAnimation causes a hard cut when switching to auto-rotate. FIX: do NOT use animateCamera for the approach. Instead, let auto-rotate run from the start, and ONLY adjust the camera's Y position (vertical) + distance to center the card. The auto-rotate handles horizontal movement naturally. No teleport.
+3. **Window capture STILL shows Windows taskbar + other windows**: Must hide taskbar + maximize Electron to exact screen area, OR use Electron's built-in `webContents.capturePage()` instead of ffmpeg gdigrab.
+
+### APPROACH FOR V9:
+- Let auto-rotate run the ENTIRE time (never disable it)
+- Camera starts at default position [0, 10, 16]
+- Smoothly adjust Y and distance to frame a card vertically centered
+- The ring spins naturally, cards scroll past
+- Audio plays at 2s
+- No animateCamera, no stopAnimation, no teleport
+
+## DEPRECATED — V3 camera plan
 - 0-3s: Start from intro position (far), fly in CLOSE to a project card — close enough to READ stats, buttons, activity bars
 - 3-6s: Smooth lateral transition to side angle where sphere is visible + card still partially in frame
 - 6-12s: HAL speaks "Hi, I'm Hal, your personal assistant" — sphere pulses with voice audio

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
-import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture } from '@react-three/drei'
+import { OrbitControls, Environment, MeshReflectorMaterial, Float, useTexture, Html } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
@@ -74,12 +74,21 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 //   window.__haloPhotoMode.setCamera(x,y,z)  — snap camera (OrbitControls disabled until resumeAutoRotate)
 //   window.__haloPhotoMode.animateCamera(keyframes) — smooth camera animation inside useFrame
 //   window.__haloPhotoMode.stopAnimation()   — abort in-progress animation
+//   window.__haloPhotoMode.testAudioSignal('square') — synthetic audio: 1s on / 1s off loop
+//   window.__haloPhotoMode.testAudioSignal('ramp')   — synthetic audio: ramp 0→max over 3s then stop
+//   window.__haloPhotoMode.testAudioSignal('stop')   — stop any running test signal
+//
+// ── Debug overlay ──
+//   window.__haloDebugAudio = true   — show per-frame HUD above sphere
+//                                      (VOL | SMOOTH | WIRE scale | CORE scale | EMIT | F#)
+//   window.__haloDebugAudio = false  — hide it
+// Combine with testAudioSignal to verify 1:1 scale tracking with no lag.
 let _photoModeFlybyRef: { current: { trigger: () => void } | null } = { current: null }
 
 // Module-level camera animation state — read inside useFrame by PhotoModeAnimator.
 // Using module-level (not React state) so page.evaluate() calls take effect
 // immediately without triggering re-renders or losing state across frames.
-export interface PhotoAnimKeyframe { t: number; pos: [number, number, number] }
+export interface PhotoAnimKeyframe { t: number; pos: [number, number, number]; lookAt?: [number, number, number] }
 let _photoAnimKeyframes: PhotoAnimKeyframe[] | null = null
 let _photoAnimStart = 0
 
@@ -112,6 +121,74 @@ let _photoSnapPending: [number, number, number] | null = null
   setAudioDemo: (on: boolean) => {
     ;(window as any).__haloAudioDemo = on
   },
+  // ── Audio test signal generator ──
+  // Creates a synthetic AudioNode chain connected to the global AnalyserNode so the
+  // sphere reacts to a known signal pattern without needing real TTS audio.
+  //
+  // Usage:
+  //   window.__haloPhotoMode.testAudioSignal('square')  — 1s full-blast, 1s silence, repeating
+  //   window.__haloPhotoMode.testAudioSignal('ramp')    — 0→max over 3s then stops
+  //   window.__haloPhotoMode.testAudioSignal('stop')    — disconnect & stop any running signal
+  testAudioSignal: (() => {
+    // Keep a reference to the running gain+osc so we can stop it later.
+    let _testGain: GainNode | null = null
+    let _testOsc: OscillatorNode | null = null
+    let _testInterval: ReturnType<typeof setInterval> | null = null
+
+    return (pattern: 'square' | 'ramp' | 'stop' = 'square') => {
+      // Tear down any previous test signal
+      try { _testOsc?.stop() } catch (_) {}
+      _testOsc = null
+      if (_testGain) { try { _testGain.disconnect() } catch (_) {} _testGain = null }
+      if (_testInterval) { clearInterval(_testInterval); _testInterval = null }
+      ;(window as any).__halSpeaking = false
+
+      if (pattern === 'stop') return
+
+      const analyser: AnalyserNode | null = (window as any).__haloAudioAnalyser ?? (window as any).__halAudioAnalyser ?? null
+      if (!analyser) { console.warn('[testAudioSignal] No AnalyserNode available — call after app is loaded'); return }
+
+      const ctx = analyser.context as AudioContext
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+
+      // Build: Oscillator (440 Hz sine) → GainNode → AnalyserNode
+      // The gain envelope IS the "volume" — 0=silence, 1=full.
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.value = 440
+
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(analyser)
+
+      osc.start()
+      _testOsc = osc
+      _testGain = gain
+      ;(window as any).__halSpeaking = true
+
+      if (pattern === 'square') {
+        // 1s on, 1s off — toggle GainNode value
+        let on = true
+        gain.gain.value = 1
+        _testInterval = setInterval(() => {
+          on = !on
+          gain.gain.value = on ? 1 : 0
+        }, 1000)
+        console.log('[testAudioSignal] square wave: 1s on / 1s off. Stop with testAudioSignal("stop")')
+
+      } else if (pattern === 'ramp') {
+        // Ramp gain 0→1 over 3s, then stop
+        gain.gain.setValueAtTime(0, ctx.currentTime)
+        gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 3)
+        setTimeout(() => {
+          try { osc.stop() } catch (_) {}
+          ;(window as any).__halSpeaking = false
+          console.log('[testAudioSignal] ramp finished')
+        }, 3100)
+        console.log('[testAudioSignal] ramp: 0→1 over 3s')
+      }
+    }
+  })(),
   // Snap camera to [x, y, z] — processed inside useFrame so OrbitControls cannot
   // overwrite it. OrbitControls is disabled until resumeAutoRotate() is called.
   setCamera: (x: number, y: number, z: number) => {
@@ -904,6 +981,12 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
   const audioDataRef = useRef(new Uint8Array(128))
   // Smoothed audio levels — exponential moving average for smooth animation
   const smoothedRef = useRef({ bass: 0, mids: 0, highs: 0, volume: 0 })
+  // Raw (unsmoothed) audio data — used for 1:1 scale mapping so scale tracks volume instantly
+  const rawAudioRef = useRef({ volume: 0, bass: 0, mids: 0, highs: 0 })
+  // Debug frame counter
+  const debugFrameRef = useRef(0)
+  // Debug overlay DOM ref — updated imperatively in useFrame (zero React re-renders)
+  const debugDomRef = useRef<HTMLDivElement>(null)
   // UX10: Colorshift — smoothed hue for lerp-based transitions
   const colorshiftHueRef = useRef(0.5) // start at cyan (180°/360 = 0.5)
   // UX10: Colorshift — reusable Color objects to avoid per-frame allocations
@@ -964,13 +1047,27 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime
+    debugFrameRef.current++
 
     // Sample audio / demo data
     const raw = readAudioData(audioDataRef.current, t)
 
-    // Smooth with EMA: fast attack (0.6 = reaches ~88% of peak in 3 frames at 60fps),
-    // slow release (0.05 = gradual tail-off). Higher attack ensures the sphere
-    // visually peaks within ~50ms of audio onset rather than ramping slowly.
+    // ── Raw (unsmoothed) values — used for 1:1 scale so sphere size tracks audio instantly ──
+    // Scale must NOT go through EMA: any smoothing introduces lag that breaks 1:1 sync.
+    const r = rawAudioRef.current
+    r.volume = raw.volume
+    r.bass   = raw.bass
+    r.mids   = raw.mids
+    r.highs  = raw.highs
+
+    // Raw FFT sum for debug overlay (0-255 domain, average across all bins)
+    const rawFFTAvg = raw.isActive
+      ? audioDataRef.current.reduce((sum, v) => sum + v, 0) / audioDataRef.current.length
+      : 0
+
+    // Smooth with EMA: used for color, emissive, rotation speed, and glow — NOT for scale.
+    // fast attack (0.6 = reaches ~88% of peak in 3 frames at 60fps),
+    // slow release (0.05 = gradual tail-off).
     const smoothFactor = raw.isActive ? 0.6 : 0.04
     const s = smoothedRef.current
     s.bass   += (raw.bass   - s.bass)   * smoothFactor
@@ -980,28 +1077,35 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
 
     // Apply voice reaction intensity multiplier (0 = no reaction, 1 = default, 5 = exaggerated)
     const vri = voiceReactionIntensity
-    const { bass: rawBass, mids: rawMids, highs: rawHighs, volume: rawVolume } = s
-    const bass = rawBass * vri
-    const mids = rawMids * vri
-    const highs = rawHighs * vri
-    const volume = rawVolume * vri
+    // Smoothed values — used for emissive/color/rotation (aesthetic smoothing is fine there)
+    const bass   = s.bass   * vri
+    const mids   = s.mids   * vri
+    const highs  = s.highs  * vri
+    const volume = s.volume * vri
     const isActive = raw.isActive && vri > 0
 
-    // ── Wireframe globe — scale with bass, speed with volume ──
+    // ── 1:1 scale mapping — direct raw volume, no smoothing ──
+    // baseScale=1.0 (idle), scaleRange=0.3 (max scale=1.3 at full volume).
+    // voiceReactionIntensity scales the range so the slider affects all sphere motion.
+    const rawScaleVolume = raw.isActive ? raw.volume * vri : 0
+    const sphereScaleDirect = 1.0 + rawScaleVolume * 0.3
+
+    // ── Wireframe globe — scale 1:1 with volume, rotation speed with smoothed volume ──
     if (wireRef.current) {
       const idleRotSpeed = 0.15
       const activeRotBoost = isActive ? volume * 0.4 : 0
       wireRef.current.rotation.y += delta * (idleRotSpeed + activeRotBoost)
 
-      // Bass-driven scale pulse: 1.0 idle, up to 1.12 at peak bass
+      // 1:1 scale: idle micro-breathe stays (Math.sin gives ±1.2% life at rest),
+      // audio overrides with direct raw volume when active.
       const idlePulse = 1.0 + Math.sin(t * 1.3) * 0.012
-      const bassScale = isActive ? idlePulse + bass * 0.12 : idlePulse
-      wireRef.current.scale.setScalar(bassScale)
+      const wireScale = isActive ? sphereScaleDirect : idlePulse
+      wireRef.current.scale.setScalar(wireScale)
 
       // Reset emissive to theme color each frame (U4: prevents event color drift)
       const wireMat = wireRef.current.material as THREE.MeshStandardMaterial
       wireMat.emissive.set(theme.sphereHex)
-      // Brighten wireframe emissive when speaking
+      // Brighten wireframe emissive when speaking (EMA-smoothed volume for aesthetics)
       if (isActive) {
         wireMat.emissiveIntensity = 0.6 + volume * 1.2
       } else {
@@ -1009,11 +1113,11 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       }
     }
 
-    // ── Bright core — scale + glow with mids ──
+    // ── Bright core — scale 1:1 with volume, emissive with smoothed mids ──
     if (coreRef.current) {
       const mat = coreRef.current.material as THREE.MeshStandardMaterial
 
-      // Blocked input flash takes priority
+      // Blocked input flash takes priority over audio scale
       if (flashRef.current > 0) {
         flashRef.current -= delta
         const intensity = Math.max(0, flashRef.current / 0.5)
@@ -1021,12 +1125,13 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
         mat.emissiveIntensity = baseGlowIntensity + intensity * 8
         coreRef.current.scale.setScalar(0.38 + Math.sin(t * 2) * 0.03)
       } else {
-        // Idle gentle pulse + audio-reactive mids boost
+        // Idle gentle pulse + 1:1 audio-reactive scale
+        // Core has a smaller base (0.38) so we add the direct volume offset on top.
         const idleScale = 0.38 + Math.sin(t * 2) * 0.03
-        const audioScale = isActive ? idleScale + mids * 0.18 : idleScale
-        coreRef.current.scale.setScalar(audioScale)
+        const coreScaleDirect = isActive ? idleScale + rawScaleVolume * 0.18 : idleScale
+        coreRef.current.scale.setScalar(coreScaleDirect)
 
-        // Reset emissive to theme color, boost intensity with mids
+        // Emissive: EMA-smoothed mids (aesthetic — OK to lag slightly here)
         mat.emissive.set(theme.sphereGlowHex)
         mat.emissiveIntensity = isActive
           ? baseGlowIntensity + mids * 6
@@ -1050,10 +1155,11 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       }
     }
 
-    // ── Atmospheric glow — expand subtly with overall volume ──
+    // ── Atmospheric glow — expand 1:1 with raw volume (matches wireframe scale response) ──
     if (glowRef.current) {
       const idleScale = 1.0 + Math.sin(t * 0.7) * 0.02
-      const audioExpand = isActive ? volume * 0.15 : 0
+      // Use raw volume for glow expansion so it tracks audio without lag
+      const audioExpand = isActive ? rawScaleVolume * 0.15 : 0
       glowRef.current.scale.setScalar(idleScale + audioExpand)
     }
 
@@ -1259,6 +1365,21 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
           light2Ref.current.color.lerp(ev.color, strength * 0.5)
           light2Ref.current.intensity += strength * 3
         }
+      }
+    }
+
+    // ── Debug overlay — imperatively update DOM so there are zero React re-renders ──
+    // Enable with: window.__haloDebugAudio = true   Disable: window.__haloDebugAudio = false
+    if (debugDomRef.current) {
+      const debugEnabled = !!(window as any).__haloDebugAudio
+      debugDomRef.current.style.display = debugEnabled ? 'block' : 'none'
+      if (debugEnabled) {
+        const wireScale = wireRef.current?.scale.x ?? 0
+        const coreScale = coreRef.current?.scale.x ?? 0
+        const emissive = (wireRef.current?.material as THREE.MeshStandardMaterial | undefined)?.emissiveIntensity ?? 0
+        debugDomRef.current.textContent =
+          `VOL: ${rawFFTAvg.toFixed(0).padStart(3)} | SMOOTH: ${(s.volume * 255).toFixed(0).padStart(3)} | ` +
+          `WIRE: ${wireScale.toFixed(3)} | CORE: ${coreScale.toFixed(3)} | EMIT: ${emissive.toFixed(2)} | F#${debugFrameRef.current}`
       }
     }
   })
@@ -1600,6 +1721,54 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       {/* Lights from sphere — audio-reactive intensity */}
       <pointLight ref={light1Ref} color={theme.sphereHex} intensity={3} distance={8} decay={2} />
       <pointLight ref={light2Ref} color={theme.sphereGlowHex} intensity={1.5} distance={5} decay={2} position={[0, 1, 0]} />
+
+      {/* ── Debug audio overlay — enabled via window.__haloDebugAudio = true ──
+          Renders a monospace HUD above the sphere showing real-time audio metrics.
+          Updated imperatively every frame (debugDomRef.current.textContent) — zero React re-renders.
+          Usage:
+            window.__haloDebugAudio = true   — enable
+            window.__haloDebugAudio = false  — disable
+          Metrics displayed:
+            VOL    — raw FFT average (0-255 domain)
+            SMOOTH — EMA-smoothed volume (also 0-255 domain for easy comparison)
+            WIRE   — wireframe sphere scale (should track VOL 1:1 when audio is active)
+            CORE   — core sphere scale
+            EMIT   — wireframe emissive intensity
+            F#     — frame counter (for verifying per-frame update)
+      */}
+      <Html
+        position={[0, 2.6, 0]}
+        center
+        style={{ pointerEvents: 'none' }}
+      >
+        <div
+          ref={debugDomRef}
+          style={{
+            display: (window as any).__haloDebugAudio ? 'block' : 'none',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            color: '#00ffcc',
+            background: 'rgba(0,0,0,0.75)',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            whiteSpace: 'nowrap',
+            letterSpacing: '0.04em',
+            border: '1px solid rgba(0,255,200,0.3)',
+            textShadow: '0 0 6px #00ffcc',
+          }}
+        >
+          VOL: 0 | SMOOTH: 0 | WIRE: 1.000 | CORE: 0.380 | EMIT: 0.60 | F#0
+        </div>
+      </Html>
+
+      {/* TODO: Ground rings (PulseRing) should reflect HAL session connection status.
+               When HAL-O terminal is connected (getHalSessionId() returns a session):
+                 - rings pulse faster and brighter (ONLINE)
+               When disconnected:
+                 - rings pulse slowly in dim amber (AWAITING CONNECTION)
+               Implementation note: pass a `halConnected` boolean prop from the parent
+               (ProjectHub reads useTerminalSessions) down into PbrHalSphere → PulseRing.
+      */}
     </group>
   )
 }
@@ -1871,7 +2040,15 @@ function PhotoModeAnimator() {
     const z = segStart.pos[2] + (segEnd.pos[2] - segStart.pos[2]) * smooth
 
     camera.position.set(x, y, z)
-    camera.lookAt(0, 0.3, 0)
+
+    // Interpolate lookAt target if keyframes have lookAt fields, else default to origin
+    const DEFAULT_LOOK: [number, number, number] = [0, 0.3, 0]
+    const laStart = segStart.lookAt ?? DEFAULT_LOOK
+    const laEnd = segEnd.lookAt ?? DEFAULT_LOOK
+    const lx = laStart[0] + (laEnd[0] - laStart[0]) * smooth
+    const ly = laStart[1] + (laEnd[1] - laStart[1]) * smooth
+    const lz = laStart[2] + (laEnd[2] - laStart[2]) * smooth
+    camera.lookAt(lx, ly, lz)
 
     // Animation complete — clear keyframes and re-enable OrbitControls
     if (elapsed >= lastKf.t) {
