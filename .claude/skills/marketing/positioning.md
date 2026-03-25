@@ -51,6 +51,19 @@
 
 "Your AI agents deserve better than a $2 terminal. Give them mission control."
 
+## Killer Feature: Meta-Agent Orchestration (near top of README)
+
+HAL is the meta-agent — one agent that controls all your other agents. He sees every terminal, reads every output, types into any session, spawns new agents, kills stuck ones. No cross-agent communication hack needed — HAL owns the terminals.
+
+Frame as: "One Agent to Rule Them All" or "Your AI Workforce Has a Manager Now"
+- Visible terminals with live output from multiple Claude sessions
+- Type into any agent's terminal from the hub
+- Spawn/kill sessions on demand
+- Voice remote via Telegram — control your fleet from your phone
+- This is what makes senior engineers say "I need this"
+
+This section goes RIGHT AFTER the hero in the README — it's the #1 differentiator.
+
 ## Killer Feature: Zero-Effort HTML Dashboards
 
 `/hal html perfs` → agent reads your perf data, generates a production-grade interactive HTML dashboard with charts, animations, HAL-O branding, and opens it in your browser. No design skills needed. No prompting a UI. Just describe what you want in 3 words.
