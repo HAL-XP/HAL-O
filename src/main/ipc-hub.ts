@@ -352,7 +352,13 @@ export function registerHubHandlers(): void {
   })
 
   ipcMain.handle('open-folder', async (_event, path: string) => {
-    shell.openPath(path)
+    if (!path) { console.warn('[open-folder] No path provided'); return }
+    // Normalize Git Bash paths (/d/GitHub/...) to Windows paths (D:\GitHub\...)
+    let p = path
+    if (/^\/[a-zA-Z]\//.test(p)) {
+      p = p[1].toUpperCase() + ':' + p.slice(2).replace(/\//g, '\\')
+    }
+    shell.openPath(normalize(p))
   })
 
   ipcMain.handle('open-in-claude', async (_event, path: string) => {

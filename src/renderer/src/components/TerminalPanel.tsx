@@ -34,6 +34,7 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
 
   useEffect(() => {
     if (!containerRef.current) return
+    const container = containerRef.current
 
     // Read primary color from CSS
     const style = getComputedStyle(document.documentElement)
@@ -262,7 +263,6 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
     })
 
     // Right-click on terminal: copy selection to clipboard (standard terminal behavior)
-    const container = containerRef.current
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault()
       if (term.hasSelection()) {
