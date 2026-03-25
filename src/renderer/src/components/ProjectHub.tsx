@@ -20,6 +20,7 @@ import { HolographicScene } from './three/HolographicScene'
 import { PbrHoloScene, dispatchSphereEvent } from './three/PbrHoloScene'
 import { DEMO_PROJECTS } from '../data/demo-projects'
 import type { DemoSettings } from '../hooks/useDemoSettings'
+import { IntroTutorial, isTutorialDone } from './IntroTutorial'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
@@ -148,6 +149,10 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   const [preview2d, setPreview2d] = useState(false)
   const [voiceBlocked, setVoiceBlocked] = useState(false)
   const voiceBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // UX2: Intro tutorial — shown once on first launch
+  const [tutorialActive, setTutorialActive] = useState(() => !isTutorialDone())
+  const handleTutorialComplete = useCallback(() => setTutorialActive(false), [])
 
   // Scene loading overlay — staged reveal
   const { ready: sceneReady, dismissed: sceneDismissed, onSceneReady, reset: resetSceneReady, loadingMsg } = useSceneReady()
@@ -883,6 +888,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           />
         )}
         {upgradeDialog}
+        {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
       </div>
     )
   }
@@ -971,6 +977,7 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           />
         )}
         {upgradeDialog}
+        {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
       </div>
     )
   }
@@ -1080,6 +1087,9 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onMergeComplete={handleMergeComplete}
         />
       )}
+
+      {/* UX2: Intro tutorial */}
+      {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
 
       {/* HUD corners */}
       <div className="hal-hud-corner tl" />

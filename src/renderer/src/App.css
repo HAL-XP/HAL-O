@@ -4013,3 +4013,201 @@ textarea.text-input {
   border-color: rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.03);
 }
+
+/* ── UX2: Intro Tutorial — Mission Briefing Overlay ── */
+
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  pointer-events: none;
+}
+
+.tutorial-spotlight {
+  position: fixed;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(0, 255, 255, 0.3),
+    inset 0 0 12px rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(0, 255, 255, 0.35);
+  animation: tutorial-spotlight-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 99998;
+}
+
+@keyframes tutorial-spotlight-pulse {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px rgba(0, 255, 255, 0.3), inset 0 0 12px rgba(0, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 32px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.25); }
+}
+
+.tutorial-tooltip {
+  position: fixed;
+  width: 380px;
+  background: linear-gradient(170deg, rgba(5, 15, 25, 0.96) 0%, rgba(8, 24, 40, 0.97) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  border-radius: 4px;
+  padding: 0;
+  z-index: 99999;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  box-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.6),
+    0 0 1px rgba(0, 255, 255, 0.6),
+    inset 0 1px 0 rgba(0, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.tutorial-tooltip--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tutorial-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.tutorial-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 255, 255, 0.015) 3px,
+    rgba(0, 255, 255, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tutorial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.12);
+  position: relative;
+  z-index: 2;
+}
+
+.tutorial-step-badge {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(0, 255, 255, 0.7);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.tutorial-skip-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.4);
+  font-family: inherit;
+  font-size: 8px;
+  letter-spacing: 2px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tutorial-skip-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tutorial-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #00ffff;
+  letter-spacing: 3px;
+  padding: 12px 14px 4px;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+  position: relative;
+  z-index: 2;
+}
+
+.tutorial-desc {
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 4px 14px 12px;
+  letter-spacing: 0.3px;
+  position: relative;
+  z-index: 2;
+}
+
+.tutorial-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 12px;
+  border-top: 1px solid rgba(0, 255, 255, 0.1);
+  position: relative;
+  z-index: 2;
+}
+
+.tutorial-progress {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tutorial-progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.tutorial-progress-dot.active {
+  background: #00ffff;
+  border-color: #00ffff;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.tutorial-progress-dot.done {
+  background: rgba(0, 255, 255, 0.4);
+  border-color: rgba(0, 255, 255, 0.3);
+}
+
+.tutorial-next-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(0, 255, 255, 0.15) 0%, rgba(0, 255, 255, 0.08) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  color: #00ffff;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  padding: 6px 16px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+
+.tutorial-next-btn:hover {
+  background: linear-gradient(180deg, rgba(0, 255, 255, 0.25) 0%, rgba(0, 255, 255, 0.12) 100%);
+  box-shadow: 0 0 16px rgba(0, 255, 255, 0.2);
+  border-color: rgba(0, 255, 255, 0.6);
+}
+
+.tutorial-next-btn svg {
+  stroke: #00ffff;
+}

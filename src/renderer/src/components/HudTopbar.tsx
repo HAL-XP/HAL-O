@@ -207,7 +207,7 @@ export function HudTopbar({
           <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           <span className="hal-btn-label">NEW</span>
         </button>
-        <button className="hal-cmd hal-topbar-btn" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} title="Add existing project">
+        <button className="hal-cmd hal-topbar-btn" data-tutorial="add-project" onClick={async () => { const f = await window.api.selectFolder(); if (f) onConvertProject(f) }} title="Add existing project">
           <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           <span className="hal-btn-label">ADD PROJECT</span>
         </button>
