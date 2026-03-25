@@ -1693,6 +1693,8 @@ function SceneBackground() {
 // ── AutoRotate Manager — pauses rotation on user interaction, resumes after delay ──
 // B31b: AutoRotateManager extracted to shared component (used by both PBR + Holo renderers)
 import { AutoRotateManager } from './AutoRotateManager'
+// UX16 Phase 2: Smooth camera easing to selected card
+import { CameraEaser } from './CameraEaser'
 
 // ── Stable orbit target (avoid new array ref each render) ──
 const ORBIT_TARGET: [number, number, number] = [0, 0.3, 0]
@@ -2565,6 +2567,8 @@ function PbrSceneInner({
         target={ORBIT_TARGET}
       />
       <AutoRotateManager searchActive={searchActive} enabled={autoRotateEnabled} speed={autoRotateSpeed} />
+      {/* UX16 Phase 2: Smooth camera orbit to keyboard-selected card */}
+      <CameraEaser />
 
       <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
       {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}

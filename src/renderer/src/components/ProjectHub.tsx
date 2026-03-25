@@ -23,6 +23,9 @@ import type { DemoSettings } from '../hooks/useDemoSettings'
 import { IntroTutorial, isTutorialDone } from './IntroTutorial'
 import { setSelectedPath, getSelectedPath } from './three/ScreenPanel'
 import type { FocusZone } from '../hooks/useFocusZone'
+import { useHubKeyboard } from '../hooks/useHubKeyboard'
+import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../layouts3d'
+import type { Screen3DPosition } from '../layouts3d'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
@@ -123,7 +126,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -532,6 +535,48 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
   const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
   const readyCount = visibleProjects.filter(isFullySetup).length
+
+  // ── UX16 Phase 2: Compute 3D layout positions for keyboard navigation ──
+  // Mirror the same layout computation that PbrHoloScene uses, so the keyboard
+  // hook can sort cards by orbital angle and provide positions to CameraEaser.
+  const groupIndicesForNav = useMemo(() => {
+    if (groups.length === 0) return allSorted.map(() => -1)
+    const groupIdToIndex = new Map(groups.map((g, i) => [g.id, i]))
+    return allSorted.map((p) => {
+      const gId = assignments[p.path]
+      if (!gId) return -1
+      return groupIdToIndex.get(gId) ?? -1
+    })
+  }, [allSorted, groups, assignments])
+
+  const navPositions: Screen3DPosition[] = useMemo(() => {
+    const groupFn = GROUP_LAYOUT_3D_FNS[layoutId]
+    const raw = groupFn
+      ? groupFn(allSorted.length, groupIndicesForNav, groups.length)
+      : (LAYOUT_3D_FNS[layoutId] || LAYOUT_3D_FNS['default'])(allSorted.length)
+    // Safety clamp Y (same as PbrHoloScene)
+    return raw.map((sp) => ({
+      ...sp,
+      position: [sp.position[0], Math.max(1.0, sp.position[1]), sp.position[2]] as [number, number, number],
+    }))
+  }, [allSorted.length, layoutId, groupIndicesForNav, groups.length])
+
+  const navProjectPaths = useMemo(() => allSorted.map((p) => p.path), [allSorted])
+
+  const handleKeyboardResume = useCallback((projectPath: string) => {
+    const project = allSorted.find((p) => p.path === projectPath)
+    if (project && onOpenTerminal) {
+      onOpenTerminal(projectPath, project.name, true)
+    }
+  }, [allSorted, onOpenTerminal])
+
+  // UX16: Activate hub keyboard navigation (arrow keys, Enter, Escape, /)
+  useHubKeyboard({
+    focusZone: focusZone ?? 'hub',
+    projectPaths: navProjectPaths,
+    positions: navPositions,
+    onResume: handleKeyboardResume,
+  })
 
   // Layout positioning
   const layoutFn = LAYOUT_FNS[layoutId] || LAYOUT_FNS['dual-arc']

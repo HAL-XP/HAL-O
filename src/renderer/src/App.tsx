@@ -22,6 +22,7 @@ import { BrowserPanel, makeBrowserTabId } from './components/BrowserPanel'
 import type { BrowserTab } from './components/BrowserPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GpuWizardModal, isGpuWizardDone } from './components/GpuWizardModal'
+import { useFocusZone } from './hooks/useFocusZone'
 
 interface AppState {
   currentStepId: string
@@ -161,6 +162,8 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
+  // UX16: Focus zone management — 'hub' or 'terminal'
+  const { focusZone } = useFocusZone(termSessions.length > 0 || (demo.enabled && (demo.terminalCount ?? 0) > 0))
   const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback, graphicsPreset, updateGraphicsPreset, bloomEnabled, updateBloomEnabled, chromaticAberrationEnabled, updateChromaticAberrationEnabled, floorLinesEnabled, updateFloorLinesEnabled, groupTrailsEnabled, updateGroupTrailsEnabled, autoRotateEnabled, updateAutoRotateEnabled, autoRotateSpeed, updateAutoRotateSpeed, devlogSections, updateDevlogSection, setAllDevlogSections } = useSettings()
 
   // ── U11: Embedded browser panel state ──
@@ -628,6 +631,7 @@ export function App() {
             devlogSections={devlogSections}
             onDevlogSectionChange={updateDevlogSection}
             onSetAllDevlogSections={setAllDevlogSections}
+            focusZone={focusZone}
           />
         </div>
         {hasTerminals && (
