@@ -549,7 +549,11 @@ export const ScreenPanel = memo(function ScreenPanel({
           onPointerOver={() => setHoveredPath(projectPath)}
           onPointerOut={() => { if (_hoveredPath === projectPath) setHoveredPath(null) }}
         >
-          <div ref={htmlWrapRef} onContextMenu={onContextMenu} style={{
+          <div
+            ref={htmlWrapRef}
+            onContextMenu={onContextMenu}
+            onDoubleClick={onResume}
+            style={{
             fontFamily: "'Cascadia Code', 'Fira Code', monospace",
             color: '#c8dce8',
             transition: 'opacity 0.15s ease',
