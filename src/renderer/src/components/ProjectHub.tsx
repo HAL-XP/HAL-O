@@ -21,6 +21,8 @@ import { PbrHoloScene, dispatchSphereEvent } from './three/PbrHoloScene'
 import { DEMO_PROJECTS } from '../data/demo-projects'
 import type { DemoSettings } from '../hooks/useDemoSettings'
 import { IntroTutorial, isTutorialDone } from './IntroTutorial'
+import { setSelectedPath, getSelectedPath } from './three/ScreenPanel'
+import type { FocusZone } from '../hooks/useFocusZone'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
@@ -107,6 +109,8 @@ interface Props {
   devlogSections?: DevlogSections
   onDevlogSectionChange?: (key: DevlogSectionKey, value: DevlogVerbosity) => void
   onSetAllDevlogSections?: (value: DevlogVerbosity) => void
+  // UX16: Focus zone — enables hub keyboard navigation when 'hub'
+  focusZone?: FocusZone
 }
 
 function timeAgo(ms: number): string {

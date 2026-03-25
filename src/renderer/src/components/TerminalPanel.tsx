@@ -249,6 +249,11 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
       if (e.ctrlKey && e.code === 'Space') {
         return false // don't let xterm handle it
       }
+      // UX16: CTRL+` → let it bubble to window for focus zone switching
+      // No shell uses this combination — safe to intercept in terminal
+      if (e.ctrlKey && e.key === '`') {
+        return false // don't let xterm handle it
+      }
       // CTRL+V / CTRL+SHIFT+V paste — block xterm's \x16 handling,
       // let the browser paste event flow through to xterm's native paste handler
       if (e.ctrlKey && (e.key === 'v' || e.key === 'V') && e.type === 'keydown') {

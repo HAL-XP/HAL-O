@@ -78,6 +78,15 @@ export function setHoveredPath(path: string | null): void { _hoveredPath = path 
 /** Get the currently hovered project path (called from useFrame in each panel) */
 export function getHoveredPath(): string | null { return _hoveredPath }
 
+// ── UX16: Module-level keyboard selection store — persistent card selection via arrow keys ──
+// Similar pattern to _hoveredPath: no React state in parent, zero re-renders on selection change.
+// ScreenPanel reads this in useFrame and applies a brighter edge glow + scale bump.
+let _selectedPath: string | null = null
+/** Set the keyboard-selected project path (called from hub navigation) */
+export function setSelectedPath(path: string | null): void { _selectedPath = path }
+/** Get the keyboard-selected project path */
+export function getSelectedPath(): string | null { return _selectedPath }
+
 // Scratch vectors — reused every frame to avoid GC pressure
 const _targetScale = new THREE.Vector3()
 const _screenNormal = new THREE.Vector3()
@@ -432,9 +441,22 @@ export const ScreenPanel = memo(function ScreenPanel({
       }
     }
 
-    // Hover scale lerp — always runs (cheap: one lerp) — PERF6: reads module-level ref, no React re-render
-    const s = _hoveredPath === projectPath ? 1.04 : 1.0
+    // Hover/selection scale lerp — always runs (cheap: one lerp) — PERF6: reads module-level ref, no React re-render
+    // UX16: keyboard selection gets same scale bump as hover (persistent until deselected)
+    const isSelected = _selectedPath === projectPath
+    const isHovered = _hoveredPath === projectPath
+    const s = (isHovered || isSelected) ? 1.04 : 1.0
     groupRef.current.scale.lerp(_targetScale.set(s, s, s), 0.08)
+
+    // UX16: Selection-driven edge glow boost — brighter than hover for clear visual distinction
+    if (isSelected && !reducedFrame) {
+      for (const m of edgeMeshRefs.current) {
+        if (!m) continue
+        const mat = (m as any).material as THREE.MeshBasicMaterial | undefined
+        if (!mat) continue
+        mat.opacity = Math.min(1, 0.95 * dimOpacityRef.current)
+      }
+    }
 
     // ── Back-face detection — throttled during interaction (B22 PERF FIX) ──
     // During active camera orbit/zoom, only check every 3rd frame.

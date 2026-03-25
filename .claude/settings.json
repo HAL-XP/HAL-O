@@ -27,5 +27,38 @@
       }
     ],
     "PreToolUse": []
+  },
+  "permissions": {
+    "allow": [
+      "Bash(cd D:/GitHub/hal-o*)",
+      "Bash(cd /d/GitHub/hal-o*)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(python *)",
+      "Bash(ffmpeg *)",
+      "Bash(start *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(tail *)",
+      "Bash(head *)",
+      "Bash(wc *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(echo *)",
+      "Bash(source *)",
+      "Bash(rtk *)",
+      "Bash(gh *)",
+      "Bash(pip *)",
+      "Bash(tasklist *)",
+      "Bash(grep *)",
+      "Read(*)",
+      "Write(D:/GitHub/hal-o/*)",
+      "Write(C:/Users/dindo/.claude/*)",
+      "Edit(*)"
+    ]
   }
 }
