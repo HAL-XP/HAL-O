@@ -1,0 +1,17 @@
+{
+  "feature": "Floor Disc Edge Shader",
+  "description": "Shader-based smoothstep fade for seamless floor edge (no pixelation)",
+  "date": "2026-03-25T13:17:24.791Z",
+  "renderMode": "PBR Holographic",
+  "cameraPosition": "default",
+  "technique": "smoothstep shader alpha fade (512 segments, no texture alpha)",
+  "validation": {
+    "test1": "default-view — edge invisible",
+    "test2": "wide-shot — edge disappears",
+    "test3": "side-view — demanding angle smooth",
+    "test4": "grazing-angle — critical test passed",
+    "test5": "steeper-angle — smoothness confirmed",
+    "test6": "reflections — MeshReflectorMaterial working"
+  },
+  "status": "PASS"
+}

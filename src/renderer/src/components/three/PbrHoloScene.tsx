@@ -2140,6 +2140,8 @@ interface Props {
   sectorDirection?: number
   sectorHue?: string
   sectorHudText?: string
+  // Demo mode
+  demo?: any // DemoSettings
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -2210,6 +2212,8 @@ interface PbrSceneInnerProps {
   sectorDirection: number
   sectorHue: string
   sectorHudText: string
+  // Demo mode
+  demo?: any // DemoSettings
 }
 
 function PbrSceneInner({
@@ -2228,6 +2232,7 @@ function PbrSceneInner({
   graphicsPreset, bloomEnabled, chromaticAberrationEnabled, floorLinesEnabled, groupTrailsEnabled,
   autoRotateEnabled, autoRotateSpeed,
   sectorTransitioning, sectorDirection, sectorHue, sectorHudText,
+  demo,
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2608,11 +2613,11 @@ function PbrSceneInner({
                 projectPath={project.path}
                 stack={project.stack}
                 ready={isFullySetup(project)}
-                onResume={() => onOpenTerminal?.(project.path, project.name, true)}
-                onNewSession={() => onOpenTerminal?.(project.path, project.name, false)}
-                onFiles={() => window.api.openFolder(project.path)}
+                onResume={() => { if (demo?.enabled) return; onOpenTerminal?.(project.path, project.name, true) }}
+                onNewSession={() => { if (demo?.enabled) return; onOpenTerminal?.(project.path, project.name, false) }}
+                onFiles={() => { if (demo?.enabled) return; window.api.openFolder(project.path) }}
                 runCmd={project.runCmd}
-                onRunApp={project.runCmd ? () => window.api.runApp(project.path, project.runCmd) : undefined}
+                onRunApp={project.runCmd ? () => { if (demo?.enabled) return; window.api.runApp(project.path, project.runCmd) } : undefined}
                 groupColor={projectGroupColors[i]}
                 healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
                 rulesOutdated={(project as any).rulesOutdated === true}
@@ -2785,7 +2790,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12, sectorTransitioning = false, sectorDirection = 0, sectorHue = '#00f5ff', sectorHudText = '' }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12, sectorTransitioning = false, sectorDirection = 0, sectorHue = '#00f5ff', sectorHudText = '', demo }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2905,6 +2910,7 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           sectorDirection={sectorDirection}
           sectorHue={sectorHue}
           sectorHudText={sectorHudText}
+          demo={demo}
         />
       </ThreeThemeProvider>
     </Canvas>

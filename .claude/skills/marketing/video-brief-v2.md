@@ -14,14 +14,15 @@
 - Settings menu FONT IS TOO SMALL — bump `hal-o-hub-font` to 16 or 18 before opening settings
 - Ship version: ship was NOT visible — deprioritize for now, focus on v1
 
-## Video 1: Short Teaser (12 seconds)
-- 0-2s: Close approach to a project card (readable content, stats, buttons)
-- 2-4s: Camera pulls back slightly to show sphere + 2-3 cards
-- 4-6s: Settings menu opens briefly (1.5s), closes
+## Video 1: Short Teaser (12 seconds) — V3 camera plan
+- 0-3s: Start from intro position (far), fly in CLOSE to a project card — close enough to READ stats, buttons, activity bars
+- 3-6s: Smooth lateral transition to side angle where sphere is visible + card still partially in frame
 - 6-12s: HAL speaks "Hi, I'm Hal, your personal assistant" — sphere pulses with voice audio
 - Total: ~12 seconds
-- Camera should be CLOSE (use closeUp or setCamera(3,5,8))
-- Record audio: use tts.py to generate the greeting, play it via Web Audio API during recording
+- Camera keyframes: start=[0,10,16] → card closeup=[2,4,7] → side=[5,6,12]
+- Use CatmullRom interpolation between positions (same as IntroSequence)
+- Record WITH AUDIO: generate greeting with tts.py, play via Web Audio API during recording
+- ffmpeg must capture desktop audio: `-f dshow -i audio="Stereo Mix"` or equivalent
 - ffmpeg must capture desktop audio too (not just video)
 
 ## Video 2: Ship Version (same framing + spaceship)

@@ -878,6 +878,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           layoutId={layoutId}
           terminalCount={terminalCount}
           vfxFrequency={demo?.vfxFrequency}
+          demo={demo}
           groups={groups}
           assignments={assignments}
           camera={camera}
