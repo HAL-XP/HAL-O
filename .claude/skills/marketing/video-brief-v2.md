@@ -29,6 +29,26 @@
 - Audio plays at 2s
 - No animateCamera, no stopAnimation, no teleport
 
+### RECORDING TECHNIQUE (permanent)
+Use page.screenshot for CLEAN Electron-only frames, but timestamp each one and assemble with real durations:
+```js
+const frames = []
+for (let i = 0; i < targetFrames; i++) {
+  const t0 = performance.now()
+  const buf = await page.screenshot({ type: 'jpeg', quality: 90 })
+  const elapsed = performance.now() - t0
+  fs.writeFileSync(`frames/frame_${i.toString().padStart(5,'0')}.jpg`, buf)
+  frames.push({ file: `frame_${i.toString().padStart(5,'0')}.jpg`, duration: elapsed / 1000 })
+}
+// Write concat file with real durations
+const concat = frames.map(f => `file '${f.file}'\nduration ${f.duration.toFixed(4)}`).join('\n')
+fs.writeFileSync('frames/concat.txt', concat)
+```
+Assemble: `ffmpeg -f concat -safe 0 -i frames/concat.txt -c:v libx264 -pix_fmt yuv420p video.mp4`
+Mix audio: `ffmpeg -i video.mp4 -i greeting.wav -filter_complex "[1:a]adelay=2000|2000[a]" -map 0:v -map "[a]" -c:v libx264 -c:a aac final.mp4`
+
+This gives: clean Electron-only frames + correct real-time playback + precise audio sync.
+
 ## DEPRECATED — V3 camera plan
 - 0-3s: Start from intro position (far), fly in CLOSE to a project card — close enough to READ stats, buttons, activity bars
 - 3-6s: Smooth lateral transition to side angle where sphere is visible + card still partially in frame

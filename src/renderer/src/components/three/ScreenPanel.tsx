@@ -336,8 +336,8 @@ export const ScreenPanel = memo(function ScreenPanel({
   }), [accentHex])
 
   const btnGhost: React.CSSProperties = useMemo(() => ({
-    padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-    color: '#8b8fa3', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
+    padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
+    color: '#a0a8c0', fontSize: '8px', fontWeight: 700, letterSpacing: '1.5px',
     cursor: 'pointer', fontFamily: "'Cascadia Code', 'Fira Code', monospace",
     textTransform: 'uppercase',
   }), [])
@@ -372,6 +372,9 @@ export const ScreenPanel = memo(function ScreenPanel({
   // U20: Smoothed activity level for edge glow drive (avoids jitter from IPC updates)
   const smoothActivityRef = useRef(0)
   const activityBarRef = useRef<HTMLDivElement>(null)
+  // UX10: Heartbeat ECG monitor + activity-driven background glow
+  const heartbeatRef = useRef<HTMLDivElement>(null)
+  const activityGlowRef = useRef<HTMLDivElement>(null)
 
   useFrame(() => {
     if (!groupRef.current) return
@@ -410,10 +413,10 @@ export const ScreenPanel = memo(function ScreenPanel({
       // Only update materials when dim is actually changing (> 0.5% difference)
       if (Math.abs(dimDelta) > 0.005) {
         dimOpacityRef.current += dimDelta * 0.08
-        // Apply dim to face mesh material opacity
+        // Apply dim to face mesh material opacity (UX10: * 0.85 for holographic bleed-through)
         if (faceMeshRef.current) {
           const mat = faceMeshRef.current.material as THREE.MeshStandardMaterial
-          mat.opacity = screenOpacity * dimOpacityRef.current
+          mat.opacity = screenOpacity * 0.85 * dimOpacityRef.current
           mat.transparent = mat.opacity < 1
         }
         // Apply dim to edge meshes + frame line
@@ -465,6 +468,33 @@ export const ScreenPanel = memo(function ScreenPanel({
           activityBarRef.current.style.animationDuration = sa > 0.5 ? '0.8s' : '1.5s'
         } else {
           activityBarRef.current.style.display = 'none'
+        }
+      }
+      // UX10: Drive heartbeat ECG speed based on activity level
+      if (heartbeatRef.current) {
+        if (sa > 0.05) {
+          heartbeatRef.current.style.display = 'block'
+          heartbeatRef.current.style.opacity = String(Math.min(1, 0.4 + sa * 0.6))
+          // ECG scroll speed: fast at high activity (1s), slow at low (4s)
+          const ecgDuration = sa > 0.7 ? '1s' : sa > 0.4 ? '2s' : '4s'
+          heartbeatRef.current.style.animationDuration = ecgDuration
+        } else {
+          heartbeatRef.current.style.display = 'none'
+        }
+      }
+      // UX10: Drive activity background glow — color shifts with level
+      if (activityGlowRef.current) {
+        if (sa > 0.1) {
+          activityGlowRef.current.style.display = 'block'
+          // Color: cyan at low, green at medium, amber at high
+          const glowColor = sa > 0.7 ? 'rgba(245,158,11,' : sa > 0.4 ? 'rgba(34,197,94,' : 'rgba(0,229,255,'
+          const glowAlpha = Math.min(0.25, sa * 0.3)
+          activityGlowRef.current.style.boxShadow = `inset 0 0 30px ${glowColor}${glowAlpha.toFixed(3)})`
+          // Pulse speed matches activity
+          const glowDuration = sa > 0.7 ? '0.8s' : sa > 0.4 ? '1.5s' : '3s'
+          activityGlowRef.current.style.animationDuration = glowDuration
+        } else {
+          activityGlowRef.current.style.display = 'none'
         }
       }
     }
@@ -539,7 +569,8 @@ export const ScreenPanel = memo(function ScreenPanel({
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
 
-      {/* Screen face — shared geometry (PERF2), metalness/roughness from style (P3) */}
+      {/* Screen face — shared geometry (PERF2), metalness/roughness from style (P3)
+          UX10: 0.85 multiplier gives slight transparency for holographic bleed-through */}
       <mesh ref={faceMeshRef} geometry={_sharedFaceGeo}>
         <meshStandardMaterial
           color={theme.screenFaceHex}
@@ -549,7 +580,7 @@ export const ScreenPanel = memo(function ScreenPanel({
           emissiveIntensity={0.1}
           side={THREE.DoubleSide}
           transparent
-          opacity={screenOpacity}
+          opacity={screenOpacity * 0.85}
         />
       </mesh>
 
@@ -633,6 +664,14 @@ export const ScreenPanel = memo(function ScreenPanel({
                 0%, 100% { opacity: 0.5; transform: scaleX(0.3); }
                 50% { opacity: 1; transform: scaleX(1); }
               }
+              @keyframes ecgScroll {
+                0% { background-position: 0 0; }
+                100% { background-position: -260px 0; }
+              }
+              @keyframes glowPulse {
+                0%, 100% { opacity: 0.4; }
+                50% { opacity: 1; }
+              }
             `}</style>
             {/* U20: Terminal activity indicator — pulsing bar at bottom of card.
                 Always mounted but hidden via display:none by default.
@@ -656,6 +695,37 @@ export const ScreenPanel = memo(function ScreenPanel({
                 background: `linear-gradient(90deg, transparent, ${edgeColor}, transparent)`,
               }} />
             </div>
+            {/* UX10: Heartbeat ECG monitor — CSS-only scrolling ECG line at bottom of card.
+                Uses a repeating SVG-encoded background of an ECG waveform, scrolled via animation.
+                Speed driven imperatively from useFrame based on terminal activity. */}
+            <div ref={heartbeatRef} style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '20px',
+              pointerEvents: 'none',
+              zIndex: 13,
+              display: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='20' viewBox='0 0 260 20'%3E%3Cpolyline fill='none' stroke='${encodeURIComponent(edgeColor)}' stroke-width='1.2' points='0,14 30,14 40,14 45,14 50,6 55,18 60,2 65,16 70,10 75,14 80,14 130,14 140,14 145,14 150,6 155,18 160,2 165,16 170,10 175,14 180,14 230,14 240,14 245,14 250,6 255,18 260,2'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'repeat-x',
+              backgroundSize: '260px 20px',
+              backgroundPosition: '0 0',
+              animation: 'ecgScroll 3s linear infinite',
+              opacity: 0,
+            }} />
+            {/* UX10: Activity-driven background glow — pulsing inset box-shadow behind content.
+                Color shifts: cyan (low) → green (medium) → amber (high).
+                Driven imperatively from useFrame. */}
+            <div ref={activityGlowRef} style={{
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+              zIndex: 0,
+              display: 'none',
+              borderRadius: '2px',
+              animation: 'glowPulse 3s ease-in-out infinite',
+            }} />
             {/* Scrolling background status text — very low opacity, behind content */}
             {effectiveHealthText && (
               <div style={{
@@ -696,7 +766,7 @@ export const ScreenPanel = memo(function ScreenPanel({
                 boxShadow: `0 0 8px ${ready ? ('#' + theme.success.getHexString()) : ('#' + theme.warning.getHexString())}`,
                 display: 'inline-block', flexShrink: 0,
               }} />
-              <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase' }}>
+              <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase', color: '#ffffff' }}>
                 {projectName}
               </span>
               {isExternal && (
@@ -754,14 +824,14 @@ export const ScreenPanel = memo(function ScreenPanel({
               <div style={{ marginBottom: '6px', fontSize: '8px', lineHeight: '1.5' }}>
                 {/* Last commit */}
                 {stats.lastCommit && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#6b7a8d' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#8899bb' }}>
                     <span style={{
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      maxWidth: '160px', color: '#8b9bb0',
+                      maxWidth: '160px', color: '#a8bbd0',
                     }} title={stats.lastCommit}>
                       {stats.lastCommit.length > 30 ? stats.lastCommit.slice(0, 28) + '..' : stats.lastCommit}
                     </span>
-                    <span style={{ flexShrink: 0, color: '#4a5568', fontSize: '7px' }}>
+                    <span style={{ flexShrink: 0, color: '#6688aa', fontSize: '7px' }}>
                       {timeAgo(stats.lastCommitTime)}
                     </span>
                   </div>
@@ -782,7 +852,7 @@ export const ScreenPanel = memo(function ScreenPanel({
                         transition: 'height 0.3s ease',
                       }} />
                     ))}
-                    <span style={{ fontSize: '7px', color: '#4a5568', marginLeft: '3px' }}>
+                    <span style={{ fontSize: '7px', color: '#6688aa', marginLeft: '3px' }}>
                       {stats.commitCount30d > 0 ? `${stats.commitCount30d}` : '0'}
                     </span>
                   </div>
@@ -790,10 +860,10 @@ export const ScreenPanel = memo(function ScreenPanel({
                   {/* File count badge */}
                   {stats.fileCount > 0 && (
                     <span style={{
-                      fontSize: '7px', color: '#4a5568',
-                      background: 'rgba(255,255,255,0.04)',
+                      fontSize: '7px', color: '#6688aa',
+                      background: 'rgba(255,255,255,0.06)',
                       padding: '1px 5px', borderRadius: '2px',
-                      border: '1px solid rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.08)',
                     }}>
                       {stats.fileCount} files
                     </span>
