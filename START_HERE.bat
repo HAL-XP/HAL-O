@@ -254,6 +254,8 @@ if "!HAS_VSBT!"=="0" if exist "!VS_BASE!\Enterprise\Common7\Tools\VsDevCmd.bat" 
 )
 
 :: Check x86 paths separately (parentheses in "Program Files (x86)" break for-loop syntax)
+:: Guard: ProgramFiles(x86) may be undefined on some Windows installs
+if not defined ProgramFiles(x86) goto :skip_x86_vs
 set "VS_X86=!ProgramFiles(x86)!\Microsoft Visual Studio\2022"
 if "!HAS_VSBT!"=="0" if exist "!VS_X86!\Community\Common7\Tools\VsDevCmd.bat" (
     set "HAS_VSBT=1"
@@ -264,7 +266,9 @@ if "!HAS_VSBT!"=="0" if exist "!VS_X86!\BuildTools\Common7\Tools\VsDevCmd.bat" (
     set "VSBT_PATH=!VS_X86!\BuildTools\Common7\Tools\VsDevCmd.bat"
 )
 
+:skip_x86_vs
 :: Also check via vswhere (the official way)
+if not defined ProgramFiles(x86) goto :skip_vswhere
 set "VSWHERE=!ProgramFiles(x86)!\Microsoft Visual Studio\Installer\vswhere.exe"
 if "!HAS_VSBT!"=="0" if exist "!VSWHERE!" (
     for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do (
@@ -275,6 +279,7 @@ if "!HAS_VSBT!"=="0" if exist "!VSWHERE!" (
     )
 )
 
+:skip_vswhere
 if "%HAS_VSBT%"=="1" (
     echo %GREEN%    ✓ Visual Studio Build Tools found%RESET%
     echo %DIM%      %VSBT_PATH%%RESET%
