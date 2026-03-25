@@ -6,7 +6,7 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Vector2 } from 'three'
 import { Starfield } from './Starfield'
-import { ScreenPanel, ScreenPanelUpdater } from './ScreenPanel'
+import { ScreenPanel, ScreenPanelUpdater, onFocusRecovery } from './ScreenPanel'
 import { DataParticles } from './DataParticles'
 import { HudScrollText } from './HudScrollText'
 import { SpaceshipFlyby } from './SpaceshipFlyby'
@@ -2667,7 +2667,11 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   useEffect(() => {
     invalidateRef.current = invalidate
     // Start/stop burst invalidation when recovery state changes
-    const unsub = onRecoveryChange((recovering) => { burstRef.current = recovering })
+    // B38: Also reset ScreenPanel pointer-events on focus recovery
+    const unsub = onRecoveryChange((recovering) => {
+      burstRef.current = recovering
+      if (recovering) onFocusRecovery()
+    })
     // If already recovering on mount, start burst
     if (isFocusRecovering()) burstRef.current = true
     return () => { invalidateRef.current = null; unsub() }

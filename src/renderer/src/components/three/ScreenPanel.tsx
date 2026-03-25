@@ -133,6 +133,14 @@ export function updateCameraMovementFlag(camera: THREE.Camera): void {
   _prevCamZ = camera.position.z
 }
 
+/** Force re-evaluation of all card pointer events — call on focus recovery after alt-tab.
+ * Fixes Bug #1 (cards unclickable after alt-tab) and Bug #2 (stuck _isUserInteracting). */
+export function onFocusRecovery(): void {
+  _cameraMovedThisFrame = true
+  _isUserInteracting = false
+  if (_interactionEndTimer) { clearTimeout(_interactionEndTimer); _interactionEndTimer = null }
+}
+
 /** Signal that user started interacting (orbit drag / zoom) */
 export function setUserInteracting(active: boolean): void {
   if (active) {
@@ -411,7 +419,7 @@ export const ScreenPanel = memo(function ScreenPanel({
         if (htmlWrapRef.current) {
           const vis = wasFrontRef.current !== false
           htmlWrapRef.current.style.opacity = vis ? String(Math.min(1, dimOpacityRef.current)) : '0'
-          htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.3) ? 'auto' : 'none'
+          htmlWrapRef.current.style.pointerEvents = (vis && dimOpacityRef.current > 0.1) ? 'auto' : 'none'
         }
       }
 
