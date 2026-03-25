@@ -215,6 +215,7 @@ export function SettingsMenu({
     updateActivityFeedback, updateBloomEnabled, updateChromaticAberrationEnabled,
     updateFloorLinesEnabled, updateGroupTrailsEnabled,
     updateAutoRotateEnabled, updateAutoRotateSpeed,
+    cardsPerSector, updateCardsPerSector,
   } = settings
 
   const [open, setOpen] = useState(false)
