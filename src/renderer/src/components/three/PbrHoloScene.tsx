@@ -77,6 +77,10 @@ function subscribeSphereEvents(listener: SphereEventListener): () => void {
 //   window.__haloPhotoMode.testAudioSignal('square') — synthetic audio: 1s on / 1s off loop
 //   window.__haloPhotoMode.testAudioSignal('ramp')   — synthetic audio: ramp 0→max over 3s then stop
 //   window.__haloPhotoMode.testAudioSignal('stop')   — stop any running test signal
+//   window.__haloPhotoMode.wireframe(true)  — flat colored polygon debug mode (cards=cyan, sphere=green)
+//   window.__haloPhotoMode.wireframe(false) — restore original materials
+//   window.__haloPhotoMode.showSpline(keyframes) — draw camera path preview (yellow line + markers)
+//   window.__haloPhotoMode.hideSpline()     — remove spline preview
 //
 // ── Debug overlay ──
 //   window.__haloDebugAudio = true   — show per-frame HUD above sphere
@@ -94,6 +98,36 @@ let _photoAnimStart = 0
 
 // Pending snap-camera request — consumed by PhotoModeAnimator on the next frame
 let _photoSnapPending: [number, number, number] | null = null
+
+// ── Wireframe debug mode state ──
+// Stores original materials so they can be restored when wireframe mode is toggled off.
+const _originalMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> = new Map()
+
+/** Guess a flat debug color for a mesh based on its ancestry / geometry. */
+function _wireframeGuessColor(obj: THREE.Object3D): number {
+  // Walk up to find hints
+  let cur: THREE.Object3D | null = obj
+  while (cur) {
+    const n = (cur.name || '').toLowerCase()
+    const t = (cur.type || '').toLowerCase()
+    // Screen panels / cards
+    if (n.includes('screen') || n.includes('card') || n.includes('panel')) return 0x00e5ff
+    // Sphere parts
+    if (n.includes('sphere') || n.includes('hal') || n.includes('wire') || n.includes('core') || n.includes('equator') || n.includes('iris')) return 0x39ff14
+    // Floor / platform / reflector
+    if (n.includes('floor') || n.includes('platform') || n.includes('ring') || n.includes('reflector') || n.includes('grid') || n.includes('disc')) return 0x333333
+    // Particles / points
+    if (t === 'points' || n.includes('particle') || n.includes('star') || n.includes('data')) return -1 // hide
+    cur = cur.parent
+  }
+  // Heuristic: if the mesh is a Points geometry, hide it
+  if ((obj as any).isPoints) return -1
+  // Default: muted cyan
+  return 0x008899
+}
+
+// ── Spline preview state ──
+let _splineGroup: THREE.Group | null = null
 
 ;(window as any).__haloPhotoMode = {
   triggerFlyby: () => _photoModeFlybyRef.current?.trigger(),
@@ -218,6 +252,125 @@ let _photoSnapPending: [number, number, number] | null = null
   wideShot: () => (window as any).__haloPhotoMode?.setCamera(0, 12, 22),
   heroAngle: () => (window as any).__haloPhotoMode?.setCamera(5, 8, 14),
   topDown: () => (window as any).__haloPhotoMode?.setCamera(0, 20, 1),
+
+  // ── Debug: Wireframe mode with flat colored polygons ──
+  // Replaces all materials with flat MeshBasicMaterial colored by object type.
+  // Cards = cyan, Sphere = green, Floor = dark gray, Particles = hidden, PostFX = disabled.
+  wireframe: (on: boolean) => {
+    const scene: THREE.Scene | null = (window as any).__haloScene ?? null
+    if (!scene) { console.warn('[wireframe] No __haloScene — is PbrSceneInner mounted?'); return }
+
+    if (on) {
+      // Store a flag so PostFX can read it
+      ;(window as any).__haloWireframeActive = true
+      scene.traverse((obj: THREE.Object3D) => {
+        // Hide Points (particles, starfield)
+        if ((obj as any).isPoints) {
+          if (!_originalMaterials.has(obj as THREE.Mesh)) {
+            _originalMaterials.set(obj as THREE.Mesh, (obj as any).material)
+          }
+          obj.visible = false
+          return
+        }
+        if (!(obj instanceof THREE.Mesh) || !obj.material) return
+        const color = _wireframeGuessColor(obj)
+        if (color === -1) {
+          // Hide this mesh (particle-like)
+          _originalMaterials.set(obj, obj.material)
+          obj.visible = false
+          return
+        }
+        _originalMaterials.set(obj, obj.material)
+        obj.material = new THREE.MeshBasicMaterial({
+          color,
+          wireframe: false,
+          transparent: true,
+          opacity: 0.7,
+          side: THREE.DoubleSide,
+        })
+      })
+      console.log(`[wireframe] ON — ${_originalMaterials.size} materials replaced`)
+    } else {
+      ;(window as any).__haloWireframeActive = false
+      _originalMaterials.forEach((mat, mesh) => {
+        mesh.material = mat as THREE.Material
+        mesh.visible = true
+      })
+      console.log(`[wireframe] OFF — ${_originalMaterials.size} materials restored`)
+      _originalMaterials.clear()
+    }
+  },
+
+  // ── Debug: Camera spline preview ──
+  // Draws a glowing line + keyframe markers showing the camera path in 3D.
+  showSpline: (keyframes: Array<{ t: number; pos: [number, number, number] }>) => {
+    const scene: THREE.Scene | null = (window as any).__haloScene ?? null
+    if (!scene) { console.warn('[showSpline] No __haloScene — is PbrSceneInner mounted?'); return }
+
+    // Clean up any existing spline preview
+    ;(window as any).__haloPhotoMode?.hideSpline?.()
+
+    if (!keyframes || keyframes.length < 2) { console.warn('[showSpline] Need at least 2 keyframes'); return }
+
+    const group = new THREE.Group()
+    group.name = '__photoModeSplinePreview'
+
+    // Build CatmullRom spline from keyframe positions
+    const points3 = keyframes.map(kf => new THREE.Vector3(kf.pos[0], kf.pos[1], kf.pos[2]))
+    const curve = new THREE.CatmullRomCurve3(points3, false, 'centripetal', 0.5)
+
+    // Sample 100 points along the curve for a smooth line
+    const curvePoints = curve.getPoints(100)
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(curvePoints)
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0xffff00, // bright yellow
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.9,
+      depthTest: false,
+    })
+    const line = new THREE.Line(lineGeometry, lineMaterial)
+    line.renderOrder = 9999
+    group.add(line)
+
+    // Add small sphere markers at each keyframe position
+    const markerGeo = new THREE.SphereGeometry(0.15, 8, 8)
+    const markerMat = new THREE.MeshBasicMaterial({
+      color: 0xff4400, // orange-red
+      transparent: true,
+      opacity: 0.9,
+      depthTest: false,
+    })
+    for (const kf of keyframes) {
+      const marker = new THREE.Mesh(markerGeo, markerMat)
+      marker.position.set(kf.pos[0], kf.pos[1], kf.pos[2])
+      marker.renderOrder = 9999
+      group.add(marker)
+    }
+
+    scene.add(group)
+    _splineGroup = group
+    console.log(`[showSpline] Added spline preview with ${keyframes.length} keyframes`)
+  },
+
+  // Remove the spline preview from the scene
+  hideSpline: () => {
+    if (_splineGroup) {
+      const scene: THREE.Scene | null = (window as any).__haloScene ?? null
+      if (scene) scene.remove(_splineGroup)
+      // Dispose geometries and materials
+      _splineGroup.traverse((child: THREE.Object3D) => {
+        if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose()
+        const mat = (child as THREE.Mesh).material
+        if (mat) {
+          if (Array.isArray(mat)) mat.forEach(m => m.dispose())
+          else (mat as THREE.Material).dispose()
+        }
+      })
+      _splineGroup = null
+      console.log('[hideSpline] Spline preview removed')
+    }
+  },
 }
 
 import { terminalActivityMap, terminalActivityMax, setTerminalActivityMax } from './terminalActivity'
@@ -2533,12 +2686,15 @@ function PbrSceneInner({
   useEffect(() => {
     _photoModeFlybyRef.current = flybyRef.current
   }, [])
-  // Expose orbit controls + camera to photo mode
-  const { controls: orbitCtl, camera: threeCamera } = useThree()
+  // Expose orbit controls + camera + scene to photo mode / debug tools
+  const { controls: orbitCtl, camera: threeCamera, scene: threeScene } = useThree()
   useEffect(() => {
     if (orbitCtl) (window as any).__haloOrbitControls = orbitCtl
     if (threeCamera) (window as any).__haloCamera = threeCamera
   }, [orbitCtl, threeCamera])
+  useEffect(() => {
+    if (threeScene) (window as any).__haloScene = threeScene
+  }, [threeScene])
   const prevTermCountRef = useRef(terminalCount)
 
   // M2+: Cinematic merge simulation — fake merge state for the demo sequence
