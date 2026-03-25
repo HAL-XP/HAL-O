@@ -1849,6 +1849,9 @@ interface Props {
   chromaticAberrationEnabled?: boolean
   floorLinesEnabled?: boolean
   groupTrailsEnabled?: boolean
+  // UX9: Auto-rotate settings
+  autoRotateEnabled?: boolean
+  autoRotateSpeed?: number
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -1911,6 +1914,9 @@ interface PbrSceneInnerProps {
   chromaticAberrationEnabled: boolean
   floorLinesEnabled: boolean
   groupTrailsEnabled: boolean
+  // UX9: Auto-rotate settings
+  autoRotateEnabled: boolean
+  autoRotateSpeed: number
 }
 
 function PbrSceneInner({
@@ -1927,6 +1933,7 @@ function PbrSceneInner({
   selectedConflictFile, onSelectConflictFile,
   resolvedFilesMap,
   graphicsPreset, bloomEnabled, chromaticAberrationEnabled, floorLinesEnabled, groupTrailsEnabled,
+  autoRotateEnabled, autoRotateSpeed,
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -2353,7 +2360,7 @@ function PbrSceneInner({
         dampingFactor={0.12}
         target={ORBIT_TARGET}
       />
-      <AutoRotateManager searchActive={searchActive} />
+      <AutoRotateManager searchActive={searchActive} enabled={autoRotateEnabled} speed={autoRotateSpeed} />
 
       <CameraDriver distance={camera.cameraDistance} angle={camera.cameraAngle} />
       {onCameraMove && <CameraSync onCameraMove={onCameraMove} />}
@@ -2388,7 +2395,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12 }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -2502,6 +2509,8 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           chromaticAberrationEnabled={chromaticAberrationEnabled}
           floorLinesEnabled={floorLinesEnabled}
           groupTrailsEnabled={groupTrailsEnabled}
+          autoRotateEnabled={autoRotateEnabled}
+          autoRotateSpeed={autoRotateSpeed}
         />
       </ThreeThemeProvider>
     </Canvas>

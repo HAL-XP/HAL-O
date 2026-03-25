@@ -86,6 +86,8 @@ interface Props {
   chromaticAberrationEnabled?: boolean; onChromaticAberrationEnabledChange?: (e: boolean) => void
   floorLinesEnabled?: boolean; onFloorLinesEnabledChange?: (e: boolean) => void
   groupTrailsEnabled?: boolean; onGroupTrailsEnabledChange?: (e: boolean) => void
+  autoRotateEnabled?: boolean; onAutoRotateEnabledChange?: (e: boolean) => void
+  autoRotateSpeed?: number; onAutoRotateSpeedChange?: (s: number) => void
   onRedetectGpu?: () => void
 }
 
@@ -114,7 +116,6 @@ const SECTION_ICONS: Record<string, string> = {
   'DISPLAY': '\uD83D\uDDA5\uFE0F',
   'GRAPHICS': '\uD83C\uDFA8',
   'EFFECTS': '\u2728',
-  'FONTS': '\uD83D\uDD24',
   'TERMINAL': '\u2B1B',
   'VOICE': '\uD83C\uDF99\uFE0F',
   'PERSONALITY': '\uD83C\uDFAD',
@@ -181,6 +182,8 @@ export function SettingsMenu({
   chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange,
   floorLinesEnabled = false, onFloorLinesEnabledChange,
   groupTrailsEnabled = false, onGroupTrailsEnabledChange,
+  autoRotateEnabled = true, onAutoRotateEnabledChange,
+  autoRotateSpeed = 0.12, onAutoRotateSpeedChange,
   onRedetectGpu,
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -205,7 +208,6 @@ export function SettingsMenu({
   const [secDisplay, setSecDisplay] = useState(true)
   const [secGraphics, setSecGraphics] = useState(false)
   const [secEffects, setSecEffects] = useState(false)
-  const [secFonts, setSecFonts] = useState(false)
   const [secTerminal, setSecTerminal] = useState(false)
   const [secVoice, setSecVoice] = useState(false)
   const [secPersonality, setSecPersonality] = useState(false)
@@ -252,21 +254,26 @@ export function SettingsMenu({
         <div className="hal-settings-title">SETTINGS</div>
         <div style={{ marginBottom: 8 }}><input type="text" className="hal-settings-select" placeholder="SEARCH SETTINGS..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', padding: '5px 8px', fontSize: 'calc(var(--hub-font, 10px) - 1px)', boxSizing: 'border-box' }} autoComplete="off" spellCheck={false} /></div>
 
-        {/* 1. DISPLAY */}
-        {sv(['RENDERER','LAYOUT','3D STYLE']) && (<><SectionHeader label="DISPLAY" expanded={isEx(secDisplay)} onToggle={() => setSecDisplay(!secDisplay)} />
+        {/* 1. DISPLAY (includes font size controls — UX5) */}
+        {sv(['RENDERER','LAYOUT','3D STYLE','HUB FONT SIZE','TERMINAL FONT SIZE','WIZARD FONT SIZE']) && (<><SectionHeader label="DISPLAY" expanded={isEx(secDisplay)} onToggle={() => setSecDisplay(!secDisplay)} />
           {isEx(secDisplay) && (<div className="hal-settings-section-body">
             {m('RENDERER') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="hal-settings-label">RENDERER</span><select className="hal-settings-select" value={rendererId} onChange={(e) => { const nr = e.target.value as RendererId; onRendererChange(nr); const vl = RENDERER_LAYOUTS[nr] || LAYOUTS_CLASSIC; if (!vl.some((l) => l.id === layoutId)) onLayoutChange(vl[0].id as LayoutId) }}>{RENDERERS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select></div>)}
             {m('LAYOUT') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="hal-settings-label">LAYOUT</span><select className="hal-settings-select" value={layoutId} onChange={(e) => onLayoutChange(e.target.value as LayoutId)}>{(RENDERER_LAYOUTS[rendererId] || LAYOUTS_CLASSIC).map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}</select></div>)}
             {is3D && m('3D STYLE') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="hal-settings-label">3D STYLE</span><select className="hal-settings-select" value={threeTheme} onChange={(e) => onThreeThemeChange(e.target.value)}>{THREE_STYLES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></div>)}
+            {m('HUB FONT SIZE') && <Slider label="HUB FONT SIZE" min={7} max={18} step={1} value={hubFontSize} onChange={(v) => onHubFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
+            {m('TERMINAL FONT SIZE') && <Slider label="TERMINAL FONT SIZE" min={8} max={24} step={1} value={termFontSize} onChange={(v) => onTermFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
+            {m('WIZARD FONT SIZE') && <Slider label="WIZARD FONT SIZE" min={10} max={22} step={1} value={wizardFontSize} onChange={(v) => onWizardFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
           </div>)}</>)}
 
         {/* 2. GRAPHICS */}
-        {sv(['BLOOM','CHROMATIC ABERRATION','FLOOR LINES','GROUP TRAILS','SCREEN OPACITY','PARTICLE DENSITY','RENDER QUALITY','SPHERE STYLE','PARTICLE HIDE DIST','RE-DETECT GPU']) && (<><SectionHeader label="GRAPHICS" expanded={isEx(secGraphics)} onToggle={() => setSecGraphics(!secGraphics)} />
+        {sv(['BLOOM','CHROMATIC ABERRATION','FLOOR LINES','GROUP TRAILS','AUTO ROTATE','ROTATION SPEED','SCREEN OPACITY','PARTICLE DENSITY','RENDER QUALITY','SPHERE STYLE','PARTICLE HIDE DIST','RE-DETECT GPU']) && (<><SectionHeader label="GRAPHICS" expanded={isEx(secGraphics)} onToggle={() => setSecGraphics(!secGraphics)} />
           {isEx(secGraphics) && (<div className="hal-settings-section-body">
             {m('BLOOM') && onBloomEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">BLOOM</span><div className="hal-settings-control"><Toggle value={bloomEnabled} onChange={onBloomEnabledChange} /></div></div>)}
             {m('CHROMATIC ABERRATION') && onChromaticAberrationEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">CHROMATIC ABERR.</span><div className="hal-settings-control"><Toggle value={chromaticAberrationEnabled} onChange={onChromaticAberrationEnabledChange} /></div></div>)}
             {m('FLOOR LINES') && onFloorLinesEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">FLOOR LINES</span><div className="hal-settings-control"><Toggle value={floorLinesEnabled} onChange={onFloorLinesEnabledChange} /></div></div>)}
             {m('GROUP TRAILS') && onGroupTrailsEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">GROUP TRAILS</span><div className="hal-settings-control"><Toggle value={groupTrailsEnabled} onChange={onGroupTrailsEnabledChange} /></div></div>)}
+            {m('AUTO ROTATE') && onAutoRotateEnabledChange && (<div className="hal-settings-row"><span className="hal-settings-label">AUTO ROTATE</span><div className="hal-settings-control"><Toggle value={autoRotateEnabled} onChange={onAutoRotateEnabledChange} /></div></div>)}
+            {m('ROTATION SPEED') && autoRotateEnabled && onAutoRotateSpeedChange && <Slider label="ROTATION SPEED" min={0.01} max={1} step={0.01} value={autoRotateSpeed} onChange={onAutoRotateSpeedChange} fmt={(v) => v.toFixed(2)} w={36} />}
             {m('SCREEN OPACITY') && <Slider label="SCREEN OPACITY" min={0.1} max={1} step={0.05} value={screenOpacity} onChange={onScreenOpacityChange} fmt={(v) => Math.round(v * 100) + '%'} w={36} />}
             {m('PARTICLE DENSITY') && <Slider label="PARTICLE DENSITY" min={0} max={15} step={1} value={particleDensity} onChange={(v) => onParticleDensityChange(Math.round(v))} fmt={(v) => PARTICLE_DENSITY_LABELS[Math.round(v)] || '?'} w={70} />}
             {m('RENDER QUALITY') && <Slider label="RENDER QUALITY" min={0.5} max={window.devicePixelRatio} step={0.25} value={renderQuality} onChange={onRenderQualityChange} fmt={(v) => v >= window.devicePixelRatio ? 'NATIVE' : v.toFixed(2).replace(/\.?0+$/, '') + 'x'} w={52} />}
@@ -287,15 +294,8 @@ export function SettingsMenu({
             </div>)}
           </div>)}</>)}
 
-        {/* 4. FONTS */}
-        {sv(['HUB FONT SIZE','TERMINAL FONT SIZE','WIZARD FONT SIZE']) && (<><SectionHeader label="FONTS" expanded={isEx(secFonts)} onToggle={() => setSecFonts(!secFonts)} />
-          {isEx(secFonts) && (<div className="hal-settings-section-body">
-            {m('HUB FONT SIZE') && <Slider label="HUB FONT SIZE" min={7} max={18} step={1} value={hubFontSize} onChange={(v) => onHubFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
-            {m('TERMINAL FONT SIZE') && <Slider label="TERMINAL FONT SIZE" min={8} max={24} step={1} value={termFontSize} onChange={(v) => onTermFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
-            {m('WIZARD FONT SIZE') && <Slider label="WIZARD FONT SIZE" min={10} max={22} step={1} value={wizardFontSize} onChange={(v) => onWizardFontSize(Math.round(v))} fmt={(v) => Math.round(v) + 'px'} w={34} />}
-          </div>)}</>)}
 
-        {/* 5. TERMINAL */}
+        {/* 4. TERMINAL */}
         {sv(['TERMINAL DOCK','DOCK MODE','TERMINAL AI MODEL','DEFAULT IDE']) && (<><SectionHeader label="TERMINAL" expanded={isEx(secTerminal)} onToggle={() => setSecTerminal(!secTerminal)} />
           {isEx(secTerminal) && (<div className="hal-settings-section-body">
             {m('TERMINAL DOCK') && (<div className="hal-settings-row"><span className="hal-settings-label">TERMINAL DOCK</span><div className="hal-settings-control"><select className="hal-settings-select" value={dockPosition} onChange={(e) => onDockPositionChange(e.target.value as DockPosition)}>{DOCK_POSITIONS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}</select></div></div>)}
@@ -304,7 +304,7 @@ export function SettingsMenu({
             {m('DEFAULT IDE') && (<div className="hal-settings-row"><span className="hal-settings-label">DEFAULT IDE</span><div className="hal-settings-control"><select className="hal-settings-select" value={defaultIde} onChange={(e) => onDefaultIdeChange(e.target.value as IdeOptionId)}>{IDE_OPTIONS.map((ide) => <option key={ide.id} value={ide.id}>{ide.label}</option>)}</select></div></div>)}
           </div>)}</>)}
 
-        {/* 6. VOICE */}
+        {/* 5. VOICE */}
         {sv(['VOICE OUTPUT','VOICE PROFILE','VOICE REACTION']) && (<><SectionHeader label="VOICE" expanded={isEx(secVoice)} onToggle={() => setSecVoice(!secVoice)} />
           {isEx(secVoice) && (<div className="hal-settings-section-body">
             {m('VOICE OUTPUT') && (<div className="hal-settings-row"><span className="hal-settings-label">VOICE OUTPUT</span><div className="hal-settings-control"><Toggle value={voiceOut} onChange={onVoiceOut} /></div></div>)}
@@ -312,7 +312,7 @@ export function SettingsMenu({
             {m('VOICE REACTION') && <Slider label="VOICE REACTION" min={0} max={10} step={0.1} value={voiceReactionIntensity} onChange={onVoiceReactionIntensityChange} fmt={(v) => v.toFixed(1) + 'x'} w={36} />}
           </div>)}</>)}
 
-        {/* 7. PERSONALITY */}
+        {/* 6. PERSONALITY */}
         {sv(['HUMOR','FORMALITY','VERBOSITY','DRAMATIC','PERSONALITY PRESET']) && (<><SectionHeader label="PERSONALITY" expanded={isEx(secPersonality)} onToggle={() => setSecPersonality(!secPersonality)} />
           {isEx(secPersonality) && (<div className="hal-settings-section-body">
             {m('HUMOR') && <Slider label="HUMOR" min={0} max={100} step={1} value={personality.humor} onChange={(v) => onPersonalityChange('humor', Math.round(v))} fmt={(v) => Math.round(v) + '%'} w={36} />}
@@ -322,7 +322,7 @@ export function SettingsMenu({
             {m('PERSONALITY PRESET') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}><span className="hal-settings-label" style={{ fontSize: 'calc(var(--hub-font, 10px) - 2px)' }}>PRESETS</span><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{PERSONALITY_PRESETS.map((pr) => { const act = personality.humor === pr.values.humor && personality.formality === pr.values.formality && personality.verbosity === pr.values.verbosity && personality.dramatic === pr.values.dramatic; return (<button key={pr.name} className="hal-settings-preview-btn" onClick={() => onPersonalityPreset(pr.name)} style={{ width: 'auto', padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', letterSpacing: '1px', color: act ? 'var(--primary)' : 'var(--text-dim)', borderColor: act ? 'var(--primary)' : undefined, background: act ? 'rgba(132,204,22,0.08)' : undefined }}>{pr.label}</button>) })}</div></div>)}
           </div>)}</>)}
 
-        {/* 8. PRESETS */}
+        {/* 7. PRESETS */}
         {sv(['SAVE PRESET','LOAD PRESET']) && (<><SectionHeader label="PRESETS" expanded={isEx(secPresets)} onToggle={() => setSecPresets(!secPresets)} />
           {isEx(secPresets) && (<div className="hal-settings-section-body">
             {m('SAVE PRESET') && (<div className="hal-settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
@@ -336,7 +336,7 @@ export function SettingsMenu({
             {m('LOAD PRESET') && (<>{Object.keys(presets).length === 0 ? (<div className="hal-settings-row"><span className="hal-settings-label" style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>(no presets saved)</span></div>) : Object.keys(presets).map((nm) => (<div key={nm} className="hal-settings-row" style={{ marginBottom: 4 }}><span className="hal-settings-label" style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={'Load preset: ' + nm} onClick={() => handleLoadPreset(nm)}>{nm}</span><div style={{ display: 'flex', gap: 4, flexShrink: 0 }}><button className="hal-settings-preview-btn" onClick={() => handleLoadPreset(nm)} style={{ width: 'auto', padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', color: 'var(--primary)', borderColor: 'var(--primary-dim)' }}>LOAD</button><button className="hal-settings-preview-btn" onClick={() => handleDeletePreset(nm)} style={{ width: 'auto', padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', color: '#f87171', borderColor: '#f8717155' }}>DEL</button></div></div>))}</>)}
           </div>)}</>)}
 
-        {/* 9. SYSTEM */}
+        {/* 8. SYSTEM */}
         {sv(['LAUNCH ON STARTUP','TOKEN BUDGET','FULL FEATURES','BALANCED','AGGRESSIVE SAVER']) && (<><SectionHeader label="SYSTEM" expanded={isEx(secSystem)} onToggle={() => setSecSystem(!secSystem)} />
           {isEx(secSystem) && (<div className="hal-settings-section-body">
             {m('LAUNCH ON STARTUP') && (<div className="hal-settings-row"><span className="hal-settings-label">LAUNCH ON STARTUP</span><div className="hal-settings-control"><Toggle value={launchOnStartup} onChange={(nx) => { setLaunchOnStartup(nx); window.api?.setLaunchOnStartup?.(nx).catch(() => setLaunchOnStartup(!nx)) }} color="#22d3ee" /></div></div>)}
@@ -350,13 +350,13 @@ export function SettingsMenu({
             </>)}
           </div>)}</>)}
 
-        {/* 10. HIDDEN PROJECTS */}
+        {/* 9. HIDDEN PROJECTS */}
         {onUnhide && sv(['HIDDEN PROJECTS']) && (<><SectionHeader label="HIDDEN PROJECTS" expanded={isEx(secHidden)} onToggle={() => setSecHidden(!secHidden)} />
           {isEx(secHidden) && (<div className="hal-settings-section-body">
             {hiddenPaths.length === 0 ? (<div className="hal-settings-row"><span className="hal-settings-label" style={{ color: 'var(--text-dim)' }}>(none)</span></div>) : (<div className="hidden-projects-list">{hiddenPaths.map((hp) => { const nm = hp.split(/[/\\]/).pop() || hp; return (<div key={hp} className="hidden-project-item"><span className="hidden-project-name" title={hp}>{nm}</span><button className="hal-settings-preview-btn" onClick={() => onUnhide(hp)} style={{ padding: '2px 8px', fontSize: 'calc(var(--hub-font, 10px) - 2px)', width: 'auto', color: '#4ade80', borderColor: '#4ade8055' }}>RESTORE</button></div>) })}</div>)}
           </div>)}</>)}
 
-        {/* 11. DEMO MODE */}
+        {/* 10. DEMO MODE */}
         {demo && sv(['ENABLED','PROJECT CARDS','TERMINAL AREAS','MIN TABS','MAX TABS','VFX SPAWN FREQUENCY','DEMO TEXT','DEMO VOICE']) && (<><SectionHeader label="DEMO MODE" expanded={isEx(secDemo)} onToggle={() => setSecDemo(!secDemo)} />
           {isEx(secDemo) && (<div className="hal-settings-section-body">
             {m('ENABLED') && (<div className="hal-settings-row"><span className="hal-settings-label">ENABLED</span><div className="hal-settings-control"><Toggle value={demo.enabled} onChange={demo.setEnabled} color="#22d3ee" /></div></div>)}

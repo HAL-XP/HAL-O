@@ -8,29 +8,29 @@
 import { useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 
-export function AutoRotateManager({ searchActive = false }: { searchActive?: boolean }) {
+export function AutoRotateManager({ searchActive = false, enabled = true, speed = 0.12 }: { searchActive?: boolean; enabled?: boolean; speed?: number }) {
   const { controls } = useThree()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const interactingRef = useRef(false)
 
-  // Imperatively enable auto-rotate on mount
+  // Imperatively enable auto-rotate on mount and when enabled/speed props change
   useEffect(() => {
     if (!controls) return
     const oc = controls as any
-    oc.autoRotate = !searchActive
-    oc.autoRotateSpeed = 0.12
-  }, [controls]) // eslint-disable-line react-hooks/exhaustive-deps
+    oc.autoRotate = enabled && !searchActive
+    oc.autoRotateSpeed = speed
+  }, [controls, enabled, speed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause/resume on search state changes
   useEffect(() => {
     if (!controls) return
     const oc = controls as any
-    if (searchActive) {
+    if (!enabled || searchActive) {
       oc.autoRotate = false
     } else if (!interactingRef.current) {
       oc.autoRotate = true
     }
-  }, [searchActive, controls])
+  }, [searchActive, controls, enabled])
 
   useEffect(() => {
     if (!controls) return
@@ -45,7 +45,7 @@ export function AutoRotateManager({ searchActive = false }: { searchActive?: boo
     const onEnd = () => {
       interactingRef.current = false
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      if (searchActive) return
+      if (!enabled || searchActive) return
       // Wait for damping to settle before re-enabling autoRotate.
       // dampingFactor 0.12 settles in ~1s, so 1.2s is safe.
       timeoutRef.current = setTimeout(() => {
@@ -61,7 +61,7 @@ export function AutoRotateManager({ searchActive = false }: { searchActive?: boo
       oc.removeEventListener('end', onEnd)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [controls, searchActive])
+  }, [controls, searchActive, enabled])
 
   return null
 }

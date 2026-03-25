@@ -242,6 +242,8 @@ export interface SettingsState {
   chromaticAberrationEnabled: boolean
   floorLinesEnabled: boolean
   groupTrailsEnabled: boolean
+  autoRotateEnabled: boolean
+  autoRotateSpeed: number
   devlogSections: DevlogSections
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
@@ -271,6 +273,8 @@ export interface SettingsState {
   updateChromaticAberrationEnabled: (enabled: boolean) => void
   updateFloorLinesEnabled: (enabled: boolean) => void
   updateGroupTrailsEnabled: (enabled: boolean) => void
+  updateAutoRotateEnabled: (enabled: boolean) => void
+  updateAutoRotateSpeed: (speed: number) => void
   updateDevlogSection: (key: DevlogSectionKey, value: DevlogVerbosity) => void
   setAllDevlogSections: (value: DevlogVerbosity) => void
 }
@@ -305,6 +309,8 @@ interface SettingsData {
   chromaticAberrationEnabled: boolean
   floorLinesEnabled: boolean
   groupTrailsEnabled: boolean
+  autoRotateEnabled: boolean
+  autoRotateSpeed: number
   devlogSections: DevlogSections
 }
 
@@ -336,6 +342,8 @@ type SettingsAction =
   | { type: 'SET_CHROMATIC_ABERRATION_ENABLED'; value: boolean }
   | { type: 'SET_FLOOR_LINES_ENABLED'; value: boolean }
   | { type: 'SET_GROUP_TRAILS_ENABLED'; value: boolean }
+  | { type: 'SET_AUTO_ROTATE_ENABLED'; value: boolean }
+  | { type: 'SET_AUTO_ROTATE_SPEED'; value: number }
   | { type: 'SET_DEVLOG_SECTION'; key: DevlogSectionKey; value: DevlogVerbosity }
   | { type: 'SET_ALL_DEVLOG_SECTIONS'; value: DevlogVerbosity }
 
@@ -371,6 +379,8 @@ function settingsReducer(state: SettingsData, action: SettingsAction): SettingsD
     case 'SET_CHROMATIC_ABERRATION_ENABLED': return state.chromaticAberrationEnabled === action.value ? state : { ...state, chromaticAberrationEnabled: action.value }
     case 'SET_FLOOR_LINES_ENABLED': return state.floorLinesEnabled === action.value ? state : { ...state, floorLinesEnabled: action.value }
     case 'SET_GROUP_TRAILS_ENABLED': return state.groupTrailsEnabled === action.value ? state : { ...state, groupTrailsEnabled: action.value }
+    case 'SET_AUTO_ROTATE_ENABLED': return state.autoRotateEnabled === action.value ? state : { ...state, autoRotateEnabled: action.value }
+    case 'SET_AUTO_ROTATE_SPEED': return state.autoRotateSpeed === action.value ? state : { ...state, autoRotateSpeed: action.value }
     case 'SET_DEVLOG_SECTION': {
       if (state.devlogSections[action.key] === action.value) return state
       return { ...state, devlogSections: { ...state.devlogSections, [action.key]: action.value } }
@@ -485,6 +495,8 @@ function loadInitialState(): SettingsData {
     chromaticAberrationEnabled: localStorage.getItem('hal-o-chromatic-aberration') === 'true',
     floorLinesEnabled: localStorage.getItem('hal-o-floor-lines') !== 'false',
     groupTrailsEnabled: localStorage.getItem('hal-o-group-trails') === 'true',
+    autoRotateEnabled: localStorage.getItem('hal-o-auto-rotate') !== 'false',
+    autoRotateSpeed: parseFloat(localStorage.getItem('hal-o-auto-rotate-speed') || '0.12'),
     devlogSections,
   }
 }
@@ -662,6 +674,16 @@ export function useSettings(): SettingsState {
     localStorage.setItem('hal-o-group-trails', String(enabled))
   }, [])
 
+  const updateAutoRotateEnabled = useCallback((enabled: boolean) => {
+    dispatch({ type: 'SET_AUTO_ROTATE_ENABLED', value: enabled })
+    localStorage.setItem('hal-o-auto-rotate', String(enabled))
+  }, [])
+
+  const updateAutoRotateSpeed = useCallback((speed: number) => {
+    dispatch({ type: 'SET_AUTO_ROTATE_SPEED', value: speed })
+    localStorage.setItem('hal-o-auto-rotate-speed', String(speed))
+  }, [])
+
   const updateDevlogSection = useCallback((key: DevlogSectionKey, value: DevlogVerbosity) => {
     dispatch({ type: 'SET_DEVLOG_SECTION', key, value })
     const next = { ...state.devlogSections, [key]: value }
@@ -722,6 +744,8 @@ export function useSettings(): SettingsState {
     chromaticAberrationEnabled: state.chromaticAberrationEnabled,
     floorLinesEnabled: state.floorLinesEnabled,
     groupTrailsEnabled: state.groupTrailsEnabled,
+    autoRotateEnabled: state.autoRotateEnabled,
+    autoRotateSpeed: state.autoRotateSpeed,
     devlogSections: state.devlogSections,
     // ── callbacks ──
     updateHubFont,
@@ -752,6 +776,8 @@ export function useSettings(): SettingsState {
     updateChromaticAberrationEnabled,
     updateFloorLinesEnabled,
     updateGroupTrailsEnabled,
+    updateAutoRotateEnabled,
+    updateAutoRotateSpeed,
     updateDevlogSection,
     setAllDevlogSections,
   }), [
@@ -764,6 +790,7 @@ export function useSettings(): SettingsState {
     updateDefaultIde, updateActivityFeedback, updateDefaultTerminalModel,
     updateIntroAnimation, updateGraphicsPreset, updateBloomEnabled, updateChromaticAberrationEnabled,
     updateFloorLinesEnabled, updateGroupTrailsEnabled,
+    updateAutoRotateEnabled, updateAutoRotateSpeed,
     updateDevlogSection, setAllDevlogSections,
   ])
 }

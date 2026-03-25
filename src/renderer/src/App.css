@@ -131,30 +131,6 @@ html, body, #root {
   top: auto !important;
 }
 
-/* ── Font Size Toggle (global toolbar) ── */
-.font-size-toggle {
-  display: flex;
-  gap: 2px;
-}
-
-.font-size-btn {
-  width: 26px !important;
-}
-
-.font-size-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.font-size-value {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  min-width: 18px;
-  text-align: center;
-  line-height: 32px;
-  user-select: none;
-}
 
 /* ── Chat Area ── */
 .chat-area {

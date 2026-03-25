@@ -97,6 +97,11 @@ interface HudTopbarProps {
   onFloorLinesEnabledChange?: (enabled: boolean) => void
   groupTrailsEnabled?: boolean
   onGroupTrailsEnabledChange?: (enabled: boolean) => void
+  // UX9: Auto-rotate settings
+  autoRotateEnabled?: boolean
+  onAutoRotateEnabledChange?: (enabled: boolean) => void
+  autoRotateSpeed?: number
+  onAutoRotateSpeedChange?: (speed: number) => void
   // P14b: GPU wizard re-detect
   onRedetectGpu?: () => void
   // Task board — project list for filter dropdown
@@ -131,6 +136,8 @@ export function HudTopbar({
   chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange,
   floorLinesEnabled = false, onFloorLinesEnabledChange,
   groupTrailsEnabled = false, onGroupTrailsEnabledChange,
+  autoRotateEnabled = true, onAutoRotateEnabledChange,
+  autoRotateSpeed = 0.12, onAutoRotateSpeedChange,
   onRedetectGpu,
   projects = [],
   devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections,
@@ -250,6 +257,8 @@ export function HudTopbar({
           chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange ?? (() => {})}
           floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange ?? (() => {})}
           groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange ?? (() => {})}
+          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange ?? (() => {})}
+          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange ?? (() => {})}
           onRedetectGpu={onRedetectGpu}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange ?? (() => {})}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange ?? (() => {})}

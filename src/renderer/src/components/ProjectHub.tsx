@@ -93,6 +93,11 @@ interface Props {
   onFloorLinesEnabledChange?: (enabled: boolean) => void
   groupTrailsEnabled?: boolean
   onGroupTrailsEnabledChange?: (enabled: boolean) => void
+  // UX9: Auto-rotate settings
+  autoRotateEnabled?: boolean
+  onAutoRotateEnabledChange?: (enabled: boolean) => void
+  autoRotateSpeed?: number
+  onAutoRotateSpeedChange?: (speed: number) => void
   // P14b: GPU wizard re-detect
   onRedetectGpu?: () => void
   // U11: Embedded browser
@@ -113,7 +118,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections }: Props) {
+export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -732,6 +737,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
           floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
           groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
+          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
+          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
           onRedetectGpu={onRedetectGpu}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
@@ -813,6 +820,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           chromaticAberrationEnabled={chromaticAberrationEnabled}
           floorLinesEnabled={floorLinesEnabled}
           groupTrailsEnabled={groupTrailsEnabled}
+          autoRotateEnabled={autoRotateEnabled}
+          autoRotateSpeed={autoRotateSpeed}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
@@ -840,6 +849,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
           floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
           groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
+          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
+          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
           onRedetectGpu={onRedetectGpu}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
@@ -895,6 +906,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           onOpenIdeMenu={handleOpenIdeMenu}
           onOpenExternalTerminal={handleOpenExternalTerminal}
           onOpenBrowser={onOpenBrowser}
+          autoRotateEnabled={autoRotateEnabled}
+          autoRotateSpeed={autoRotateSpeed}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>
@@ -923,6 +936,8 @@ export function ProjectHub({ onNewProject, onConvertProject, onOpenTerminal, voi
           chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
           floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
           groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
+          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
+          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
           onRedetectGpu={onRedetectGpu}
           sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
           voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}

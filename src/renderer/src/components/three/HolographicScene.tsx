@@ -267,9 +267,12 @@ interface Props {
   onOpenExternalTerminal?: (projectPath: string) => void
   // U11: Embedded browser
   onOpenBrowser?: (projectPath: string, projectName: string) => void
+  // UX9: Auto-rotate settings
+  autoRotateEnabled?: boolean
+  autoRotateSpeed?: number
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, autoRotateEnabled = true, autoRotateSpeed = 0.12 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -374,7 +377,7 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
         dampingFactor={0.12}
         target={[0, 0.3, 0]}
       />
-      <AutoRotateManager />
+      <AutoRotateManager enabled={autoRotateEnabled} speed={autoRotateSpeed} />
 
       <PostProcessing />
       {onSceneReady && <HoloSceneReadyGate onReady={onSceneReady} />}
