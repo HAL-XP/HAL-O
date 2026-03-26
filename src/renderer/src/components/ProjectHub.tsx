@@ -713,6 +713,10 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
         style={{ left: pos.left, top: pos.top, transform: pos.transform, transition: 'left 0.5s, top 0.5s, transform 0.5s', animation: `cardFlyIn 0.5s ease-out ${i * 0.06}s both` }}
         onMouseEnter={() => setHovered(project.path)}
         onMouseLeave={() => setHovered(null)}
+        onDoubleClick={() => {
+          if (demo?.enabled) return
+          onOpenTerminal?.(project.path, project.name, true) // resume
+        }}
         onContextMenu={(e) => {
           {
             e.preventDefault()
