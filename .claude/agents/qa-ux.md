@@ -1,5 +1,6 @@
 ---
 name: qa-ux
+model: haiku
 description: QA validation, Playwright E2E tests, UX auditing, screenshot pipeline, demo mode
 tools: Read, Edit, Write, Bash, Glob, Grep
 disallowedTools: Agent

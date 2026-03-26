@@ -1,4 +1,5 @@
 {
+  "effortLevel": "high",
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
   },

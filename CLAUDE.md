@@ -60,3 +60,13 @@ powershell -ExecutionPolicy Bypass -File _scripts/_rebuild.ps1
 - GitHub Actions: Linux + Windows matrix
 - Smart TG notifications (first-red + recovery only)
 - Watch CI after every push — fix failures before moving on
+
+## Voice System
+- 2 voices: Hal (butler) + Hallie (soft). Pass `auto` to tts.py — V9 handles mood/tone.
+- Generate: `python C:/Users/dindo/.claude/scripts/tts.py "<text>" <output.ogg> auto <lang> [--play]`
+- Transcribe: `python C:/Users/dindo/.claude/scripts/transcribe.py "<path>"` (faster-whisper GPU)
+- Chain: Chatterbox (GPU) → Voicebox → Edge TTS → ElevenLabs (last resort)
+- "Zog zog" → orc profile. `[voice: X]` → profile X. French → `fr`.
+- Voice rewrite: casual spoken language, no paths/markdown, under 30s, match personality sliders.
+- Personality sliders in `~/.claude/hal-o-personality.json` (humor/formality/verbosity/dramatic 0-100).
+- Presets: DEFAULT, SERIOUS, TARS, MOVIE, BUTLER, CHAOS.

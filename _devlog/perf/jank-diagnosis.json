@@ -1,0 +1,15 @@
+{
+  "droppedFrames": 3,
+  "avgFrameMs": 99.93333333730698,
+  "maxFrameMs": 176.79999999701977,
+  "longTaskCount": 1,
+  "longTaskMaxMs": 168,
+  "longTasks": [
+    {
+      "ms": 168,
+      "detail": "self",
+      "ts": 4406.4000000059605
+    }
+  ],
+  "totalEntries": 4
+}
