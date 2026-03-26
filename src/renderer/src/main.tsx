@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ErrorToastContainer } from './components/ErrorToast'
+import { KeyboardOverlay } from './components/KeyboardOverlay'
 import { I18nContext, createT } from './i18n'
 import { LANGUAGES } from './i18n/types'
 import type { LanguageCode } from './i18n/types'
@@ -216,6 +217,7 @@ function Root() {
         <App />
       </ErrorBoundary>
       <ErrorToastContainer />
+      <KeyboardOverlay />
     </I18nContext.Provider>
   )
 }
