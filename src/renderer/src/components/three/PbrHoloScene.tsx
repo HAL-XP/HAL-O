@@ -999,16 +999,23 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
 
 // ── P4: Procedural HAL Eye Canvas — animated concentric rings pulsing outward ──
 // Renders at 30fps to a CanvasTexture used as emissiveMap on the inner core sphere.
+// Uses R3F's useFrame instead of a separate rAF loop to stay in sync with the render budget.
 function useHalEyeTexture(enabled: boolean): THREE.CanvasTexture | null {
+  const texRef      = useRef<THREE.CanvasTexture | null>(null)
+  const canvasRef   = useRef<HTMLCanvasElement | null>(null)
+  const ctxRef      = useRef<CanvasRenderingContext2D | null>(null)
+  const frameCountRef = useRef(0)
+  // State is set once on creation so consumers re-render with the new texture object.
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
-  const animRef = useRef<number>(0)
 
+  // Create / destroy canvas + texture when enabled flips.
   useEffect(() => {
     if (!enabled) {
-      // Clean up if disabled
-      if (animRef.current) cancelAnimationFrame(animRef.current)
-      animRef.current = 0
-      setTexture((prev) => { prev?.dispose(); return null })
+      texRef.current?.dispose()
+      texRef.current = null
+      canvasRef.current = null
+      ctxRef.current = null
+      setTexture(null)
       return
     }
 
@@ -1016,111 +1023,108 @@ function useHalEyeTexture(enabled: boolean): THREE.CanvasTexture | null {
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
+    canvasRef.current = canvas
+    ctxRef.current = canvas.getContext('2d')!
 
     const tex = new THREE.CanvasTexture(canvas)
     tex.colorSpace = THREE.SRGBColorSpace
+    texRef.current = tex
     setTexture(tex)
 
-    const ctx = canvas.getContext('2d')!
+    return () => {
+      tex.dispose()
+      texRef.current = null
+      canvasRef.current = null
+      ctxRef.current = null
+    }
+  }, [enabled])
+
+  // Draw inside R3F's frameloop, throttled to every 2nd frame (~30 fps at 60 fps).
+  useFrame((state) => {
+    if (!enabled || !ctxRef.current || !texRef.current) return
+    if (frameCountRef.current++ % 2 !== 0) return // 30fps throttle
+
+    const t = state.clock.elapsedTime // seconds
+    const ctx = ctxRef.current
+    const size = 256
     const cx = size / 2
     const cy = size / 2
 
-    let lastDraw = 0
-    const FPS_INTERVAL = 1000 / 30 // 30fps cap
+    ctx.clearRect(0, 0, size, size)
 
-    function draw(now: number) {
-      animRef.current = requestAnimationFrame(draw)
+    // Deep black background with subtle dark red gradient
+    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
+    bgGrad.addColorStop(0, 'rgba(40, 5, 5, 1)')
+    bgGrad.addColorStop(0.5, 'rgba(15, 2, 2, 1)')
+    bgGrad.addColorStop(1, 'rgba(0, 0, 0, 1)')
+    ctx.fillStyle = bgGrad
+    ctx.fillRect(0, 0, size, size)
 
-      // Throttle to 30fps
-      if (now - lastDraw < FPS_INTERVAL) return
-      lastDraw = now
+    // ── Concentric rings pulsing outward — HAL 9000 eye ──
+    const ringCount = 8
+    const maxRadius = cx * 0.92
 
-      const t = now * 0.001 // seconds
+    for (let i = 0; i < ringCount; i++) {
+      // Each ring expands outward over time, wrapping when it exceeds max radius
+      const phase = (t * 0.4 + i / ringCount) % 1.0
+      const radius = phase * maxRadius
 
-      ctx.clearRect(0, 0, size, size)
+      // Opacity: peak at center, fade at edges — with a sharper inner glow
+      const fadeIn = Math.min(1, phase * 4)        // quick fade in at center
+      const fadeOut = 1 - Math.pow(phase, 1.5)     // gradual fade out
+      const opacity = fadeIn * fadeOut * 0.7
 
-      // Deep black background with subtle dark red gradient
-      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx)
-      bgGrad.addColorStop(0, 'rgba(40, 5, 5, 1)')
-      bgGrad.addColorStop(0.5, 'rgba(15, 2, 2, 1)')
-      bgGrad.addColorStop(1, 'rgba(0, 0, 0, 1)')
-      ctx.fillStyle = bgGrad
-      ctx.fillRect(0, 0, size, size)
+      if (opacity < 0.01) continue
 
-      // ── Concentric rings pulsing outward — HAL 9000 eye ──
-      const ringCount = 8
-      const maxRadius = cx * 0.92
+      // Color: deep red core transitioning to orange-red at outer rings
+      const hue = 0 + phase * 15 // 0 (red) to 15 (red-orange)
+      const sat = 100 - phase * 20 // saturated center, slightly less at edges
+      const light = 30 + (1 - phase) * 30 // brighter center
 
-      for (let i = 0; i < ringCount; i++) {
-        // Each ring expands outward over time, wrapping when it exceeds max radius
-        const phase = (t * 0.4 + i / ringCount) % 1.0
-        const radius = phase * maxRadius
-
-        // Opacity: peak at center, fade at edges — with a sharper inner glow
-        const fadeIn = Math.min(1, phase * 4)        // quick fade in at center
-        const fadeOut = 1 - Math.pow(phase, 1.5)     // gradual fade out
-        const opacity = fadeIn * fadeOut * 0.7
-
-        if (opacity < 0.01) continue
-
-        // Color: deep red core transitioning to orange-red at outer rings
-        const hue = 0 + phase * 15 // 0 (red) to 15 (red-orange)
-        const sat = 100 - phase * 20 // saturated center, slightly less at edges
-        const light = 30 + (1 - phase) * 30 // brighter center
-
-        ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(1, radius), 0, Math.PI * 2)
-        ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, ${opacity})`
-        ctx.lineWidth = 3 + (1 - phase) * 4 // thicker at center
-        ctx.stroke()
-      }
-
-      // ── Central bright spot — the "pupil" ──
-      const pulseScale = 1 + Math.sin(t * 2.5) * 0.15
-      const coreRadius = 12 * pulseScale
-      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius * 2)
-      coreGrad.addColorStop(0, 'rgba(255, 80, 20, 0.95)')
-      coreGrad.addColorStop(0.3, 'rgba(200, 30, 10, 0.7)')
-      coreGrad.addColorStop(0.6, 'rgba(140, 10, 5, 0.3)')
-      coreGrad.addColorStop(1, 'rgba(60, 0, 0, 0)')
       ctx.beginPath()
-      ctx.arc(cx, cy, coreRadius * 2, 0, Math.PI * 2)
-      ctx.fillStyle = coreGrad
-      ctx.fill()
-
-      // ── Bright white-hot center pinpoint ──
-      const dotGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 4 * pulseScale)
-      dotGrad.addColorStop(0, 'rgba(255, 220, 180, 0.9)')
-      dotGrad.addColorStop(0.5, 'rgba(255, 120, 60, 0.5)')
-      dotGrad.addColorStop(1, 'rgba(200, 40, 10, 0)')
-      ctx.beginPath()
-      ctx.arc(cx, cy, 4 * pulseScale, 0, Math.PI * 2)
-      ctx.fillStyle = dotGrad
-      ctx.fill()
-
-      // ── Subtle rotating highlight — gives the eye a living quality ──
-      const highlightAngle = t * 0.7
-      const hx = cx + Math.cos(highlightAngle) * 20
-      const hy = cy + Math.sin(highlightAngle) * 20
-      const hlGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 35)
-      hlGrad.addColorStop(0, 'rgba(255, 100, 40, 0.12)')
-      hlGrad.addColorStop(1, 'rgba(255, 50, 20, 0)')
-      ctx.beginPath()
-      ctx.arc(hx, hy, 35, 0, Math.PI * 2)
-      ctx.fillStyle = hlGrad
-      ctx.fill()
-
-      tex.needsUpdate = true
+      ctx.arc(cx, cy, Math.max(1, radius), 0, Math.PI * 2)
+      ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light}%, ${opacity})`
+      ctx.lineWidth = 3 + (1 - phase) * 4 // thicker at center
+      ctx.stroke()
     }
 
-    animRef.current = requestAnimationFrame(draw)
+    // ── Central bright spot — the "pupil" ──
+    const pulseScale = 1 + Math.sin(t * 2.5) * 0.15
+    const coreRadius = 12 * pulseScale
+    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius * 2)
+    coreGrad.addColorStop(0, 'rgba(255, 80, 20, 0.95)')
+    coreGrad.addColorStop(0.3, 'rgba(200, 30, 10, 0.7)')
+    coreGrad.addColorStop(0.6, 'rgba(140, 10, 5, 0.3)')
+    coreGrad.addColorStop(1, 'rgba(60, 0, 0, 0)')
+    ctx.beginPath()
+    ctx.arc(cx, cy, coreRadius * 2, 0, Math.PI * 2)
+    ctx.fillStyle = coreGrad
+    ctx.fill()
 
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current)
-      animRef.current = 0
-      tex.dispose()
-    }
-  }, [enabled])
+    // ── Bright white-hot center pinpoint ──
+    const dotGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 4 * pulseScale)
+    dotGrad.addColorStop(0, 'rgba(255, 220, 180, 0.9)')
+    dotGrad.addColorStop(0.5, 'rgba(255, 120, 60, 0.5)')
+    dotGrad.addColorStop(1, 'rgba(200, 40, 10, 0)')
+    ctx.beginPath()
+    ctx.arc(cx, cy, 4 * pulseScale, 0, Math.PI * 2)
+    ctx.fillStyle = dotGrad
+    ctx.fill()
+
+    // ── Subtle rotating highlight — gives the eye a living quality ──
+    const highlightAngle = t * 0.7
+    const hx = cx + Math.cos(highlightAngle) * 20
+    const hy = cy + Math.sin(highlightAngle) * 20
+    const hlGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 35)
+    hlGrad.addColorStop(0, 'rgba(255, 100, 40, 0.12)')
+    hlGrad.addColorStop(1, 'rgba(255, 50, 20, 0)')
+    ctx.beginPath()
+    ctx.arc(hx, hy, 35, 0, Math.PI * 2)
+    ctx.fillStyle = hlGrad
+    ctx.fill()
+
+    texRef.current.needsUpdate = true
+  })
 
   return texture
 }
