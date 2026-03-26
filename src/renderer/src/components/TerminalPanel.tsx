@@ -206,7 +206,9 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
       // Auto-speak response when this terminal is the voice response target
       const isVoiceTarget = (window as any).__voiceResponseTarget === sessionId
       if (isVoiceTarget) {
+        // B31: Cap buffer at 4KB during accumulation — only last 800 chars are used anyway
         outputBufferRef.current += data
+        if (outputBufferRef.current.length > 4096) outputBufferRef.current = outputBufferRef.current.slice(-4096)
         if (ttsTimerRef.current) clearTimeout(ttsTimerRef.current)
         ttsTimerRef.current = setTimeout(() => {
           // Clear the target flag

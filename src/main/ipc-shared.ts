@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -36,6 +36,16 @@ export function run(cmd: string, cwd?: string): string {
   } catch (e: any) {
     throw new Error(e.stderr || e.message)
   }
+}
+
+/** B31: Async version of run() — use for IPC handlers to avoid blocking main process */
+export function runAsync(cmd: string, cwd?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { cwd, encoding: 'utf-8', shell: true, windowsHide: true }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr || err.message))
+      else resolve(stdout.trim())
+    })
+  })
 }
 
 export function findApiKey(): { key: string; source: string } {

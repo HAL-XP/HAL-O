@@ -47,10 +47,11 @@ export function AutoRotateManager({ searchActive = false, enabled = true, speed 
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       if (!enabled || searchActive) return
       // Wait for damping to settle before re-enabling autoRotate.
-      // dampingFactor 0.12 settles in ~1s, so 1.2s is safe.
+      // dampingFactor 0.12 settles in ~1s. B31: increased from 1.2s → 1.5s
+      // to reduce chance of jitter from autoRotate colliding with residual damping.
       timeoutRef.current = setTimeout(() => {
         oc.autoRotate = true
-      }, 1200)
+      }, 1500)
     }
 
     oc.addEventListener('start', onStart)

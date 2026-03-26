@@ -385,8 +385,9 @@ export function isSceneThrottled(): boolean { return _sceneThrottled }
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => { _sceneThrottled = document.hidden })
-  // Poll terminal focus
-  setInterval(() => { _sceneThrottled = document.hidden || isTerminalFocused() }, 500)
+  // B31: Reduced from 500ms to 2000ms — terminal focus check doesn't need to be fast.
+  // Still module-level (needed by module-level _sceneThrottled flag).
+  setInterval(() => { _sceneThrottled = document.hidden || isTerminalFocused() }, 2000)
 }
 import { DEFAULT_CAMERA, type CameraSettings, type SphereStyleId } from '../../hooks/useSettings'
 import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS, computeStackInfo } from '../../layouts3d'
@@ -541,13 +542,13 @@ function FloorEdgeMist({ radius = 16 }: { radius?: number }) {
     uRadius: { value: radius },
   }), []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep uniforms in sync with theme
-  useFrame(() => {
+  // B31: Use useEffect instead of useFrame — theme changes rarely, no need to parse hex 60×/s
+  useEffect(() => {
     if (matRef.current) {
       matRef.current.uniforms.uColor.value.set(theme.accentHex)
       matRef.current.uniforms.uBgColor.value.set(theme.backgroundHex)
     }
-  })
+  }, [theme.accentHex, theme.backgroundHex])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
@@ -770,11 +771,20 @@ function TexturedPlatform({ radius = 12, onLoad }: { radius?: number; onLoad?: (
     uRadius: { value: radius },
   }), []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // B31: Track last theme hex to skip string→Color parse unless theme actually changed
+  const lastThemeRef = useRef({ inner: '', outer: '' })
   useFrame((state) => {
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      matRef.current.uniforms.uInnerColor.value.set(theme.sphereHex)
-      matRef.current.uniforms.uOuterColor.value.set(theme.screenEdgeHex)
+      // Only parse hex when theme changes (not 60×/s)
+      if (lastThemeRef.current.inner !== theme.sphereHex) {
+        matRef.current.uniforms.uInnerColor.value.set(theme.sphereHex)
+        lastThemeRef.current.inner = theme.sphereHex
+      }
+      if (lastThemeRef.current.outer !== theme.screenEdgeHex) {
+        matRef.current.uniforms.uOuterColor.value.set(theme.screenEdgeHex)
+        lastThemeRef.current.outer = theme.screenEdgeHex
+      }
     }
     // Signal ready on first frame (no texture to wait for)
     if (!signaled.current) {
@@ -1699,7 +1709,11 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
             }
           }
           ;(geo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
-          geo.computeBoundingSphere()
+          // B31: Set bounding sphere manually instead of computing from all vertices.
+          // Lightning bolts extend max ~3 units from center — fixed bound is cheaper.
+          if (!geo.boundingSphere) geo.boundingSphere = new THREE.Sphere()
+          geo.boundingSphere.center.set(0, 0, 0)
+          geo.boundingSphere.radius = 4
         }
       }
 

@@ -5,7 +5,7 @@ import { ipcMain, shell } from 'electron'
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { exec, execSync } from 'child_process'
 import { join, normalize } from 'path'
-import { run } from './ipc-shared'
+import { run, runAsync } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames, openInIde, resolveIde, detectProjectIde, IDE_CANDIDATES } from './platform'
 import { terminalManager } from './terminal-manager'
 import { RULES_VERSION } from './version'
@@ -340,13 +340,14 @@ export function registerHubHandlers(): void {
     return { mode: 'hub', cinematicDemo }
   })
 
+  // B31: Use runAsync to avoid blocking main process on network requests
   ipcMain.handle('get-github-user', async () => {
-    try { return run('gh api user --jq .login') } catch { return '' }
+    try { return await runAsync('gh api user --jq .login') } catch { return '' }
   })
 
   ipcMain.handle('get-github-orgs', async () => {
     try {
-      const output = run('gh api user/orgs --jq ".[].login"')
+      const output = await runAsync('gh api user/orgs --jq ".[].login"')
       return output.split('\n').filter(Boolean)
     } catch { return [] }
   })
@@ -398,19 +399,20 @@ export function registerHubHandlers(): void {
   })
 
   // ── Get list of all supported IDEs + availability (U19) ──
+  // B31: async exec + cache (was execSync loop blocking main process)
+  let _ideCache: Array<{ id: string; name: string; shortLabel: string; available: boolean }> | null = null
   ipcMain.handle('get-available-ides', async (): Promise<Array<{ id: string; name: string; shortLabel: string; available: boolean }>> => {
+    if (_ideCache) return _ideCache
     const whichCmd = process.platform === 'win32' ? 'where' : 'which'
-    return IDE_CANDIDATES.map(ide => {
-      let available = false
-      try {
-        require('child_process').execSync(`${whichCmd} ${ide.cmd}`, {
-          encoding: 'utf-8', timeout: 3000,
-          stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+    const results = await Promise.all(IDE_CANDIDATES.map(ide =>
+      new Promise<{ id: string; name: string; shortLabel: string; available: boolean }>((resolve) => {
+        exec(`${whichCmd} ${ide.cmd}`, { encoding: 'utf-8', timeout: 3000, windowsHide: true }, (err) => {
+          resolve({ id: ide.id, name: ide.name, shortLabel: ide.shortLabel, available: !err })
         })
-        available = true
-      } catch { /* not available */ }
-      return { id: ide.id, name: ide.name, shortLabel: ide.shortLabel, available }
-    })
+      })
+    ))
+    _ideCache = results
+    return results
   })
 
   // ── Open external terminal at project path (U19) ──
