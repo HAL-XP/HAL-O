@@ -1341,9 +1341,10 @@ textarea.text-input {
   padding: 8px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
-  background: rgba(5, 10, 15, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* B31 PERF: Removed backdrop-filter:blur() — on 4K display over a live WebGL
+     canvas, blur forces full-resolution GPU composite pass every frame. Replace
+     with opaque background. Visual difference negligible. */
+  background: rgba(5, 10, 15, 0.88);
   font-size: var(--hub-font, 10px);
   min-width: 0;
   overflow: visible;

@@ -548,7 +548,9 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
   }, [filteredUnsorted, groups, assignments, isFavorite, demo?.enabled])
 
   // A project is "ready" if it has at least CLAUDE.md or .claude/ dir — batch files are optional
-  const isFullySetup = (p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir)
+  // B31 PERF: useCallback prevents new function ref every render → avoids cascading re-renders
+  // in all ScreenPanel instances that receive this as a prop
+  const isFullySetup = useCallback((p: ProjectInfo) => p.configLevel ? p.configLevel !== 'bare' : (p.hasClaude || p.hasClaudeDir), [])
   const readyCount = visibleProjects.filter(isFullySetup).length
 
   // ── Tactical Sectors: paginate allSorted into sectors ──

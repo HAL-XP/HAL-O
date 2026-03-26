@@ -38,11 +38,17 @@ export function registerVoiceHandlers(): void {
     const tempPath = join(tmpdir(), `halo_voice_${Date.now()}.ogg`)
     try {
       writeFileSync(tempPath, Buffer.from(audioBuffer))
-      const result = execSync(`${pythonExe} "${transcribeScript}" "${tempPath}"`, {
-        encoding: 'utf-8',
-        timeout: 30000,
-        shell: true,
-      }).trim()
+      // B31: Use async exec instead of execSync to avoid blocking main process
+      // for up to 30s during GPU transcription
+      const result = await new Promise<string>((resolve, reject) => {
+        require('child_process').exec(`${pythonExe} "${transcribeScript}" "${tempPath}"`, {
+          encoding: 'utf-8',
+          timeout: 30000,
+          shell: true,
+        }, (err: any, stdout: string) => {
+          if (err) reject(err); else resolve(stdout.trim())
+        })
+      })
       return { success: true, text: result }
     } catch (e: any) {
       return { success: false, text: '', error: e.message }
