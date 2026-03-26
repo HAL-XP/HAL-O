@@ -619,27 +619,16 @@ export const ScreenPanel = memo(function ScreenPanel({
           distanceFactor={4}
           position={[0, 0, 0.05]}
           zIndexRange={[1, 0]}
-          style={{
-            width: '260px',
-            padding: '12px 14px',
-            pointerEvents: 'auto',
-            cursor: 'pointer',
-            userSelect: 'none',
-          }}
+          className="sp-html-root"
           onPointerOver={() => setHoveredPath(projectPath)}
           onPointerOut={() => { if (_hoveredPath === projectPath) setHoveredPath(null) }}
         >
           <div
             ref={htmlWrapRef}
+            className="sp-card-wrap"
             onContextMenu={onContextMenu}
             onDoubleClick={onResume}
-            style={{
-            fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-            color: '#c8dce8',
-            transition: 'opacity 0.15s ease',
-            willChange: 'opacity',
-            position: 'relative',
-          }}>
+          >
             {/* CRT effects disabled for performance — N panels × infinite CSS animations = lag
             <div style={{
               position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10,
@@ -655,18 +644,7 @@ export const ScreenPanel = memo(function ScreenPanel({
             {/* U20: Terminal activity indicator — pulsing bar at bottom of card.
                 Always mounted but hidden via display:none by default.
                 Driven imperatively from useFrame reading the global activity map. */}
-            <div ref={activityBarRef} style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '2px',
-              pointerEvents: 'none',
-              zIndex: 12,
-              display: 'none',
-              justifyContent: 'center',
-              animation: 'activityPulse 1.5s ease-in-out infinite',
-            }}>
+            <div ref={activityBarRef} className="sp-activity-bar">
               <div style={{
                 width: '100%',
                 height: '2px',
@@ -677,21 +655,8 @@ export const ScreenPanel = memo(function ScreenPanel({
             {/* UX10: Heartbeat ECG monitor — CSS-only scrolling ECG line at bottom of card.
                 Uses a repeating SVG-encoded background of an ECG waveform, scrolled via animation.
                 Speed driven imperatively from useFrame based on terminal activity. */}
-            <div ref={heartbeatRef} style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '20px',
-              pointerEvents: 'none',
-              zIndex: 13,
-              display: 'none',
+            <div ref={heartbeatRef} className="sp-heartbeat" style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='20' viewBox='0 0 260 20'%3E%3Cpolyline fill='none' stroke='${encodeURIComponent(edgeColor)}' stroke-width='1.2' points='0,14 30,14 40,14 45,14 50,6 55,18 60,2 65,16 70,10 75,14 80,14 130,14 140,14 145,14 150,6 155,18 160,2 165,16 170,10 175,14 180,14 230,14 240,14 245,14 250,6 255,18 260,2'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'repeat-x',
-              backgroundSize: '260px 20px',
-              backgroundPosition: '0 0',
-              animation: 'ecgScroll 3s linear infinite',
-              opacity: 0,
             }} />
             {/* UX10: Activity-driven background glow — pulsing inset box-shadow behind content.
                 Color shifts: cyan (low) → green (medium) → amber (high).
@@ -699,23 +664,8 @@ export const ScreenPanel = memo(function ScreenPanel({
             <div ref={activityGlowRef} className="sp-activity-glow" />
             {/* Scrolling background status text — very low opacity, behind content */}
             {effectiveHealthText && (
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                overflow: 'hidden',
-                pointerEvents: 'none',
-                zIndex: 0,
-                opacity: effectiveHealth === 'ok' ? 0.08 : 0.12,
-              }}>
-                <div style={{
-                  fontFamily: "'Cascadia Code', 'Fira Code', monospace",
-                  fontSize: '9px',
-                  letterSpacing: '2px',
-                  color: edgeColor,
-                  whiteSpace: 'nowrap',
-                  lineHeight: '14px',
-                  animation: 'healthScrollY 8s linear infinite',
-                }}>
+              <div className="sp-health-scroll" style={{ opacity: effectiveHealth === 'ok' ? 0.08 : 0.12 }}>
+                <div className="sp-health-scroll-text" style={{ color: edgeColor }}>
                   {/* Repeat text to fill vertical space */}
                   {Array.from({ length: 12 }, (_, i) => (
                     <div key={i}>{effectiveHealthText}</div>
@@ -724,56 +674,39 @@ export const ScreenPanel = memo(function ScreenPanel({
                 {/* PERF: healthScrollY keyframe moved to App.css */}
               </div>
             )}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div className="sp-content">
+            <div className="sp-header-row">
               <span style={{
                 width: 7, height: 7, borderRadius: '50%',
                 background: ready ? ('#' + theme.success.getHexString()) : ('#' + theme.warning.getHexString()),
                 boxShadow: `0 0 8px ${ready ? ('#' + theme.success.getHexString()) : ('#' + theme.warning.getHexString())}`,
                 display: 'inline-block', flexShrink: 0,
               }} />
-              <span style={{ fontWeight: 700, letterSpacing: '1.5px', fontSize: '12px', textTransform: 'uppercase', color: '#ffffff' }}>
+              <span className="sp-project-name">
                 {projectName}
               </span>
               {isExternal && (
-                <span style={{
-                  fontSize: '7px', letterSpacing: '1px', color: '#c084fc',
-                  background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.4)',
-                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
-                  animation: 'extPulse 2s ease-in-out infinite',
-                }} title="External Claude session detected">
+                <span className="sp-badge-ext" title="External Claude session detected">
                   EXT
                 </span>
               )}
               {rulesOutdated && (
-                <span style={{
-                  fontSize: '7px', letterSpacing: '1px', color: '#fb923c',
-                  background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
-                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
-                }} title="HAL-O rules update available">
+                <span className="sp-badge-update" title="HAL-O rules update available">
                   UPDATE
                 </span>
               )}
               {inMerge && (
-                <span style={{
-                  fontSize: '7px', letterSpacing: '1px', color: '#ef4444',
-                  background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.5)',
-                  padding: '1px 4px', borderRadius: '2px', flexShrink: 0,
-                  animation: 'extPulse 2s ease-in-out infinite',
-                }} title="Merge conflicts detected">
+                <span className="sp-badge-merge" title="Merge conflicts detected">
                   MERGE
                 </span>
               )}
               {isFavorite && (
-                <span className="favorite-star" title="Favorite" style={{
-                  fontSize: '10px', color: '#fbbf24', flexShrink: 0, lineHeight: 1,
-                  textShadow: '0 0 6px rgba(251,191,36,0.6)',
-                }}>&#x2605;</span>
+                <span className="favorite-star sp-badge-fav" title="Favorite">&#x2605;</span>
               )}
             </div>
 
             {stack && (
-              <div style={{ marginBottom: '6px' }}>
+              <div className="sp-stack-row">
                 <span style={{
                   fontSize: '8px', color: accentHex,
                   background: stackBadgeBg,
@@ -787,26 +720,23 @@ export const ScreenPanel = memo(function ScreenPanel({
 
             {/* ── Project Stats ── */}
             {stats && (
-              <div style={{ marginBottom: '6px', fontSize: '8px', lineHeight: '1.5' }}>
+              <div className="sp-stats">
                 {/* Last commit */}
                 {stats.lastCommit && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px', color: '#8899bb' }}>
-                    <span style={{
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      maxWidth: '160px', color: '#a8bbd0',
-                    }} title={stats.lastCommit}>
+                  <div className="sp-stats-commit-row">
+                    <span className="sp-stats-commit-text" title={stats.lastCommit}>
                       {stats.lastCommit.length > 30 ? stats.lastCommit.slice(0, 28) + '..' : stats.lastCommit}
                     </span>
-                    <span style={{ flexShrink: 0, color: '#6688aa', fontSize: '7px' }}>
+                    <span className="sp-stats-time">
                       {timeAgo(stats.lastCommitTime)}
                     </span>
                   </div>
                 )}
 
                 {/* Activity bar + file count row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                <div className="sp-stats-bottom-row">
                   {/* 7-bar activity indicator */}
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '12px' }} title={`${stats.commitCount30d} commits (30d)`}>
+                  <div className="sp-activity-bars" title={`${stats.commitCount30d} commits (30d)`}>
                     {activityBars(stats.commitCount30d).map((v, i) => (
                       <div key={i} style={{
                         width: '3px',
@@ -818,19 +748,14 @@ export const ScreenPanel = memo(function ScreenPanel({
                         transition: 'height 0.3s ease',
                       }} />
                     ))}
-                    <span style={{ fontSize: '7px', color: '#6688aa', marginLeft: '3px' }}>
+                    <span className="sp-activity-count">
                       {stats.commitCount30d > 0 ? `${stats.commitCount30d}` : '0'}
                     </span>
                   </div>
 
                   {/* File count badge */}
                   {stats.fileCount > 0 && (
-                    <span style={{
-                      fontSize: '7px', color: '#6688aa',
-                      background: 'rgba(255,255,255,0.06)',
-                      padding: '1px 5px', borderRadius: '2px',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                    }}>
+                    <span className="sp-file-count">
                       {stats.fileCount} files
                     </span>
                   )}
@@ -838,7 +763,7 @@ export const ScreenPanel = memo(function ScreenPanel({
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            <div className="sp-btn-row">
               {isExternal && onAbsorb && (
                 <button onClick={onAbsorb} disabled={isAbsorbing} style={btnAbsorb}>
                   {isAbsorbing ? 'ABSORBING...' : 'ABSORB'}

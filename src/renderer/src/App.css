@@ -4697,6 +4697,177 @@ textarea.text-input {
   100% { transform: translateY(-50%); }
 }
 
+/* ── ScreenPanel static CSS classes (sp- prefix) ── */
+.sp-html-root {
+  width: 260px;
+  padding: 12px 14px;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+}
+.sp-card-wrap {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  color: #c8dce8;
+  transition: opacity 0.15s ease;
+  will-change: opacity;
+  position: relative;
+}
+.sp-activity-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  z-index: 12;
+  display: none;
+  justify-content: center;
+  animation: activityPulse 1.5s ease-in-out infinite;
+}
+.sp-heartbeat {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  pointer-events: none;
+  z-index: 13;
+  display: none;
+  background-repeat: repeat-x;
+  background-size: 260px 20px;
+  background-position: 0 0;
+  animation: ecgScroll 3s linear infinite;
+  opacity: 0;
+}
+.sp-health-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.sp-health-scroll-text {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  line-height: 14px;
+  animation: healthScrollY 8s linear infinite;
+}
+.sp-content {
+  position: relative;
+  z-index: 1;
+}
+.sp-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.sp-badge-ext {
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  animation: extPulse 2s ease-in-out infinite;
+}
+.sp-badge-update {
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.sp-badge-merge {
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  animation: extPulse 2s ease-in-out infinite;
+}
+.sp-badge-fav {
+  font-size: 10px;
+  color: #fbbf24;
+  flex-shrink: 0;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+.sp-stack-row {
+  margin-bottom: 6px;
+}
+.sp-stats {
+  margin-bottom: 6px;
+  font-size: 8px;
+  line-height: 1.5;
+}
+.sp-stats-commit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  color: #8899bb;
+}
+.sp-stats-commit-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+  color: #a8bbd0;
+}
+.sp-stats-time {
+  flex-shrink: 0;
+  color: #6688aa;
+  font-size: 7px;
+}
+.sp-stats-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.sp-activity-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.sp-activity-count {
+  font-size: 7px;
+  color: #6688aa;
+  margin-left: 3px;
+}
+.sp-file-count {
+  font-size: 7px;
+  color: #6688aa;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sp-btn-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.sp-project-name {
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
 /* ── CSS-INTRO: Staggered card fly-in animation for classic renderer ── */
 @keyframes cardFlyIn {
   from {

@@ -13,7 +13,7 @@ Report git status, latest CI run, running processes, top 5 backlog items from `p
 Check the latest GitHub Actions CI run status with `gh run list --limit 3` and report.
 
 ## board
-Read `project_todo_backlog.md` + recent git log, generate an interactive HTML Kanban dashboard (dark theme, HAL-O aesthetic: cyan/green accents, monospace, sci-fi mission control). Save to `<project-root>/temp/board.html` and open in browser.
+Read `project_todo_backlog.md` + recent git log, generate a two-column interactive HTML board (dark theme, HAL-O aesthetic). Left: Priority Queue (click + to add tasks, drag to reorder, numbered, Copy Prompt button). Right: Full task list grouped by TODO/BUGS/DECISIONS/DONE with search + tag filters. Compact rows, no vertical scroll waste. Save to `<project-root>/temp/board.html` and open in browser.
 
 ## push
 Commit all staged changes and push to remote immediately.

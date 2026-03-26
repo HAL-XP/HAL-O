@@ -5,6 +5,13 @@
 - Build must be clean and green before recording.
 - Record WITH AUDIO (not silent).
 - hal-o-demo-mode=true ALWAYS.
+- **DEBUG VALIDATE BEFORE EVERY RECORDING:**
+  1. `window.__haloPhotoMode.wireframe(true)` → screenshot → verify card positions (cyan), sphere (green), floor (gray)
+  2. `window.__haloPhotoMode.showSpline(keyframes)` → screenshot → verify camera path (yellow line + orange markers)
+  3. Check: cards centered vertically? Spline goes where expected? No overlap issues?
+  4. Save debug screenshot as `demo-vN-debug.jpg`
+  5. `wireframe(false)` + `hideSpline()` → THEN record
+  6. If debug screenshot shows bad framing, FIX CAMERA before recording. Never record blind.
 
 ## FEEDBACK ON V1 (must fix)
 - NO AUDIO was captured — ffmpeg gdigrab only captures video. Need to add audio: either `-f dshow -i audio="Stereo Mix"` or play audio through the app and capture with `-f dshow` audio input
