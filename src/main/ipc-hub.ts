@@ -642,12 +642,14 @@ export function registerHubHandlers(): void {
   })
 
   // ── B37: Dual-persist favorites (localStorage + JSON file backup) ──
-  const favPath = join(process.env.APPDATA || '', 'hal-o', 'favorites.json')
+  // Use ~/.hal-o/ (user home) NOT %APPDATA%/hal-o/ (which is Electron's userData dir
+  // and gets cleared by cache nuke operations)
+  const favDir = join(process.env.HOME || process.env.USERPROFILE || '', '.hal-o')
+  const favPath = join(favDir, 'favorites.json')
 
   ipcMain.handle('save-favorites', async (_event, paths: string[]) => {
     try {
-      const dir = join(process.env.APPDATA || '', 'hal-o')
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      if (!existsSync(favDir)) mkdirSync(favDir, { recursive: true })
       writeFileSync(favPath, JSON.stringify(paths, null, 2), 'utf-8')
       return { success: true }
     } catch (e: any) {
