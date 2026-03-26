@@ -916,6 +916,10 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           cinematicActive={cinematicActive}
           onCinematicComplete={() => setCinematicActive(false)}
           introAnimation={introAnimation}
+          onIntroComplete={() => {
+            // WELCOME1: Fire sphere greeting event after intro spline completes
+            dispatchSphereEvent({ type: 'success', intensity: 0.8 })
+          }}
           mergeStates={mergeStates}
           commitGraphs={commitGraphs}
           selectedConflictFile={selectedConflictFile}
