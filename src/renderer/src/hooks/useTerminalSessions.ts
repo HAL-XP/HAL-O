@@ -12,6 +12,13 @@ export interface TerminalSessionsState {
 
 // Module-level: hidden HAL session ID (PTY alive but tab closed)
 let _hiddenHalId: string | null = null
+// Module-level: external HAL session detected at boot (running outside the app)
+let _externalHalDetected = false
+
+/** Check if we're in a non-interactive context (tests, CI) */
+function isTestMode(): boolean {
+  return !!window.process?.argv?.some((a: string) => a.includes('--fast-wizards') || a.includes('--user-data-dir'))
+}
 
 export function useTerminalSessions(demoEnabled = false): TerminalSessionsState {
   const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
@@ -28,6 +35,9 @@ export function useTerminalSessions(demoEnabled = false): TerminalSessionsState 
   }, [termSessions])
 
   const openTerminal = useCallback((projectPath: string, projectName: string, resume: boolean) => {
+    // Guard: no PTY spawning in demo/test mode
+    if (demoEnabled || isTestMode()) return
+
     const id = projectPath.replace(/[^a-zA-Z0-9]/g, '_')
     if (termSessions.find((s) => s.id === id)) return
 
@@ -78,9 +88,9 @@ export function useTerminalSessions(demoEnabled = false): TerminalSessionsState 
 
   // Restore terminals — reconnect to running ptys (survives renderer reload)
   // AND restore from pending file (survives full app restart)
-  // Skip entirely in demo mode — no real PTY sessions to restore
+  // Skip entirely in demo mode, test mode, or CI — no real PTY sessions needed
   useEffect(() => {
-    if (!window.api || demoEnabled) return
+    if (!window.api || demoEnabled || isTestMode()) return
 
     // First: check for running pty sessions (renderer reload case)
     window.api.ptySessions().then((active) => {
@@ -109,6 +119,22 @@ export function useTerminalSessions(demoEnabled = false): TerminalSessionsState 
             openTerminal(s.projectPath, s.projectName, true)
           }
         }, 1000)
+      }).catch(() => {})
+    }
+
+    // Third: detect external HAL session (running outside the app, e.g. this terminal)
+    // Uses the async detect-external-sessions IPC which checks for Claude processes
+    if (window.api.detectExternalSessions) {
+      window.api.detectExternalSessions().then((sessions) => {
+        const halExternal = sessions.find((s: any) =>
+          s.projectPath?.toLowerCase().includes('hal-o') ||
+          s.projectName?.toLowerCase().includes('hal-o')
+        )
+        if (halExternal) {
+          _externalHalDetected = true
+          // Set hidden HAL ID so sphere shows ONLINE without a visible tab
+          _hiddenHalId = `_external_hal_${halExternal.pid}`
+        }
       }).catch(() => {})
     }
   }, [demoEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
