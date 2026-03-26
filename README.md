@@ -155,14 +155,12 @@ HAL-O is a standard Electron + React + Three.js app. No proprietary framework, n
 git clone https://github.com/HAL-XP/hal-o.git
 cd hal-o
 
-# Windows (recommended — runs the full setup wizard)
+# Windows — double-click START_HERE.bat or:
 START_HERE.bat
 
 # macOS / Linux
-chmod +x start_here.sh && ./start_here.sh
+npm install && npm run dev
 ```
-
-The wizard script handles dependency installation, native module compilation, and first-run setup.
 
 ### Manual install
 
