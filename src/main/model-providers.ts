@@ -77,14 +77,21 @@ function findApiKey(envVar: string): boolean {
   return false
 }
 
+// B31: async version — avoids blocking main process
+async function isOllamaRunningAsync(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:11434/api/version', { signal: AbortSignal.timeout(2000) })
+    return resp.ok
+  } catch {
+    return false
+  }
+}
+
+// Sync fallback for cache build (called rarely)
 function isOllamaRunning(): boolean {
   try {
-    // Quick check: try to hit the Ollama API health endpoint
-    // Use a synchronous approach — this is called infrequently
     execSync('curl -s --max-time 1 http://localhost:11434/api/version', {
-      stdio: 'pipe',
-      timeout: 2000,
-      windowsHide: true,
+      stdio: 'pipe', timeout: 2000, windowsHide: true,
     })
     return true
   } catch {
@@ -221,4 +228,64 @@ export function serializeProviders(providers: ModelProvider[]): ModelProviderSer
   return providers.map(({ id, name, type, label, baseUrl, available, description, models }) => ({
     id, name, type, label, baseUrl, available, description, models,
   }))
+}
+
+// ── Model Role Routing ──
+// Each role maps to a provider:model string (e.g. "ollama:qwen3:1.7b")
+
+export type ModelRole = 'dispatcher' | 'coder' | 'assistant' | 'qa' | 'voiceRewrite'
+
+export interface ModelRoutingConfig {
+  dispatcher: string
+  coder: string
+  assistant: string
+  qa: string
+  voiceRewrite: string
+}
+
+export const MODEL_ROUTING_PRESETS: Record<string, { label: string; config: ModelRoutingConfig; description: string }> = {
+  hybrid: {
+    label: 'HYBRID (RECOMMENDED)',
+    description: 'Local dispatcher + Claude for coding. Best cost/quality balance.',
+    config: {
+      dispatcher: 'ollama:qwen3:1.7b',
+      coder: 'anthropic:claude-sonnet',
+      assistant: 'anthropic:claude-haiku',
+      qa: 'anthropic:claude-haiku',
+      voiceRewrite: 'ollama:qwen3:1.7b',
+    },
+  },
+  fullLocal: {
+    label: 'FULL LOCAL',
+    description: 'Everything runs locally. Zero API cost. Requires GPU.',
+    config: {
+      dispatcher: 'ollama:qwen3:1.7b',
+      coder: 'ollama:qwen3:8b',
+      assistant: 'ollama:qwen3:1.7b',
+      qa: 'ollama:qwen3:1.7b',
+      voiceRewrite: 'ollama:qwen3:1.7b',
+    },
+  },
+  claudeOnly: {
+    label: 'CLAUDE ONLY',
+    description: 'All roles use Claude. No local setup needed. Highest quality + cost.',
+    config: {
+      dispatcher: 'anthropic:claude-haiku',
+      coder: 'anthropic:claude-sonnet',
+      assistant: 'anthropic:claude-haiku',
+      qa: 'anthropic:claude-haiku',
+      voiceRewrite: 'anthropic:claude-haiku',
+    },
+  },
+  budget: {
+    label: 'BUDGET',
+    description: 'Local dispatcher, cheapest cloud for coding. Minimal spend.',
+    config: {
+      dispatcher: 'ollama:qwen3:1.7b',
+      coder: 'anthropic:claude-haiku',
+      assistant: 'ollama:qwen3:1.7b',
+      qa: 'ollama:qwen3:1.7b',
+      voiceRewrite: 'ollama:qwen3:1.7b',
+    },
+  },
 }
