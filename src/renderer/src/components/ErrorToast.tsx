@@ -54,6 +54,11 @@ function summarizeError(error: unknown): { summary: string; suggestion: string; 
 type PushFn = (summary: string, suggestion: string, detail: string) => void
 let pushToast: PushFn | null = null
 
+/** Show a toast from anywhere (module-level singleton). */
+export function showToast(summary: string, suggestion = '', detail = '') {
+  pushToast?.(summary, suggestion, detail)
+}
+
 // ── Auto-dismiss duration ──
 const DISMISS_MS = 8000
 

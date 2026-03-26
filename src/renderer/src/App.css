@@ -4632,3 +4632,25 @@ textarea.text-input {
 .tutorial-next-btn svg {
   stroke: #00ffff;
 }
+
+/* ── PERF: ScreenPanel keyframes — extracted from inline <style> to avoid per-panel duplication ── */
+@keyframes crtSweep {
+  0% { top: -2px; }
+  100% { top: 100%; }
+}
+@keyframes extPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes activityPulse {
+  0%, 100% { opacity: 0.5; transform: scaleX(0.3); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes ecgScroll {
+  0% { background-position: 0 0; }
+  100% { background-position: -260px 0; }
+}
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}

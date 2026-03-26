@@ -651,28 +651,7 @@ export const ScreenPanel = memo(function ScreenPanel({
               background: `linear-gradient(90deg, transparent, ${edgeColor}44, transparent)`,
               pointerEvents: 'none', zIndex: 11, animation: 'crtSweep 3s linear infinite', opacity: 0.6,
             }} /> */}
-            <style>{`
-              @keyframes crtSweep {
-                0% { top: -2px; }
-                100% { top: 100%; }
-              }
-              @keyframes extPulse {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 1; }
-              }
-              @keyframes activityPulse {
-                0%, 100% { opacity: 0.5; transform: scaleX(0.3); }
-                50% { opacity: 1; transform: scaleX(1); }
-              }
-              @keyframes ecgScroll {
-                0% { background-position: 0 0; }
-                100% { background-position: -260px 0; }
-              }
-              @keyframes glowPulse {
-                0%, 100% { opacity: 0.4; }
-                50% { opacity: 1; }
-              }
-            `}</style>
+            {/* PERF: keyframes moved to App.css — no per-panel duplication */}
             {/* U20: Terminal activity indicator — pulsing bar at bottom of card.
                 Always mounted but hidden via display:none by default.
                 Driven imperatively from useFrame reading the global activity map. */}

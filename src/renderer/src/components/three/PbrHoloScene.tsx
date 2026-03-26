@@ -16,6 +16,7 @@ import { IntroSequence } from './IntroSequence'
 import { MergeGraph } from './MergeGraph'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
+import { showToast } from '../ErrorToast'
 
 // ── U4: Sphere Event System — visual feedback channel for system events ──
 export type SphereEventType = 'success' | 'error' | 'warning' | 'info' | 'push'
@@ -3513,11 +3514,11 @@ function PbrSceneInner({
                 projectPath={project.path}
                 stack={project.stack}
                 ready={isFullySetup(project)}
-                onResume={() => { if (demo?.enabled) return; onOpenTerminal?.(project.path, project.name, true) }}
-                onNewSession={() => { if (demo?.enabled) return; onOpenTerminal?.(project.path, project.name, false) }}
-                onFiles={() => { if (demo?.enabled) return; window.api.openFolder(project.path) }}
+                onResume={() => { if (demo?.enabled) { showToast('Demo project', 'This is a demo project — no real session to resume'); return } onOpenTerminal?.(project.path, project.name, true) }}
+                onNewSession={() => { if (demo?.enabled) { showToast('Demo project', 'This is a demo project — no real path'); return } onOpenTerminal?.(project.path, project.name, false) }}
+                onFiles={() => { if (demo?.enabled) { showToast('Demo project', 'This is a demo project — no real files'); return } window.api.openFolder(project.path) }}
                 runCmd={project.runCmd}
-                onRunApp={project.runCmd ? () => { if (demo?.enabled) return; window.api.runApp(project.path, project.runCmd) } : undefined}
+                onRunApp={project.runCmd ? () => { if (demo?.enabled) { showToast('Demo project', 'This is a demo project — no real command'); return } window.api.runApp(project.path, project.runCmd) } : undefined}
                 groupColor={projectGroupColors[i]}
                 healthStatus={(project as any).configLevel === 'bare' ? 'neutral' : !isFullySetup(project) ? 'warning' : 'ok'}
                 rulesOutdated={(project as any).rulesOutdated === true}
