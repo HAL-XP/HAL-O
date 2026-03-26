@@ -696,15 +696,7 @@ export const ScreenPanel = memo(function ScreenPanel({
             {/* UX10: Activity-driven background glow — pulsing inset box-shadow behind content.
                 Color shifts: cyan (low) → green (medium) → amber (high).
                 Driven imperatively from useFrame. */}
-            <div ref={activityGlowRef} style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              zIndex: 0,
-              display: 'none',
-              borderRadius: '2px',
-              animation: 'glowPulse 3s ease-in-out infinite',
-            }} />
+            <div ref={activityGlowRef} className="sp-activity-glow" />
             {/* Scrolling background status text — very low opacity, behind content */}
             {effectiveHealthText && (
               <div style={{
@@ -729,12 +721,7 @@ export const ScreenPanel = memo(function ScreenPanel({
                     <div key={i}>{effectiveHealthText}</div>
                   ))}
                 </div>
-                <style>{`
-                  @keyframes healthScrollY {
-                    0% { transform: translateY(0); }
-                    100% { transform: translateY(-50%); }
-                  }
-                `}</style>
+                {/* PERF: healthScrollY keyframe moved to App.css */}
               </div>
             )}
             <div style={{ position: 'relative', zIndex: 1 }}>

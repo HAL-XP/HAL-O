@@ -4655,6 +4655,22 @@ textarea.text-input {
   50% { opacity: 1; }
 }
 
+/* ── PERF: ScreenPanel extracted static styles ── */
+.sp-activity-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  display: none;
+  border-radius: 2px;
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes healthScrollY {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
 /* ── CSS-INTRO: Staggered card fly-in animation for classic renderer ── */
 @keyframes cardFlyIn {
   from {
