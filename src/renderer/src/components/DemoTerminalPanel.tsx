@@ -74,8 +74,16 @@ export function DemoTerminalPanel({ feedEntries, active, fontSize = 13, startOff
     termRef.current = term
     fitRef.current = fit
 
-    // Feed playback is managed by a separate effect that respects `active`
-    // Just store term ref here, playback starts in the active-watching effect
+    // DEMO-TERM: Pre-fill terminal with initial content so it looks alive from frame one.
+    // Instantly write the first ~40% of the feed (no delay) so screenshots/videos show content.
+    const prefillCount = Math.min(Math.floor(feedEntries.length * 0.4), 25)
+    const offset = startOffset % feedEntries.length
+    for (let i = 0; i < prefillCount; i++) {
+      const entry = feedEntries[(offset + i) % feedEntries.length]
+      term.write(entry.text)
+    }
+    // Start timed playback from where pre-fill left off
+    feedIndexRef.current = (offset + prefillCount) % feedEntries.length
 
     // Resize handling
     const container = containerRef.current
