@@ -11,6 +11,7 @@ interface Props {
   hideDist?: number
   densityLevel?: number  // 0-15 index into DENSITY_MULTIPLIERS
   fadeMultiplier?: number // 0-1, external fade control for staged scene loading
+  brightnessOverride?: number // -1 = use theme default (theme.style.particleBrightness)
 }
 
 // Pre-allocated scratch vectors — never allocate in useFrame
@@ -22,7 +23,7 @@ const _v3 = new THREE.Vector3()
  * Particle count scales with project count and density setting.
  * Colors are derived from the active 3D theme.
  */
-export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fadeMultiplier = 1 }: Props) {
+export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fadeMultiplier = 1, brightnessOverride = -1 }: Props) {
   const theme = useThreeTheme()
   const pointsRef = useRef<THREE.Points>(null)
 
@@ -146,7 +147,7 @@ export function DataParticles({ projectCount, hideDist = 4, densityLevel = 8, fa
       mat.uniforms.uTime.value = elapsed
       mat.uniforms.uHideDist.value = hideDist
       mat.uniforms.uFade.value = fadeMultiplier
-      mat.uniforms.uBrightness.value = theme.style?.particleBrightness ?? 1.0
+      mat.uniforms.uBrightness.value = brightnessOverride >= 0 ? brightnessOverride : (theme.style?.particleBrightness ?? 1.0)
     }
 
     for (let i = 0; i < count; i++) {

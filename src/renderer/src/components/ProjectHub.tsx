@@ -120,6 +120,15 @@ interface Props {
   // Tactical Sectors
   cardsPerSector?: number
   onCardsPerSectorChange?: (n: number) => void
+  // Theme parameter overrides (-1 = use theme default)
+  bloomIntensityOverride?: number
+  onBloomIntensityOverrideChange?: (v: number) => void
+  gridOpacityOverride?: number
+  onGridOpacityOverrideChange?: (v: number) => void
+  particleBrightnessOverride?: number
+  onParticleBrightnessOverrideChange?: (v: number) => void
+  vignetteOverride?: number
+  onVignetteOverrideChange?: (v: number) => void
 }
 
 function timeAgo(ms: number): string {
@@ -132,7 +141,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone, cardsPerSector = 16, onCardsPerSectorChange }: Props) {
+export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone, cardsPerSector = 16, onCardsPerSectorChange, bloomIntensityOverride = -1, onBloomIntensityOverrideChange, gridOpacityOverride = -1, onGridOpacityOverrideChange, particleBrightnessOverride = -1, onParticleBrightnessOverrideChange, vignetteOverride = -1, onVignetteOverrideChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -923,6 +932,10 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           sectorDirection={sectors.transitionDirection}
           sectorHue={sectors.sectorHue}
           sectorHudText={sectors.hasSectors ? getSectorHudText(sectors.currentSector, sectors.totalSectors, sectors.sectorProjects.length) : undefined}
+          bloomIntensityOverride={bloomIntensityOverride}
+          gridOpacityOverride={gridOpacityOverride}
+          particleBrightnessOverride={particleBrightnessOverride}
+          vignetteOverride={vignetteOverride}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>

@@ -165,7 +165,7 @@ export function App() {
   // UX16: Focus zone management — 'hub' or 'terminal'
   const { focusZone } = useFocusZone(termSessions.length > 0 || (demo.enabled && (demo.terminalCount ?? 0) > 0))
   const settingsState = useSettings()
-  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback, graphicsPreset, updateGraphicsPreset, bloomEnabled, updateBloomEnabled, chromaticAberrationEnabled, updateChromaticAberrationEnabled, floorLinesEnabled, updateFloorLinesEnabled, groupTrailsEnabled, updateGroupTrailsEnabled, autoRotateEnabled, updateAutoRotateEnabled, autoRotateSpeed, updateAutoRotateSpeed, cardsPerSector, updateCardsPerSector, devlogSections, updateDevlogSection, setAllDevlogSections } = settingsState
+  const { hubFontSize, termFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, camera, cameraTweaking, particleDensity, renderQuality, rendererId, layoutId, threeTheme, shipVfxEnabled, sphereStyle, voiceReactionIntensity, personality, defaultIde, defaultTerminalModel, introAnimation, updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile, updateDockPosition, updateScreenOpacity, updateCamera, updateCameraTweaking, resetCamera, updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout, updateThreeTheme, updateShipVfxEnabled, updateSphereStyle, updateVoiceReactionIntensity, updatePersonality, applyPersonalityPreset, updateDefaultIde, updateDefaultTerminalModel, updateIntroAnimation, activityFeedback, updateActivityFeedback, graphicsPreset, updateGraphicsPreset, bloomEnabled, updateBloomEnabled, chromaticAberrationEnabled, updateChromaticAberrationEnabled, floorLinesEnabled, updateFloorLinesEnabled, groupTrailsEnabled, updateGroupTrailsEnabled, autoRotateEnabled, updateAutoRotateEnabled, autoRotateSpeed, updateAutoRotateSpeed, cardsPerSector, updateCardsPerSector, devlogSections, updateDevlogSection, setAllDevlogSections, bloomIntensityOverride, updateBloomIntensityOverride, gridOpacityOverride, updateGridOpacityOverride, particleBrightnessOverride, updateParticleBrightnessOverride, vignetteOverride, updateVignetteOverride } = settingsState
 
   // ── U11: Embedded browser panel state ──
   const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([])
@@ -638,6 +638,14 @@ export function App() {
             onDevlogSectionChange={updateDevlogSection}
             onSetAllDevlogSections={setAllDevlogSections}
             focusZone={focusZone}
+            bloomIntensityOverride={bloomIntensityOverride}
+            onBloomIntensityOverrideChange={updateBloomIntensityOverride}
+            gridOpacityOverride={gridOpacityOverride}
+            onGridOpacityOverrideChange={updateGridOpacityOverride}
+            particleBrightnessOverride={particleBrightnessOverride}
+            onParticleBrightnessOverrideChange={updateParticleBrightnessOverride}
+            vignetteOverride={vignetteOverride}
+            onVignetteOverrideChange={updateVignetteOverride}
           />
         </div>
         {hasTerminals && (

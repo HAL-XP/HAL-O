@@ -595,7 +595,7 @@ function FloorEdgeMist({ radius = 16 }: { radius?: number }) {
 }
 
 // ── Grid Lines (separate mesh on top of reflective floor) ──
-function GridOverlay({ radius = 16 }: { radius?: number }) {
+function GridOverlay({ radius = 16, opacityOverride = -1 }: { radius?: number; opacityOverride?: number }) {
   const theme = useThreeTheme()
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
@@ -605,15 +605,21 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
     return [c.r, c.g, c.b]
   }, [theme.gridLine])
 
-  useFrame((_, delta) => {
-    if (matRef.current) matRef.current.uniforms.uTime.value += delta
-  })
+  // Derive the opacity multiplier: override wins when >= 0, else use theme gridOpacity (default 1)
+  const gridOpacityMult = opacityOverride >= 0 ? opacityOverride : (theme.style?.gridOpacity ?? 1.0)
 
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uGridColor: { value: new THREE.Vector3(gridRGB[0], gridRGB[1], gridRGB[2]) },
     uRadius: { value: radius },
+    uOpacity: { value: 1.0 },
   }), [gridRGB, radius])
+
+  useFrame((_, delta) => {
+    if (!matRef.current) return
+    matRef.current.uniforms.uTime.value += delta
+    matRef.current.uniforms.uOpacity.value = gridOpacityMult
+  })
 
   return (
     // Geometry is 20% larger than uRadius so the polygon edge sits at 120% radius —
@@ -638,6 +644,7 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
           uniform float uTime;
           uniform vec3 uGridColor;
           uniform float uRadius;
+          uniform float uOpacity;
           varying vec3 vWorldPos;
           void main() {
             float dist = length(vWorldPos.xz);
@@ -655,7 +662,7 @@ function GridOverlay({ radius = 16 }: { radius?: number }) {
             float fadeStart = uRadius * 0.55;
             float edge = smoothstep(uRadius, fadeStart, dist);
             vec3 color = uGridColor * line * 0.5;
-            float alpha = line * 0.1 * edge;
+            float alpha = line * 0.1 * edge * uOpacity;
             gl_FragColor = vec4(color, alpha);
           }
         `}
@@ -2503,11 +2510,12 @@ class PostFXErrorBoundary extends React.Component<{ children: React.ReactNode },
   render() { return this.state.hasError ? null : this.props.children }
 }
 
-function PostFXInner({ bloomEnabled = true, chromaticAberrationEnabled = false }: { bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean }) {
+function PostFXInner({ bloomEnabled = true, chromaticAberrationEnabled = false, bloomIntensityOverride = -1, vignetteOverride = -1 }: { bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean; bloomIntensityOverride?: number; vignetteOverride?: number }) {
   const theme = useThreeTheme()
   const { gl } = useThree()
   const chromaticVal = theme.style?.chromaticOffset ?? 0.0006
-  const vignetteVal = theme.style?.vignetteStrength ?? 0.6
+  const vignetteVal = vignetteOverride >= 0 ? vignetteOverride : (theme.style?.vignetteStrength ?? 0.6)
+  const bloomIntensity = bloomIntensityOverride >= 0 ? bloomIntensityOverride : theme.bloom.intensity
   const offset = useMemo(() => new Vector2(chromaticVal, chromaticVal), [chromaticVal])
 
   // Derive a stable key from the gl context id so EffectComposer remounts
@@ -2519,20 +2527,20 @@ function PostFXInner({ bloomEnabled = true, chromaticAberrationEnabled = false }
   if (!gl?.domElement || !gl?.getContext?.()) return null
   return (
     <EffectComposer key={glKey}>
-      {bloomEnabled && <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={theme.bloom.intensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />}
+      {bloomEnabled && <Bloom luminanceThreshold={theme.bloom.threshold} luminanceSmoothing={0.8} intensity={bloomIntensity} radius={Math.min(theme.bloom.radius, 0.5)} width={512} height={512} />}
       {chromaticAberrationEnabled && <ChromaticAberration offset={offset} blendFunction={BlendFunction.NORMAL} />}
       <Vignette darkness={vignetteVal} offset={0.3} />
     </EffectComposer>
   )
 }
 
-function PostFX({ enabled = true, bloomEnabled = true, chromaticAberrationEnabled = false }: { enabled?: boolean; bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean }) {
+function PostFX({ enabled = true, bloomEnabled = true, chromaticAberrationEnabled = false, bloomIntensityOverride = -1, vignetteOverride = -1 }: { enabled?: boolean; bloomEnabled?: boolean; chromaticAberrationEnabled?: boolean; bloomIntensityOverride?: number; vignetteOverride?: number }) {
   const [ready, setReady] = useState(false)
   useEffect(() => { if (enabled) setReady(true) }, [enabled])
   if (!ready) return null
   return (
     <PostFXErrorBoundary>
-      <PostFXInner bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} />
+      <PostFXInner bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} bloomIntensityOverride={bloomIntensityOverride} vignetteOverride={vignetteOverride} />
     </PostFXErrorBoundary>
   )
 }
@@ -3040,6 +3048,11 @@ interface Props {
   sectorHudText?: string
   // Demo mode
   demo?: any // DemoSettings
+  // Theme parameter overrides (-1 = use theme default)
+  bloomIntensityOverride?: number
+  gridOpacityOverride?: number
+  particleBrightnessOverride?: number
+  vignetteOverride?: number
 }
 
 // ── Inner scene wrapper — manages phase state inside R3F context (useFrame) ──
@@ -3112,6 +3125,11 @@ interface PbrSceneInnerProps {
   sectorHudText: string
   // Demo mode
   demo?: any // DemoSettings
+  // Theme parameter overrides (-1 = use theme default)
+  bloomIntensityOverride: number
+  gridOpacityOverride: number
+  particleBrightnessOverride: number
+  vignetteOverride: number
 }
 
 function PbrSceneInner({
@@ -3131,6 +3149,7 @@ function PbrSceneInner({
   autoRotateEnabled, autoRotateSpeed,
   sectorTransitioning, sectorDirection, sectorHue, sectorHudText,
   demo,
+  bloomIntensityOverride, gridOpacityOverride, particleBrightnessOverride, vignetteOverride,
 }: PbrSceneInnerProps) {
   // PERF6: hoveredId moved to module-level ref in ScreenPanel.tsx — zero parent re-renders on hover
   const flybyRef = useRef<SpaceshipFlybyHandle>(null)
@@ -3588,11 +3607,11 @@ function PbrSceneInner({
           <FloorEdgeMist radius={floorRadius} />
           {/* B27v3: ALL floor line components gated — TexturedPlatform was always-on and causing horizontal bars */}
           {floorLinesEnabled && <TexturedPlatform radius={platformRadius} onLoad={() => setTextureLoaded(true)} />}
-          {floorLinesEnabled && <GridOverlay radius={floorRadius} />}
+          {floorLinesEnabled && <GridOverlay radius={floorRadius} opacityOverride={gridOpacityOverride} />}
           {floorLinesEnabled && <PbrRingPlatform radius={ringPlatformRadius} />}
 
           {/* Ambient data particles — faded in at phase 3 */}
-          <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} />
+          <DataParticles projectCount={projects.length} hideDist={camera.particleHideDist} densityLevel={particleDensity} fadeMultiplier={fadeRef.current.particles} brightnessOverride={particleBrightnessOverride} />
 
           {/* Scrolling HUD text strips */}
           <HudScrollText opacity={fadeRef.current.hud} />
@@ -3663,7 +3682,7 @@ function PbrSceneInner({
       <SceneReadyGate textureReady={textureLoaded} onReady={() => { setSceneReady(true); onSceneReady?.() }} />
       <ScenePhaseManager sceneReady={sceneReady} onPhaseChange={setScenePhase} />
 
-      <PostFX enabled={scenePhase >= 3} bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} />
+      <PostFX enabled={scenePhase >= 3} bloomEnabled={bloomEnabled} chromaticAberrationEnabled={chromaticAberrationEnabled} bloomIntensityOverride={bloomIntensityOverride} vignetteOverride={vignetteOverride} />
     </>
   )
 }
@@ -3693,7 +3712,7 @@ function InvalidateExporter({ invalidateRef }: { invalidateRef: React.MutableRef
   return null
 }
 
-export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12, sectorTransitioning = false, sectorDirection = 0, sectorHue = '#00f5ff', sectorHudText = '', demo }: Props) {
+export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySetup, onOpenTerminal, halOnline, layoutId = 'default', terminalCount = 0, vfxFrequency = 0, groups = [], assignments = {}, camera = DEFAULT_CAMERA, themeId = 'tactical', onCameraMove, blockedInput = false, onProjectContextMenu, isFavorite, screenOpacity = 1, particleDensity = 8, renderQuality, showPerf = false, onSceneReady, shipVfxEnabled = true, sphereStyle = 'wireframe', voiceReactionIntensity = 0.5, activityFeedback = true, externalSessions = [], absorbingPid = null, onAbsorb, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, cinematicActive = false, onCinematicComplete, introAnimation = true, mergeStates = {}, commitGraphs = {}, selectedConflictFile, onSelectConflictFile, resolvedFilesMap = {}, graphicsPreset = 'medium', bloomEnabled = true, chromaticAberrationEnabled = false, floorLinesEnabled = false, groupTrailsEnabled = false, autoRotateEnabled = true, autoRotateSpeed = 0.12, sectorTransitioning = false, sectorDirection = 0, sectorHue = '#00f5ff', sectorHudText = '', demo, bloomIntensityOverride = -1, gridOpacityOverride = -1, particleBrightnessOverride = -1, vignetteOverride = -1 }: Props) {
   // Key-based Canvas remount: when themeId changes we force a full Canvas unmount/remount
   // so EffectComposer gets a fresh WebGL context and never touches stale render targets.
   // This is the root-cause fix for the "Cannot read properties of null (reading 'alpha')" crash.
@@ -3814,6 +3833,10 @@ export function PbrHoloScene({ projects, searchQuery = '', listening, isFullySet
           sectorHue={sectorHue}
           sectorHudText={sectorHudText}
           demo={demo}
+          bloomIntensityOverride={bloomIntensityOverride ?? -1}
+          gridOpacityOverride={gridOpacityOverride ?? -1}
+          particleBrightnessOverride={particleBrightnessOverride ?? -1}
+          vignetteOverride={vignetteOverride ?? -1}
         />
       </ThreeThemeProvider>
     </Canvas>
