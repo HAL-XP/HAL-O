@@ -24,9 +24,31 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); if echo \"$INPUT\" | grep -qiE \"fuck|fucking|pissed|same.*(issue|problem|bug).*again|keeps? (happening|failing|breaking)|how many times\"; then echo \"{\\\"hookSpecificOutput\\\":{\\\"additionalContext\\\":\\\"FRUSTRATION DETECTED. STOP. Do NOT retry the same approach. Analyze: (1) What exact issue keeps recurring? (2) Why did previous fixes not work? (3) What assumption am I making that is wrong? (4) What is a fundamentally DIFFERENT approach? Take 30 seconds to think before acting. If you have tried the same fix twice, the approach is wrong — not the parameters.\\\"}}\"; fi'",
+            "timeout": 5
+          }
+        ]
       }
     ],
-    "PreToolUse": []
+    "PreToolUse": [],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"=== POST-COMPACTION ===\\nAgent name: Hal O\\nContext was just compacted. Read MEMORY.md immediately.\\n===\\nACTION: Read MEMORY.md NOW. Resume pending work.\\n\"}}\"'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   },
   "permissions": {
     "allow": [

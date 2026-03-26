@@ -1,0 +1,109 @@
+{
+  "_comment": "SINGLE SOURCE OF TRUTH for demo recordings. Mark MUST read this. Every requirement lives here.",
+  "_updated": "2026-03-25T22:50:00Z",
+  "_version": 5,
+
+  "scene": {
+    "renderer": "pbr-holo",
+    "theme": "ember",
+    "sphere_style": "animated-core",
+    "demo_mode": true,
+    "demo_cards": 40,
+    "cards_per_sector": 40,
+    "demo_terminals": 3,
+    "demo_tabs_min": 1,
+    "demo_tabs_max": 3,
+    "hub_font": 18,
+    "term_font": 16,
+    "split": 70,
+    "intro_animation": false,
+    "tutorial_done": true,
+    "gpu_wizard_done": true,
+    "setup_done": true
+  },
+
+  "camera": {
+    "start_position": [0, 6, 22],
+    "end_position": [0, 0, 11],
+    "target": [0, 1.0, 0],
+    "approach_duration_ms": 3000,
+    "approach_easing": "smoothstep",
+    "approach_method": "in-scene requestAnimationFrame (NOT page.evaluate steps)",
+    "auto_rotate_from_frame_1": true,
+    "auto_rotate_start_speed": 0.06,
+    "auto_rotate_final_speed": 0.36,
+    "speed_ramp_duration_ms": 1000
+  },
+
+  "audio": {
+    "_variants": {
+      "A_tactical": {
+        "greeting": "C:/Users/dindo/AppData/Local/Temp/hal-greeting.wav",
+        "opensource": "C:/Users/dindo/AppData/Local/Temp/hal-opensource.wav",
+        "theme": "tactical",
+        "color": "cyan",
+        "voice": "Hal (butler)"
+      },
+      "B_amethyst": {
+        "greeting": "C:/Users/dindo/AppData/Local/Temp/hallie-greeting.wav",
+        "opensource": "C:/Users/dindo/AppData/Local/Temp/hallie-opensource.wav",
+        "theme": "holographic",
+        "color": "amethyst",
+        "voice": "Hallie (soft)"
+      }
+    },
+    "greeting_delay_ms": 1000,
+    "opensource_delay_ms": 6000,
+    "connect_to_analyser": true,
+    "gain_boost": 3.0,
+    "_recording_rule": "Audio plays LIVE through app (GainNode 3x → AnalyserNode for sphere reaction). gdigrab captures video + VB-Cable captures audio: -f dshow -i audio=\"CABLE Output (VB-Audio Virtual Cable)\". Post-process: -c:a copy (keep captured audio). NO post-mix. NO setAudioDemo (overrides real FFT with fake sine waves)."
+  },
+
+  "visual_effects": {
+    "activity_level": 100,
+    "audio_demo": true,
+    "card_heartbeat_ecg": true,
+    "card_activity_glow": true,
+    "sphere_events": [
+      { "time_ms": 2000, "type": "success", "intensity": 1.0 },
+      { "time_ms": 5000, "type": "warning", "intensity": 0.8 },
+      { "time_ms": 8000, "type": "success", "intensity": 0.6 },
+      { "time_ms": 11000, "type": "info", "intensity": 0.8 },
+      { "time_ms": 14000, "type": "success", "intensity": 0.7 }
+    ]
+  },
+
+  "recording": {
+    "duration_seconds": 16,
+    "method": "gdigrab",
+    "desktop_resolution": "3840x2160",
+    "output_resolution": "1920x1080",
+    "fps": 30,
+    "timecode_overlay": true,
+    "fullscreen": true
+  },
+
+  "validation": {
+    "debug_wireframe_before": true,
+    "teleport_detection": true,
+    "teleport_threshold": 12,
+    "teleport_fps": 10,
+    "qa_frames_at_seconds": [0, 1.5, 3, 5, 10],
+    "smoothness_check": true
+  },
+
+  "checklist": [
+    "40+ cards visible on the ring",
+    "Animated-core sphere visible and pulsing with audio",
+    "Ember (red) theme, NOT green/neon",
+    "Auto-rotate speed 0.36 (noticeably spinning)",
+    "Heartbeat ECG visible on at least some cards",
+    "Activity glow on active cards",
+    "Sphere reacts to audio (connected to AnalyserNode)",
+    "Butler greeting audible at 1s",
+    "Open source line audible at 6s",
+    "Smooth approach (no choppy steps — 60fps in-scene)",
+    "No teleport/jump detected by detect_teleport.py",
+    "Terminals visible at bottom with content"
+  ]
+}
