@@ -1,0 +1,62 @@
+# HAL-O Project Rules
+
+## Stack
+- Electron 35 + React 19 + TypeScript + electron-vite
+- Three.js via @react-three/fiber + drei + postprocessing
+- xterm.js + node-pty (native, compiled with VS 2022)
+- Voice: STT (faster-whisper GPU), TTS (Chatterbox/Voicebox/Edge TTS)
+
+## 3 Renderer Modes
+1. **Classic** — CSS cards + Three.js background, 10 layouts
+2. **Holographic** — Basic 3D screens (backup)
+3. **PBR Holographic** — Full PBR with bloom, reflective floor, ring platform
+
+## Critical Rules
+
+### React Hooks
+ALL `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback` MUST be declared BEFORE any conditional return. This has caused crashes 3+ times. No exceptions.
+
+### Process Management
+- Never kill `electron.exe` by name — always by PID
+- Before app restart: save terminal sessions, pop to external if running inside app
+- Clear vite cache before every build/dev: `node_modules/.vite`
+
+### Testing
+- Run `npx tsc --noEmit` after every code change
+- Smoke test: `npx playwright test e2e/smoke.spec.ts`
+- Visual changes require screenshot verification before presenting
+- Never self-validate visual work — spawn a QA agent
+
+### Performance
+- No `new THREE.Vector3()` or `new THREE.Color()` inside `useFrame` — use module-level scratch objects
+- No inline `style={{}}` objects that are constant — use CSS classes
+- No setState inside useFrame — use refs for per-frame data
+
+### Voice System
+- 2 voices: Hal (butler) + Hallie (soft). Settings shows AUTO, HAL, HALLIE.
+- tts.py V9 auto-selection handles mood/tone. Just pass `auto` as profile.
+- Special: "zog zog" → orc profile (hardcoded in MicButton.tsx)
+
+### Demo Mode
+- Demo cards disable Resume/New/Files/Run — show toast instead
+- Demo terminals pre-fill with 40% of feed content on mount
+- Demo stats bypass IPC (demoStats prop)
+
+## Key Files
+- `src/renderer/src/components/three/PbrHoloScene.tsx` — Main PBR renderer (~3500 lines)
+- `src/renderer/src/hooks/useSettings.ts` — All settings state
+- `src/renderer/src/components/SettingsMenu.tsx` — Settings UI
+- `src/renderer/src/components/ProjectHub.tsx` — Hub switching renderers
+- `src/main/terminal-manager.ts` — PTY lifecycle
+- `src/main/ipc-handlers.ts` — All IPC channels
+
+## node-pty Patches
+After `npm install`, reapply patches:
+```
+powershell -ExecutionPolicy Bypass -File _scripts/_rebuild.ps1
+```
+
+## CI
+- GitHub Actions: Linux + Windows matrix
+- Smart TG notifications (first-red + recovery only)
+- Watch CI after every push — fix failures before moving on
