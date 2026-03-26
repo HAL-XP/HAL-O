@@ -957,7 +957,11 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
 // ── Audio bridge helper — reads FFT data from any registered analyser ──
 // Checks window.__haloAudioAnalyser (V4 API) then falls back to legacy __halAudioAnalyser.
 // Also supports window.__haloAudioDemo for sine-wave simulation without real audio.
-function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids: number; highs: number; volume: number; isActive: boolean } {
+// SYLLABLE: Track previous bass for onset detection (syllable = bass jump > threshold)
+let _prevBass = 0
+const ONSET_THRESHOLD = 0.15 // minimum bass jump to count as a syllable onset
+
+function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids: number; highs: number; volume: number; isActive: boolean; onset: boolean } {
   const w = window as any
 
   // Demo mode: simulate audio with sine waves at different frequencies
@@ -966,7 +970,9 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
     const mids  = (Math.sin(demoTime * 3.7 + 1.2) * 0.5 + 0.5) * 0.8
     const highs = (Math.sin(demoTime * 7.3 + 2.4) * 0.5 + 0.5) * 0.5
     const volume = (bass * 0.6 + mids * 0.3 + highs * 0.1)
-    return { bass, mids, highs, volume, isActive: true }
+    const onset = bass - _prevBass > ONSET_THRESHOLD
+    _prevBass = bass
+    return { bass, mids, highs, volume, isActive: true, onset }
   }
 
   // Real analyser: prefer V4 global, fall back to legacy name
@@ -974,7 +980,8 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
   const isSpeaking: boolean = !!(w.__halSpeaking)
 
   if (!analyser || !isSpeaking) {
-    return { bass: 0, mids: 0, highs: 0, volume: 0, isActive: false }
+    _prevBass = 0
+    return { bass: 0, mids: 0, highs: 0, volume: 0, isActive: false, onset: false }
   }
 
   analyser.getByteFrequencyData(buf)
@@ -993,8 +1000,10 @@ function readAudioData(buf: Uint8Array, demoTime: number): { bass: number; mids:
   const mids  = midsSum  / ((midsEnd  - bassEnd) * 255)
   const highs = highsSum / ((highsEnd - midsEnd) * 255)
   const volume = bass * 0.6 + mids * 0.3 + highs * 0.1
+  const onset = bass - _prevBass > ONSET_THRESHOLD
+  _prevBass = bass
 
-  return { bass, mids, highs, volume, isActive: true }
+  return { bass, mids, highs, volume, isActive: true, onset }
 }
 
 // ── P4: Procedural HAL Eye Canvas — animated concentric rings pulsing outward ──
@@ -1322,13 +1331,15 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
     const volume = s.volume * vri
     const isActive = raw.isActive && vri > 0
 
-    // ── 1:1 scale mapping — direct raw volume, no smoothing ──
+    // ── 1:1 scale mapping — direct raw volume + syllable onset boost ──
     // baseScale=1.0 (idle), scaleRange=0.3 (max scale=1.3 at full volume).
     // voiceReactionIntensity scales the range so the slider affects all sphere motion.
+    // SYLLABLE: onset detection adds a brief scale kick on each syllable start.
     const rawScaleVolume = raw.isActive ? raw.volume * vri : 0
-    // Wireframe scale: 0.3 range (half of 0.6), with minimal smoothing for natural feel
+    const onsetBoost = raw.onset ? 0.15 * vri : 0 // brief kick on syllable onset
+    // Wireframe scale: 0.3 range + onset boost, with minimal smoothing for natural feel
     // Smoothed via simple lerp: 80% new + 20% previous = fast but not jittery
-    const _targetScale = 1.0 + rawScaleVolume * 0.3
+    const _targetScale = 1.0 + rawScaleVolume * 0.3 + onsetBoost
     const _prevScale = (wireRef.current?.scale.x ?? 1.0)
     const sphereScaleDirect = _prevScale + (_targetScale - _prevScale) * 0.8
 
