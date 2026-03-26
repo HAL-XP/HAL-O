@@ -4,6 +4,7 @@ import { App } from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ErrorToastContainer } from './components/ErrorToast'
 import { KeyboardOverlay } from './components/KeyboardOverlay'
+import './utils/perfLogger' // Expose window.__haloPerfLog for DevTools
 import { I18nContext, createT } from './i18n'
 import { LANGUAGES } from './i18n/types'
 import type { LanguageCode } from './i18n/types'

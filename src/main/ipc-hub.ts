@@ -490,17 +490,16 @@ export function registerHubHandlers(): void {
     return entries
   }
 
-  /** Check if a PID is still alive. (T3) */
-  function isProcessAlive(pid: number): boolean {
-    try {
-      // tasklist with /FI filter — returns header + row if alive, error text if dead
-      const out = execSync(`tasklist /FI "PID eq ${pid}" /NH`, {
-        encoding: 'utf-8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+  /** Check if a PID is still alive. (T3) — B31: async to avoid blocking main process */
+  async function isProcessAlive(pid: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      exec(`tasklist /FI "PID eq ${pid}" /NH`, {
+        encoding: 'utf-8', timeout: 3000, windowsHide: true,
+      }, (err, stdout) => {
+        if (err) { resolve(false); return }
+        resolve(stdout.includes(String(pid)))
       })
-      return out.includes(String(pid))
-    } catch {
-      return false
-    }
+    })
   }
 
   ipcMain.handle('detect-external-sessions', async (): Promise<Array<{
@@ -524,8 +523,15 @@ export function registerHubHandlers(): void {
     for (const procName of processNames) {
       try {
         const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='${procName}' and CommandLine like '%claude%'\\" | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Csv -NoTypeInformation"`
-        const csvOut = execSync(psCmd, {
-          encoding: 'utf-8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+        // B31: Use async exec instead of execSync to avoid blocking the main process.
+        // execSync freezes the entire Electron UI (menus, clicks, mouse cursor) for
+        // the duration of the PowerShell WMI query — often 1-3 seconds PER call.
+        const csvOut = await new Promise<string>((resolve, reject) => {
+          exec(psCmd, {
+            encoding: 'utf-8', timeout: 8000, windowsHide: true,
+          }, (err, stdout) => {
+            if (err) reject(err); else resolve(stdout)
+          })
         })
 
         for (const { pid, cmdLine, exePath } of parseProcessCsvWithPath(csvOut)) {
@@ -610,7 +616,7 @@ export function registerHubHandlers(): void {
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
     // Verify the process is actually dead (T3 kill verification)
-    if (isWin && isProcessAlive(info.pid)) {
+    if (isWin && await isProcessAlive(info.pid)) {
       // Force kill if still alive
       try {
         execSync(`taskkill /PID ${info.pid} /T /F`, {
@@ -619,7 +625,7 @@ export function registerHubHandlers(): void {
         await new Promise((resolve) => setTimeout(resolve, 500))
       } catch { /* */ }
 
-      if (isProcessAlive(info.pid)) {
+      if (await isProcessAlive(info.pid)) {
         return { success: false, error: 'Process could not be terminated' }
       }
     }
