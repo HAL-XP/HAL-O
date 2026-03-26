@@ -849,6 +849,13 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
     return [c.r, c.g, c.b]
   }, [theme.accent])
 
+  // PERF: Memoize uniforms to avoid recreating object + Vector3 every render
+  const ringUniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uInnerColor: { value: new THREE.Vector3(innerRGB[0], innerRGB[1], innerRGB[2]) },
+    uOuterColor: { value: new THREE.Vector3(outerRGB[0], outerRGB[1], outerRGB[2]) },
+  }), [innerRGB, outerRGB])
+
   return (
     <group ref={groupRef} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       {/* Shader ring lines — concentric rings with theme colors */}
@@ -859,11 +866,7 @@ function PbrRingPlatform({ radius = 8.5 }: { radius?: number }) {
           transparent
           side={THREE.DoubleSide}
           depthWrite={false}
-          uniforms={{
-            uTime: { value: 0 },
-            uInnerColor: { value: new THREE.Vector3(innerRGB[0], innerRGB[1], innerRGB[2]) },
-            uOuterColor: { value: new THREE.Vector3(outerRGB[0], outerRGB[1], outerRGB[2]) },
-          }}
+          uniforms={ringUniforms}
           vertexShader={`
             varying vec2 vUv;
             varying float vDist;
@@ -1146,6 +1149,29 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
   const colorshiftColorRef = useRef(new THREE.Color())
   const colorshiftGlowRef = useRef(new THREE.Color())
 
+  // ── Corona style refs ──
+  const corona0Ref  = useRef<THREE.Mesh>(null)  // inner flare ring
+  const corona1Ref  = useRef<THREE.Mesh>(null)  // mid flare ring
+  const corona2Ref  = useRef<THREE.Mesh>(null)  // outer flare ring
+  const coronaDisc0Ref = useRef<THREE.Mesh>(null) // bloom disc 0
+  const coronaDisc1Ref = useRef<THREE.Mesh>(null) // bloom disc 1
+
+  // ── Particle style refs ──
+  const particlesRef = useRef<THREE.Points>(null)
+  // Per-particle: [x0,y0,z0, vx,vy,vz, life, maxLife] packed as flat Float32Array
+  // We store normalized origin direction (x0,y0,z0 = sphere surface point, normalized)
+  // and age (0..1) separately so we can reanimate without new allocations.
+  const particleDataRef = useRef<Float32Array | null>(null) // 7 floats per particle: ox,oy,oz,speed,spread,age,maxAge
+  const particleColorRef = useRef(new THREE.Color())
+
+  // ── Lightning style refs ──
+  const lightningRef      = useRef<THREE.LineSegments>(null)
+  const lightningTimerRef = useRef(0)   // counts down to next regeneration
+  const lightningFlashRef = useRef(0)   // 0..1 flash intensity after regen
+  const lightningGeoRef   = useRef<THREE.BufferGeometry | null>(null) // lazily created
+  const lightningColorRef = useRef(new THREE.Color())
+  const lightningFlashPtRef = useRef<THREE.PointLight>(null) // thunder flash point light
+
   // P4: Procedural HAL eye texture — only active when sphereStyle is 'animated-core'
   const halEyeTexture = useHalEyeTexture(sphereStyle === 'animated-core')
 
@@ -1192,6 +1218,53 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
 
   // Base glow intensity from theme
   const baseGlowIntensity = theme.style?.sphereGlowIntensity ?? 3
+
+  // ── Particle style: build geometry + data once ──
+  // 150 particles, each starting on a random sphere-surface point.
+  // particleDataRef holds 7 floats per particle: ox, oy, oz (origin normal), speed, spread, age, maxAge
+  const particleGeo = useMemo(() => {
+    const COUNT = 150
+    const geo = new THREE.BufferGeometry()
+    const positions = new Float32Array(COUNT * 3)
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    // Initialize data buffer
+    const data = new Float32Array(COUNT * 7)
+    for (let i = 0; i < COUNT; i++) {
+      // Random point on unit sphere
+      const theta = Math.random() * Math.PI * 2
+      const phi   = Math.acos(2 * Math.random() - 1)
+      const ox = Math.sin(phi) * Math.cos(theta)
+      const oy = Math.sin(phi) * Math.sin(theta)
+      const oz = Math.cos(phi)
+      const speed   = 0.4 + Math.random() * 0.6  // units/s at base
+      const spread  = (Math.random() - 0.5) * 0.3  // lateral spread 0-normalised
+      const age     = Math.random()               // stagger starts
+      const maxAge  = 0.8 + Math.random() * 1.2   // 0.8-2.0 s lifetime
+      const base = i * 7
+      data[base + 0] = ox
+      data[base + 1] = oy
+      data[base + 2] = oz
+      data[base + 3] = speed
+      data[base + 4] = spread
+      data[base + 5] = age
+      data[base + 6] = maxAge
+    }
+    particleDataRef.current = data
+    return geo
+  }, []) // no deps — created once, updated imperatively in useFrame
+
+  // ── Lightning style: build geometry once (MAX_SEGMENTS * 2 verts) ──
+  // We update vertex positions in useFrame — no allocation per frame.
+  const lightningGeo = useMemo(() => {
+    const MAX_BOLTS = 5
+    const SEGS_PER_BOLT = 6  // segments per bolt (6 segments = 7 points = 12 verts for line-segments pairs)
+    const VERTS = MAX_BOLTS * SEGS_PER_BOLT * 2  // each segment = 2 verts (start, end)
+    const geo = new THREE.BufferGeometry()
+    const positions = new Float32Array(VERTS * 3)
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage))
+    lightningGeoRef.current = geo
+    return geo
+  }, []) // created once
 
   // Trigger flash when blockedInput goes true
   useEffect(() => {
@@ -1443,6 +1516,179 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
       }
       if (light2Ref.current) {
         light2Ref.current.color.copy(shiftedGlow)
+      }
+    }
+
+    // ── Corona style — flare rings expand with bass, discs bloom with volume ──
+    if (sphereStyle === 'corona') {
+      // Slow counter-rotating tilt on each flare ring
+      if (corona0Ref.current) {
+        corona0Ref.current.rotation.z += delta * 0.4
+        corona0Ref.current.rotation.x += delta * 0.15
+        // Scale: base 1.3 + bass expansion
+        const s0 = 1.3 + bass * 0.5 + Math.sin(t * 1.1) * 0.04
+        corona0Ref.current.scale.setScalar(s0)
+        const mat0 = corona0Ref.current.material as THREE.MeshStandardMaterial
+        mat0.emissiveIntensity = 2.5 + volume * 5
+      }
+      if (corona1Ref.current) {
+        corona1Ref.current.rotation.z -= delta * 0.25
+        corona1Ref.current.rotation.y += delta * 0.12
+        const s1 = 1.6 + bass * 0.7 + Math.sin(t * 0.8 + 1.0) * 0.06
+        corona1Ref.current.scale.setScalar(s1)
+        const mat1 = corona1Ref.current.material as THREE.MeshStandardMaterial
+        mat1.emissiveIntensity = 1.8 + bass * 4
+      }
+      if (corona2Ref.current) {
+        corona2Ref.current.rotation.x += delta * 0.18
+        corona2Ref.current.rotation.z -= delta * 0.1
+        const s2 = 2.1 + bass * 1.0 + Math.sin(t * 0.6 + 2.0) * 0.08
+        corona2Ref.current.scale.setScalar(s2)
+        const mat2 = corona2Ref.current.material as THREE.MeshStandardMaterial
+        mat2.emissiveIntensity = 1.2 + bass * 2.5
+      }
+      // Bloom discs pulse with volume
+      if (coronaDisc0Ref.current) {
+        const mat = coronaDisc0Ref.current.material as THREE.MeshBasicMaterial
+        mat.opacity = 0.06 + volume * 0.12
+        coronaDisc0Ref.current.scale.setScalar(1.8 + volume * 0.6)
+      }
+      if (coronaDisc1Ref.current) {
+        const mat = coronaDisc1Ref.current.material as THREE.MeshBasicMaterial
+        mat.opacity = 0.03 + volume * 0.07
+        coronaDisc1Ref.current.scale.setScalar(2.4 + volume * 0.8)
+      }
+    }
+
+    // ── Particles style — fountain eruption audio-reactive ──
+    if (sphereStyle === 'particles') {
+      const data = particleDataRef.current
+      if (particlesRef.current && data) {
+        const posAttr = particlesRef.current.geometry.getAttribute('position') as THREE.BufferAttribute
+        const posArr = posAttr.array as Float32Array
+        const COUNT = data.length / 7
+        // Audio-driven params (no new allocations — just scalars)
+        const speedBoost  = 1.0 + bass * 3.0   // bass speeds up particles
+        const spreadBoost = 1.0 + mids * 2.0   // mids widen the cone
+        const SPHERE_R = 1.3
+        for (let i = 0; i < COUNT; i++) {
+          const base = i * 7
+          // Advance age
+          data[base + 5] += delta / data[base + 6] // age / maxAge → 0..1 over lifetime
+          if (data[base + 5] >= 1.0) {
+            // Reset to new surface point — reuse slot, no allocation
+            const theta2 = Math.random() * Math.PI * 2
+            const phi2   = Math.acos(2 * Math.random() - 1)
+            data[base + 0] = Math.sin(phi2) * Math.cos(theta2)
+            data[base + 1] = Math.sin(phi2) * Math.sin(theta2)
+            data[base + 2] = Math.cos(phi2)
+            data[base + 3] = 0.4 + Math.random() * 0.6
+            data[base + 4] = (Math.random() - 0.5) * 0.3
+            data[base + 5] = 0
+            data[base + 6] = 0.8 + Math.random() * 1.2
+          }
+          const ox = data[base + 0]
+          const oy = data[base + 1]
+          const oz = data[base + 2]
+          const speed = data[base + 3] * speedBoost
+          const spread = data[base + 4] * spreadBoost
+          const age = data[base + 5] // 0→1
+
+          // Ease-out: fast launch, decelerate near end
+          const dist = SPHERE_R + age * speed * data[base + 6] * (1.0 - age * 0.5)
+          // Lateral drift (perpendicular to outward direction, precomputed from spread)
+          // Use a simple tangent approximation — no new Vector3
+          const tx = -oy * spread  // rough tangent: cross(normal, up) ≈ (-ny, nx, 0)
+          const ty =  ox * spread
+          const tz = 0
+          posArr[i * 3 + 0] = ox * dist + tx * age
+          posArr[i * 3 + 1] = oy * dist + ty * age
+          posArr[i * 3 + 2] = oz * dist + tz * age
+        }
+        posAttr.needsUpdate = true
+        // Adjust particle material opacity to brightness
+        const mat = particlesRef.current.material as THREE.PointsMaterial
+        mat.opacity = 0.5 + volume * 0.5
+        particleColorRef.current.set(theme.sphereHex)
+        mat.color.copy(particleColorRef.current)
+        mat.size = 0.04 + volume * 0.04
+      }
+    }
+
+    // ── Lightning style — arcs jitter + regenerate every ~0.3s ──
+    if (sphereStyle === 'lightning') {
+      // Decay flash
+      if (lightningFlashRef.current > 0) {
+        lightningFlashRef.current -= delta * 3.5
+        if (lightningFlashRef.current < 0) lightningFlashRef.current = 0
+      }
+      if (lightningFlashPtRef.current) {
+        lightningFlashPtRef.current.intensity = lightningFlashRef.current * 12
+      }
+
+      lightningTimerRef.current -= delta
+      // Regen interval: 0.3s at idle, shrinks to 0.08s at full volume
+      const regenInterval = 0.3 - volume * 0.22
+      if (lightningTimerRef.current <= 0) {
+        lightningTimerRef.current = regenInterval
+        lightningFlashRef.current = 1.0  // trigger flash
+
+        const geo = lightningGeoRef.current
+        if (geo) {
+          const posArr = (geo.getAttribute('position') as THREE.BufferAttribute).array as Float32Array
+          const MAX_BOLTS = 5
+          const SEGS = 6
+          // Audio-driven bolt length and thickness
+          const boltLen = 0.8 + volume * 1.2
+          let vIdx = 0
+          for (let b = 0; b < MAX_BOLTS; b++) {
+            // Random surface origin on sphere
+            const theta3 = Math.random() * Math.PI * 2
+            const phi3   = Math.acos(2 * Math.random() - 1)
+            const nx = Math.sin(phi3) * Math.cos(theta3)
+            const ny = Math.sin(phi3) * Math.sin(theta3)
+            const nz = Math.cos(phi3)
+            const SPHERE_R2 = 1.3
+            // Start at sphere surface
+            let cx = nx * SPHERE_R2
+            let cy = ny * SPHERE_R2
+            let cz = nz * SPHERE_R2
+            // Each segment steps outward along normal + random jitter
+            const segLen = boltLen / SEGS
+            for (let s = 0; s < SEGS; s++) {
+              // Write start point
+              posArr[vIdx * 3 + 0] = cx
+              posArr[vIdx * 3 + 1] = cy
+              posArr[vIdx * 3 + 2] = cz
+              vIdx++
+              // Advance: step along normal + perpendicular jitter
+              const jx = (Math.random() - 0.5) * segLen * 0.8
+              const jy = (Math.random() - 0.5) * segLen * 0.8
+              const jz = (Math.random() - 0.5) * segLen * 0.8
+              cx = cx + nx * segLen + jx
+              cy = cy + ny * segLen + jy
+              cz = cz + nz * segLen + jz
+              // Write end point
+              posArr[vIdx * 3 + 0] = cx
+              posArr[vIdx * 3 + 1] = cy
+              posArr[vIdx * 3 + 2] = cz
+              vIdx++
+            }
+          }
+          ;(geo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
+          geo.computeBoundingSphere()
+        }
+      }
+
+      // Animate lightning material: flicker emissive intensity each frame
+      if (lightningRef.current) {
+        const mat = lightningRef.current.material as THREE.LineBasicMaterial
+        lightningColorRef.current.set(theme.sphereHex)
+        // Flicker: base brightness + flash + high-freq highs
+        const flicker = 0.6 + lightningFlashRef.current * 0.4 + highs * 0.3 + Math.sin(t * 60) * 0.1
+        // LineBasicMaterial doesn't have emissiveIntensity — we tint color instead
+        mat.color.set(lightningFlashRef.current > 0.5 ? '#ffffff' : theme.sphereHex)
+        mat.opacity = Math.min(1.0, 0.6 + flicker * 0.4)
       }
     }
 
@@ -1864,6 +2110,211 @@ function PbrHalSphere({ blockedInput = false, voiceReactionIntensity = 0.5, sphe
               <meshStandardMaterial emissive={theme.sphereHex} emissiveIntensity={0.5} toneMapped={false} metalness={1} roughness={0} />
             </mesh>
           ))}
+        </>
+      )}
+
+      {/* ════════ CORONA FLARE style — solar corona with radial flare rings ════════ */}
+      {sphereStyle === 'corona' && (
+        <>
+          {/* Bright core — audio-reactive via coreRef */}
+          <mesh ref={coreRef} scale={0.5}>
+            <sphereGeometry args={[1, 20, 20]} />
+            <meshStandardMaterial
+              color="#ff9900"
+              emissive="#ffcc44"
+              emissiveIntensity={6}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Wireframe ref (invisible but needed for scale reactivity) */}
+          <mesh ref={wireRef} visible={false}>
+            <sphereGeometry args={[1.3, 8, 8]} />
+            <meshStandardMaterial wireframe transparent opacity={0} />
+          </mesh>
+
+          {/* Inner flare ring — tilted, warm gold */}
+          <mesh ref={corona0Ref} rotation={[0.4, 0, 0.7]}>
+            <torusGeometry args={[1.3, 0.06, 8, 96]} />
+            <meshStandardMaterial
+              color="#ff6600"
+              emissive="#ff9900"
+              emissiveIntensity={2.5}
+              transparent
+              opacity={0.7}
+              toneMapped={false}
+              metalness={0.3}
+              roughness={0.6}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Mid flare ring — wider, orange-gold */}
+          <mesh ref={corona1Ref} rotation={[-0.6, 0.3, -0.4]}>
+            <torusGeometry args={[1.6, 0.04, 8, 96]} />
+            <meshStandardMaterial
+              color="#ff8800"
+              emissive="#ffaa22"
+              emissiveIntensity={1.8}
+              transparent
+              opacity={0.5}
+              toneMapped={false}
+              metalness={0.2}
+              roughness={0.7}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Outer flare ring — widest, pale gold, most transparent */}
+          <mesh ref={corona2Ref} rotation={[1.0, -0.5, 0.2]}>
+            <torusGeometry args={[2.1, 0.025, 8, 96]} />
+            <meshStandardMaterial
+              color="#ffbb44"
+              emissive="#ffdd88"
+              emissiveIntensity={1.2}
+              transparent
+              opacity={0.3}
+              toneMapped={false}
+              metalness={0.1}
+              roughness={0.8}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+
+          {/* Bloom disc 0 — large soft disc for Bloom post-processing */}
+          <mesh ref={coronaDisc0Ref} position={[0, 0, -0.05]}>
+            <circleGeometry args={[1.8, 48]} />
+            <meshBasicMaterial
+              color="#ff8800"
+              transparent
+              opacity={0.06}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Bloom disc 1 — wider, more diffuse corona halo */}
+          <mesh ref={coronaDisc1Ref} position={[0, 0, -0.08]}>
+            <circleGeometry args={[2.6, 48]} />
+            <meshBasicMaterial
+              color="#ffcc44"
+              transparent
+              opacity={0.03}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band — solar equator accent */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.3, 0.025, 8, 128]} />
+            <meshStandardMaterial emissive="#ffaa22" emissiveIntensity={3} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+        </>
+      )}
+
+      {/* ════════ PARTICLE ERUPTION style — fountain of points from sphere center ════════ */}
+      {sphereStyle === 'particles' && (
+        <>
+          {/* Small wireframe core — gives a center anchor point */}
+          <mesh ref={wireRef}>
+            <sphereGeometry args={[1.0, 24, 18]} />
+            <meshStandardMaterial
+              color={sphereDark}
+              emissive={theme.sphereHex}
+              emissiveIntensity={0.5}
+              wireframe
+              transparent
+              opacity={0.4}
+              metalness={0.9}
+              roughness={0.2}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Bright core — audio-reactive via coreRef */}
+          <mesh ref={coreRef} scale={0.3}>
+            <sphereGeometry args={[1, 16, 16]} />
+            <meshStandardMaterial
+              color={theme.sphereHex}
+              emissive={theme.sphereGlowHex}
+              emissiveIntensity={baseGlowIntensity}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band — subtle anchor ring */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.0, 0.015, 8, 96]} />
+            <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+
+          {/* Particle cloud — positions updated in useFrame */}
+          <points ref={particlesRef} geometry={particleGeo}>
+            <pointsMaterial
+              color={theme.sphereHex}
+              size={0.05}
+              sizeAttenuation
+              transparent
+              opacity={0.8}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </points>
+        </>
+      )}
+
+      {/* ════════ LIGHTNING ARCS style — crackle arcs from sphere surface ════════ */}
+      {sphereStyle === 'lightning' && (
+        <>
+          {/* Wireframe sphere base — same as wireframe style */}
+          <mesh ref={wireRef}>
+            <sphereGeometry args={[1.3, 36, 24]} />
+            <meshStandardMaterial
+              color={sphereDark}
+              emissive={theme.sphereHex}
+              emissiveIntensity={0.6}
+              wireframe
+              transparent
+              opacity={0.5}
+              metalness={0.9}
+              roughness={0.2}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Bright core */}
+          <mesh ref={coreRef} scale={0.38}>
+            <sphereGeometry args={[1, 16, 16]} />
+            <meshStandardMaterial
+              color={theme.sphereHex}
+              emissive={theme.sphereGlowHex}
+              emissiveIntensity={baseGlowIntensity}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Equatorial band */}
+          <mesh ref={equatorRef} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.3, 0.018, 8, 128]} />
+            <meshStandardMaterial emissive={theme.sphereGlowHex} emissiveIntensity={2} toneMapped={false} metalness={1} roughness={0} />
+          </mesh>
+
+          {/* Lightning arc LineSegments — positions regenerated in useFrame */}
+          <lineSegments ref={lightningRef} geometry={lightningGeo}>
+            <lineBasicMaterial
+              color={theme.sphereHex}
+              transparent
+              opacity={0.9}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </lineSegments>
+
+          {/* Thunder flash point light — brief burst on bolt regeneration */}
+          <pointLight ref={lightningFlashPtRef} color="#ffffff" intensity={0} distance={6} decay={2} />
         </>
       )}
 

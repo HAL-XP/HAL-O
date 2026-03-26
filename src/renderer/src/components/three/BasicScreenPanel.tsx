@@ -3,6 +3,9 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
+// PERF: Scratch vector reused in useFrame — avoids per-frame Vector3 allocation
+const _scratchScale = new THREE.Vector3()
+
 interface Props {
   position: [number, number, number]
   rotation: [number, number, number]
@@ -23,7 +26,8 @@ export function ScreenPanel({ position, rotation, projectName, stack, ready, isH
     // Subtle hover animation
     if (frameRef.current) {
       const targetScale = isHovered ? 1.08 : 1
-      frameRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.1)
+      _scratchScale.set(targetScale, targetScale, 1)
+      frameRef.current.scale.lerp(_scratchScale, 0.1)
     }
     if (glowRef.current) {
       glowRef.current.visible = isHovered

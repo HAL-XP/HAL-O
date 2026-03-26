@@ -34,6 +34,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); if echo \"$INPUT\" | grep -qiE \"let me know|what do you think|is it worth|I.m not sure|should (we|I)|worth (it|the)|your (opinion|take|thoughts)|makes sense\\?\"; then echo \"{\\\"hookSpecificOutput\\\":{\\\"additionalContext\\\":\\\"USER ASKED FOR YOUR OPINION. Give honest assessment FIRST — is it worth it? trade-offs? ROI? time cost? Do NOT jump straight to code or implementation. Lead with your real opinion, then offer the technical path if the user wants to proceed.\\\"}}\"; fi'",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [],

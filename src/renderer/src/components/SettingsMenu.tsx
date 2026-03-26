@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
 import { VOICE_PROFILES, DOCK_POSITIONS, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, TOKEN_BUDGET_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId, type TokenBudgetId, type SettingsState } from '../hooks/useSettings'
@@ -190,7 +190,7 @@ interface Props {
   onRedetectGpu?: () => void
 }
 
-export function SettingsMenu({
+export const SettingsMenu = React.memo(function SettingsMenu({
   settings,
   wizardFontSize, onWizardFontSize,
   hiddenPaths = [], onUnhide,
@@ -617,4 +617,4 @@ export function SettingsMenu({
       document.body
     )}
   </div>)
-}
+})
