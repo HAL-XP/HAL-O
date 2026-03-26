@@ -80,14 +80,17 @@ function layoutDefault(count: number): Screen3DPosition[] {
 }
 
 /** Dual ring — outer ring + inner ring for overflow.
- * First ~60% on outer ring, rest on shorter inner ring. */
+ * First ~60% on outer ring, rest on shorter inner ring.
+ * B41 fix: ensure inner ring is clearly smaller + higher to prevent overlap. */
 function layoutDualRing(count: number): Screen3DPosition[] {
   if (count <= 6) return layoutDefault(count)
 
   const outerCount = Math.ceil(count * 0.6)
   const innerCount = count - outerCount
   const outerRadius = minRadiusForCount(outerCount)
-  const innerRadius = minRadiusForCount(innerCount, 0.4)
+  // B41: Inner ring must be at least 3 units smaller than outer, with larger gap
+  const innerRadiusRaw = minRadiusForCount(innerCount, 0.6)
+  const innerRadius = Math.min(innerRadiusRaw, outerRadius - 3)
   const result: Screen3DPosition[] = []
 
   // Outer ring
@@ -99,11 +102,11 @@ function layoutDualRing(count: number): Screen3DPosition[] {
     })
   }
 
-  // Inner ring (slightly higher, offset rotation)
+  // Inner ring — higher + smaller radius to avoid overlap with outer ring back cards
   for (let i = 0; i < innerCount; i++) {
     const angle = (i / innerCount) * Math.PI * 2 - Math.PI / 2 + Math.PI / innerCount
     result.push({
-      position: [Math.cos(angle) * innerRadius, MIN_PANEL_Y + 0.8, Math.sin(angle) * innerRadius],
+      position: [Math.cos(angle) * innerRadius, MIN_PANEL_Y + 2.2, Math.sin(angle) * innerRadius],
       rotation: [0, -angle + Math.PI / 2, 0],
     })
   }
