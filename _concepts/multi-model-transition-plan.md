@@ -178,7 +178,24 @@ Closest: Squadron (multi-agent), Tide Commander (3D agents), cmux (terminal mult
 
 **Total: ~40 hours focused work.**
 
-## 12. [NEEDS USER DECISIONS]
+## 12. Competitive Future-Proofing
+
+Two minor design notes to avoid walls when integrating competitor ideas later:
+
+**A. Extensible routing targets (for Squadron/Tide team orchestration):**
+Current dispatcher routes to a single terminal. To support team orchestration later, make the routing target type extensible now:
+```typescript
+type RouteTarget = 'terminal' | 'team' | 'mcp-tool' | 'direct'
+// Not just: projectPath string
+```
+One type field — zero architecture change. Enables `route_to_team(task_list)` later.
+
+**B. Model management as reusable Settings tab (for Jan.ai-style marketplace):**
+The wizard's "download model" step should be a reusable component, not wizard-only. Design it as Settings > Models tab that the wizard calls into. Users can browse/download/manage models anytime, not just during first-run setup.
+
+Both are additive — no changes to the current plan, just type annotations to keep open.
+
+## 13. [NEEDS USER DECISIONS]
 
 1. Ollama vs llama.cpp vs vLLM for local inference?
 2. Default dispatcher model: Qwen3-1.7B vs alternative?
