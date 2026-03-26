@@ -16,6 +16,8 @@ test.beforeAll(async () => {
   await page.evaluate(() => {
     localStorage.setItem('hal-o-setup-done', '1')
     localStorage.setItem('hal-o-demo-mode', 'true')
+    localStorage.setItem('hal-o-gpu-wizard-dismissed', 'true')
+    localStorage.setItem('hal-o-tutorial-done', 'true')
     localStorage.setItem('hal-o-3d-theme', 'tactical')
     localStorage.setItem('hal-o-layout', 'default')
     localStorage.setItem('hal-o-particle-density', '2')

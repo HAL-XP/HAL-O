@@ -160,10 +160,16 @@ export function CameraEaser() {
 
     oc.update()
 
-    // Complete easing
+    // Complete easing — B40: explicitly re-enable autoRotate after easing finishes.
+    // Previously relied on AutoRotateManager's 1.2s timeout, which caused a visible
+    // pause then snap-back during video recording when autoRotate and CameraEaser fought.
     if (t >= 1) {
       state.active = false
-      // Note: AutoRotateManager will re-enable autoRotate via its timeout
+      // Re-enable autoRotate immediately (AutoRotateManager won't conflict — its
+      // timeout only fires after an interaction 'end' event, not after CameraEaser).
+      if (!oc.autoRotate) {
+        oc.autoRotate = true
+      }
     }
   })
 
