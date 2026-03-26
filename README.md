@@ -2,7 +2,7 @@
   <img src="resources/icon_256.png" alt="HAL-O" width="120" />
 </p>
 
-<h1 align="center">HAL-O: Your Personal Jarvis for Code</h1>
+<h1 align="center">HAL-O: Your Open Source AI Command Center</h1>
 
 <p align="center">
   <b>H</b>olographic <b>A</b>daptive <b>L</b>ayer — <b>O</b>pen Source<br>
@@ -10,68 +10,68 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/readme-demo-default.png" alt="HAL-O — PBR Holographic view with demo projects" width="800" />
+  <img src="screenshots/readme-ember.jpg" alt="HAL-O — Ember theme with 40 projects in PBR holographic" width="800" />
 </p>
 
----
-
-## Imagine this
-
-You sit down to code. A holographic dashboard floats in front of you — every project you work on, arranged in a glowing 3D ring. Git stats pulse on each panel. You say *"open the API server"* and a terminal appears, already in the right directory. A small starship streaks across the scene as the session spins up. Your AI copilot speaks back — composed and professional as Hal, or warm and reassuring as Hallie — adapting tone to match the moment.
-
-This is HAL-O. Not a theme. Not a plugin. A full cockpit for the way you already work, built to make writing code *feel* like something.
+```bash
+git clone https://github.com/HAL-XP/hal-o.git && cd hal-o && START_HERE.bat
+```
 
 ---
 
-## Why HAL-O exists
+## What is HAL-O?
 
-Every developer tool optimizes for **speed** — faster builds, faster completions, faster deploys. HAL-O optimizes for something no one else is working on: **how it feels to write code.**
+A 3D holographic command center for managing your AI coding sessions. Your projects orbit a glowing sphere. You talk to them by voice. Terminals, agents, and remote control — all in one place.
 
-There is no rational reason your project dashboard needs a holographic sphere with bloom lighting. There is no productivity metric for a spaceship flyby when you open a terminal. But the moment you see your projects floating in 3D space, hear your AI copilot respond in a voice that fits the mood, and watch a starship bank through the scene as your session starts — you stop dreading the next task and start looking forward to it.
+Not a theme. Not a plugin. **A cockpit.**
 
-HAL-O is built on a simple thesis: **developers who enjoy their environment write better code.** Everything in here — the 3D renderer, the voice system, the cinematic moments — serves that thesis.
+> *Developers who enjoy their environment write better code.*
 
 ---
 
 ## Features
 
+### Save hours, not minutes
+Manage all your AI coding sessions from one screen. No more switching between terminals, IDEs, and chat windows. One voice command replaces ten clicks. Keyword shortcuts (`push`, `test`, `nuke`, `ship`) replace entire workflows. Token-optimized routing keeps API costs low.
+
+### See all your projects at once
+Holographic dashboard. Git stats pulse on every card. Health indicators at a glance. Ten 3D layouts. Double-click to jump into any session.
+
 ### Talk to your code
-Two distinct voices — **Hal** (composed butler) and **Hallie** (warm, reassuring) — with automatic mood detection. Push-to-talk with Ctrl+Space. Say something, hear something back. The tone adapts to context: calm for explanations, urgent for failures, warm for late-night sessions. Your AI copilot is no longer a text box.
+Ctrl+Space push-to-talk. Two voices — **Hal** and **Hallie** — with mood detection. Also works via Telegram voice messages from your phone.
 
-### See your work in 3D
-A holographic dashboard where every project is a glowing panel on a rotating ring. Git activity pulses on each screen. Health indicators show which projects need attention. Ten layouts — spiral helix, constellation map, arena, DNA strand — because your projects deserve more than a flat list.
+### Run multiple agents, see everything
+Every AI session in a visible terminal tab. Split panes, drag tabs, session persistence. Crash the app? Terminals survive. Relaunch? Sessions restore.
 
-### Work inside, not around
-Embedded terminals with split panes, drag-to-dock tabs, and session persistence. Crash the renderer? Your terminals survive. Relaunch the app? Sessions restore with full scrollback. Voice output reads terminal responses aloud so you can listen while you think.
+### Remote control via Telegram
+Voice message from phone → transcribed → routed to the right project → voice reply back. Auto-AFK when you leave the desk.
 
-### Cinematic moments that earn their keep
-A procedural starship streaks through the scene when you open a terminal. Sonar rings pulse from the central sphere when your AI comes online. Data particles drift through the holographic space. None of this is necessary. All of it makes you want to keep the app open.
+### Customize everything
+8 sphere styles. 6 themes. 4 tunable sliders. Personality dials. Docked settings panel — tweak while watching the scene react.
 
-### Zero friction onboarding
-Point HAL-O at any project folder. The wizard scans your stack, shows what it found, and offers to generate best-practice configuration — CLAUDE.md, hooks, rules, devlog templates. It never overwrites what you already have. Existing projects import in seconds. New projects get a full scaffold.
-
-### Demo mode
-Thirty simulated projects with scripted terminal feeds. Show HAL-O to someone without exposing your real work. Perfect for presentations, streams, or just showing off.
+### One-click setup
+`START_HERE.bat` — installs everything. Wizard scans your stack. Import any project in seconds.
 
 ---
 
 ## Screenshots
 
-### Spiral Layout
+### Three Renderers
 
+| PBR Holographic | Holographic | Classic |
+|:---:|:---:|:---:|
+| <img src="screenshots/readme-ember.jpg" width="280" /> | <img src="screenshots/readme-hallie.jpg" width="280" /> | <img src="screenshots/readme-demo-default.png" width="280" /> |
+| Full PBR, bloom, reflective floor | Lightweight 3D, ethereal feel | CSS cards, runs on anything |
+
+### 40 Projects in Orbit
 <p align="center">
-  <img src="screenshots/readme-demo-spiral.png" alt="Spiral layout — projects arranged in a rising helix" width="800" />
-</p>
-
-### Neon 3D Style
-
-<p align="center">
-  <img src="screenshots/readme-demo-neon.png" alt="Neon style — accent-colored sphere core with intensified bloom" width="800" />
+  <img src="screenshots/readme-hallie-wide.jpg" alt="Wide view — 40 projects in holographic mode" width="800" />
 </p>
 
 ---
 
-## For Developers
+<details>
+<summary><h2>For Developers</h2></summary>
 
 ### Three renderers, one app
 
@@ -136,6 +136,8 @@ HAL-O is a standard Electron + React + Three.js app. No proprietary framework, n
 - **Add a visual style**: Define a palette in the theme system (CSS variables + Three.js color bridge).
 - **Add a renderer**: Create a scene component, register it in `ProjectHub.tsx`.
 
+</details>
+
 ---
 
 ## Getting Started
@@ -154,10 +156,10 @@ git clone https://github.com/HAL-XP/hal-o.git
 cd hal-o
 
 # Windows (recommended — runs the full setup wizard)
-_scripts\win\_RUN_WIZARD.bat
+START_HERE.bat
 
 # macOS / Linux
-chmod +x _scripts/unix/_RUN_WIZARD.sh && ./_scripts/unix/_RUN_WIZARD.sh
+chmod +x start_here.sh && ./start_here.sh
 ```
 
 The wizard script handles dependency installation, native module compilation, and first-run setup.
