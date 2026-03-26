@@ -15,3 +15,14 @@ Thumbs.db
 .claude/worktrees/
 test-results/
 tsconfig.node.tsbuildinfo
+
+# Experimental test specs (demo iterations, debug scripts)
+e2e/demo-v*.spec.ts
+e2e/demo-teaser-v*.spec.ts
+e2e/demo-final.spec.ts
+e2e/audio-debug*.spec.ts
+e2e/sphere-test-ab.spec.ts
+e2e/sphere-scale-test.spec.ts
+e2e/theme-screenshots.spec.ts
+demo-v*-output.log
+test-output.log
