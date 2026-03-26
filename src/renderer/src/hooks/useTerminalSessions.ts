@@ -10,20 +10,34 @@ export interface TerminalSessionsState {
   closeTerminal: (id: string) => void
 }
 
+// Module-level: hidden HAL session ID (PTY alive but tab closed)
+let _hiddenHalId: string | null = null
+
 export function useTerminalSessions(demoEnabled = false): TerminalSessionsState {
   const [termSessions, setTermSessions] = useState<TerminalSession[]>([])
   const [voiceFocus, setVoiceFocus] = useState<'hub' | string>('hub')
 
   const getHalSessionId = useCallback(() => {
+    // Check visible sessions first
     const hal = termSessions.find((s) =>
       s.id !== '_hal_' && (s.projectPath.includes('hal-o') || s.projectPath.includes('ProjectCreator') || s.projectName === 'HAL-O' || s.projectName === 'Claudeborn')
     )
-    return hal?.id || null
+    if (hal) return hal.id
+    // Check hidden HAL session (tab was closed but PTY still alive)
+    return _hiddenHalId
   }, [termSessions])
 
   const openTerminal = useCallback((projectPath: string, projectName: string, resume: boolean) => {
     const id = projectPath.replace(/[^a-zA-Z0-9]/g, '_')
     if (termSessions.find((s) => s.id === id)) return
+
+    // If this is the hidden HAL session, just re-show it (PTY still alive)
+    if (_hiddenHalId === id) {
+      _hiddenHalId = null
+      setTermSessions((prev) => [...prev, { id, projectName, projectPath }])
+      setVoiceFocus(id)
+      return
+    }
 
     const args = ['--dangerously-skip-permissions', '-n', projectName, '--channels', 'plugin:telegram@claude-plugins-official']
     if (resume) args.push('--continue')
@@ -43,9 +57,24 @@ export function useTerminalSessions(demoEnabled = false): TerminalSessionsState 
   }, [termSessions])
 
   const closeTerminal = useCallback((id: string) => {
+    // HAL session is special — hide instead of kill. The PTY stays alive in background
+    // so the sphere shows ONLINE and voice routing continues to work.
+    const session = termSessions.find(s => s.id === id)
+    const isHal = session && (
+      session.projectPath.includes('hal-o') ||
+      session.projectName === 'HAL-O' ||
+      session.projectName === 'Claudeborn'
+    )
+    if (isHal) {
+      // Remove from visible tabs but DON'T kill the PTY
+      setTermSessions((prev) => prev.filter((s) => s.id !== id))
+      // Keep the ID in a hidden set so getHalSessionId still returns it
+      _hiddenHalId = id
+      return
+    }
     window.api.ptyClose(id)
     setTermSessions((prev) => prev.filter((s) => s.id !== id))
-  }, [])
+  }, [termSessions])
 
   // Restore terminals — reconnect to running ptys (survives renderer reload)
   // AND restore from pending file (survives full app restart)
