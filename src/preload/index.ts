@@ -163,6 +163,9 @@ const api = {
   writePersonality: (data: Record<string, unknown>) => ipcRenderer.invoke('write-personality', data),
   readPersonality: () => ipcRenderer.invoke('read-personality'),
 
+  // HAL-COMPACT-UX: StatusLine sidecar data (context %, cost, model)
+  readStatusline: (): Promise<any> => ipcRenderer.invoke('read-statusline'),
+
   // System (X8: watchdog heartbeat)
   getLaunchOnStartup: (): Promise<boolean> => ipcRenderer.invoke('get-launch-on-startup'),
   setLaunchOnStartup: (enabled: boolean): Promise<{ success: boolean; error?: string }> =>

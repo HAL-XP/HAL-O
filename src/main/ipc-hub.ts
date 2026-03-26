@@ -682,4 +682,17 @@ export function registerHubHandlers(): void {
       return { humor: 50, formality: 50, verbosity: 50, dramatic: 25 }
     }
   })
+
+  // ── HAL-COMPACT-UX: Read StatusLine sidecar JSON for context % + cost ──
+  const statuslinePath = join(process.env.TEMP || '/tmp', 'hal-o-statusline.json')
+  ipcMain.handle('read-statusline', async () => {
+    try {
+      if (!existsSync(statuslinePath)) return null
+      const data = JSON.parse(readFileSync(statuslinePath, 'utf-8'))
+      const age = Date.now() - (data.ts || 0)
+      return { ...data, stale: age > 30_000 }
+    } catch {
+      return null
+    }
+  })
 }
