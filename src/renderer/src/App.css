@@ -2404,6 +2404,32 @@ textarea.text-input {
   opacity: 1;
 }
 
+/* ── SETTINGS-DOCK: Docked side panel mode ── */
+.hal-so-backdrop.hal-so-docked {
+  background: transparent;
+  pointer-events: none;
+  justify-content: flex-end;
+  align-items: stretch;
+}
+.hal-so-backdrop.hal-so-docked .hal-so-container,
+.hal-so-container.hal-so-docked {
+  pointer-events: auto;
+  width: 360px;
+  max-width: 360px;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border-left: 1px solid var(--primary-dim, rgba(101, 163, 13, 0.4));
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  background: rgba(8, 12, 18, 0.92);
+  transform: translateX(0);
+}
+.hal-so-container.hal-so-docked:not(.hal-so-container-open) {
+  transform: translateX(100%);
+}
+
 /* ── Header ── */
 .hal-so-header {
   display: flex;

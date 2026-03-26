@@ -239,6 +239,7 @@ export const SettingsMenu = React.memo(function SettingsMenu({
   } = settings
 
   const [open, setOpen] = useState(false)
+  const [docked, setDocked] = useState(() => localStorage.getItem('hal-o-settings-docked') === 'true')
   const [activeTab, setActiveTab] = useState<TabId>('display')
   const [search, setSearch] = useState('')
   const [previewing, setPreviewing] = useState<string | null>(null)
@@ -636,10 +637,10 @@ export const SettingsMenu = React.memo(function SettingsMenu({
 
     {/* Full-screen overlay -- always mounted, visibility toggled (PERF9) */}
     {createPortal(
-      <div className={'hal-so-backdrop' + (open ? ' hal-so-open' : '')} ref={overlayRef}
+      <div className={'hal-so-backdrop' + (open ? ' hal-so-open' : '') + (docked ? ' hal-so-docked' : '')} ref={overlayRef}
         style={{ visibility: open ? 'visible' : 'hidden', pointerEvents: open ? 'auto' : 'none' }}
-        onClick={(e) => { if (e.target === overlayRef.current) setOpen(false) }}>
-        <div className={'hal-so-container' + (open ? ' hal-so-container-open' : '')}>
+        onClick={(e) => { if (!docked && e.target === overlayRef.current) setOpen(false) }}>
+        <div className={'hal-so-container' + (open ? ' hal-so-container-open' : '') + (docked ? ' hal-so-docked' : '')}>
           {/* Header with title, search, close */}
           <div className="hal-so-header">
             <div className="hal-so-header-title">SETTINGS</div>
@@ -647,6 +648,13 @@ export const SettingsMenu = React.memo(function SettingsMenu({
               <input type="text" placeholder="SEARCH SETTINGS..." value={search}
                 onChange={(e) => setSearch(e.target.value)} autoComplete="off" spellCheck={false} />
             </div>
+            <button className="hal-so-close-btn" onClick={() => { const next = !docked; setDocked(next); localStorage.setItem('hal-o-settings-docked', String(next)) }} title={docked ? 'Undock (fullscreen)' : 'Dock (side panel)'}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {docked
+                  ? <><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="3" x2="12" y2="21" /></>
+                  : <><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="15" y1="3" x2="15" y2="21" /></>}
+              </svg>
+            </button>
             <button className="hal-so-close-btn" onClick={() => setOpen(false)} title="Close (ESC)">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
