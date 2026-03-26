@@ -17,7 +17,7 @@
 
 ## Imagine this
 
-You sit down to code. A holographic dashboard floats in front of you — every project you work on, arranged in a glowing 3D ring. Git stats pulse on each panel. You say *"open the API server"* and a terminal appears, already in the right directory. A small starship streaks across the scene as the session spins up. Your AI copilot speaks back in the voice you chose — calm narrator, sarcastic GLaDOS, or a loyal orc peon reporting for duty.
+You sit down to code. A holographic dashboard floats in front of you — every project you work on, arranged in a glowing 3D ring. Git stats pulse on each panel. You say *"open the API server"* and a terminal appears, already in the right directory. A small starship streaks across the scene as the session spins up. Your AI copilot speaks back — composed and professional as Hal, or warm and reassuring as Hallie — adapting tone to match the moment.
 
 This is HAL-O. Not a theme. Not a plugin. A full cockpit for the way you already work, built to make writing code *feel* like something.
 
@@ -36,7 +36,7 @@ HAL-O is built on a simple thesis: **developers who enjoy their environment writ
 ## Features
 
 ### Talk to your code
-Twenty voice personalities. Push-to-talk with Ctrl+Space. Say something, hear something back — in a voice that matches the moment. Calm narrator for explanations. Drill sergeant for critical failures. A wizard for risky operations. GLaDOS when tests fail. Your AI copilot is no longer a text box.
+Two distinct voices — **Hal** (composed butler) and **Hallie** (warm, reassuring) — with automatic mood detection. Push-to-talk with Ctrl+Space. Say something, hear something back. The tone adapts to context: calm for explanations, urgent for failures, warm for late-night sessions. Your AI copilot is no longer a text box.
 
 ### See your work in 3D
 A holographic dashboard where every project is a glowing panel on a rotating ring. Git activity pulses on each screen. Health indicators show which projects need attention. Ten layouts — spiral helix, constellation map, arena, DNA strand — because your projects deserve more than a flat list.
