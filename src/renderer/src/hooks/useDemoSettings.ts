@@ -34,7 +34,7 @@ export function useDemoSettings(): DemoSettings {
   const [tabsMax, _setTabsMax] = useState(() => parseInt(ls('hal-o-demo-tabs-max', '3')))
   const [vfxFrequency, _setVfxFrequency] = useState(() => parseInt(ls('hal-o-demo-vfx-freq', '0')))
   const [demoText, _setDemoText] = useState(() => ls('hal-o-demo-text', DEFAULT_DEMO_TEXT))
-  const [demoVoice, _setDemoVoice] = useState<VoiceProfileId>(() => (ls('hal-o-demo-voice', 'narrator') as VoiceProfileId))
+  const [demoVoice, _setDemoVoice] = useState<VoiceProfileId>(() => (ls('hal-o-demo-voice', 'butler') as VoiceProfileId))
 
   const setEnabled = useCallback((v: boolean) => { _setEnabled(v); localStorage.setItem('hal-o-demo-mode', String(v)) }, [])
   const setCardCount = useCallback((v: number) => { _setCardCount(v); localStorage.setItem('hal-o-demo-cards', String(v)) }, [])

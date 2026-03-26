@@ -1,27 +1,9 @@
 import { useReducer, useCallback, useRef, useMemo } from 'react'
 
 export const VOICE_PROFILES = [
-  { id: 'auto', label: 'AUTO (CONTEXT)' },
-  { id: 'buddy', label: 'BUDDY' },
-  { id: 'orc', label: 'ORC' },
-  { id: 'narrator', label: 'NARRATOR' },
-  { id: 'soft', label: 'SOFT' },
-  { id: 'asmr', label: 'ASMR' },
-  { id: 'movie_trailer', label: 'MOVIE TRAILER' },
-  { id: 'gollum', label: 'GOLLUM' },
-  { id: 'pirate', label: 'PIRATE' },
-  { id: 'wizard', label: 'WIZARD' },
-  { id: 'drill_sergeant', label: 'DRILL SERGEANT' },
-  { id: 'glados', label: 'GLADOS' },
-  { id: 'news_anchor', label: 'NEWS ANCHOR' },
-  { id: 'sports_commentator', label: 'SPORTS COMMENTATOR' },
-  { id: 'surfer', label: 'SURFER' },
-  { id: 'santa', label: 'SANTA' },
-  { id: 'irish', label: 'IRISH' },
-  { id: 'australian', label: 'AUSTRALIAN' },
-  { id: 'butler', label: 'BUTLER' },
-  { id: 'russian', label: 'RUSSIAN' },
-  { id: 'italian_chef', label: 'ITALIAN CHEF' },
+  { id: 'auto', label: 'AUTO' },
+  { id: 'butler', label: 'HAL' },
+  { id: 'soft', label: 'HALLIE' },
 ] as const
 
 export type VoiceProfileId = typeof VOICE_PROFILES[number]['id']
@@ -246,6 +228,11 @@ export interface SettingsState {
   autoRotateSpeed: number
   cardsPerSector: number
   devlogSections: DevlogSections
+  // Theme parameter overrides — -1 means "use theme default"
+  bloomIntensityOverride: number
+  gridOpacityOverride: number
+  particleBrightnessOverride: number
+  vignetteOverride: number
   updateHubFont: (size: number) => void
   updateTermFont: (size: number) => void
   updateVoiceOut: (enabled: boolean) => void
@@ -279,6 +266,11 @@ export interface SettingsState {
   updateCardsPerSector: (count: number) => void
   updateDevlogSection: (key: DevlogSectionKey, value: DevlogVerbosity) => void
   setAllDevlogSections: (value: DevlogVerbosity) => void
+  // Theme parameter overrides
+  updateBloomIntensityOverride: (v: number) => void
+  updateGridOpacityOverride: (v: number) => void
+  updateParticleBrightnessOverride: (v: number) => void
+  updateVignetteOverride: (v: number) => void
 }
 
 // ── Reducer: single state object replaces 21 separate useState calls ──
@@ -315,6 +307,11 @@ interface SettingsData {
   autoRotateSpeed: number
   cardsPerSector: number
   devlogSections: DevlogSections
+  // Theme parameter overrides — -1 means "use theme default"
+  bloomIntensityOverride: number
+  gridOpacityOverride: number
+  particleBrightnessOverride: number
+  vignetteOverride: number
 }
 
 type SettingsAction =
@@ -350,6 +347,10 @@ type SettingsAction =
   | { type: 'SET_CARDS_PER_SECTOR'; value: number }
   | { type: 'SET_DEVLOG_SECTION'; key: DevlogSectionKey; value: DevlogVerbosity }
   | { type: 'SET_ALL_DEVLOG_SECTIONS'; value: DevlogVerbosity }
+  | { type: 'SET_BLOOM_INTENSITY_OVERRIDE'; value: number }
+  | { type: 'SET_GRID_OPACITY_OVERRIDE'; value: number }
+  | { type: 'SET_PARTICLE_BRIGHTNESS_OVERRIDE'; value: number }
+  | { type: 'SET_VIGNETTE_OVERRIDE'; value: number }
 
 function settingsReducer(state: SettingsData, action: SettingsAction): SettingsData {
   switch (action.type) {
@@ -395,6 +396,10 @@ function settingsReducer(state: SettingsData, action: SettingsAction): SettingsD
       for (const k of Object.keys(state.devlogSections) as DevlogSectionKey[]) next[k] = action.value
       return { ...state, devlogSections: next }
     }
+    case 'SET_BLOOM_INTENSITY_OVERRIDE': return state.bloomIntensityOverride === action.value ? state : { ...state, bloomIntensityOverride: action.value }
+    case 'SET_GRID_OPACITY_OVERRIDE': return state.gridOpacityOverride === action.value ? state : { ...state, gridOpacityOverride: action.value }
+    case 'SET_PARTICLE_BRIGHTNESS_OVERRIDE': return state.particleBrightnessOverride === action.value ? state : { ...state, particleBrightnessOverride: action.value }
+    case 'SET_VIGNETTE_OVERRIDE': return state.vignetteOverride === action.value ? state : { ...state, vignetteOverride: action.value }
   }
 }
 
@@ -473,6 +478,16 @@ function loadInitialState(): SettingsData {
     if (stored) devlogSections = { ...DEFAULT_DEVLOG_SECTIONS, ...JSON.parse(stored) }
   } catch { /* use default */ }
 
+  // ── theme parameter overrides ──
+  const storedBIO = localStorage.getItem('hal-o-bloom-intensity-override')
+  const bloomIntensityOverride = storedBIO !== null ? parseFloat(storedBIO) : -1
+  const storedGOO = localStorage.getItem('hal-o-grid-opacity-override')
+  const gridOpacityOverride = storedGOO !== null ? parseFloat(storedGOO) : -1
+  const storedPBO = localStorage.getItem('hal-o-particle-brightness-override')
+  const particleBrightnessOverride = storedPBO !== null ? parseFloat(storedPBO) : -1
+  const storedVO = localStorage.getItem('hal-o-vignette-override')
+  const vignetteOverride = storedVO !== null ? parseFloat(storedVO) : -1
+
   return {
     hubFontSize: parseInt(localStorage.getItem('hal-o-hub-font') || '10'),
     termFontSize: parseInt(localStorage.getItem('hal-o-term-font') || '13'),
@@ -504,6 +519,10 @@ function loadInitialState(): SettingsData {
     autoRotateSpeed: parseFloat(localStorage.getItem('hal-o-auto-rotate-speed') || '0.12'),
     cardsPerSector: parseInt(localStorage.getItem('hal-o-cards-per-sector') || '16'),
     devlogSections,
+    bloomIntensityOverride,
+    gridOpacityOverride,
+    particleBrightnessOverride,
+    vignetteOverride,
   }
 }
 
@@ -696,6 +715,30 @@ export function useSettings(): SettingsState {
     localStorage.setItem('hal-o-cards-per-sector', String(clamped))
   }, [])
 
+  const updateBloomIntensityOverride = useCallback((v: number) => {
+    dispatch({ type: 'SET_BLOOM_INTENSITY_OVERRIDE', value: v })
+    if (v === -1) localStorage.removeItem('hal-o-bloom-intensity-override')
+    else localStorage.setItem('hal-o-bloom-intensity-override', String(v))
+  }, [])
+
+  const updateGridOpacityOverride = useCallback((v: number) => {
+    dispatch({ type: 'SET_GRID_OPACITY_OVERRIDE', value: v })
+    if (v === -1) localStorage.removeItem('hal-o-grid-opacity-override')
+    else localStorage.setItem('hal-o-grid-opacity-override', String(v))
+  }, [])
+
+  const updateParticleBrightnessOverride = useCallback((v: number) => {
+    dispatch({ type: 'SET_PARTICLE_BRIGHTNESS_OVERRIDE', value: v })
+    if (v === -1) localStorage.removeItem('hal-o-particle-brightness-override')
+    else localStorage.setItem('hal-o-particle-brightness-override', String(v))
+  }, [])
+
+  const updateVignetteOverride = useCallback((v: number) => {
+    dispatch({ type: 'SET_VIGNETTE_OVERRIDE', value: v })
+    if (v === -1) localStorage.removeItem('hal-o-vignette-override')
+    else localStorage.setItem('hal-o-vignette-override', String(v))
+  }, [])
+
   const updateDevlogSection = useCallback((key: DevlogSectionKey, value: DevlogVerbosity) => {
     dispatch({ type: 'SET_DEVLOG_SECTION', key, value })
     const next = { ...state.devlogSections, [key]: value }
@@ -760,6 +803,10 @@ export function useSettings(): SettingsState {
     autoRotateSpeed: state.autoRotateSpeed,
     cardsPerSector: state.cardsPerSector,
     devlogSections: state.devlogSections,
+    bloomIntensityOverride: state.bloomIntensityOverride,
+    gridOpacityOverride: state.gridOpacityOverride,
+    particleBrightnessOverride: state.particleBrightnessOverride,
+    vignetteOverride: state.vignetteOverride,
     // ── callbacks ──
     updateHubFont,
     updateTermFont,
@@ -794,6 +841,10 @@ export function useSettings(): SettingsState {
     updateCardsPerSector,
     updateDevlogSection,
     setAllDevlogSections,
+    updateBloomIntensityOverride,
+    updateGridOpacityOverride,
+    updateParticleBrightnessOverride,
+    updateVignetteOverride,
   }), [
     state,
     updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile,
@@ -806,5 +857,7 @@ export function useSettings(): SettingsState {
     updateFloorLinesEnabled, updateGroupTrailsEnabled,
     updateAutoRotateEnabled, updateAutoRotateSpeed, updateCardsPerSector,
     updateDevlogSection, setAllDevlogSections,
+    updateBloomIntensityOverride, updateGridOpacityOverride,
+    updateParticleBrightnessOverride, updateVignetteOverride,
   ])
 }

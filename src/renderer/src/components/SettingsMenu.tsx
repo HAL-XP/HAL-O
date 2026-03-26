@@ -35,26 +35,8 @@ const RENDERER_LAYOUTS: Record<string, readonly { id: string; label: string }[]>
 // ── Voice preview helpers ──
 
 const PROFILE_SAMPLE_TEXTS: Record<string, string> = {
-  buddy: 'Hey there, just checking in. Everything looks good.',
-  orc: 'Work work! Me ready for battle, Warchief!',
-  narrator: 'In a world of code, one system stands above the rest.',
-  soft: 'Take your time. Everything is going to be just fine.',
-  asmr: 'Shh, everything is quiet and peaceful right now.',
-  movie_trailer: 'This summer, one developer will change everything.',
-  gollum: 'My precious code, we must protect it!',
-  pirate: 'Arrr, the deployment be complete, captain!',
-  wizard: 'Heed my words carefully, young developer.',
-  drill_sergeant: 'Drop and give me twenty test cases, NOW!',
-  glados: 'Oh, you broke the tests again. How surprising.',
-  news_anchor: 'Breaking news: all systems are operational.',
-  sports_commentator: 'And the build succeeds! What a play!',
-  surfer: 'Dude, the vibes are totally chill right now.',
-  santa: 'Ho ho ho! Checking the naughty and nice list.',
-  irish: 'Ah sure, it will be grand, no worries at all.',
-  australian: 'No worries mate, she will be right.',
   butler: 'Very good, sir. The deployment is ready.',
-  russian: 'System is secure. No unauthorized access detected.',
-  italian_chef: 'Bellissimo! This code is magnifico!',
+  soft: 'Take your time. Everything is going to be just fine.',
 }
 
 const voiceCache = new Map<string, { text: string; audioDataUrl: string }>()
@@ -156,6 +138,41 @@ function Slider({ label, min, max, step, value, onChange, fmt, w = 48, accent }:
   </div>)
 }
 
+// OverrideSlider: slider with -1 sentinel for "use theme default", plus a reset button
+function OverrideSlider({ label, min, max, step, value, onChange, fmt, w = 48 }: {
+  label: string; min: number; max: number; step: number; value: number
+  onChange: (v: number) => void; fmt: (v: number) => string; w?: number
+}) {
+  // When value === -1, show the slider at a neutral midpoint but dimmed
+  const isDefault = value < 0
+  const displayVal = isDefault ? (min + max) / 2 : value
+  return (
+    <div className="hal-so-row">
+      <span className="hal-so-label">{label}</span>
+      <div className="hal-so-slider-wrap" style={{ opacity: isDefault ? 0.45 : 1 }}>
+        <input
+          type="range" min={min} max={max} step={step} value={displayVal}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          style={{ flex: 1, accentColor: 'var(--primary)' }}
+        />
+        <span className="hal-so-slider-val" style={{ width: w }}>
+          {isDefault ? <span style={{ opacity: 0.6, fontSize: '0.85em' }}>DEF</span> : fmt(value)}
+        </span>
+      </div>
+      <button
+        onClick={() => onChange(-1)}
+        title="Reset to theme default"
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
+          color: isDefault ? 'rgba(255,255,255,0.18)' : 'var(--text-dim)',
+          fontSize: 13, lineHeight: 1, marginLeft: 2, flexShrink: 0,
+          opacity: isDefault ? 0.4 : 1,
+        }}
+      >×</button>
+    </div>
+  )
+}
+
 function SelectRow({ label, value, onChange, options, fullWidth }: {
   label: string; value: string; onChange: (v: string) => void
   options: readonly { id: string; label: string }[]; fullWidth?: boolean
@@ -206,6 +223,7 @@ export const SettingsMenu = React.memo(function SettingsMenu({
     defaultIde, defaultTerminalModel, introAnimation, activityFeedback,
     bloomEnabled, chromaticAberrationEnabled, floorLinesEnabled, groupTrailsEnabled,
     autoRotateEnabled, autoRotateSpeed,
+    bloomIntensityOverride, gridOpacityOverride, particleBrightnessOverride, vignetteOverride,
     updateHubFont, updateTermFont, updateVoiceOut, updateVoiceProfile,
     updateDockPosition, updateScreenOpacity, updateCamera, resetCamera,
     updateParticleDensity, updateRenderQuality, updateRenderer, updateLayout,
@@ -216,6 +234,8 @@ export const SettingsMenu = React.memo(function SettingsMenu({
     updateFloorLinesEnabled, updateGroupTrailsEnabled,
     updateAutoRotateEnabled, updateAutoRotateSpeed,
     cardsPerSector, updateCardsPerSector,
+    updateBloomIntensityOverride, updateGridOpacityOverride,
+    updateParticleBrightnessOverride, updateVignetteOverride,
   } = settings
 
   const [open, setOpen] = useState(false)
@@ -285,7 +305,7 @@ export const SettingsMenu = React.memo(function SettingsMenu({
     if (!sA) return true
     const labels: Record<TabId, string[]> = {
       'display': ['RENDERER', 'LAYOUT', '3D STYLE', 'HUB FONT SIZE', 'TERMINAL FONT SIZE', 'WIZARD FONT SIZE'],
-      'graphics': ['BLOOM', 'CHROMATIC ABERRATION', 'FLOOR LINES', 'GROUP TRAILS', 'SCREEN OPACITY', 'CARDS PER SECTOR', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SPHERE STYLE', 'PARTICLE HIDE DIST', 'RE-DETECT GPU'],
+      'graphics': ['BLOOM', 'CHROMATIC ABERRATION', 'FLOOR LINES', 'GROUP TRAILS', 'SCREEN OPACITY', 'CARDS PER SECTOR', 'PARTICLE DENSITY', 'RENDER QUALITY', 'SPHERE STYLE', 'PARTICLE HIDE DIST', 'RE-DETECT GPU', 'BLOOM INTENSITY', 'GRID OPACITY', 'PARTICLE BRIGHTNESS', 'VIGNETTE'],
       'scene': ['AUTO ROTATE', 'ROTATION SPEED', 'SHIP VFX', 'INTRO ANIMATION', 'ACTIVITY FEEDBACK', 'SAVE CURRENT VIEW', 'RESET VIEW'],
       'terminal': ['TERMINAL DOCK', 'DOCK MODE', 'TERMINAL AI MODEL', 'DEFAULT IDE'],
       'voice-ai': ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION', 'HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET', 'TOKEN BUDGET'],
@@ -341,6 +361,50 @@ export const SettingsMenu = React.memo(function SettingsMenu({
             <SelectRow label="SPHERE STYLE" value={sphereStyle} onChange={(v) => updateSphereStyle(v as SphereStyleId)} options={SPHERE_STYLES} />
           )}
           {m('PARTICLE HIDE DIST') && <Slider label="PARTICLE HIDE DIST" min={1} max={15} step={0.5} value={camera.particleHideDist} onChange={(v) => updateCamera({ ...camera, particleHideDist: v })} fmt={(v) => v + 'u'} w={36} />}
+          {(m('BLOOM INTENSITY') || m('GRID OPACITY') || m('PARTICLE BRIGHTNESS') || m('VIGNETTE')) && <Divider />}
+          {(m('BLOOM INTENSITY') || m('GRID OPACITY') || m('PARTICLE BRIGHTNESS') || m('VIGNETTE')) && (
+            <SectionTitle>THEME OVERRIDES</SectionTitle>
+          )}
+          {m('BLOOM INTENSITY') && (
+            <OverrideSlider
+              label="BLOOM INTENSITY"
+              min={0} max={4} step={0.1}
+              value={bloomIntensityOverride}
+              onChange={updateBloomIntensityOverride}
+              fmt={(v) => v.toFixed(1)}
+              w={36}
+            />
+          )}
+          {m('GRID OPACITY') && (
+            <OverrideSlider
+              label="GRID OPACITY"
+              min={0} max={1} step={0.05}
+              value={gridOpacityOverride}
+              onChange={updateGridOpacityOverride}
+              fmt={(v) => Math.round(v * 100) + '%'}
+              w={36}
+            />
+          )}
+          {m('PARTICLE BRIGHTNESS') && (
+            <OverrideSlider
+              label="PARTICLE BRIGHT."
+              min={0} max={2} step={0.1}
+              value={particleBrightnessOverride}
+              onChange={updateParticleBrightnessOverride}
+              fmt={(v) => v.toFixed(1)}
+              w={36}
+            />
+          )}
+          {m('VIGNETTE') && (
+            <OverrideSlider
+              label="VIGNETTE"
+              min={0} max={1} step={0.05}
+              value={vignetteOverride}
+              onChange={updateVignetteOverride}
+              fmt={(v) => Math.round(v * 100) + '%'}
+              w={36}
+            />
+          )}
           {m('RE-DETECT GPU') && onRedetectGpu && (
             <div className="hal-so-row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
               <button className="hal-so-action-btn" onClick={onRedetectGpu}
@@ -405,7 +469,7 @@ export const SettingsMenu = React.memo(function SettingsMenu({
                   onChange={(e) => updateVoiceProfile(e.target.value as VoiceProfileId)}>
                   {VOICE_PROFILES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
-                <button className="hal-so-action-btn" onClick={() => previewProfile(voiceProfile === 'auto' ? 'narrator' : voiceProfile)}
+                <button className="hal-so-action-btn" onClick={() => previewProfile(voiceProfile === 'auto' ? 'butler' : voiceProfile)}
                   disabled={!!previewing} title={previewing ? 'Playing ' + previewing + '...' : 'Preview voice'}
                   style={{ width: 32, padding: '3px 0' }}>{previewing ? '...' : '\u25B6'}</button>
               </div>
