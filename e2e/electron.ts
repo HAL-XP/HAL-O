@@ -36,6 +36,7 @@ export async function launchApp(): Promise<{ app: ElectronApplication; page: Pag
     env: {
       ...process.env,
       NODE_ENV: 'production',
+      HAL_TEST_MODE: '1',
     },
   })
 

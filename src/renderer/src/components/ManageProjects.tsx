@@ -19,7 +19,7 @@ interface HaloNode {
 interface HaloTree { version: number; rootId: string; nodes: Record<string, HaloNode> }
 
 const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
-  dispatcher: { icon: '◆', color: '#00e5ff', label: 'DISPATCHER' },
+  dispatcher: { icon: '◆', color: '#00e5ff', label: 'ASSISTANT' },
   project: { icon: '■', color: '#22c55e', label: 'PROJECT' },
   agent: { icon: '●', color: '#a78bfa', label: 'AGENT' },
   group: { icon: '▣', color: '#6b7a8d', label: 'GROUP' },
@@ -44,6 +44,7 @@ export function ManageProjects({ onBack }: Props) {
   const [search, setSearch] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [menuNodeId, setMenuNodeId] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
 
   // Pan & zoom state
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -88,10 +89,22 @@ export function ManageProjects({ onBack }: Props) {
 
   const onCanvasMouseUp = useCallback(() => setIsPanning(false), [])
 
-  // ── Zoom handlers ──
+  // ── Zoom handlers (zoom towards mouse position) ──
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
-    setZoom(z => Math.max(0.3, Math.min(2.5, z - e.deltaY * 0.001)))
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    setZoom(prevZoom => {
+      const newZoom = Math.max(0.3, Math.min(2.5, prevZoom - e.deltaY * 0.001))
+      const scale = newZoom / prevZoom
+      setPan(p => ({
+        x: mouseX - scale * (mouseX - p.x),
+        y: mouseY - scale * (mouseY - p.y),
+      }))
+      return newZoom
+    })
   }, [])
 
   const zoomIn = () => setZoom(z => Math.min(2.5, z + 0.15))
@@ -215,9 +228,7 @@ export function ManageProjects({ onBack }: Props) {
                     style={{ color }} />
                   <span className="mp-node-type" style={{ background: color + '18', color }}>{meta.label}</span>
                   <div className={`mp-node-status ${node.status}`} />
-                  {!isRoot && (
-                    <button className="mp-node-menu" onClick={() => setMenuNodeId(menuNodeId === id ? null : id)}>⋯</button>
-                  )}
+                  {/* menu is now on the + Add button in footer */}
                 </div>
 
                 {/* Fields grid */}
@@ -251,23 +262,48 @@ export function ManageProjects({ onBack }: Props) {
                 {/* Footer: children count + add button */}
                 <div className="mp-node-footer">
                   <span className="mp-node-children">{node.children.length} children</span>
-                  <button className="mp-node-add" onClick={() => handleCreate('project', 'New Project', id)}>+ Add</button>
+                  <button className="mp-node-add" onClick={(e) => {
+                    if (menuNodeId === id) { setMenuNodeId(null) } else {
+                      setMenuPos({ x: e.clientX, y: e.clientY })
+                      setMenuNodeId(id)
+                    }
+                  }}>+ Add</button>
                 </div>
 
-                {/* Context menu */}
-                {menuNodeId === id && (
-                  <div className="mp-node-dropdown">
-                    <button onClick={() => { handleCreate('project', 'New Project', id); setMenuNodeId(null) }}>+ Project</button>
-                    <button onClick={() => { handleCreate('dispatcher', 'Sub-Dispatcher', id); setMenuNodeId(null) }}>+ Dispatcher</button>
-                    <button onClick={() => { handleCreate('agent', 'New Agent', id); setMenuNodeId(null) }}>+ Agent</button>
-                    <button className="mp-danger" onClick={() => { handleDelete(id); setMenuNodeId(null) }}>Delete</button>
-                  </div>
-                )}
+                {/* menu rendered as fixed overlay below */}
               </div>
             )
           })}
         </div>
       </div>
+
+      {/* ── Floating add menu ── */}
+      {menuNodeId && (
+        <>
+          <div className="mp-menu-backdrop" onClick={() => setMenuNodeId(null)} />
+          <div className="mp-node-dropdown" style={{ position: 'fixed', left: Math.min(menuPos.x, window.innerWidth - 220), top: Math.min(menuPos.y, window.innerHeight - 200) }}>
+            <button onClick={() => { handleCreate('dispatcher', 'New Assistant', menuNodeId); setMenuNodeId(null) }}>
+              <span className="mp-dd-icon" style={{color:'#00e5ff'}}>◆</span>
+              <span><strong>Assistant</strong><br/><span className="mp-dd-desc">AI personality with voice, model, chat</span></span>
+            </button>
+            <button onClick={() => { handleCreate('project', 'New Project', menuNodeId); setMenuNodeId(null) }}>
+              <span className="mp-dd-icon" style={{color:'#22c55e'}}>■</span>
+              <span><strong>Project</strong><br/><span className="mp-dd-desc">Codebase or folder on disk</span></span>
+            </button>
+            <button onClick={() => { handleCreate('group', 'New Group', menuNodeId); setMenuNodeId(null) }}>
+              <span className="mp-dd-icon" style={{color:'#6b7a8d'}}>▣</span>
+              <span><strong>Group</strong><br/><span className="mp-dd-desc">Folder to organize items</span></span>
+            </button>
+            {menuNodeId !== tree.rootId && <div className="mp-dd-divider" />}
+            {menuNodeId !== tree.rootId && (
+              <button className="mp-danger" onClick={() => { handleDelete(menuNodeId); setMenuNodeId(null) }}>
+                <span className="mp-dd-icon">✕</span>
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Zoom controls ── */}
       <div className="mp-zoom-controls">

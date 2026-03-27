@@ -227,7 +227,7 @@ export function startTelegramHandler(): boolean {
   }
 
   // Don't start in test mode
-  if (process.argv.includes('--fast-wizards') || process.env.NODE_ENV === 'test') {
+  if (process.argv.includes('--fast-wizards') || process.env.NODE_ENV === 'test' || process.env.HAL_TEST_MODE === '1') {
     console.log('[TG-Handler] Test mode, skipping')
     return false
   }

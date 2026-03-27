@@ -68,6 +68,10 @@ function startHeadlessSession(): void {
 
 /** Main lifecycle function — called on app boot */
 export async function detectOrStartHalSession(): Promise<void> {
+  if (process.env.HAL_TEST_MODE === '1') {
+    console.log('[Session] Test mode — skipping session lifecycle')
+    return
+  }
   // 1. Already have an embedded terminal? Done.
   if (hasEmbeddedHalSession()) {
     console.log('[Session] HAL-O terminal already running in app')
