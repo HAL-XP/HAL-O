@@ -32,6 +32,24 @@ Architecture + research done. Reports at _reports/halo-tree-architecture.html + 
 - Message bus via HTTP API
 - User can observe agent conversations
 
+### Fix: Terminal Session Restore Consolidation
+- Two systems fighting: pending-sessions restore (old) + session-lifecycle auto-start (new)
+- Closing a terminal then quitting app → terminal reopens on next launch (stale pending-sessions.json)
+- Fix: session-lifecycle should be the ONLY system. Remove pending-sessions auto-restore for HAL-O.
+- Other project terminals can still use pending-sessions if needed.
+
+### Manage Projects E2E Tests
+- Update e2e/manage-projects.spec.ts selectors to match actual DOM
+- SVG selector: .mp-svg vs actual rendered class
+- Fix card overlap detection logic
+- Run tests after every ManageProjects change
+
+### Manage Projects Polish
+- Zoom towards mouse position (current zoom-to-origin feels wrong)
+- Consider React Flow library for proper node graph (drag, zoom, minimap built-in)
+- Manage Projects as a "mode" in main 3D view (2D plane in 3D scene, camera switch)
+- Mode switching UI for workspaces
+
 ### Cleanup: HudTopbar Deduplication
 - HudTopbar is rendered 4 times (once per renderer mode) — should be rendered once above the renderer switch
 - All 4 instances are identical, just duplicated in each layout's JSX block
