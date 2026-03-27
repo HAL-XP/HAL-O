@@ -1,72 +1,63 @@
-// ── Manage Projects Page ──
-// Tree-based node/card layout for managing dispatchers, projects, agents, and groups.
-// Uses the HaloNode tree from the main process via IPC.
+// ── Manage Projects — Mission Control Node Graph ──
+// Infinite canvas with self-contained node cards, pan/zoom, inline editing.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 
 interface HaloNodeConfig {
-  model?: string
-  voice?: string
-  lang?: string
-  botToken?: string
-  color?: string
-  icon?: string
-  systemPrompt?: string
-  autoStart?: boolean
+  model?: string; voice?: string; lang?: string; botToken?: string
+  color?: string; icon?: string; systemPrompt?: string; autoStart?: boolean
 }
 
 interface HaloNode {
-  id: string
-  type: 'dispatcher' | 'project' | 'agent' | 'group'
-  name: string
-  alias?: string
-  path?: string
-  parentId: string | null
-  children: string[]
-  config: HaloNodeConfig
+  id: string; type: 'dispatcher' | 'project' | 'agent' | 'group'
+  name: string; alias?: string; path?: string; parentId: string | null
+  children: string[]; config: HaloNodeConfig
   status: 'online' | 'offline' | 'loading' | 'error'
-  createdAt: number
-  updatedAt: number
+  createdAt: number; updatedAt: number
 }
 
-interface HaloTree {
-  version: number
-  rootId: string
-  nodes: Record<string, HaloNode>
+interface HaloTree { version: number; rootId: string; nodes: Record<string, HaloNode> }
+
+const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  dispatcher: { icon: '◆', color: '#00e5ff', label: 'DISPATCHER' },
+  project: { icon: '■', color: '#22c55e', label: 'PROJECT' },
+  agent: { icon: '●', color: '#a78bfa', label: 'AGENT' },
+  group: { icon: '▣', color: '#6b7a8d', label: 'GROUP' },
 }
 
-// ── Type icons and colors ──
-const TYPE_DEFAULTS: Record<string, { icon: string; color: string }> = {
-  dispatcher: { icon: '🏢', color: '#00e5ff' },
-  project: { icon: '📦', color: '#22c55e' },
-  agent: { icon: '🤖', color: '#a78bfa' },
-  group: { icon: '📁', color: '#6b7a8d' },
-}
+const MODELS = [
+  { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
+  { value: 'claude-opus-4-6', label: 'Opus 4.6' },
+  { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
+]
 
-interface Props {
-  onBack?: () => void
-}
+const VOICES = [
+  { value: 'butler', label: 'HAL' },
+  { value: 'soft', label: 'Hallie' },
+  { value: 'auto', label: 'Auto' },
+]
+
+interface Props { onBack?: () => void }
 
 export function ManageProjects({ onBack }: Props) {
   const [tree, setTree] = useState<HaloTree | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [showImport, setShowImport] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [menuNodeId, setMenuNodeId] = useState<string | null>(null)
 
-  // ── Load tree ──
+  // Pan & zoom state
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [isPanning, setIsPanning] = useState(false)
+  const panStart = useRef({ x: 0, y: 0 })
+  const canvasRef = useRef<HTMLDivElement>(null)
+
   const loadTree = useCallback(async () => {
-    try {
-      const t = await window.api.treeGet()
-      setTree(t)
-    } catch (err) {
-      console.error('Failed to load tree:', err)
-    }
+    try { setTree(await window.api.treeGet()) } catch {}
   }, [])
 
   useEffect(() => { loadTree() }, [loadTree])
 
-  // ── CRUD handlers ──
   const handleCreate = async (type: string, name: string, parentId: string, options?: any) => {
     await window.api.treeCreate(type, name, parentId, options)
     await loadTree()
@@ -80,304 +71,238 @@ export function ManageProjects({ onBack }: Props) {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this node and all its children?')) return
     await window.api.treeDelete(id)
-    if (selectedId === id) setSelectedId(null)
     await loadTree()
   }
 
-  const handleMove = async (id: string, newParentId: string) => {
-    await window.api.treeMove(id, newParentId)
-    await loadTree()
-  }
+  // ── Pan handlers ──
+  const onCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.mp-node')) return
+    setIsPanning(true)
+    panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }
+  }, [pan])
 
-  if (!tree) return <div className="manage-projects-loading">Loading tree...</div>
+  const onCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning) return
+    setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y })
+  }, [isPanning])
 
-  const nodes = tree.nodes
-  const root = nodes[tree.rootId]
-  const selected = selectedId ? nodes[selectedId] : null
+  const onCanvasMouseUp = useCallback(() => setIsPanning(false), [])
 
-  // ── Filter nodes by search ──
-  const matchesSearch = (node: HaloNode): boolean => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return node.name.toLowerCase().includes(q) ||
-      (node.alias?.toLowerCase().includes(q) || false) ||
-      (node.path?.toLowerCase().includes(q) || false)
-  }
+  // ── Zoom handlers ──
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault()
+    setZoom(z => Math.max(0.3, Math.min(2.5, z - e.deltaY * 0.001)))
+  }, [])
 
-  // ── Layout: compute positions for top-down tree ──
-  const NODE_WIDTH = 180
-  const NODE_HEIGHT = 90
-  const H_GAP = 24
-  const V_GAP = 120
+  const zoomIn = () => setZoom(z => Math.min(2.5, z + 0.15))
+  const zoomOut = () => setZoom(z => Math.max(0.3, z - 0.15))
+  const zoomFit = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
 
-  interface LayoutNode {
-    id: string
-    x: number
-    y: number
-    width: number
-    level: number
-  }
+  // ── Layout computation ──
+  const NODE_W = 260
+  const NODE_H = 180
+  const H_GAP = 40
+  const V_GAP = 80
 
-  function computeLayout(): { layouts: LayoutNode[]; connections: Array<{ from: string; to: string }> } {
-    const layouts: LayoutNode[] = []
+  const { layouts, connections } = useMemo(() => {
+    if (!tree) return { layouts: [] as any[], connections: [] as any[] }
+    const nodes = tree.nodes
+    const layouts: Array<{ id: string; x: number; y: number }> = []
     const connections: Array<{ from: string; to: string }> = []
 
-    function getSubtreeWidth(nodeId: string): number {
-      const node = nodes[nodeId]
-      if (!node || !matchesSearch(node)) return 0
-      const visibleChildren = node.children.filter(cid => nodes[cid] && matchesSearch(nodes[cid]))
-      if (visibleChildren.length === 0) return NODE_WIDTH
-      const childrenWidth = visibleChildren.reduce((sum, cid) => sum + getSubtreeWidth(cid) + H_GAP, -H_GAP)
-      return Math.max(NODE_WIDTH, childrenWidth)
+    const matchesSearch = (n: HaloNode) => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return n.name.toLowerCase().includes(q) || (n.alias || '').toLowerCase().includes(q)
     }
 
-    function layoutNode(nodeId: string, x: number, y: number, level: number) {
-      const node = nodes[nodeId]
-      if (!node || !matchesSearch(node)) return
-
-      layouts.push({ id: nodeId, x, y, width: NODE_WIDTH, level })
-
-      const visibleChildren = node.children.filter(cid => nodes[cid] && matchesSearch(nodes[cid]))
-      if (visibleChildren.length === 0) return
-
-      const childWidths = visibleChildren.map(cid => getSubtreeWidth(cid))
-      const totalWidth = childWidths.reduce((s, w) => s + w + H_GAP, -H_GAP)
-      let cx = x + NODE_WIDTH / 2 - totalWidth / 2
-
-      for (let i = 0; i < visibleChildren.length; i++) {
-        const childX = cx + childWidths[i] / 2 - NODE_WIDTH / 2
-        connections.push({ from: nodeId, to: visibleChildren[i] })
-        layoutNode(visibleChildren[i], childX, y + NODE_HEIGHT + V_GAP, level + 1)
-        cx += childWidths[i] + H_GAP
-      }
+    function subtreeW(id: string): number {
+      const n = nodes[id]
+      if (!n || !matchesSearch(n)) return 0
+      const kids = n.children.filter(c => nodes[c] && matchesSearch(nodes[c]))
+      if (!kids.length) return NODE_W
+      return Math.max(NODE_W, kids.reduce((s, c) => s + subtreeW(c) + H_GAP, -H_GAP))
     }
 
-    const rootWidth = getSubtreeWidth(tree.rootId)
-    layoutNode(tree.rootId, Math.max(0, 400 - rootWidth / 2), 40, 0)
+    function place(id: string, x: number, y: number) {
+      const n = nodes[id]
+      if (!n || !matchesSearch(n)) return
+      layouts.push({ id, x, y })
+      const kids = n.children.filter(c => nodes[c] && matchesSearch(nodes[c]))
+      if (!kids.length) return
+      const widths = kids.map(c => subtreeW(c))
+      const total = widths.reduce((s, w) => s + w + H_GAP, -H_GAP)
+      let cx = x + NODE_W / 2 - total / 2
+      kids.forEach((c, i) => {
+        const childX = cx + widths[i] / 2 - NODE_W / 2
+        connections.push({ from: id, to: c })
+        place(c, childX, y + NODE_H + V_GAP)
+        cx += widths[i] + H_GAP
+      })
+    }
+
+    // Center tree in canvas
+    const rootW = subtreeW(tree.rootId)
+    const startX = Math.max(60, (typeof window !== 'undefined' ? window.innerWidth / 2 : 600) - rootW / 2)
+    place(tree.rootId, startX, 40)
     return { layouts, connections }
-  }
+  }, [tree, search])
 
-  const { layouts, connections } = computeLayout()
+  if (!tree) return <div className="mp-loading">Loading tree...</div>
+  const nodes = tree.nodes
 
-  // ── Render ──
   return (
-    <div className="manage-projects" ref={containerRef}>
-      {/* Top bar */}
+    <div className="mp-root">
+      {/* ── Topbar ── */}
       <div className="mp-topbar">
-        {onBack && <button className="mp-back" onClick={onBack}>← Back</button>}
-        <span className="mp-title">Manage Projects</span>
-        <input
-          className="mp-search"
-          type="text"
-          placeholder="Filter by name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <button className="mp-btn" onClick={() => setShowImport(true)}>+ Import Project</button>
-        <button className="mp-btn" onClick={() => handleCreate('dispatcher', 'New Dispatcher', tree.rootId)}>+ Dispatcher</button>
-        <button className="mp-btn" onClick={() => handleCreate('group', 'New Group', tree.rootId)}>+ Group</button>
+        <div className="mp-topbar-left">
+          {onBack && <button className="mp-back" onClick={onBack}>&#8592;</button>}
+          <span className="mp-title">MANAGE PROJECTS</span>
+          <input className="mp-search" placeholder="Filter..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="mp-topbar-right">
+          <button className="mp-action-btn" onClick={() => setShowImport(true)}>+ Import</button>
+          <button className="mp-action-btn" onClick={() => handleCreate('dispatcher', 'New Dispatcher', tree.rootId)}>+ Dispatcher</button>
+          <button className="mp-action-btn" onClick={() => handleCreate('group', 'New Group', tree.rootId)}>+ Group</button>
+        </div>
       </div>
 
-      {/* Canvas area with cards */}
-      <div className="mp-canvas">
-        {/* SVG connections */}
-        <svg className="mp-connections" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-          {connections.map(({ from, to }) => {
-            const fromLayout = layouts.find(l => l.id === from)
-            const toLayout = layouts.find(l => l.id === to)
-            if (!fromLayout || !toLayout) return null
-            const x1 = fromLayout.x + NODE_WIDTH / 2
-            const y1 = fromLayout.y + NODE_HEIGHT
-            const x2 = toLayout.x + NODE_WIDTH / 2
-            const y2 = toLayout.y
-            const midY = (y1 + y2) / 2
-            const parentColor = nodes[from]?.config.color || '#00e5ff'
-            return (
-              <g key={`${from}-${to}`}>
-                <path
-                  d={`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`}
-                  fill="none"
-                  stroke={parentColor}
-                  strokeWidth={1.5}
-                  strokeOpacity={0.3}
-                  strokeDasharray="4 4"
-                />
-              </g>
-            )
-          })}
-        </svg>
-
-        {/* Node cards */}
-        {layouts.map(layout => {
-          const node = nodes[layout.id]
-          if (!node) return null
-          const defaults = TYPE_DEFAULTS[node.type] || TYPE_DEFAULTS.project
-          const color = node.config.color || defaults.color
-          const icon = node.config.icon || defaults.icon
-          const isSelected = selectedId === node.id
-
-          return (
-            <div
-              key={node.id}
-              className={`mp-card ${isSelected ? 'selected' : ''}`}
-              style={{
-                left: layout.x,
-                top: layout.y,
-                width: NODE_WIDTH,
-                borderColor: isSelected ? color : 'rgba(255,255,255,0.06)',
-                boxShadow: isSelected ? `0 0 20px ${color}33` : undefined,
-              }}
-              onClick={() => setSelectedId(node.id)}
-            >
-              <div className="mp-card-icon" style={{ color }}>{icon}</div>
-              <div className="mp-card-name">{node.name}</div>
-              <div className="mp-card-meta">
-                <span className="mp-card-type" style={{ background: color + '22', color }}>{node.type}</span>
-                {node.alias && <span className="mp-card-alias">@{node.alias}</span>}
-              </div>
-              <div className={`mp-card-status ${node.status}`} />
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Detail panel */}
-      {selected && (
-        <div className="mp-panel">
-          <button className="mp-panel-close" onClick={() => setSelectedId(null)}>×</button>
-          <div className="mp-panel-header">
-            <span className="mp-panel-icon" style={{ color: selected.config.color || '#00e5ff' }}>
-              {selected.config.icon || TYPE_DEFAULTS[selected.type]?.icon || '📦'}
-            </span>
-            <div>
-              <div className="mp-panel-name">{selected.name}</div>
-              <div className="mp-panel-type">{selected.type} {selected.alias ? `(@${selected.alias})` : ''}</div>
-            </div>
-          </div>
-
-          <div className="mp-panel-fields">
-            <label>Name</label>
-            <input
-              value={selected.name}
-              onChange={e => handleUpdate(selected.id, { name: e.target.value })}
-            />
-
-            <label>Alias (for voice)</label>
-            <input
-              value={selected.alias || ''}
-              onChange={e => handleUpdate(selected.id, { alias: e.target.value || undefined })}
-              placeholder="e.g. bob, karen"
-            />
-
-            {selected.type === 'project' && (
-              <>
-                <label>Path</label>
-                <input
-                  value={selected.path || ''}
-                  onChange={e => handleUpdate(selected.id, { path: e.target.value })}
-                  placeholder="/path/to/project"
-                />
-              </>
-            )}
-
-            <label>Model</label>
-            <select
-              value={selected.config.model || 'claude-sonnet-4-6'}
-              onChange={e => handleUpdate(selected.id, { config: { ...selected.config, model: e.target.value } })}
-            >
-              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-              <option value="claude-opus-4-6">Claude Opus 4.6</option>
-              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
-            </select>
-
-            <label>Voice</label>
-            <select
-              value={selected.config.voice || 'auto'}
-              onChange={e => handleUpdate(selected.id, { config: { ...selected.config, voice: e.target.value } })}
-            >
-              <option value="butler">HAL (Male)</option>
-              <option value="soft">Hallie (Female)</option>
-              <option value="auto">Auto</option>
-            </select>
-
-            <label>Color</label>
-            <input
-              type="color"
-              value={selected.config.color || '#00e5ff'}
-              onChange={e => handleUpdate(selected.id, { config: { ...selected.config, color: e.target.value } })}
-            />
-          </div>
-
-          <div className="mp-panel-children">
-            <label>Children ({selected.children.length})</label>
-            {selected.children.map(cid => {
-              const child = nodes[cid]
-              if (!child) return null
+      {/* ── Infinite canvas ── */}
+      <div
+        ref={canvasRef}
+        className={`mp-canvas ${isPanning ? 'panning' : ''}`}
+        onMouseDown={onCanvasMouseDown}
+        onMouseMove={onCanvasMouseMove}
+        onMouseUp={onCanvasMouseUp}
+        onMouseLeave={onCanvasMouseUp}
+        onWheel={onWheel}
+      >
+        <div className="mp-transform" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+          {/* SVG connections */}
+          <svg className="mp-svg" style={{ position: 'absolute', top: 0, left: 0, width: 4000, height: 4000, pointerEvents: 'none' }}>
+            {connections.map(({ from, to }) => {
+              const fl = layouts.find(l => l.id === from)
+              const tl = layouts.find(l => l.id === to)
+              if (!fl || !tl) return null
+              const x1 = fl.x + NODE_W / 2, y1 = fl.y + NODE_H
+              const x2 = tl.x + NODE_W / 2, y2 = tl.y
+              const my = y1 + V_GAP / 2
+              const color = nodes[from]?.config.color || '#00e5ff'
               return (
-                <div key={cid} className="mp-panel-child" onClick={() => setSelectedId(cid)}>
-                  {child.config.icon || TYPE_DEFAULTS[child.type]?.icon} {child.name}
-                </div>
+                <path key={`${from}-${to}`}
+                  d={`M${x1} ${y1} L${x1} ${my} L${x2} ${my} L${x2} ${y2}`}
+                  fill="none" stroke={color} strokeWidth={2} strokeOpacity={0.6}
+                  strokeDasharray="6 4" />
               )
             })}
-            <button
-              className="mp-btn-small"
-              onClick={() => handleCreate('project', 'New Project', selected.id)}
-            >+ Add Project</button>
-          </div>
+          </svg>
 
-          <div className="mp-panel-actions">
-            {selected.id !== tree.rootId && (
-              <button className="mp-btn-danger" onClick={() => handleDelete(selected.id)}>
-                Delete
-              </button>
-            )}
-          </div>
+          {/* ── Node cards ── */}
+          {layouts.map(({ id, x, y }) => {
+            const node = nodes[id]
+            if (!node) return null
+            const meta = TYPE_META[node.type] || TYPE_META.project
+            const color = node.config.color || meta.color
+            const isRoot = id === tree.rootId
+
+            return (
+              <div key={id} className="mp-node" style={{ left: x, top: y, width: NODE_W, borderColor: color + '44' }}>
+                {/* Header */}
+                <div className="mp-node-header" style={{ borderBottomColor: color + '33' }}>
+                  <span className="mp-node-icon" style={{ color }}>{meta.icon}</span>
+                  <input className="mp-node-name" value={node.name}
+                    onChange={e => handleUpdate(id, { name: e.target.value })}
+                    style={{ color }} />
+                  <span className="mp-node-type" style={{ background: color + '18', color }}>{meta.label}</span>
+                  <div className={`mp-node-status ${node.status}`} />
+                  {!isRoot && (
+                    <button className="mp-node-menu" onClick={() => setMenuNodeId(menuNodeId === id ? null : id)}>⋯</button>
+                  )}
+                </div>
+
+                {/* Fields grid */}
+                <div className="mp-node-fields">
+                  <div className="mp-field">
+                    <span className="mp-field-label">ALIAS</span>
+                    <input className="mp-field-input" value={node.alias || ''} placeholder="—"
+                      onChange={e => handleUpdate(id, { alias: e.target.value || undefined })} />
+                  </div>
+                  <div className="mp-field">
+                    <span className="mp-field-label">MODEL</span>
+                    <select className="mp-field-select" value={node.config.model || 'claude-sonnet-4-6'}
+                      onChange={e => handleUpdate(id, { config: { ...node.config, model: e.target.value } })}>
+                      {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="mp-field">
+                    <span className="mp-field-label">VOICE</span>
+                    <select className="mp-field-select" value={node.config.voice || 'auto'}
+                      onChange={e => handleUpdate(id, { config: { ...node.config, voice: e.target.value } })}>
+                      {VOICES.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="mp-field">
+                    <span className="mp-field-label">COLOR</span>
+                    <input type="color" className="mp-field-color" value={node.config.color || meta.color}
+                      onChange={e => handleUpdate(id, { config: { ...node.config, color: e.target.value } })} />
+                  </div>
+                </div>
+
+                {/* Footer: children count + add button */}
+                <div className="mp-node-footer">
+                  <span className="mp-node-children">{node.children.length} children</span>
+                  <button className="mp-node-add" onClick={() => handleCreate('project', 'New Project', id)}>+ Add</button>
+                </div>
+
+                {/* Context menu */}
+                {menuNodeId === id && (
+                  <div className="mp-node-dropdown">
+                    <button onClick={() => { handleCreate('project', 'New Project', id); setMenuNodeId(null) }}>+ Project</button>
+                    <button onClick={() => { handleCreate('dispatcher', 'Sub-Dispatcher', id); setMenuNodeId(null) }}>+ Dispatcher</button>
+                    <button onClick={() => { handleCreate('agent', 'New Agent', id); setMenuNodeId(null) }}>+ Agent</button>
+                    <button className="mp-danger" onClick={() => { handleDelete(id); setMenuNodeId(null) }}>Delete</button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      )}
+      </div>
 
-      {/* Import modal */}
-      {showImport && (
-        <ImportModal
-          tree={tree}
-          nodes={nodes}
-          onImport={async (path, name, parentId) => {
-            await handleCreate('project', name, parentId, { path })
-            setShowImport(false)
-          }}
-          onClose={() => setShowImport(false)}
-        />
-      )}
+      {/* ── Zoom controls ── */}
+      <div className="mp-zoom-controls">
+        <button onClick={zoomIn}>+</button>
+        <span className="mp-zoom-level">{Math.round(zoom * 100)}%</span>
+        <button onClick={zoomOut}>−</button>
+        <button onClick={zoomFit} className="mp-zoom-fit">Fit</button>
+      </div>
+
+      {/* ── Import modal ── */}
+      {showImport && <ImportModal tree={tree} nodes={nodes} onImport={async (path, name, pid) => {
+        await handleCreate('project', name, pid, { path })
+        setShowImport(false)
+      }} onClose={() => setShowImport(false)} />}
     </div>
   )
 }
 
-// ── Import Modal ──
 function ImportModal({ tree, nodes, onImport, onClose }: {
-  tree: HaloTree
-  nodes: Record<string, HaloNode>
-  onImport: (path: string, name: string, parentId: string) => void
-  onClose: () => void
+  tree: HaloTree; nodes: Record<string, HaloNode>
+  onImport: (p: string, n: string, pid: string) => void; onClose: () => void
 }) {
   const [path, setPath] = useState('')
   const [name, setName] = useState('')
   const [parentId, setParentId] = useState(tree.rootId)
-
-  const handleBrowse = async () => {
-    const folder = await window.api.selectFolder()
-    if (folder) {
-      setPath(folder)
-      setName(folder.split(/[/\\]/).filter(Boolean).pop() || '')
-    }
-  }
+  const browse = async () => { const f = await window.api.selectFolder(); if (f) { setPath(f); setName(f.split(/[/\\]/).filter(Boolean).pop() || '') } }
 
   return (
     <div className="mp-modal-overlay" onClick={onClose}>
       <div className="mp-modal" onClick={e => e.stopPropagation()}>
         <h3>Import Project</h3>
-        <label>Folder Path</label>
+        <label>Folder</label>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={path} onChange={e => setPath(e.target.value)} placeholder="/path/to/project" style={{ flex: 1 }} />
-          <button className="mp-btn" onClick={handleBrowse}>Browse</button>
+          <button className="mp-action-btn" onClick={browse}>Browse</button>
         </div>
         <label>Name</label>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="project-name" />
@@ -388,8 +313,8 @@ function ImportModal({ tree, nodes, onImport, onClose }: {
           ))}
         </select>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button className="mp-btn" onClick={() => { if (path && name) onImport(path, name, parentId) }}>Import</button>
-          <button className="mp-btn" onClick={onClose}>Cancel</button>
+          <button className="mp-action-btn" onClick={() => { if (path && name) onImport(path, name, parentId) }}>Import</button>
+          <button className="mp-action-btn" onClick={onClose} style={{ opacity: 0.5 }}>Cancel</button>
         </div>
       </div>
     </div>

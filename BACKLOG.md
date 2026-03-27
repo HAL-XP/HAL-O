@@ -32,6 +32,11 @@ Architecture + research done. Reports at _reports/halo-tree-architecture.html + 
 - Message bus via HTTP API
 - User can observe agent conversations
 
+### Cleanup: HudTopbar Deduplication
+- HudTopbar is rendered 4 times (once per renderer mode) — should be rendered once above the renderer switch
+- All 4 instances are identical, just duplicated in each layout's JSX block
+- Refactor: extract topbar to render outside the renderer conditional
+
 ### Onboarding
 - Simple path: "Manage projects" or "Personal assistant" → 1-click done
 - Power path: full tree editor with dispatchers, bots, voices, models
