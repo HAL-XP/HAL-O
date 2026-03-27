@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAL-O — Manage Projects: Node/Card Layout Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #050810;
+            --bg-secondary: #0a0f1a;
+            --cyan: #00e5ff;
+            --green: #22c55e;
+            --pink: #ec4899;
+            --orange: #f97316;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+            --gray: #6b7280;
+            --accent: #00e5ff;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-dark);
+            color: #e0e7ff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        /* Top Bar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: linear-gradient(180deg, rgba(10, 15, 26, 0.8), rgba(5, 8, 16, 0.6));
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            gap: 16px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex: 1;
+        }
+
+        .topbar-title {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--cyan);
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: rgba(10, 15, 26, 0.6);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            width: 250px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #e0e7ff;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .search-box input::placeholder {
+            color: rgba(224, 231, 255, 0.4);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+            background: rgba(10, 15, 26, 0.6);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .view-toggle button {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: rgba(224, 231, 255, 0.6);
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .view-toggle button.active {
+            background: var(--cyan);
+            color: var(--bg-dark);
+            font-weight: 600;
+        }
+
+        .view-toggle button:hover:not(.active) {
+            color: var(--cyan);
+        }
+
+        .topbar-right {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(34, 197, 94, 0.1));
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(34, 197, 94, 0.2));
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            border-color: var(--cyan);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(0, 229, 255, 0.1));
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Main Content */
+        .content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(135deg, #050810 0%, #0a0f1a 100%);
+            overflow: hidden;
+        }
+
+        .grid-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(0deg, transparent 24%, rgba(0, 229, 255, 0.05) 25%, rgba(0, 229, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.05) 75%, rgba(0, 229, 255, 0.05) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(0, 229, 255, 0.05) 25%, rgba(0, 229, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.05) 75%, rgba(0, 229, 255, 0.05) 76%, transparent 77%, transparent);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .canvas-wrapper {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            z-index: 2;
+        }
+
+        svg.connections {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .cards-container {
+            position: relative;
+            width: 200%;
+            height: 200%;
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        /* Cards */
+        .card {
+            position: absolute;
+            width: 200px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(10, 15, 26, 0.7), rgba(15, 23, 42, 0.5));
+            border: 2px solid rgba(0, 229, 255, 0.2);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            cursor: move;
+            transition: all 0.3s ease;
+            user-select: none;
+            touch-action: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        .card.selected {
+            border-color: var(--cyan);
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.5), 0 12px 48px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(15, 23, 42, 0.7));
+        }
+
+        .card.dispatcher {
+            --color: var(--cyan);
+        }
+
+        .card.project {
+            --color: var(--green);
+        }
+
+        .card.agent {
+            --color: var(--pink);
+        }
+
+        .card.group {
+            --color: var(--gray);
+        }
+
+        .card:hover {
+            border-color: var(--color);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.3), 0 12px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        .card-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .card-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e7ff;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        .card-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--cyan);
+            letter-spacing: 0.3px;
+        }
+
+        .badge.type-dispatcher {
+            background: rgba(0, 229, 255, 0.1);
+            border-color: rgba(0, 229, 255, 0.3);
+            color: var(--cyan);
+        }
+
+        .badge.type-project {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: var(--green);
+        }
+
+        .badge.type-group {
+            background: rgba(107, 114, 128, 0.1);
+            border-color: rgba(107, 114, 128, 0.3);
+            color: var(--gray);
+        }
+
+        .badge.voice {
+            background: rgba(236, 72, 153, 0.1);
+            border-color: rgba(236, 72, 153, 0.3);
+            color: var(--pink);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-right: 4px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--gray);
+            animation: none;
+        }
+
+        .status-dot.loading {
+            background: var(--orange);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Detail Panel */
+        .detail-panel {
+            width: 30%;
+            background: linear-gradient(180deg, rgba(10, 15, 26, 0.9), rgba(5, 8, 16, 0.8));
+            border-left: 1px solid rgba(0, 229, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-panel.open {
+            transform: translateX(0);
+        }
+
+        .detail-header {
+            padding: 24px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+            position: sticky;
+            top: 0;
+            background: linear-gradient(180deg, rgba(10, 15, 26, 0.95), rgba(5, 8, 16, 0.85));
+            backdrop-filter: blur(10px);
+        }
+
+        .detail-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .detail-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--cyan);
+            margin-bottom: 8px;
+        }
+
+        .detail-type {
+            font-size: 12px;
+            color: rgba(224, 231, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .detail-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .detail-section {
+            margin-bottom: 24px;
+        }
+
+        .detail-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            margin-bottom: 12px;
+            opacity: 0.8;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        .detail-field {
+            margin-bottom: 16px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: rgba(224, 231, 255, 0.6);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .detail-value {
+            font-size: 12px;
+            color: #e0e7ff;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            border-radius: 4px;
+            padding: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-all;
+        }
+
+        .detail-input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 4px;
+            color: #e0e7ff;
+            font-family: inherit;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .detail-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        .select-list {
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .select-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.05);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            color: rgba(224, 231, 255, 0.8);
+        }
+
+        .select-item:hover {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--cyan);
+        }
+
+        .select-item.active {
+            background: rgba(0, 229, 255, 0.15);
+            border-left: 3px solid var(--cyan);
+            padding-left: 9px;
+            color: var(--cyan);
+            font-weight: 600;
+        }
+
+        .children-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .child-item {
+            padding: 8px 12px;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            border-radius: 4px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: rgba(224, 231, 255, 0.8);
+            transition: all 0.2s ease;
+        }
+
+        .child-item:hover {
+            background: rgba(0, 229, 255, 0.1);
+            border-color: var(--cyan);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        .action-btn {
+            padding: 10px;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(0, 229, 255, 0.05);
+            color: var(--cyan);
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: var(--cyan);
+        }
+
+        .action-btn.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.05);
+            color: #ef4444;
+        }
+
+        .action-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, rgba(10, 15, 26, 0.95), rgba(5, 8, 16, 0.9));
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--cyan);
+            margin-bottom: 24px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+        }
+
+        .modal-field {
+            margin-bottom: 20px;
+        }
+
+        .modal-label {
+            font-size: 12px;
+            color: rgba(224, 231, 255, 0.7);
+            margin-bottom: 8px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 6px;
+            color: #e0e7ff;
+            font-family: inherit;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 6px;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(34, 197, 94, 0.1));
+            color: var(--cyan);
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-btn:hover {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(34, 197, 94, 0.2));
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+            border-color: var(--cyan);
+        }
+
+        .modal-btn.cancel {
+            background: rgba(107, 114, 128, 0.1);
+            border-color: rgba(107, 114, 128, 0.3);
+            color: var(--gray);
+        }
+
+        .modal-btn.cancel:hover {
+            background: rgba(107, 114, 128, 0.2);
+            border-color: var(--gray);
+        }
+
+        /* Feedback Section */
+        .feedback-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(5, 8, 16, 0.8), rgba(10, 15, 26, 0.9));
+            border-top: 1px solid rgba(0, 229, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            z-index: 60;
+            max-height: 150px;
+        }
+
+        .feedback-label {
+            font-size: 11px;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .feedback-textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 6px;
+            color: #e0e7ff;
+            font-family: inherit;
+            font-size: 12px;
+            resize: none;
+            transition: all 0.2s ease;
+        }
+
+        .feedback-textarea:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 229, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 229, 255, 0.4);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 170px;
+            right: 24px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(34, 197, 94, 0.1));
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-size: 12px;
+            animation: slideInRight 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <div class="topbar-title">🛰️ HAL-O — MANAGE PROJECTS</div>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Filter by name...">
+                </div>
+            </div>
+            <div class="view-toggle">
+                <button class="active" data-view="cards">Cards</button>
+                <button data-view="tree">Tree</button>
+                <button data-view="3d">3D</button>
+            </div>
+            <div class="topbar-right">
+                <button class="btn" id="importBtn">📥 Import Project</button>
+                <button class="btn btn-primary" id="newDispatcherBtn">+ New Dispatcher</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <div class="canvas-area">
+                <div class="grid-bg"></div>
+                <svg class="connections" id="connections"></svg>
+                <div class="canvas-wrapper">
+                    <div class="cards-container" id="cardsContainer"></div>
+                </div>
+            </div>
+
+            <!-- Detail Panel -->
+            <div class="detail-panel" id="detailPanel">
+                <div class="detail-header">
+                    <div class="detail-icon" id="detailIcon">🏢</div>
+                    <div class="detail-name" id="detailName">Select a node</div>
+                    <div class="detail-type" id="detailType">dispatcher</div>
+                </div>
+                <div class="detail-content">
+                    <div id="detailFields"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <div class="modal-title">📥 Import Project</div>
+            <div class="modal-field">
+                <label class="modal-label">Folder Path</label>
+                <input type="text" class="modal-input" id="importPath" placeholder="/path/to/project">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Project Name</label>
+                <input type="text" class="modal-input" id="importName" placeholder="My Project">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Stack</label>
+                <div class="detail-value" id="importStackDetect">Auto-detect...</div>
+            </div>
+            <div class="modal-field">
+                <label class="modal-label">Parent Node</label>
+                <div class="select-list" id="importParentList"></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn" onclick="confirmImport()">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="feedback-section">
+        <div class="feedback-label">💬 Feedback & Notes</div>
+        <textarea class="feedback-textarea" placeholder="Share your thoughts on this mockup..."></textarea>
+    </div>
+
+    <script>
+        // Data structure
+        const projectTree = {
+            id: 'hal-o',
+            name: 'HAL-O',
+            type: 'dispatcher',
+            icon: '🏢',
+            status: 'online',
+            voice: 'HAL',
+            language: '🇬🇧 EN',
+            color: 'cyan',
+            x: 100,
+            y: 100,
+            children: [
+                {
+                    id: 'karen',
+                    name: 'Karen',
+                    type: 'dispatcher',
+                    icon: '🎯',
+                    status: 'online',
+                    voice: 'Hallie',
+                    language: '🇫🇷 FR',
+                    color: 'pink',
+                    x: 400,
+                    y: 80,
+                    children: []
+                },
+                {
+                    id: 'bob',
+                    name: 'Bob',
+                    type: 'dispatcher',
+                    icon: '🤖',
+                    status: 'offline',
+                    voice: 'HAL',
+                    language: '🇬🇧 EN',
+                    color: 'green',
+                    x: 700,
+                    y: 80,
+                    children: [
+                        {
+                            id: 'client-api',
+                            name: 'client-api',
+                            type: 'project',
+                            icon: '📦',
+                            status: 'online',
+                            stack: 'React + TypeScript',
+                            x: 600,
+                            y: 280,
+                            children: []
+                        },
+                        {
+                            id: 'server-api',
+                            name: 'server-api',
+                            type: 'project',
+                            icon: '📦',
+                            status: 'online',
+                            stack: 'Node.js + Express',
+                            x: 800,
+                            y: 280,
+                            children: []
+                        }
+                    ]
+                },
+                {
+                    id: 'work',
+                    name: 'Work',
+                    type: 'dispatcher',
+                    icon: '💼',
+                    status: 'online',
+                    color: 'orange',
+                    x: 1100,
+                    y: 80,
+                    children: [
+                        {
+                            id: 'company-a',
+                            name: 'Company A',
+                            type: 'dispatcher',
+                            icon: '🏢',
+                            status: 'online',
+                            color: 'blue',
+                            x: 1000,
+                            y: 280,
+                            children: [
+                                {
+                                    id: 'frontend',
+                                    name: 'frontend',
+                                    type: 'project',
+                                    icon: '📦',
+                                    status: 'online',
+                                    stack: 'Next.js',
+                                    x: 900,
+                                    y: 480,
+                                    children: []
+                                },
+                                {
+                                    id: 'backend',
+                                    name: 'backend',
+                                    type: 'project',
+                                    icon: '📦',
+                                    status: 'loading',
+                                    stack: 'Python + FastAPI',
+                                    x: 1100,
+                                    y: 480,
+                                    children: []
+                                }
+                            ]
+                        },
+                        {
+                            id: 'company-b',
+                            name: 'Company B',
+                            type: 'dispatcher',
+                            icon: '🏢',
+                            status: 'offline',
+                            color: 'purple',
+                            x: 1300,
+                            y: 280,
+                            children: [
+                                {
+                                    id: 'mobile-app',
+                                    name: 'mobile-app',
+                                    type: 'project',
+                                    icon: '📦',
+                                    status: 'online',
+                                    stack: 'React Native',
+                                    x: 1300,
+                                    y: 480,
+                                    children: []
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'my-games',
+                    name: 'My Games',
+                    type: 'group',
+                    icon: '📁',
+                    status: 'offline',
+                    color: 'gray',
+                    x: 100,
+                    y: 280,
+                    children: [
+                        {
+                            id: 'ue-phone',
+                            name: 'UEPhoneGame',
+                            type: 'project',
+                            icon: '🎮',
+                            status: 'online',
+                            stack: 'Unreal Engine 5',
+                            x: 80,
+                            y: 480,
+                            children: []
+                        },
+                        {
+                            id: 'offline-game',
+                            name: 'OfflineGame',
+                            type: 'project',
+                            icon: '🎮',
+                            status: 'offline',
+                            stack: 'Unity',
+                            x: 200,
+                            y: 480,
+                            children: []
+                        }
+                    ]
+                }
+            ]
+        };
+
+        let selectedNode = null;
+        let draggedNode = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        let allNodes = [];
+
+        // Flatten tree for easier access
+        function flattenTree(node, parent = null) {
+            node.parent = parent;
+            allNodes.push(node);
+            if (node.children) {
+                node.children.forEach(child => flattenTree(child, node));
+            }
+        }
+
+        // Initialize
+        function init() {
+            flattenTree(projectTree);
+            renderCards();
+            renderConnections();
+            setupEventListeners();
+        }
+
+        // Render cards
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            allNodes.forEach(node => {
+                const card = document.createElement('div');
+                card.className = `card ${node.type}`;
+                card.id = `card-${node.id}`;
+                card.style.left = node.x + 'px';
+                card.style.top = node.y + 'px';
+
+                let badgesHTML = `<div class="badge type-${node.type}"><span class="status-dot ${node.status}"></span>${node.type}</div>`;
+
+                if (node.voice) {
+                    badgesHTML += `<div class="badge voice">🎤 ${node.voice}</div>`;
+                }
+                if (node.stack) {
+                    badgesHTML += `<div class="badge type-project">${node.stack}</div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="card-icon">${node.icon}</div>
+                    <div class="card-name">${node.name}</div>
+                    <div class="card-badges">${badgesHTML}</div>
+                `;
+
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectNode(node);
+                });
+
+                card.addEventListener('mousedown', startDrag);
+                container.appendChild(card);
+            });
+        }
+
+        // Render connections
+        function renderConnections() {
+            const svg = document.getElementById('connections');
+            svg.innerHTML = '';
+
+            allNodes.forEach(node => {
+                if (node.parent) {
+                    const parent = node.parent;
+                    const x1 = parent.x + 100;
+                    const y1 = parent.y + 60;
+                    const x2 = node.x + 100;
+                    const y2 = node.y;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const controlY = (y1 + y2) / 2;
+                    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${controlY}, ${x2} ${controlY}, ${x2} ${y2}`);
+                    path.setAttribute('stroke', getColorValue(parent.color || 'cyan'));
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('opacity', '0.4');
+                    path.setAttribute('stroke-dasharray', '5,5');
+                    path.setAttribute('stroke-linecap', 'round');
+
+                    svg.appendChild(path);
+                }
+            });
+        }
+
+        // Get color value
+        function getColorValue(color) {
+            const colors = {
+                cyan: '#00e5ff',
+                green: '#22c55e',
+                pink: '#ec4899',
+                orange: '#f97316',
+                blue: '#3b82f6',
+                purple: '#a855f7',
+                gray: '#6b7280'
+            };
+            return colors[color] || colors.cyan;
+        }
+
+        // Select node
+        function selectNode(node) {
+            if (selectedNode) {
+                document.getElementById(`card-${selectedNode.id}`)?.classList.remove('selected');
+            }
+            selectedNode = node;
+            document.getElementById(`card-${node.id}`).classList.add('selected');
+            showDetailPanel(node);
+        }
+
+        // Show detail panel
+        function showDetailPanel(node) {
+            const panel = document.getElementById('detailPanel');
+            document.getElementById('detailIcon').textContent = node.icon;
+            document.getElementById('detailName').textContent = node.name;
+            document.getElementById('detailType').textContent = node.type.toUpperCase();
+
+            let fieldsHTML = '';
+
+            if (node.type === 'dispatcher') {
+                fieldsHTML = `
+                    <div class="detail-section">
+                        <div class="detail-section-title">Configuration</div>
+                        <div class="detail-field">
+                            <label class="detail-label">Voice Profile</label>
+                            <select class="detail-input">
+                                <option>HAL (Butler)</option>
+                                <option selected="${node.voice === 'Hallie'}">Hallie (Soft)</option>
+                                <option>Auto</option>
+                            </select>
+                        </div>
+                        <div class="detail-field">
+                            <label class="detail-label">Language</label>
+                            <select class="detail-input">
+                                <option selected="${node.language?.includes('EN')}">🇬🇧 English</option>
+                                <option selected="${node.language?.includes('FR')}">🇫🇷 Français</option>
+                                <option>🇪🇸 Español</option>
+                            </select>
+                        </div>
+                        <div class="detail-field">
+                            <label class="detail-label">Bot Token</label>
+                            <input type="password" class="detail-input" placeholder="telegram_bot_token...">
+                        </div>
+                        <div class="detail-field">
+                            <label class="detail-label">Color</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button style="width: 32px; height: 32px; background: #00e5ff; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
+                                <button style="width: 32px; height: 32px; background: #22c55e; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
+                                <button style="width: 32px; height: 32px; background: #ec4899; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
+                                <button style="width: 32px; height: 32px; background: #f97316; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <div class="detail-section-title">Children (${node.children?.length || 0})</div>
+                        <div class="children-list">
+                            ${node.children?.map(child => `<div class="child-item"><span>${child.icon} ${child.name}</span><span style="color: rgba(224,231,255,0.4);">${child.type}</span></div>`).join('') || '<div style="color: rgba(224,231,255,0.4); font-size: 11px;">No children yet</div>'}
+                        </div>
+                        <button class="action-btn" style="margin-top: 12px;">+ Add Child</button>
+                    </div>
+                `;
+            } else if (node.type === 'project') {
+                fieldsHTML = `
+                    <div class="detail-section">
+                        <div class="detail-section-title">Project Info</div>
+                        <div class="detail-field">
+                            <label class="detail-label">Stack</label>
+                            <div class="detail-value">${node.stack || 'Not specified'}</div>
+                        </div>
+                        <div class="detail-field">
+                            <label class="detail-label">Path</label>
+                            <div class="detail-value">/projects/${node.name}</div>
+                        </div>
+                        <div class="detail-field">
+                            <label class="detail-label">Last Activity</label>
+                            <div class="detail-value">2 hours ago</div>
+                        </div>
+                    </div>
+                `;
+            } else if (node.type === 'group') {
+                fieldsHTML = `
+                    <div class="detail-section">
+                        <div class="detail-section-title">Group Info</div>
+                        <div class="detail-field">
+                            <label class="detail-label">Members</label>
+                            <div class="detail-value">${node.children?.length || 0} projects</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            fieldsHTML += `
+                <div class="action-buttons">
+                    <button class="action-btn">🖥️ Open Terminal</button>
+                    <button class="action-btn">📍 Move to...</button>
+                    <button class="action-btn danger">🗑️ Remove Node</button>
+                </div>
+            `;
+
+            document.getElementById('detailFields').innerHTML = fieldsHTML;
+            panel.classList.add('open');
+        }
+
+        // Start drag
+        function startDrag(e) {
+            const card = e.currentTarget;
+            const nodeId = card.id.replace('card-', '');
+            draggedNode = allNodes.find(n => n.id === nodeId);
+            dragOffsetX = e.clientX - draggedNode.x;
+            dragOffsetY = e.clientY - draggedNode.y;
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function doDrag(e) {
+            if (!draggedNode) return;
+            draggedNode.x = e.clientX - dragOffsetX;
+            draggedNode.y = e.clientY - dragOffsetY;
+            const card = document.getElementById(`card-${draggedNode.id}`);
+            card.style.left = draggedNode.x + 'px';
+            card.style.top = draggedNode.y + 'px';
+            renderConnections();
+        }
+
+        function stopDrag() {
+            draggedNode = null;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                allNodes.forEach(node => {
+                    const card = document.getElementById(`card-${node.id}`);
+                    card.style.opacity = node.name.toLowerCase().includes(query) ? '1' : '0.3';
+                    card.style.pointerEvents = node.name.toLowerCase().includes(query) ? 'auto' : 'none';
+                });
+            });
+
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (e.target.dataset.view !== 'cards') {
+                        const toast = document.createElement('div');
+                        toast.className = 'toast';
+                        toast.textContent = '🚀 Coming soon...';
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 2000);
+                    }
+                });
+            });
+
+            document.getElementById('importBtn').addEventListener('click', openImportModal);
+            document.getElementById('newDispatcherBtn').addEventListener('click', () => {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = '✨ New dispatcher created!';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2000);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target.id === 'cardsContainer') {
+                    if (selectedNode) {
+                        document.getElementById(`card-${selectedNode.id}`).classList.remove('selected');
+                        selectedNode = null;
+                    }
+                    document.getElementById('detailPanel').classList.remove('open');
+                }
+            });
+        }
+
+        function openImportModal() {
+            document.getElementById('importModal').classList.add('active');
+            const parentList = document.getElementById('importParentList');
+            parentList.innerHTML = allNodes
+                .filter(n => n.type === 'dispatcher' || n.type === 'group')
+                .map(n => `<div class="select-item" data-id="${n.id}">${n.icon} ${n.name}</div>`)
+                .join('');
+
+            parentList.querySelectorAll('.select-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    parentList.querySelectorAll('.select-item').forEach(i => i.classList.remove('active'));
+                    e.target.classList.add('active');
+                });
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('importModal').classList.remove('active');
+        }
+
+        function confirmImport() {
+            const path = document.getElementById('importPath').value;
+            const name = document.getElementById('importName').value;
+            if (path && name) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = `📥 Imported: ${name}`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2000);
+                closeModal();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

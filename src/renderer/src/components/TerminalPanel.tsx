@@ -31,6 +31,17 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
   const fitRef = useRef<FitAddon | null>(null)
   const outputBufferRef = useRef('')
   const ttsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const aliasVoiceRef = useRef<string | null>(null)
+
+  // Look up alias-based voice override (e.g. "bob" → butler, "karen" → soft)
+  useEffect(() => {
+    window.api.ptySessions().then((sessions) => {
+      const s = sessions.find((s: { id: string }) => s.id === sessionId)
+      if (s?.projectName) {
+        window.api.getVoiceForProject(s.projectName).then((v) => { aliasVoiceRef.current = v }).catch(() => {})
+      }
+    }).catch(() => {})
+  }, [sessionId])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -251,8 +262,8 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
             if (override) {
               ;(window as any).__voiceProfileOverride = null
             }
-            // Resolve the effective profile: override > explicit profile > auto-select
-            const effectiveProfile = override || (voiceProfile === 'auto' ? selectVoiceProfile(toSpeak) : voiceProfile)
+            // Resolve the effective profile: override > alias voice > explicit profile > auto-select
+            const effectiveProfile = override || aliasVoiceRef.current || (voiceProfile === 'auto' ? selectVoiceProfile(toSpeak) : voiceProfile)
             console.log('[TTS-DEBUG] Profile:', effectiveProfile, '| Speaking', toSpeak.length, 'chars')
             window.api.voiceSpeak(toSpeak, effectiveProfile, 'en').then((result) => {
               if (result.success && result.audioDataUrl) {

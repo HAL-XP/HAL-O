@@ -164,6 +164,7 @@ async function handleMessage(msg: { message_id: number; chat: { id: number }; te
 
   // Dispatch message to right terminal
   const result = dispatchMessage(text)
+  console.log(`[TG-Handler] Dispatch: layer=${result.layer} conf=${result.confidence} → ${result.projectName || '(default)'}`)
 
   if (!result.sessionId) {
     await sendReply('[Hal-O] No active terminal sessions. Open a project first.', chatId)

@@ -2,7 +2,7 @@
 // Exposes message routing to the renderer process.
 
 import { ipcMain } from 'electron'
-import { dispatchMessage, setStickySession, getStickySession, setTerminalListProvider, matchVoiceSwitch, getActiveTerminals, type ProjectTerminal } from './dispatcher'
+import { dispatchMessage, setStickySession, getStickySession, setTerminalListProvider, matchVoiceSwitch, getActiveTerminals, getVoiceForProject, type ProjectTerminal } from './dispatcher'
 import { terminalManager } from './terminal-manager'
 
 export function registerDispatcherHandlers(): void {
@@ -43,5 +43,10 @@ export function registerDispatcherHandlers(): void {
       return { type: 'list', projects: terminals.map(t => ({ name: t.projectName, sessionId: t.sessionId })) }
     }
     return result
+  })
+
+  // Get voice profile for a project (from alias config)
+  ipcMain.handle('get-voice-for-project', async (_e, projectName: string) => {
+    return getVoiceForProject(projectName)
   })
 }

@@ -16,6 +16,7 @@ import { registerUpgradeHandlers } from './ipc-upgrade'
 import { registerModelHandlers } from './ipc-models'
 import { registerMergeHandlers } from './ipc-merge'
 import { registerDispatcherHandlers } from './ipc-dispatcher'
+import { startHttpApi } from './http-api'
 
 export function registerIpcHandlers(): void {
   registerSetupHandlers()
@@ -27,4 +28,5 @@ export function registerIpcHandlers(): void {
   registerModelHandlers()
   registerMergeHandlers()
   registerDispatcherHandlers()
+  startHttpApi()
 }

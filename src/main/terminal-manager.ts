@@ -65,6 +65,12 @@ export class TerminalManager {
   private sessions = new Map<string, PtySession>()
   private window: BrowserWindow | null = null
   private activityTimer: ReturnType<typeof setInterval> | null = null
+  private _onDataCallback: ((id: string, projectName: string, data: string) => void) | null = null
+
+  /** Register external callback for terminal output (used by HTTP API for WebSocket streaming) */
+  onExternalData(cb: (id: string, projectName: string, data: string) => void) {
+    this._onDataCallback = cb
+  }
 
   setWindow(win: BrowserWindow) {
     this.window = win
@@ -135,12 +141,21 @@ export class TerminalManager {
     const cmdLine = [options.cmd, ...options.args].join(' ')
     const shellArgs = isWin ? ['/k', cmdLine] : ['-c', cmdLine]
 
+    // Strip HAL-O's Telegram tokens from child terminals so other projects
+    // don't accidentally connect to the same bot
+    const childEnv = { ...process.env }
+    const isHalO = options.cwd.toLowerCase().replace(/\\/g, '/').includes('hal-o')
+    if (!isHalO) {
+      delete childEnv.TELEGRAM_MAIN_BOT_TOKEN
+      // Keep TELEGRAM_BOT_TOKEN — other projects may have their own bot
+    }
+
     const p = pty.spawn(shell, shellArgs, {
       name: 'xterm-256color',
       cols: options.cols,
       rows: options.rows,
       cwd: options.cwd,
-      env: { ...process.env },
+      env: childEnv,
     })
 
     console.log(`[TerminalManager] PID: ${p.pid}`)
@@ -191,6 +206,9 @@ export class TerminalManager {
           this.window.webContents.send(`pty-data-${id}`, data)
         }
       } catch { /* window destroyed during shutdown */ }
+
+      // Notify external listeners (HTTP API WebSocket)
+      try { this._onDataCallback?.(id, session.projectName, data) } catch { /* ignore */ }
     })
 
     p.onExit(({ exitCode }) => {

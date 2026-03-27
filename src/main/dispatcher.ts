@@ -3,6 +3,61 @@
 // Implements Layers 0-2 of the 5-layer cascade (prefix, regex, context stickiness).
 // No LLM needed — handles 80%+ of messages.
 
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+// ── Alias System ──
+// ~/.hal-o/aliases.json maps short names to project configs:
+// {"bob": {"project": "work-assistant", "voice": "butler"}, ...}
+// Also supports legacy plain string: {"bob": "work-assistant"}
+interface AliasEntry { project: string; voice?: string }
+const ALIASES_PATH = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json')
+let _aliases: Record<string, AliasEntry> = {}
+let _aliasesLoaded = 0
+
+function loadAliases(): Record<string, AliasEntry> {
+  // Reload at most once every 5s (hot-editable without restart)
+  if (Date.now() - _aliasesLoaded < 5000) return _aliases
+  try {
+    const raw = JSON.parse(readFileSync(ALIASES_PATH, 'utf-8'))
+    // Normalize: support both {"bob": "work-assistant"} and {"bob": {project: "work-assistant"}}
+    const normalized: Record<string, AliasEntry> = {}
+    for (const [k, v] of Object.entries(raw)) {
+      normalized[k] = typeof v === 'string' ? { project: v } : v as AliasEntry
+    }
+    _aliases = normalized
+    _aliasesLoaded = Date.now()
+  } catch { /* missing or invalid — no aliases */ }
+  return _aliases
+}
+
+/** Resolve an alias to a project name, or return the input unchanged */
+function resolveAlias(name: string): string {
+  const aliases = loadAliases()
+  const entry = aliases[name.toLowerCase()]
+  return entry ? entry.project : name
+}
+
+/** Get voice profile for a project (via alias), or null if none set */
+export function getVoiceForProject(projectName: string): string | null {
+  const aliases = loadAliases()
+  const pnLower = projectName.toLowerCase()
+  for (const entry of Object.values(aliases)) {
+    if (entry.project.toLowerCase() === pnLower && entry.voice) return entry.voice
+  }
+  return null
+}
+
+/** Reverse lookup: project name → alias (for display) */
+export function getAliasForProject(projectName: string): string | null {
+  const aliases = loadAliases()
+  const pnLower = projectName.toLowerCase()
+  for (const [alias, entry] of Object.entries(aliases)) {
+    if (entry.project.toLowerCase() === pnLower) return alias
+  }
+  return null
+}
+
 export interface DispatchResult {
   /** Target terminal session ID (null = no match, use default) */
   sessionId: string | null
@@ -32,7 +87,8 @@ function matchPrefix(message: string, terminals: ProjectTerminal[]): DispatchRes
   const m = message.match(PREFIX_RE)
   if (!m) return null
 
-  const target = m[1].toLowerCase()
+  const raw = m[1].toLowerCase()
+  const target = resolveAlias(raw).toLowerCase() // resolve alias → project name
   const cleanMessage = message.slice(m[0].length)
 
   // Find terminal whose project name matches (case-insensitive, partial OK)
@@ -113,16 +169,20 @@ function matchVoiceSwitch(message: string, terminals: ProjectTerminal[]): VoiceS
   const m = message.trim().match(SWITCH_RE)
   if (!m) return { type: 'none' }
 
-  const target = m[1].toLowerCase().trim()
+  const raw = m[1].toLowerCase().trim()
+  const resolved = resolveAlias(raw).toLowerCase()
 
-  // Fuzzy match against terminal project names
+  // Fuzzy match against terminal project names (try both raw input and resolved alias)
   const match = terminals.find(t => {
     const pn = t.projectName.toLowerCase()
     const pnClean = pn.replace(/[^a-z0-9]/g, '')
-    const targetClean = target.replace(/[^a-z0-9]/g, '')
-    return pn === target || pnClean === targetClean ||
-      pn.includes(target) || target.includes(pn) ||
-      pnClean.includes(targetClean) || targetClean.includes(pnClean)
+    for (const target of [resolved, raw]) {
+      const targetClean = target.replace(/[^a-z0-9]/g, '')
+      if (pn === target || pnClean === targetClean ||
+        pn.includes(target) || target.includes(pn) ||
+        pnClean.includes(targetClean) || targetClean.includes(pnClean)) return true
+    }
+    return false
   })
 
   if (match) {
@@ -140,6 +200,29 @@ function matchProjectNameInMessage(message: string, terminals: ProjectTerminal[]
   const msgLower = message.toLowerCase()
   // Normalize: replace hyphens/underscores/dots with spaces for speech matching
   const msgSpaced = msgLower.replace(/[-_.]/g, ' ')
+
+  // Also check aliases — "ask Bob about X" should match work-assistant
+  const aliases = loadAliases()
+  const aliasMatch = Object.entries(aliases).find(([alias]) =>
+    msgLower.includes(alias.toLowerCase())
+  )
+  if (aliasMatch) {
+    const [, entry] = aliasMatch
+    const targetProject = entry.project
+    const match = terminals.find(t =>
+      t.projectName.toLowerCase() === targetProject.toLowerCase() ||
+      t.projectName.toLowerCase().replace(/[^a-z0-9]/g, '') === targetProject.toLowerCase().replace(/[^a-z0-9]/g, '')
+    )
+    if (match) {
+      return {
+        sessionId: match.sessionId,
+        projectName: match.projectName,
+        layer: 1,
+        confidence: 0.9,
+        cleanMessage: message,
+      }
+    }
+  }
 
   // Score each terminal by how well its name matches
   let bestMatch: ProjectTerminal | null = null
@@ -269,11 +352,15 @@ export function dispatch(message: string, terminals: ProjectTerminal[]): Dispatc
     return stickyMatch
   }
 
-  // Default: route to first terminal (usually HAL-O)
+  // Default: prefer HAL-O terminal (the "home" session), else first terminal.
   // In future: Layer 3 (embeddings) and Layer 4 (LLM) go here
+  const halTerminal = terminals.find(t =>
+    t.projectPath.toLowerCase().replace(/\\/g, '/').includes('hal-o')
+  )
+  const fallback = halTerminal || terminals[0]
   return {
-    sessionId: terminals[0].sessionId,
-    projectName: terminals[0].projectName,
+    sessionId: fallback.sessionId,
+    projectName: fallback.projectName,
     layer: 5,
     confidence: 0.3,
     cleanMessage: message,

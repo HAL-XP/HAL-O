@@ -270,9 +270,11 @@ interface Props {
   // UX9: Auto-rotate settings
   autoRotateEnabled?: boolean
   autoRotateSpeed?: number
+  // Context menu
+  onProjectContextMenu?: (x: number, y: number, path: string, name: string, rulesOutdated?: boolean) => void
 }
 
-export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, autoRotateEnabled = true, autoRotateSpeed = 0.12 }: Props) {
+export function HolographicScene({ projects, listening, isFullySetup, onOpenTerminal, layoutId = 'default', screenOpacity = 1, renderQuality, showPerf = false, onSceneReady, getIdeLabel, onOpenIde, onOpenIdeMenu, onOpenExternalTerminal, onOpenBrowser, autoRotateEnabled = true, autoRotateSpeed = 0.12, onProjectContextMenu }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const screenPositions = useMemo(() => {
@@ -361,6 +363,10 @@ export function HolographicScene({ projects, listening, isFullySetup, onOpenTerm
             onOpenIdeMenu={onOpenIdeMenu ? (e: React.MouseEvent) => onOpenIdeMenu(project.path, e) : undefined}
             onOpenTerminal={onOpenExternalTerminal ? () => onOpenExternalTerminal(project.path) : undefined}
             onOpenBrowser={onOpenBrowser ? () => onOpenBrowser(project.path, project.name) : undefined}
+            onContextMenu={onProjectContextMenu ? (e: React.MouseEvent) => {
+              e.preventDefault()
+              onProjectContextMenu(e.clientX, e.clientY, project.path, project.name, (project as any).rulesOutdated)
+            } : undefined}
           />
         )
       })}

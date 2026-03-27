@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HAL-O — Tree Architecture & Project Management Redesign</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-dark: #06080f;
+      --bg-secondary: #0a0e1a;
+      --bg-tertiary: #0f1420;
+      --cyan: #00e5ff;
+      --cyan-dark: #00b8cc;
+      --green: #22c55e;
+      --green-dark: #16a34a;
+      --purple: #a78bfa;
+      --red: #ef4444;
+      --text-primary: #e0e7ff;
+      --text-secondary: #a1a5b4;
+      --border-color: rgba(0, 229, 255, 0.2);
+      --border-color-bright: rgba(0, 229, 255, 0.4);
+      --glass-light: rgba(15, 20, 32, 0.5);
+      --glass-dark: rgba(6, 8, 15, 0.7);
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+      padding-bottom: 40px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .halo-logo {
+      width: 64px;
+      height: 64px;
+      background: conic-gradient(from 0deg, var(--cyan), var(--green), var(--cyan));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--bg-dark);
+      box-shadow: 0 0 30px var(--cyan), 0 0 60px rgba(0, 229, 255, 0.3);
+    }
+
+    h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.5em;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1em;
+      margin-top: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* Section Styling */
+    section {
+      margin-bottom: 80px;
+      scroll-margin-top: 100px;
+    }
+
+    section.dark-section {
+      background: var(--glass-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 40px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    h2 {
+      font-family: 'Orbitron', monospace;
+      font-size: 2em;
+      color: var(--cyan);
+      margin-bottom: 30px;
+      letter-spacing: 2px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .section-icon {
+      font-size: 1.5em;
+    }
+
+    h3 {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.4em;
+      color: var(--green);
+      margin-top: 25px;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+
+    p {
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      line-height: 1.8;
+    }
+
+    /* Tree Diagram */
+    .tree-diagram {
+      background: var(--glass-light);
+      border: 1px solid var(--border-color-bright);
+      border-radius: 8px;
+      padding: 25px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.95em;
+      overflow-x: auto;
+      box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.05);
+    }
+
+    .tree-node {
+      margin: 8px 0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      user-select: none;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .tree-node:hover {
+      background: rgba(0, 229, 255, 0.1);
+      transform: translateX(5px);
+    }
+
+    .tree-node.expanded .tree-toggle::before {
+      content: '▼';
+    }
+
+    .tree-node .tree-toggle::before {
+      content: '▶';
+      color: var(--cyan);
+      margin-right: 8px;
+      display: inline-block;
+      width: 20px;
+    }
+
+    .tree-node.no-children .tree-toggle::before {
+      content: '•';
+      color: var(--green);
+    }
+
+    .tree-node.dispatcher {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-left: 0;
+    }
+
+    .tree-node.dispatcher .tree-toggle::before {
+      color: var(--cyan);
+    }
+
+    .tree-node.project {
+      color: var(--green);
+      margin-left: 40px;
+    }
+
+    .tree-node.group {
+      color: var(--purple);
+      font-style: italic;
+      margin-left: 40px;
+    }
+
+    .tree-node.project.nested {
+      margin-left: 80px;
+    }
+
+    .tree-badge {
+      display: inline-block;
+      margin-left: 10px;
+      font-size: 0.75em;
+      background: rgba(0, 229, 255, 0.2);
+      padding: 2px 8px;
+      border-radius: 3px;
+      color: var(--cyan);
+    }
+
+    .tree-badge.bot {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--green);
+    }
+
+    .tree-badge.voice {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--purple);
+    }
+
+    .tree-children {
+      display: none;
+    }
+
+    .tree-children.show {
+      display: block;
+    }
+
+    /* Architecture Diagram (Current) */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+
+    .arch-card {
+      background: var(--glass-light);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .arch-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    }
+
+    .arch-card-title {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 1.1em;
+    }
+
+    .arch-card-desc {
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      line-height: 1.6;
+    }
+
+    /* Decision Cards */
+    .decisions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+      margin: 30px 0;
+    }
+
+    .decision-card {
+      background: linear-gradient(135deg, var(--glass-light) 0%, rgba(34, 197, 94, 0.05) 100%);
+      border: 1px solid var(--border-color-bright);
+      border-radius: 10px;
+      padding: 25px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .decision-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+    }
+
+    .decision-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 229, 255, 0.2);
+      border-color: var(--cyan);
+    }
+
+    .decision-title {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 12px;
+      font-size: 1.15em;
+    }
+
+    .decision-body {
+      color: var(--text-primary);
+      font-size: 0.95em;
+      line-height: 1.7;
+    }
+
+    .decision-highlight {
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    /* Mockup Section */
+    .mockup-frame {
+      background: var(--glass-light);
+      border: 2px solid var(--border-color-bright);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 30px 0;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .mockup-header {
+      background: var(--bg-tertiary);
+      padding: 15px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mockup-title {
+      color: var(--cyan);
+      font-weight: bold;
+      font-size: 0.95em;
+    }
+
+    .mockup-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mockup-button {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .mockup-button.red {
+      background: var(--red);
+    }
+
+    .mockup-button.yellow {
+      background: #eab308;
+    }
+
+    .mockup-button.green {
+      background: var(--green);
+    }
+
+    .mockup-content {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 500px;
+      background: var(--bg-secondary);
+    }
+
+    .mockup-sidebar {
+      border-right: 1px solid var(--border-color);
+      padding: 20px;
+      overflow-y: auto;
+      background: var(--glass-dark);
+    }
+
+    .mockup-sidebar-item {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      transition: all 0.2s;
+    }
+
+    .mockup-sidebar-item:hover {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--cyan);
+    }
+
+    .mockup-sidebar-item.active {
+      background: rgba(0, 229, 255, 0.2);
+      color: var(--cyan);
+      border-left: 3px solid var(--cyan);
+      padding-left: 7px;
+    }
+
+    .mockup-main {
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .mockup-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mockup-label {
+      color: var(--cyan);
+      font-size: 0.9em;
+      font-weight: bold;
+    }
+
+    .mockup-input {
+      background: rgba(0, 229, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 10px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9em;
+    }
+
+    .mockup-input:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+    }
+
+    .mockup-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 24px;
+      background: var(--text-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: var(--green);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: left 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      left: 18px;
+    }
+
+    /* Phase Timeline */
+    .phases-timeline {
+      position: relative;
+      margin: 40px 0;
+    }
+
+    .phase-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .phase-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 40px;
+      bottom: -40px;
+      width: 2px;
+      background: var(--border-color);
+    }
+
+    .phase-item:last-child::before {
+      display: none;
+    }
+
+    .phase-number {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: var(--cyan);
+      position: relative;
+    }
+
+    .phase-number::before {
+      content: '';
+      position: absolute;
+      left: -30px;
+      top: 0;
+      width: 10px;
+      height: 10px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .phase-content {
+      background: var(--glass-light);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    .phase-content:hover {
+      border-color: var(--green);
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+    }
+
+    .phase-title {
+      color: var(--green);
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 1.1em;
+    }
+
+    .phase-tasks {
+      list-style: none;
+      margin-left: 0;
+    }
+
+    .phase-tasks li {
+      color: var(--text-secondary);
+      padding: 5px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .phase-tasks li::before {
+      content: '◆';
+      position: absolute;
+      left: 0;
+      color: var(--green);
+    }
+
+    /* Onboarding Flows */
+    .onboarding-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin: 30px 0;
+    }
+
+    .flow-box {
+      background: var(--glass-light);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 25px;
+      position: relative;
+    }
+
+    .flow-title {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 20px;
+      font-size: 1.15em;
+      text-align: center;
+    }
+
+    .flow-step {
+      background: rgba(0, 229, 255, 0.05);
+      border-left: 3px solid var(--cyan);
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .flow-step.power {
+      border-left-color: var(--green);
+    }
+
+    .flow-step-num {
+      display: inline-block;
+      background: var(--cyan);
+      color: var(--bg-dark);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 10px;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    .flow-step.power .flow-step-num {
+      background: var(--green);
+    }
+
+    .flow-step-text {
+      color: var(--text-primary);
+      font-size: 0.95em;
+    }
+
+    .flow-arrow {
+      text-align: center;
+      color: var(--text-secondary);
+      margin: -10px 0;
+      font-size: 1.5em;
+    }
+
+    /* Integration Grid */
+    .integration-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+
+    .integration-card {
+      background: var(--glass-light);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    .integration-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+    }
+
+    .integration-icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .integration-name {
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .integration-desc {
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      line-height: 1.6;
+    }
+
+    /* Feedback Section */
+    .feedback-section {
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+      border: 2px solid var(--purple);
+      border-radius: 12px;
+      padding: 30px;
+      margin-top: 60px;
+    }
+
+    .feedback-title {
+      color: var(--purple);
+      font-weight: bold;
+      margin-bottom: 20px;
+      font-size: 1.3em;
+    }
+
+    .feedback-textarea {
+      width: 100%;
+      min-height: 120px;
+      background: var(--glass-dark);
+      border: 1px solid var(--purple);
+      border-radius: 8px;
+      padding: 15px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9em;
+      resize: vertical;
+      transition: all 0.3s;
+    }
+
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+    }
+
+    .feedback-button {
+      margin-top: 15px;
+      padding: 12px 30px;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      color: var(--bg-dark);
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.3s;
+      font-size: 1em;
+    }
+
+    .feedback-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 229, 255, 0.3);
+    }
+
+    .feedback-button:active {
+      transform: translateY(0);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border-color);
+      margin-top: 80px;
+    }
+
+    .footer-text {
+      font-size: 0.9em;
+      letter-spacing: 1px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .onboarding-container {
+        grid-template-columns: 1fr;
+      }
+
+      .mockup-content {
+        grid-template-columns: 1fr;
+      }
+
+      .phase-item {
+        grid-template-columns: 1fr;
+        padding-left: 0;
+      }
+
+      .phase-item::before {
+        display: none;
+      }
+
+      .phase-number::before {
+        left: -15px;
+      }
+    }
+
+    /* Animation */
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.5); }
+      50% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.8); }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .status-badge.active {
+      background: rgba(34, 197, 94, 0.3);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    .status-badge.planned {
+      background: rgba(0, 229, 255, 0.2);
+      color: var(--cyan);
+      border: 1px solid var(--cyan);
+    }
+
+    .status-badge.research {
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--purple);
+      border: 1px solid var(--purple);
+    }
+
+    /* Comparison Table */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 30px 0;
+      background: var(--glass-light);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .comparison-table th {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--cyan);
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+    }
+
+    .comparison-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .comparison-table tr:hover {
+      background: rgba(0, 229, 255, 0.05);
+    }
+
+    .checkmark {
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    .crossmark {
+      color: var(--red);
+      font-weight: bold;
+    }
+
+    /* Code Block */
+    .code-block {
+      background: var(--glass-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 15px;
+      margin: 20px 0;
+      overflow-x: auto;
+      font-size: 0.9em;
+      line-height: 1.5;
+      color: var(--green);
+    }
+
+    .code-block .comment {
+      color: var(--text-secondary);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-button {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      font-size: 0.95em;
+    }
+
+    .tab-button.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+    }
+
+    .tab-button:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-content">
+        <div class="halo-logo">◆</div>
+        <div>
+          <h1>HAL-O Tree Architecture</h1>
+          <p class="subtitle">Project Management & Dispatcher Hierarchy Redesign</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Section 1: Current Architecture -->
+    <section class="dark-section">
+      <h2><span class="section-icon">⬜</span> Current Architecture (Before)</h2>
+      <p>
+        The current HAL-O system uses a flat project discovery model with limited hierarchy management.
+        Projects are auto-scanned from the filesystem, grouped only via localStorage, and all managed through
+        a single monolithic dispatcher.
+      </p>
+
+      <h3>Current Structure</h3>
+      <div class="arch-grid">
+        <div class="arch-card">
+          <div class="arch-card-title">📁 Auto-Discovery</div>
+          <div class="arch-card-desc">Projects scanned from ~/.claude/projects/ on app load</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-card-title">📋 Flat Groups</div>
+          <div class="arch-card-desc">Groups stored in localStorage only, no nesting or persistence</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-card-title">🤖 Single Dispatcher</div>
+          <div class="arch-card-desc">Monolithic dispatcher manages all projects and agents</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-card-title">🚫 Hidden Projects</div>
+          <div class="arch-card-desc">Exclusion via .claude_ignore, not elegant or discoverable</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-card-title">💬 Single Bot</div>
+          <div class="arch-card-desc">One Telegram bot per HAL-O instance, no sub-dispatcher routing</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-card-title">❌ No Hierarchy</div>
+          <div class="arch-card-desc">All projects treated equally, no parent-child relationships</div>
+        </div>
+      </div>
+
+      <h3>Limitations</h3>
+      <p style="color: var(--red); margin-top: 20px;">
+        ⚠️ Auto-scanning creates noise (dozens of personal projects visible at launch) • Projects can't be organized by context
+        (work vs personal) • Sub-agents can't have independent Telegram bots or avatars • No lazy loading — all projects loaded
+        upfront • Hidden projects feel like a hack rather than first-class citizens
+      </p>
+    </section>
+
+    <!-- Section 2: Proposed Tree Architecture -->
+    <section class="dark-section">
+      <h2><span class="section-icon">🌳</span> Proposed Tree Architecture (After)</h2>
+      <p>
+        Restructure HAL-O around an explicit hierarchy: dispatchers as first-class citizens that own projects and groups,
+        with each dispatcher capable of independent Telegram integration, voice profiles, and agent-to-agent communication.
+      </p>
+
+      <h3>Interactive Tree (Click to Expand/Collapse)</h3>
+      <div class="tree-diagram">
+        <div class="tree-node dispatcher expanded">
+          <span class="tree-toggle"></span>
+          <strong>HAL-O Root</strong>
+          <span class="tree-badge">[dispatcher]</span>
+          <span class="tree-badge bot">[tg: halo_bot]</span>
+        </div>
+        <div class="tree-children show" data-parent="0">
+          <div class="tree-node dispatcher expanded">
+            <span class="tree-toggle"></span>
+            <strong>Karen</strong> — Personal Assistant
+            <span class="tree-badge">[dispatcher]</span>
+            <span class="tree-badge bot">[tg: karen_bot]</span>
+            <span class="tree-badge voice">[voice: soft]</span>
+          </div>
+          <div class="tree-children show" data-parent="1">
+            <div class="tree-node no-children project">
+              <span class="tree-toggle"></span>
+              personal-website
+              <span class="tree-badge">[web]</span>
+            </div>
+            <div class="tree-node no-children project">
+              <span class="tree-toggle"></span>
+              blog-cms
+              <span class="tree-badge">[node]</span>
+            </div>
+          </div>
+
+          <div class="tree-node dispatcher expanded">
+            <span class="tree-toggle"></span>
+            <strong>Bob</strong> — Work Assistant
+            <span class="tree-badge">[dispatcher]</span>
+            <span class="tree-badge bot">[tg: bob_bot]</span>
+            <span class="tree-badge voice">[voice: butler]</span>
+          </div>
+          <div class="tree-children show" data-parent="3">
+            <div class="tree-node group expanded">
+              <span class="tree-toggle"></span>
+              Backend Services
+            </div>
+            <div class="tree-children show" data-parent="4">
+              <div class="tree-node no-children project nested">
+                <span class="tree-toggle"></span>
+                client-api
+                <span class="tree-badge">[node]</span>
+              </div>
+              <div class="tree-node no-children project nested">
+                <span class="tree-toggle"></span>
+                server-api
+                <span class="tree-badge">[go]</span>
+              </div>
+              <div class="tree-node no-children project nested">
+                <span class="tree-toggle"></span>
+                database-migrations
+                <span class="tree-badge">[sql]</span>
+              </div>
+            </div>
+
+            <div class="tree-node group expanded">
+              <span class="tree-toggle"></span>
+              Frontend & Tools
+            </div>
+            <div class="tree-children show" data-parent="8">
+              <div class="tree-node no-children project nested">
+                <span class="tree-toggle"></span>
+                web-dashboard
+                <span class="tree-badge">[react]</span>
+              </div>
+              <div class="tree-node no-children project nested">
+                <span class="tree-toggle"></span>
+                mobile-app
+                <span class="tree-badge">[flutter]</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tree-node group expanded">
+            <span class="tree-toggle"></span>
+            My Games
+          </div>
+          <div class="tree-children show" data-parent="12">
+            <div class="tree-node no-children project">
+              <span class="tree-toggle"></span>
+              UEPhoneGame
+              <span class="tree-badge">[ue5]</span>
+            </div>
+            <div class="tree-node no-children project">
+              <span class="tree-toggle"></span>
+              OfflineGame
+              <span class="tree-badge">[godot]</span>
+            </div>
+          </div>
+
+          <div class="tree-node no-children project">
+            <span class="tree-toggle"></span>
+            hal-o
+            <span class="tree-badge">[electron]</span>
+          </div>
+        </div>
+      </div>
+
+      <h3>Node Types & Styling</h3>
+      <div class="decisions-grid">
+        <div class="decision-card">
+          <div class="decision-title">⚡ Dispatchers (Root + Sub)</div>
+          <div class="decision-body">
+            Can own projects, spawn agents, manage Telegram bots, set voice profiles. Each has independent memory, settings, and command routing. Shown in cyan with glow effect.
+          </div>
+        </div>
+        <div class="decision-card">
+          <div class="decision-title">📦 Projects</div>
+          <div class="decision-body">
+            Leaf or parent nodes with code. May be children of dispatchers or groups. Stack badge shows primary language. Shown in green.
+          </div>
+        </div>
+        <div class="decision-card">
+          <div class="decision-title">📁 Groups</div>
+          <div class="decision-body">
+            Organizational folders (never contain code). Can nest other groups or projects. Useful for large dispatchers. Shown in purple italic.
+          </div>
+        </div>
+        <div class="decision-card">
+          <div class="decision-title">✨ Expansion</div>
+          <div class="decision-body">
+            Click any node to expand/collapse children. State persisted in localStorage. Smooth animations. Hover highlights with instant feedback.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Key Design Decisions -->
+    <section class="dark-section">
+      <h2><span class="section-icon">💡</span> Key Design Decisions</h2>
+
+      <div class="decisions-grid">
+        <div class="decision-card">
+          <div class="decision-title">🤖 Dispatchers ARE Projects</div>
+          <div class="decision-body">
+            Each dispatcher (e.g., Karen, Bob) is itself a project with a CLAUDE.md, memory, git history,
+            and the ability to run code and spin up agents. Breaks the false distinction between "manager"
+            and "worker."
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">💬 Each Dispatcher Gets a Bot</div>
+          <div class="decision-body">
+            Every dispatcher (including root HAL-O) has its own Telegram bot token. Messages route to the
+            appropriate dispatcher's terminal. Root can access all children; children can escalate to root.
+            Sub-dispatchers show as separate avatars in Halo Chat.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">🎯 Projects Are Opt-In</div>
+          <div class="decision-body">
+            <span class="decision-highlight">No more auto-scanning.</span>
+            Users explicitly import projects via the "Manage Projects" page.
+            Reduces noise, improves control. Hidden projects are just... not imported.
+            Simple and discoverable.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">🌐 Root Can See Everything</div>
+          <div class="decision-body">
+            HAL-O root dispatcher has global visibility into all child projects and dispatchers.
+            Can query stats, run cross-project commands, act as orchestrator. Children cannot see
+            siblings unless explicitly connected.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">⚡ Lazy Loading</div>
+          <div class="decision-body">
+            Projects loaded on-demand when first accessed. Shows loading state, then activates terminal
+            and Git data. Startup time remains constant regardless of tree size.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">🎨 Voice & Language per Dispatcher</div>
+          <div class="decision-body">
+            Each dispatcher can have different voice profile (soft, butler, dramatic) and language.
+            Karen might speak French & soft, Bob might speak English & formal. Settings inherited by children
+            unless overridden.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">🔐 Permission Model</div>
+          <div class="decision-body">
+            Root reads all projects. Dispatchers own their branches. Users can grant cross-dispatcher
+            access (e.g., Bob can read Karen's blog). Enforced via RBAC in memory files.
+          </div>
+        </div>
+
+        <div class="decision-card">
+          <div class="decision-title">💾 Persistence</div>
+          <div class="decision-body">
+            Tree structure, expansion state, and settings stored in a machine-readable JSON file
+            (`.claude/hal-o-tree.json`). Synced to git so the tree is version-controlled.
+            Onboarding flow auto-initializes this.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Manage Projects Page Mockup -->
+    <section class="dark-section">
+      <h2><span class="section-icon">⚙️</span> "Manage Projects" Page Mockup</h2>
+      <p>
+        A full-featured project management interface (accessible from Settings or a dedicated tab).
+        Left sidebar shows the tree with drag-and-drop reordering. Right side shows detailed settings
+        for the selected node.
+      </p>
+
+      <div class="mockup-frame">
+        <div class="mockup-header">
+          <div class="mockup-title">HAL-O — Manage Projects</div>
+          <div class="mockup-controls">
+            <div class="mockup-button red"></div>
+            <div class="mockup-button yellow"></div>
+            <div class="mockup-button green"></div>
+          </div>
+        </div>
+        <div class="mockup-content">
+          <div class="mockup-sidebar">
+            <div style="color: var(--cyan); font-weight: bold; margin-bottom: 15px; font-size: 0.9em;">
+              ▶ HAL-O Root
+            </div>
+            <div class="mockup-sidebar-item active">
+              ▼ Karen
+            </div>
+            <div class="mockup-sidebar-item" style="margin-left: 20px;">
+              personal-website
+            </div>
+            <div class="mockup-sidebar-item" style="margin-left: 20px;">
+              blog-cms
+            </div>
+            <div class="mockup-sidebar-item">
+              ▶ Bob
+            </div>
+            <div class="mockup-sidebar-item">
+              ▼ My Games
+            </div>
+            <div class="mockup-sidebar-item" style="margin-left: 20px;">
+              UEPhoneGame
+            </div>
+            <div class="mockup-sidebar-item" style="margin-left: 20px;">
+              OfflineGame
+            </div>
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+              <button style="width: 100%; padding: 10px; background: rgba(0, 229, 255, 0.2);
+                color: var(--cyan); border: 1px solid var(--cyan); border-radius: 4px; cursor: pointer;
+                margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85em;">
+                + Import Project
+              </button>
+              <button style="width: 100%; padding: 10px; background: rgba(34, 197, 94, 0.2);
+                color: var(--green); border: 1px solid var(--green); border-radius: 4px; cursor: pointer;
+                font-family: 'JetBrains Mono', monospace; font-size: 0.85em;">
+                + New Dispatcher
+              </button>
+            </div>
+          </div>
+          <div class="mockup-main">
+            <div class="mockup-field">
+              <div class="mockup-label">Dispatcher Name</div>
+              <input class="mockup-input" type="text" value="Karen" readonly>
+            </div>
+            <div class="mockup-field">
+              <div class="mockup-label">Telegram Bot Token</div>
+              <input class="mockup-input" type="text" value="123456:ABC..." placeholder="Leave empty to inherit from root">
+            </div>
+            <div class="mockup-field">
+              <div class="mockup-label">Voice Profile</div>
+              <select class="mockup-input" style="cursor: pointer;">
+                <option>soft</option>
+                <option>butler</option>
+                <option>dramatic</option>
+                <option>default</option>
+              </select>
+            </div>
+            <div class="mockup-toggle">
+              <div class="mockup-label">Online Status</div>
+              <div class="toggle-switch active" onclick="this.classList.toggle('active')"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Import Flow</h3>
+      <p>
+        Click "+ Import Project" in the left sidebar to trigger a guided workflow:
+      </p>
+      <div style="background: var(--glass-light); border-left: 4px solid var(--cyan); padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <div style="margin-bottom: 15px;"><strong style="color: var(--cyan);">1. Folder Picker</strong> — Navigate to a local folder</div>
+        <div style="margin-bottom: 15px;"><strong style="color: var(--cyan);">2. Auto-Detect</strong> — Scan for package.json, Cargo.toml, go.mod, etc. Suggest primary language badge</div>
+        <div style="margin-bottom: 15px;"><strong style="color: var(--cyan);">3. Name & Assign</strong> — User confirms project name and chooses which dispatcher/group to assign it to</div>
+        <div style="margin-bottom: 15px;"><strong style="color: var(--cyan);">4. Confirm</strong> — Show summary, offer to pin favorite, then add to tree</div>
+        <div><strong style="color: var(--cyan);">5. Done</strong> — Project appears in tree, terminal can be opened</div>
+      </div>
+    </section>
+
+    <!-- Section 5: Halo Chat Integration -->
+    <section class="dark-section">
+      <h2><span class="section-icon">💬</span> Halo Chat Integration</h2>
+      <p>
+        The tree structure maps naturally into Halo Chat's sidebar organization. Each dispatcher becomes an avatar
+        that can be interacted with independently.
+      </p>
+
+      <h3>Sidebar Mapping</h3>
+      <div class="integration-grid">
+        <div class="integration-card">
+          <div class="integration-icon">👤</div>
+          <div class="integration-name">Dispatcher = Avatar</div>
+          <div class="integration-desc">
+            Each dispatcher (Karen, Bob, HAL-O Root) appears as a selectable avatar in Halo Chat sidebar.
+            Click to switch which dispatcher you're chatting with.
+          </div>
+        </div>
+        <div class="integration-card">
+          <div class="integration-icon">📁</div>
+          <div class="integration-name">Groups = Sections</div>
+          <div class="integration-desc">
+            Folder groups expand in sidebar to show their projects as child items. Can collapse
+            entire sections to reduce clutter.
+          </div>
+        </div>
+        <div class="integration-card">
+          <div class="integration-icon">📦</div>
+          <div class="integration-name">Projects = Commands</div>
+          <div class="integration-desc">
+            Projects under a dispatcher become accessible via `@project-name` prefix in chat.
+            Routes voice/text commands to that project's terminal.
+          </div>
+        </div>
+        <div class="integration-card">
+          <div class="integration-icon">🔗</div>
+          <div class="integration-name">Agent-to-Agent Chat</div>
+          <div class="integration-desc">
+            Dispatchers can message each other. Karen can ask Bob for stats, Bob can delegate work to Karen.
+            Full inter-process communication via Telegram or internal IPC.
+          </div>
+        </div>
+      </div>
+
+      <h3>Message Routing Logic</h3>
+      <div class="code-block">
+<span class="comment">// Example: User sends voice command to Karen</span>
+User: "Karen, deploy the blog-cms"
+  ↓ routes to Karen's terminal
+  ↓ Karen parses "@blog-cms deploy"
+  ↓ activates blog-cms project terminal
+  ↓ executes: npm run deploy
+  ↓ returns stdout to Halo Chat
+
+<span class="comment">// Example: Root queries all dispatchers</span>
+User: "HAL-O, get status from all teams"
+  ↓ HAL-O (root) opens IPC channels to Karen + Bob
+  ↓ sends "GET /status" to each
+  ↓ aggregates results
+  ↓ displays unified dashboard
+      </div>
+    </section>
+
+    <!-- Section 6: Onboarding Flows -->
+    <section class="dark-section">
+      <h2><span class="section-icon">🚀</span> Onboarding Flows</h2>
+      <p>
+        Two distinct user journeys: one simple and one powerful. Users choose based on their workflow.
+      </p>
+
+      <div class="onboarding-container">
+        <!-- Simple Path -->
+        <div class="flow-box">
+          <div class="flow-title" style="color: var(--cyan);">Path A: Simple (1 Click)</div>
+
+          <div class="flow-step">
+            <span class="flow-step-num">1</span>
+            <div class="flow-step-text"><strong>Quick Start</strong><br>Welcome screen: "What do you want to do?"</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step">
+            <span class="flow-step-num">2</span>
+            <div class="flow-step-text"><strong>Choose Role</strong><br>3 cards: "Personal Coder" / "Work Manager" / "Custom"</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step">
+            <span class="flow-step-num">3</span>
+            <div class="flow-step-text"><strong>Auto-Config</strong><br>System creates Karen/Bob dispatchers, sets voice, imports suggested projects</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step">
+            <span class="flow-step-num">4</span>
+            <div class="flow-step-text"><strong>Done</strong><br>Launch Halo Chat with sidebar populated. Start chatting.</div>
+          </div>
+        </div>
+
+        <!-- Power Path -->
+        <div class="flow-box">
+          <div class="flow-title" style="color: var(--green);">Path B: Power User (Full Tree)</div>
+
+          <div class="flow-step power">
+            <span class="flow-step-num">1</span>
+            <div class="flow-step-text"><strong>Upload Tree</strong><br>Paste .claude/hal-o-tree.json (or skip to create empty)</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step power">
+            <span class="flow-step-num">2</span>
+            <div class="flow-step-text"><strong>Manage Dispatchers</strong><br>Create/edit dispatchers, set Telegram bots, voice profiles</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step power">
+            <span class="flow-step-num">3</span>
+            <div class="flow-step-text"><strong>Import Projects</strong><br>Guided multi-select to import and organize projects</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step power">
+            <span class="flow-step-num">4</span>
+            <div class="flow-step-text"><strong>Set Permissions</strong><br>Define cross-dispatcher access, enable agent-to-agent comms</div>
+          </div>
+
+          <div class="flow-arrow">↓</div>
+
+          <div class="flow-step power">
+            <span class="flow-step-num">5</span>
+            <div class="flow-step-text"><strong>Launch</strong><br>Download configured tree.json, restart app with full config</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Onboarding Settings Dialog</h3>
+      <p>
+        First launch shows a modal with tabs:
+      </p>
+      <div class="tabs">
+        <button class="tab-button active">Roles</button>
+        <button class="tab-button">Dispatchers</button>
+        <button class="tab-button">Projects</button>
+        <button class="tab-button">Telegram</button>
+      </div>
+      <div class="tab-content active" style="padding: 20px; background: var(--glass-light); border-radius: 6px;">
+        <p>Select a preset to auto-configure dispatchers and import common projects.</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+          <div style="padding: 15px; background: rgba(0, 229, 255, 0.1); border: 1px solid var(--cyan); border-radius: 4px; cursor: pointer;">
+            <div style="color: var(--cyan); font-weight: bold; margin-bottom: 5px;">👤 Solo Coder</div>
+            <div style="color: var(--text-secondary); font-size: 0.9em;">One dispatcher (You), imports all local projects</div>
+          </div>
+          <div style="padding: 15px; background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green); border-radius: 4px; cursor: pointer;">
+            <div style="color: var(--green); font-weight: bold; margin-bottom: 5px;">👥 Team Lead</div>
+            <div style="color: var(--text-secondary); font-size: 0.9em;">Multiple dispatchers for team, set RBAC</div>
+          </div>
+          <div style="padding: 15px; background: rgba(167, 139, 250, 0.1); border: 1px solid var(--purple); border-radius: 4px; cursor: pointer;">
+            <div style="color: var(--purple); font-weight: bold; margin-bottom: 5px;">⚙️ Custom</div>
+            <div style="color: var(--text-secondary); font-size: 0.9em;">Full manual control, advanced options</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 7: Implementation Phases -->
+    <section class="dark-section">
+      <h2><span class="section-icon">📈</span> Implementation Phases</h2>
+
+      <div class="phases-timeline">
+        <div class="phase-item">
+          <div class="phase-number">Phase 1</div>
+          <div class="phase-content">
+            <div class="phase-title">Opt-In Project Management <span class="status-badge active">Active</span></div>
+            <ul class="phase-tasks">
+              <li>Replace auto-scan default with "Manage Projects" page</li>
+              <li>Implement folder picker + language auto-detection</li>
+              <li>Store projects in `.claude/hal-o-projects.json` (new file)</li>
+              <li>Update ProjectHub to read from JSON instead of filesystem scan</li>
+              <li>Remove .claude_ignore logic (no longer needed)</li>
+              <li>Backfill existing users: auto-import from ~/.claude/projects/ on first launch</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-number">Phase 2</div>
+          <div class="phase-content">
+            <div class="phase-title">Tree Structure with Groups & Nesting <span class="status-badge planned">Planned</span></div>
+            <ul class="phase-tasks">
+              <li>Create `.claude/hal-o-tree.json` schema with dispatcher/group/project nodes</li>
+              <li>Build interactive tree UI (expand/collapse, drag-to-reorder)</li>
+              <li>Implement tree-based project loading in ProjectHub</li>
+              <li>Add group management: create, rename, delete, move projects</li>
+              <li>Persist tree state in localStorage (expanded nodes)</li>
+              <li>Git-check hal-o-tree.json so tree is version-controlled</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-number">Phase 3</div>
+          <div class="phase-content">
+            <div class="phase-title">Sub-Dispatchers with Independent Bots <span class="status-badge planned">Planned</span></div>
+            <ul class="phase-tasks">
+              <li>Create dispatcher project archetype (CLAUDE.md template, memory dir, git repo)</li>
+              <li>Implement sub-dispatcher terminal activation via IPC</li>
+              <li>Each dispatcher gets own Telegram bot token in tree.json</li>
+              <li>Route incoming Telegram messages to correct dispatcher's terminal</li>
+              <li>Add Halo Chat avatar switching (Karen, Bob, HAL-O)</li>
+              <li>Sub-dispatcher memory separate from root</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-number">Phase 4</div>
+          <div class="phase-content">
+            <div class="phase-title">Agent-to-Agent Communication <span class="status-badge planned">Planned</span></div>
+            <ul class="phase-tasks">
+              <li>Add IPC channels for dispatcher-to-dispatcher messaging</li>
+              <li>Implement @prefix routing in chat (e.g., Karen → @bob get-stats)</li>
+              <li>Create message queue system for offline/async messages</li>
+              <li>Add permission layer (who can talk to whom)</li>
+              <li>Telegram relay: messages can flow through multiple dispatchers</li>
+              <li>Build Halo Chat inter-agent display (conversation threads)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-number">Phase 5</div>
+          <div class="phase-content">
+            <div class="phase-title">Lazy Loading & Auto-Scaling <span class="status-badge planned">Planned</span></div>
+            <ul class="phase-tasks">
+              <li>Load projects on-demand (not at app startup)</li>
+              <li>Show loading spinner when opening a project terminal</li>
+              <li>Cache git data (stats, branches) per project</li>
+              <li>Auto-scale tree rendering for 50+ projects</li>
+              <li>Implement search/filter to find projects by name/tag</li>
+              <li>Add "favorites" star system for quick access</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <h3>Timeline & Dependencies</h3>
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Effort</th>
+            <th>Depends On</th>
+            <th>Unlocks</th>
+            <th>Est. Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Phase 1</strong> — Opt-In</td>
+            <td>3-4 days</td>
+            <td>None (ready now)</td>
+            <td>Baseline UX, no more noise</td>
+            <td>1 week</td>
+          </tr>
+          <tr>
+            <td><strong>Phase 2</strong> — Tree + Groups</td>
+            <td>4-5 days</td>
+            <td>Phase 1</td>
+            <td>Hierarchical organization</td>
+            <td>2 weeks</td>
+          </tr>
+          <tr>
+            <td><strong>Phase 3</strong> — Sub-Dispatchers</td>
+            <td>5-6 days</td>
+            <td>Phase 2</td>
+            <td>Multi-bot, multi-avatar</td>
+            <td>2-3 weeks</td>
+          </tr>
+          <tr>
+            <td><strong>Phase 4</strong> — Agent-to-Agent</td>
+            <td>3-4 days</td>
+            <td>Phase 3</td>
+            <td>True agent orchestration</td>
+            <td>1-2 weeks</td>
+          </tr>
+          <tr>
+            <td><strong>Phase 5</strong> — Lazy Load</td>
+            <td>2-3 days</td>
+            <td>Phase 2</td>
+            <td>Scales to 100+ projects</td>
+            <td>1 week</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 8: Comparison Matrix -->
+    <section class="dark-section">
+      <h2><span class="section-icon">⚖️</span> Before vs. After Comparison</h2>
+
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Current (Flat)</th>
+            <th>Proposed (Tree)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Project Discovery</strong></td>
+            <td>Auto-scan on launch (noisy)</td>
+            <td>Opt-in import (clean)</td>
+          </tr>
+          <tr>
+            <td><strong>Organization</strong></td>
+            <td>Flat groups, localStorage only</td>
+            <td>Nested tree with persistence</td>
+          </tr>
+          <tr>
+            <td><strong>Dispatchers</strong></td>
+            <td>Single monolithic HAL-O</td>
+            <td>Multiple (Karen, Bob, etc.)</td>
+          </tr>
+          <tr>
+            <td><strong>Telegram Bots</strong></td>
+            <td>One bot for all</td>
+            <td>Each dispatcher gets own bot</td>
+          </tr>
+          <tr>
+            <td><strong>Voice Profiles</strong></td>
+            <td>Global setting</td>
+            <td>Per-dispatcher setting</td>
+          </tr>
+          <tr>
+            <td><strong>Hidden Projects</strong></td>
+            <td>Via .claude_ignore file</td>
+            <td>Simply don't import them</td>
+          </tr>
+          <tr>
+            <td><strong>Lazy Loading</strong></td>
+            <td>All projects loaded at startup <span class="crossmark">✗</span></td>
+            <td>Load on-demand <span class="checkmark">✓</span></td>
+          </tr>
+          <tr>
+            <td><strong>Agent-to-Agent Comms</strong></td>
+            <td>Not possible <span class="crossmark">✗</span></td>
+            <td>Full IPC + message routing <span class="checkmark">✓</span></td>
+          </tr>
+          <tr>
+            <td><strong>Startup Time</strong></td>
+            <td>O(n) projects</td>
+            <td>O(1) constant</td>
+          </tr>
+          <tr>
+            <td><strong>Version Control</strong></td>
+            <td>Only projects, no tree state</td>
+            <td>Tree + settings in git</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 9: API & Data Structure -->
+    <section class="dark-section">
+      <h2><span class="section-icon">🔌</span> Data Structures & IPC Channels</h2>
+
+      <h3>`.claude/hal-o-tree.json` Schema</h3>
+      <div class="code-block">
+{
+  "version": "1.0",
+  "rootDispatcherId": "hal-o",
+  "dispatchers": {
+    "hal-o": {
+      "name": "HAL-O Root",
+      "type": "dispatcher",
+      "telegramBotToken": "env:TELEGRAM_MAIN_BOT_TOKEN",
+      "voiceProfile": "auto",
+      "language": "en",
+      "memory": ".claude/hal-o-memory",
+      "children": ["karen", "bob", "my-games", "hal-o"]
+    },
+    "karen": {
+      "name": "Karen",
+      "type": "dispatcher",
+      "projectPath": "~/code/karen",
+      "telegramBotToken": "env:TELEGRAM_KAREN_BOT_TOKEN",
+      "voiceProfile": "soft",
+      "language": "fr",
+      "memory": "~/code/karen/.claude/memory",
+      "children": ["personal-website", "blog-cms"]
+    }
+  },
+  "projects": {
+    "client-api": {
+      "name": "client-api",
+      "type": "project",
+      "path": "~/code/client-api",
+      "language": "node",
+      "starred": true
+    }
+  },
+  "groups": {
+    "my-games": {
+      "name": "My Games",
+      "type": "group",
+      "children": ["ue-phone-game", "offline-game"]
+    }
+  }
+}
+      </div>
+
+      <h3>New IPC Channels</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--cyan);">
+          <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px;">tree:load</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Load entire tree from hal-o-tree.json. Returns parsed tree structure.
+          </div>
+        </div>
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--green);">
+          <div style="color: var(--green); font-weight: bold; margin-bottom: 10px;">tree:save</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Write tree to hal-o-tree.json. Validates schema before writing.
+          </div>
+        </div>
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--purple);">
+          <div style="color: var(--purple); font-weight: bold; margin-bottom: 10px;">project:import</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Scan folder, auto-detect language, return metadata for user to confirm.
+          </div>
+        </div>
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--cyan);">
+          <div style="color: var(--cyan); font-weight: bold; margin-bottom: 10px;">project:activate</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Open project terminal, load git data, show in hub. Lazy-load if needed.
+          </div>
+        </div>
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--green);">
+          <div style="color: var(--green); font-weight: bold; margin-bottom: 10px;">dispatcher:list-children</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Get all projects and groups under a dispatcher. Recursive or flat.
+          </div>
+        </div>
+        <div style="background: var(--glass-light); padding: 20px; border-radius: 8px; border-left: 3px solid var(--purple);">
+          <div style="color: var(--purple); font-weight: bold; margin-bottom: 10px;">dispatcher:send-message</div>
+          <div style="color: var(--text-secondary); font-size: 0.9em;">
+            Send text/voice message from one dispatcher to another. IPC queue if offline.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feedback Section -->
+    <section class="feedback-section">
+      <h2 class="feedback-title">📝 Your Feedback</h2>
+      <p style="color: var(--text-primary); margin-bottom: 20px;">
+        What do you think about this tree-based architecture? Any concerns, ideas for improvement,
+        or features we should prioritize? Your feedback shapes the implementation roadmap.
+      </p>
+      <textarea class="feedback-textarea" placeholder="Enter your thoughts here... (markdown supported)"></textarea>
+      <button class="feedback-button">Submit Feedback</button>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p class="footer-text">
+        HAL-O Tree Architecture Report • Generated 2026-03-27 • Phase 1 Kickoff
+      </p>
+      <p style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px; letter-spacing: 0.5px;">
+        All code snippets, designs, and specifications are internal architecture proposals.
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    // Tree interactivity
+    document.querySelectorAll('.tree-node').forEach((node, index) => {
+      node.addEventListener('click', function(e) {
+        if (e.target.closest('.tree-toggle')) {
+          e.stopPropagation();
+          const childrenContainer = node.parentElement.querySelector(`[data-parent="${index}"]`);
+          if (childrenContainer) {
+            this.classList.toggle('expanded');
+            childrenContainer.classList.toggle('show');
+          }
+        }
+      });
+    });
+
+    // Mockup interactivity
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        this.classList.toggle('active');
+      });
+    });
+
+    // Feedback button
+    document.querySelector('.feedback-button').addEventListener('click', function() {
+      const textarea = document.querySelector('.feedback-textarea');
+      if (textarea.value.trim()) {
+        alert('Thank you for your feedback! This will be reviewed by the team.');
+        textarea.value = '';
+      } else {
+        alert('Please enter some feedback before submitting.');
+      }
+    });
+
+    // Smooth scroll for section links
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const allButtons = this.parentElement.querySelectorAll('.tab-button');
+        const allContents = this.parentElement.parentElement.querySelectorAll('.tab-content');
+
+        allButtons.forEach(b => b.classList.remove('active'));
+        allContents.forEach(c => c.classList.remove('active'));
+
+        this.classList.add('active');
+        const index = Array.from(allButtons).indexOf(this);
+        if (allContents[index]) {
+          allContents[index].classList.add('active');
+        }
+      });
+    });
+
+    // Sidebar mockup interactivity
+    document.querySelectorAll('.mockup-sidebar-item').forEach(item => {
+      item.addEventListener('click', function() {
+        document.querySelectorAll('.mockup-sidebar-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    console.log('HAL-O Tree Architecture Report loaded. Interactive elements ready.');
+  </script>
+</body>
+</html>

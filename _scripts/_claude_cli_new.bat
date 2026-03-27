@@ -3,19 +3,24 @@ title * HAL-O (Claude New Session)
 cd /d "%~dp0\.."
 setlocal EnableDelayedExpansion
 
-REM Check if Telegram is configured in environment or ~/.claude_credentials
+REM Load credentials from ~/.claude_credentials into environment
+REM Handles: KEY=value, export KEY=value, skips # comments and blank lines
+if exist "%USERPROFILE%\.claude_credentials" (
+    for /f "usebackq eol=# tokens=1* delims==" %%a in ("%USERPROFILE%\.claude_credentials") do (
+        set "_KEY=%%a"
+        set "_VAL=%%b"
+        REM Strip leading "export " if present
+        if "!_KEY:~0,7!"=="export " (
+            set "_KEY=!_KEY:~7!"
+        )
+        if defined _VAL set "!_KEY!=!_VAL!"
+    )
+)
+
+REM Enable Telegram channel if bot token is available
 set "TG_ARG="
 if defined TELEGRAM_BOT_TOKEN (
     set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
-) else (
-    REM Try to source ~/.claude_credentials (if it exists)
-    if exist "%USERPROFILE%\.claude_credentials" (
-        for /f "usebackq tokens=1* delims==" %%a in ("%USERPROFILE%\.claude_credentials") do (
-            if "%%a"=="TELEGRAM_BOT_TOKEN" (
-                set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
-            )
-        )
-    )
 )
 
 claude -n "HAL-O" !TG_ARG!

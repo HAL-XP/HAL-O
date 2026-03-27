@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAL-O — Competitive Product Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%);
+            color: #e0e6ed;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            background: rgba(5, 8, 16, 0.95);
+            border-bottom: 2px solid #00e5ff;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #00e5ff, #22c55e);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 24px;
+            color: #050810;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #00e5ff, #22c55e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #7dd3fc;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        section {
+            margin: 3rem 0;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #00e5ff;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid rgba(0, 229, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 1.5rem;
+            background: linear-gradient(180deg, #00e5ff, #22c55e);
+            border-radius: 2px;
+        }
+
+        h3 {
+            color: #22c55e;
+            font-size: 1.1rem;
+            margin: 1.5rem 0 0.75rem 0;
+        }
+
+        /* Gold Standard Cards */
+        .gold-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .gold-card {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(34, 197, 94, 0.08));
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gold-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(0, 229, 255, 0.1), transparent);
+            border-radius: 50%;
+        }
+
+        .gold-card:hover {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(34, 197, 94, 0.15));
+            border-color: rgba(0, 229, 255, 0.6);
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.2), inset 0 0 20px rgba(0, 229, 255, 0.05);
+            transform: translateY(-4px);
+        }
+
+        .gold-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0;
+            color: #00e5ff;
+        }
+
+        .gold-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, #00e5ff, #22c55e);
+            color: #050810;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        .gold-field {
+            margin: 1rem 0;
+            padding-left: 1rem;
+            border-left: 2px solid rgba(34, 197, 94, 0.5);
+        }
+
+        .gold-field-label {
+            color: #7dd3fc;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .gold-field-value {
+            color: #e0e6ed;
+            margin-top: 0.25rem;
+        }
+
+        /* Competitive Matrix */
+        .matrix-container {
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(10, 14, 24, 0.5);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+
+        thead {
+            background: rgba(0, 229, 255, 0.1);
+            border-bottom: 2px solid rgba(0, 229, 255, 0.4);
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            color: #00e5ff;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+
+        th:hover {
+            background: rgba(0, 229, 255, 0.15);
+        }
+
+        th::after {
+            content: ' ⇅';
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        th:hover::after {
+            opacity: 0.5;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        tr:hover {
+            background: rgba(0, 229, 255, 0.08);
+        }
+
+        .hal-o-row {
+            background: rgba(34, 197, 94, 0.12) !important;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            font-weight: 600;
+        }
+
+        .hal-o-row td {
+            border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .category-ai {
+            background: rgba(139, 92, 246, 0.15);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .category-devops {
+            background: rgba(34, 197, 94, 0.15);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .category-project {
+            background: rgba(249, 115, 22, 0.15);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .category-comms {
+            background: rgba(59, 130, 246, 0.15);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .checkmark {
+            color: #22c55e;
+        }
+
+        .xmark {
+            color: #ef4444;
+        }
+
+        /* Critical Warnings */
+        .warning-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .warning-card {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04));
+            border: 2px solid rgba(239, 68, 68, 0.4);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .warning-card h3 {
+            color: #ff6b6b;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .warning-card p {
+            color: #fca5a5;
+            margin-top: 0.75rem;
+        }
+
+        /* Architecture Diagram */
+        .diagram-container {
+            background: rgba(10, 14, 24, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .diagram-box {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(34, 197, 94, 0.1));
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            color: #00e5ff;
+        }
+
+        .diagram-box.alt {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(0, 229, 255, 0.05));
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+
+        /* Scale Table */
+        .scale-table {
+            width: 100%;
+            margin: 1.5rem 0;
+        }
+
+        .scale-table tr {
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        .scale-table td {
+            padding: 1rem;
+        }
+
+        .scale-scenario {
+            color: #00e5ff;
+            font-weight: 600;
+        }
+
+        .scale-pattern {
+            color: #22c55e;
+        }
+
+        .scale-library {
+            color: #7dd3fc;
+            font-size: 0.9rem;
+        }
+
+        /* Library Cards */
+        .lib-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .lib-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .lib-card h3 {
+            color: #3b82f6;
+            margin-top: 0;
+        }
+
+        .lib-name {
+            color: #60a5fa;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin: 0.75rem 0;
+        }
+
+        .lib-features {
+            list-style: none;
+            margin: 1rem 0;
+        }
+
+        .lib-features li {
+            color: #bfdbfe;
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .lib-features li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+        }
+
+        .lib-install {
+            background: rgba(10, 14, 24, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #60a5fa;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        /* Filters */
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            color: #00e5ff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .filter-btn:hover {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: rgba(0, 229, 255, 0.6);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(90deg, #00e5ff, #22c55e);
+            color: #050810;
+            border-color: transparent;
+            font-weight: 600;
+        }
+
+        /* Footer / Feedback */
+        .feedback-section {
+            margin-top: 4rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(34, 197, 94, 0.08));
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 12px;
+        }
+
+        .feedback-section h2 {
+            margin-top: 0;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            background: rgba(10, 14, 24, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 8px;
+            color: #e0e6ed;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: all 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: rgba(0, 229, 255, 0.6);
+            background: rgba(10, 14, 24, 0.95);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        button {
+            background: linear-gradient(90deg, #00e5ff, #22c55e);
+            color: #050810;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            h2 {
+                font-size: 1.2rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .gold-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .warning-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .lib-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility */
+        .text-muted {
+            color: #64748b;
+        }
+
+        .text-success {
+            color: #22c55e;
+        }
+
+        .text-error {
+            color: #ef4444;
+        }
+
+        .metric {
+            display: inline-block;
+            background: rgba(0, 229, 255, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #00e5ff;
+            margin: 0.25rem 0.25rem 0.25rem 0;
+        }
+
+        code {
+            background: rgba(10, 14, 24, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            color: #60a5fa;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">H</div>
+            <div>
+                <h1>HAL-O COMPETITIVE ANALYSIS</h1>
+                <p class="subtitle">Multi-Agent & Project Management UX — 30+ Products Analyzed</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Section 1: Gold Standard Products -->
+        <section id="gold-standard">
+            <h2>Gold Standard Products (Top 5)</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1.5rem;">
+                Five best-in-class implementations to study and emulate. Each represents a solved problem at scale.
+            </p>
+
+            <div class="gold-grid">
+                <!-- VS Code -->
+                <div class="gold-card">
+                    <h3>
+                        VS Code Explorer
+                        <span class="gold-badge">UI PATTERNS</span>
+                    </h3>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Category</div>
+                        <div class="gold-field-value">Code Editor / File Tree Navigation</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Key Pattern</div>
+                        <div class="gold-field-value">Tree lazy-loading, recursive drill-down, keyboard nav (arrow keys + Enter), context menus, drag-drop file ops</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Why It Wins</div>
+                        <div class="gold-field-value">Handles 10,000+ files without perf lag. Instant folder expand, breadcrumb navigation, smart search.</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">What to Copy</div>
+                        <div class="gold-field-value">
+                            <span class="metric">Breadcrumbs</span>
+                            <span class="metric">Keyboard First</span>
+                            <span class="metric">Virtualization</span>
+                            <span class="metric">Collapse/Expand All</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- iOS Settings -->
+                <div class="gold-card">
+                    <h3>
+                        iOS Settings
+                        <span class="gold-badge">RESPONSIVE</span>
+                    </h3>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Category</div>
+                        <div class="gold-field-value">Settings / Master-Detail Pattern</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Key Pattern</div>
+                        <div class="gold-field-value">Master list (iPad: left), detail pane (iPad: right), back button on compact, adaptive layout</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Why It Wins</div>
+                        <div class="gold-field-value">Scales from 320px phones to 1200px+ tablets. Single codebase, zero layout switch logic.</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">What to Copy</div>
+                        <div class="gold-field-value">
+                            <span class="metric">Responsive Grid</span>
+                            <span class="metric">Adaptive Sidebars</span>
+                            <span class="metric">Touch + Desktop</span>
+                            <span class="metric">Smooth Transitions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terraform Cloud -->
+                <div class="gold-card">
+                    <h3>
+                        Terraform Cloud
+                        <span class="gold-badge">HIERARCHY</span>
+                    </h3>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Category</div>
+                        <div class="gold-field-value">Infrastructure / Org Hierarchy</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Key Pattern</div>
+                        <div class="gold-field-value">Org → Project → Workspace nesting. Clear boundaries. Breadcrumb nav. Context-aware UI (different buttons per level).</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Why It Wins</div>
+                        <div class="gold-field-value">100+ orgs × 50+ projects × 1000+ workspaces. Never confusing. Clear role/permission inheritance.</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">What to Copy</div>
+                        <div class="gold-field-value">
+                            <span class="metric">3-Level Max</span>
+                            <span class="metric">Context Switching</span>
+                            <span class="metric">Breadcrumbs</span>
+                            <span class="metric">Role Inheritance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LangGraph/LangSmith -->
+                <div class="gold-card">
+                    <h3>
+                        LangGraph/LangSmith
+                        <span class="gold-badge">AGENT VIZ</span>
+                    </h3>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Category</div>
+                        <div class="gold-field-value">AI Agent / Real-Time State Viz</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Key Pattern</div>
+                        <div class="gold-field-value">DAG visualization, node state streaming, edge traces, agent tree, memory snapshots, cost calculator</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Why It Wins</div>
+                        <div class="gold-field-value">Makes black-box agent runs debuggable. Real-time cost/latency overlay. Copy/paste traces for sharing.</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">What to Copy</div>
+                        <div class="gold-field-value">
+                            <span class="metric">DAG Rendering</span>
+                            <span class="metric">Stream Viz</span>
+                            <span class="metric">Cost Overlay</span>
+                            <span class="metric">Trace Export</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kubernetes Lens -->
+                <div class="gold-card">
+                    <h3>
+                        Kubernetes Lens
+                        <span class="gold-badge">MONITORING</span>
+                    </h3>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Category</div>
+                        <div class="gold-field-value">DevOps / Metrics Dashboard</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Key Pattern</div>
+                        <div class="gold-field-value">Cluster → Namespace → Pod, metrics at each level, live logs, terminal exec, resource quotas, alerts</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">Why It Wins</div>
+                        <div class="gold-field-value">Reduces kubectl learning curve. Live updates without refresh. Exportable metrics/logs.</div>
+                    </div>
+                    <div class="gold-field">
+                        <div class="gold-field-label">What to Copy</div>
+                        <div class="gold-field-value">
+                            <span class="metric">Live Streaming</span>
+                            <span class="metric">Log Tail</span>
+                            <span class="metric">Metrics Overlay</span>
+                            <span class="metric">Terminal Shell</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Competitive Matrix -->
+        <section id="matrix">
+            <h2>Competitive Matrix (30+ Products)</h2>
+
+            <div class="filter-bar">
+                <button class="filter-btn active" onclick="filterTable('all')">All Categories</button>
+                <button class="filter-btn" onclick="filterTable('ai')">AI Orchestration</button>
+                <button class="filter-btn" onclick="filterTable('devops')">DevOps</button>
+                <button class="filter-btn" onclick="filterTable('project')">Project Mgmt</button>
+                <button class="filter-btn" onclick="filterTable('comms')">Communications</button>
+            </div>
+
+            <div class="matrix-container">
+                <table id="compTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">Product</th>
+                            <th onclick="sortTable(1)">Category</th>
+                            <th onclick="sortTable(2)">Hierarchy Pattern</th>
+                            <th onclick="sortTable(3)">Max Depth</th>
+                            <th>Drag-Drop</th>
+                            <th>Search</th>
+                            <th>Keyboard Nav</th>
+                            <th>Mobile</th>
+                            <th>Key Strength</th>
+                            <th>Key Weakness</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- HAL-O Current -->
+                        <tr class="hal-o-row" data-category="all">
+                            <td><strong>HAL-O (Current)</strong></td>
+                            <td><span class="category-ai">AI Multi-Agent</span></td>
+                            <td>Dispatcher → Project → Agent → Task</td>
+                            <td>4</td>
+                            <td><span class="checkmark">✓</span> Planned</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span> Partial</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td>Real-time agent state, voice UI</td>
+                            <td>Mobile layout, perf at 100+ agents</td>
+                        </tr>
+
+                        <!-- AI Orchestration -->
+                        <tr data-category="ai">
+                            <td>CrewAI</td>
+                            <td><span class="category-ai">AI Orchestration</span></td>
+                            <td>Team → Agent → Task</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> CLI</td>
+                            <td><span class="checkmark">✓</span> Log search</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="xmark">✗</span></td>
+                            <td>Simple task DAG, Python native</td>
+                            <td>No UI, no state viz, no streaming</td>
+                        </tr>
+
+                        <tr data-category="ai">
+                            <td>AutoGen (Microsoft)</td>
+                            <td><span class="category-ai">AI Orchestration</span></td>
+                            <td>GroupChat → Agent</td>
+                            <td>2</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="checkmark">✓</span> Basic</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="xmark">✗</span></td>
+                            <td>Multi-model support, conversation tree</td>
+                            <td>Confusing UI, no streaming state</td>
+                        </tr>
+
+                        <tr data-category="ai">
+                            <td>LangGraph (LangChain)</td>
+                            <td><span class="category-ai">AI Orchestration</span></td>
+                            <td>Graph → Node → State</td>
+                            <td>5+</td>
+                            <td><span class="checkmark">✓</span> Code</td>
+                            <td><span class="checkmark">✓</span> LangSmith</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span> Cloud</td>
+                            <td>Best streaming viz, DAG debug, cost overlay</td>
+                            <td>LangSmith has paywall, steep learning</td>
+                        </tr>
+
+                        <tr data-category="ai">
+                            <td>Semantic Kernel (MSFT)</td>
+                            <td><span class="category-ai">AI Orchestration</span></td>
+                            <td>Kernel → Plugin → Function</td>
+                            <td>3</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="checkmark">✓</span> Plugin explorer</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="xmark">✗</span></td>
+                            <td>Enterprise integration, Azure native</td>
+                            <td>No OSS UI, Enterprise only</td>
+                        </tr>
+
+                        <tr data-category="ai">
+                            <td>Agency Swarm</td>
+                            <td><span class="category-ai">AI Orchestration</span></td>
+                            <td>Agency → Agent</td>
+                            <td>2</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="checkmark">✓</span> Minimal</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="xmark">✗</span></td>
+                            <td>Simple hierarchy, clear role model</td>
+                            <td>No monitoring, static exploration</td>
+                        </tr>
+
+                        <!-- DevOps -->
+                        <tr data-category="devops">
+                            <td>Kubernetes Lens</td>
+                            <td><span class="category-devops">DevOps</span></td>
+                            <td>Cluster → NS → Pod → Container</td>
+                            <td>4</td>
+                            <td><span class="checkmark">✓</span> Native</td>
+                            <td><span class="checkmark">✓</span> Full-text</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span> Cloud</td>
+                            <td>Live streaming metrics, integrated logs, exec shell</td>
+                            <td>K8s terminology, slow at 50+ namespaces</td>
+                        </tr>
+
+                        <tr data-category="devops">
+                            <td>Rancher</td>
+                            <td><span class="category-devops">DevOps</span></td>
+                            <td>Cluster → Project → Namespace</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Advanced</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Multi-cluster, RBAC, cost allocation</td>
+                            <td>Bloated, slow UI, steep setup</td>
+                        </tr>
+
+                        <tr data-category="devops">
+                            <td>Portainer</td>
+                            <td><span class="category-devops">DevOps</span></td>
+                            <td>Environment → Stack → Service</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Docker</td>
+                            <td><span class="checkmark">✓</span> Basic</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Lightweight, simple UX, great for Docker</td>
+                            <td>Limited K8s support, no metrics</td>
+                        </tr>
+
+                        <tr data-category="devops">
+                            <td>Terraform Cloud</td>
+                            <td><span class="category-devops">DevOps</span></td>
+                            <td>Org → Project → Workspace</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> State</td>
+                            <td><span class="checkmark">✓</span> Runs</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Clear hierarchy, cost estimation, plan review</td>
+                            <td>CLI-first culture, UI still limited</td>
+                        </tr>
+
+                        <!-- Project Management -->
+                        <tr data-category="project">
+                            <td>Linear</td>
+                            <td><span class="category-project">Project Mgmt</span></td>
+                            <td>Team → Project → Issue</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Instant</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Blazing fast, clean UX, keyboard-first</td>
+                            <td>Limited custom fields, no Gantt view</td>
+                        </tr>
+
+                        <tr data-category="project">
+                            <td>Notion</td>
+                            <td><span class="category-project">Project Mgmt</span></td>
+                            <td>Workspace → Database → Record</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Full-text</td>
+                            <td><span class="checkmark">✓</span> Limited</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Ultra-flexible, templates, integrations</td>
+                            <td>Unnavigable at 100+ pages, slow perf</td>
+                        </tr>
+
+                        <tr data-category="project">
+                            <td>ClickUp</td>
+                            <td><span class="category-project">Project Mgmt</span></td>
+                            <td>Team → Space → List → Task</td>
+                            <td>4</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="xmark">✗</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Most flexible, many views, time tracking</td>
+                            <td>Feature bloat, confusing hierarchy, slow UI</td>
+                        </tr>
+
+                        <tr data-category="project">
+                            <td>Jira</td>
+                            <td><span class="category-project">Project Mgmt</span></td>
+                            <td>Project → Epic → Issue</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Limited</td>
+                            <td><span class="checkmark">✓</span> JQL</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Enterprise standard, agile boards, reporting</td>
+                            <td>Overengineered, slow, confusing UX</td>
+                        </tr>
+
+                        <!-- Communications -->
+                        <tr data-category="comms">
+                            <td>Discord</td>
+                            <td><span class="category-comms">Communications</span></td>
+                            <td>Server → Channel (flat)</td>
+                            <td>2</td>
+                            <td><span class="checkmark">✓</span> Threads</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Excellent</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Best UX, low friction, gaming native</td>
+                            <td><span class="text-error">NO nested categories — biggest complaint</span></td>
+                        </tr>
+
+                        <tr data-category="comms">
+                            <td>Slack</td>
+                            <td><span class="category-comms">Communications</span></td>
+                            <td>Workspace → Channel (flat)</td>
+                            <td>2</td>
+                            <td><span class="checkmark">✓</span> Drag</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span> Good</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Enterprise standard, integrations, threads</td>
+                            <td><span class="text-error">Flat list breaks at 50+ channels</span></td>
+                        </tr>
+
+                        <tr data-category="comms">
+                            <td>Microsoft Teams</td>
+                            <td><span class="category-comms">Communications</span></td>
+                            <td>Team → Channel → Thread</td>
+                            <td>3</td>
+                            <td><span class="checkmark">✓</span> Tab drag</td>
+                            <td><span class="checkmark">✓</span> Full</td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td><span class="checkmark">✓</span></td>
+                            <td>Hierarchy, Office integration, Teams meetings</td>
+                            <td>Slow, bloated, confusing navigation</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p style="color: #7dd3fc; margin-top: 1.5rem; font-size: 0.9rem;">
+                <strong>Table tip:</strong> Click column headers to sort. Use filters above to slice by category.
+            </p>
+        </section>
+
+        <!-- Section 3: Critical Warnings -->
+        <section id="warnings">
+            <h2>Critical Warnings — Anti-Patterns to Avoid</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1.5rem;">
+                Lessons learned from competitors' missteps. These are not theoretical — they cause real user pain at scale.
+            </p>
+
+            <div class="warning-grid">
+                <div class="warning-card">
+                    <h3>⚠️ No Nested Categories (Discord)</h3>
+                    <p>
+                        Discord's flat channel list is its biggest UX complaint. At 50+ channels, users can't find anything.
+                        <strong>Fix:</strong> Implement category nesting (Dispatcher → Project → Agent) from day 1. Flat scales to ~10 items max.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ Unnavigable at Scale (Notion)</h3>
+                    <p>
+                        At 100+ pages, Notion becomes a dumping ground. No hierarchy, no breadcrumbs, search is the only way out.
+                        <strong>Fix:</strong> Enforce 3-level max hierarchy like Terraform Cloud. Add sidebar pin/collapse. Breadcrumbs everywhere.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ No Virtualization (Slack)</h3>
+                    <p>
+                        Slack renders all 200+ channels even if only 5 visible. At 500 channels, the DOM becomes unusable.
+                        <strong>Fix:</strong> Use react-window or react-arborist for virtual scrolling at 1000+ items.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ Confusing Terminology (K8s)</h3>
+                    <p>
+                        "Namespace" vs "Cluster" vs "Node" — each level uses domain-specific jargon.
+                        <strong>Fix:</strong> Use plain language: "Project", "Workspace", "Agent". Add tooltips for technical terms.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ Feature Bloat (ClickUp, Jira)</h3>
+                    <p>
+                        Too many columns, views, filters paralyzes UX. Users don't know what to click first.
+                        <strong>Fix:</strong> Ship 80/20 features. Make advanced stuff opt-in in Settings. Simplify default view.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ No Keyboard Nav (Teams, Rancher)</h3>
+                    <p>
+                        Power users can't navigate without mouse. Arrow keys + Enter should drill down and back.
+                        <strong>Fix:</strong> Implement full keyboard nav from day 1 (↓/↑ = move, → = expand, ← = collapse, Enter = select).
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ No Drag-Drop Reordering</h3>
+                    <p>
+                        Users want to organize their own hierarchy. Missing drag-drop == users feel trapped by the structure.
+                        <strong>Fix:</strong> Implement react-beautiful-dnd or dnd-kit. Test with 100+ items.
+                    </p>
+                </div>
+
+                <div class="warning-card">
+                    <h3>⚠️ Slow Tree Rendering (Notion, Rancher)</h3>
+                    <p>
+                        Re-rendering entire tree on every expand/collapse. At 100+ nodes, frame rate drops to 10 FPS.
+                        <strong>Fix:</strong> Memoize nodes. Use lazy-load + virtualization. Profile with React DevTools.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Recommended Architecture -->
+        <section id="architecture">
+            <h2>Recommended Architecture</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1.5rem;">
+                HAL-O's optimal layout, based on competitive analysis of the top 5 gold standard products.
+            </p>
+
+            <div class="diagram-container">
+                <pre style="color: #00e5ff; margin: 0; white-space: pre-wrap; word-wrap: break-word;"><div class="diagram-box">
+┌─────────────────────────────────────────────────────────┐
+│ Header: [Logo] [Dispatcher ▼] [Search ⌘K] [Settings] │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│ ┌──────────────────────┐  ┌────────────────────────┐  │
+│ │   Sidebar (Tree)     │  │   Master-Detail Pane  │  │
+│ │ ─────────────────────  │ ────────────────────────  │
+│ │                        │                          │  │
+│ │ Dispatchers           │ [Selected Node Header]   │  │
+│ │ ├─ π (Default)        │ ┌──────────────────────┐ │  │
+│ │ │  ├─ Projects        │ │ Project: vision-v2   │ │  │
+│ │ │  │  ├─ Agents       │ │ Status: Running      │ │  │
+│ │ │  │  │ ├─ Agent 1    │ │ Progress: 67%        │ │  │
+│ │ │  │  │ └─ Agent 2    │ │ Cost: $0.42          │ │  │
+│ │ │  │  └─ Workspace    │ │                      │ │  │
+│ │ │  └─ ...             │ │ [Activity Graph]     │ │  │
+│ │ │                     │ │                      │ │  │
+│ │ ├─ ollama            │ │ Agents in this Project
+│ │ │  └─ Projects        │ │ • research-agent     │ │  │
+│ │ │     └─ Agents       │ │ • write-agent        │ │  │
+│ │ │                     │ │ • review-agent       │ │  │
+│ │ └─ (+ Add Dispatcher) │ └──────────────────────┘ │  │
+│ │                        │                          │  │
+│ │ [Search Results]       │ [Terminal Output]        │  │
+│ │ → Vision v2            │ $ research-agent...      │  │
+│ │ → Vision v1            │ > Processing request     │  │
+│ │                        │ > Saving to cache...     │  │
+│ │                        │                          │  │
+│ └──────────────────────┘  └────────────────────────┘  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+</div></pre>
+
+                <h3 style="margin-top: 1.5rem; color: #22c55e;">Key Principles</h3>
+
+                <div class="diagram-box">
+                    <strong>1. Three-Level Hierarchy (Max)</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Dispatcher → Project → Agent → Task. Never deeper. Breadcrumbs at top of detail pane.</p>
+                </div>
+
+                <div class="diagram-box alt">
+                    <strong>2. Master-Detail Responsive</strong>
+                    <p style="margin: 0.5rem 0 0 0;">On mobile (&lt;768px): sidebar slides away, detail pane full-width. On desktop: side-by-side. No modal dialogs for context switching.</p>
+                </div>
+
+                <div class="diagram-box">
+                    <strong>3. Keyboard-First Navigation</strong>
+                    <p style="margin: 0.5rem 0 0 0;">↓↑ = move, → = expand, ← = collapse, Enter = select, ⌘K = search, Esc = back, / = quick-command.</p>
+                </div>
+
+                <div class="diagram-box alt">
+                    <strong>4. Drag-Drop Everywhere</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Users drag agents between projects, reorder projects, pin favorites. Drag hint on hover. Undo support.</p>
+                </div>
+
+                <div class="diagram-box">
+                    <strong>5. Lazy-Load + Virtualize</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Tree only renders visible 30 items at a time. Expand node fetches children. At 10,000 agents, no lag.</p>
+                </div>
+
+                <div class="diagram-box alt">
+                    <strong>6. Real-Time State Sync</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Agent running? Icon pulses cyan. Cost updated? Badge animates. No page refresh needed. WebSocket + React context.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Scale Considerations -->
+        <section id="scale">
+            <h2>Scale Considerations</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1.5rem;">
+                What works at 5 items breaks at 500. Here's the roadmap.
+            </p>
+
+            <table class="scale-table">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(0, 229, 255, 0.4);">
+                        <th style="color: #00e5ff;">Scenario</th>
+                        <th style="color: #00e5ff;">Recommended Pattern</th>
+                        <th style="color: #00e5ff;">Library / Tech</th>
+                        <th style="color: #00e5ff;">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="scale-scenario">5 dispatchers, 10 projects</td>
+                        <td class="scale-pattern">Simple nested list</td>
+                        <td class="scale-library">React context</td>
+                        <td style="color: #7dd3fc;">No virtualization needed yet. Breadcrumbs + search.</td>
+                    </tr>
+                    <tr>
+                        <td class="scale-scenario">50 projects, 100 agents</td>
+                        <td class="scale-pattern">Lazy-load tree + search</td>
+                        <td class="scale-library">react-arborist + fuse.js</td>
+                        <td style="color: #7dd3fc;">Expand loads children on demand. Search must be instant (&lt;100ms).</td>
+                    </tr>
+                    <tr>
+                        <td class="scale-scenario">200 agents, 500 tasks</td>
+                        <td class="scale-pattern">Virtual scroll tree + pagination</td>
+                        <td class="scale-library">react-window + react-arborist</td>
+                        <td style="color: #7dd3fc;">Only render 30 visible nodes. Pagination for tasks view.</td>
+                    </tr>
+                    <tr>
+                        <td class="scale-scenario">1000+ agents, multi-dispatcher</td>
+                        <td class="scale-pattern">Hierarchical search + favorites</td>
+                        <td class="scale-library">Algolia / Typesense backend</td>
+                        <td style="color: #7dd3fc;">Can't render full tree. Users filter by tag/status. Pin top 5 dispatchers.</td>
+                    </tr>
+                    <tr>
+                        <td class="scale-scenario">10,000+ items (enterprise)</td>
+                        <td class="scale-pattern">Database-backed search + caching</td>
+                        <td class="scale-library">PostgreSQL FTS + Redis cache</td>
+                        <td style="color: #7dd3fc;">Full client-side tree is impossible. Use server-side filtering.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 6: Implementation Libraries -->
+        <section id="libraries">
+            <h2>Implementation Libraries</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1.5rem;">
+                Best-in-class tools for each component. Tested against 30+ competitors.
+            </p>
+
+            <div class="lib-grid">
+                <div class="lib-card">
+                    <h3>react-arborist</h3>
+                    <div class="lib-name">Tree UI + Virtualization</div>
+                    <p style="color: #bfdbfe; font-size: 0.9rem;">
+                        Drag-drop tree with 10,000+ items. Built for forest-like hierarchies. Powers VS Code-style trees.
+                    </p>
+                    <ul class="lib-features">
+                        <li>Keyboard nav (↓↑→← + Enter)</li>
+                        <li>Drag-drop reordering</li>
+                        <li>Virtual scroll (only renders visible)</li>
+                        <li>Custom node rendering</li>
+                        <li>Inline edit names</li>
+                    </ul>
+                    <div class="lib-install">npm install react-arborist</div>
+                </div>
+
+                <div class="lib-card">
+                    <h3>@radix-ui/context-menu</h3>
+                    <div class="lib-name">Right-Click Context Menu</div>
+                    <p style="color: #bfdbfe; font-size: 0.9rem;">
+                        Accessible, keyboard-navigable context menus. Powers professional apps (Figma, Linear).
+                    </p>
+                    <ul class="lib-features">
+                        <li>Keyboard nav in menu</li>
+                        <li>Submenus (nested actions)</li>
+                        <li>Checkboxes + radio groups</li>
+                        <li>Custom styling (zero CSS)</li>
+                        <li>Trap focus on menu</li>
+                    </ul>
+                    <div class="lib-install">npm install @radix-ui/react-context-menu</div>
+                </div>
+
+                <div class="lib-card">
+                    <h3>cmdk</h3>
+                    <div class="lib-name">Command Palette (⌘K)</div>
+                    <p style="color: #bfdbfe; font-size: 0.9;">
+                        Fast, accessible command palette. Used by Linear, Vercel, Stripe. Fuzzy search ~0ms.
+                    </p>
+                    <ul class="lib-features">
+                        <li>Instant fuzzy search</li>
+                        <li>Nested command groups</li>
+                        <li>Keyboard nav only</li>
+                        <li>Custom shortcuts</li>
+                        <li>Dark mode ready</li>
+                    </ul>
+                    <div class="lib-install">npm install cmdk</div>
+                </div>
+
+                <div class="lib-card">
+                    <h3>dnd-kit</h3>
+                    <div class="lib-name">Drag-Drop Primitive</div>
+                    <p style="color: #bfdbfe; font-size: 0.9rem;">
+                        Modern drag-drop. Better than react-beautiful-dnd. Sortable lists, tree reordering, multi-level.
+                    </p>
+                    <ul class="lib-features">
+                        <li>Multi-level tree drag</li>
+                        <li>Auto-scroll on drag</li>
+                        <li>Touch support</li>
+                        <li>Drop animations</li>
+                        <li>Undo support</li>
+                    </ul>
+                    <div class="lib-install">npm install @dnd-kit/core @dnd-kit/sortable</div>
+                </div>
+
+                <div class="lib-card">
+                    <h3>fuse.js</h3>
+                    <div class="lib-name">Fuzzy Search</div>
+                    <p style="color: #bfdbfe; font-size: 0.9rem;">
+                        Client-side fuzzy search. Fast at 10,000+ items. Used by VS Code, Slack, Linear.
+                    </p>
+                    <ul class="lib-features">
+                        <li>Fuzzy + exact matching</li>
+                        <li>Weighted field search</li>
+                        <li>Threshold tuning</li>
+                        <li>Fast (~50ms at 5000 items)</li>
+                        <li>Tiny bundle (5KB gzip)</li>
+                    </ul>
+                    <div class="lib-install">npm install fuse.js</div>
+                </div>
+
+                <div class="lib-card">
+                    <h3>react-window</h3>
+                    <div class="lib-name">Virtual Scrolling</div>
+                    <p style="color: #bfdbfe; font-size: 0.9rem;">
+                        Render only visible items. Powers Discord, Figma, Facebook. Required for 1000+ items.
+                    </p>
+                    <ul class="lib-features">
+                        <li>Fixed-size lists</li>
+                        <li>Variable-size items</li>
+                        <li>Grid layouts</li>
+                        <li>Auto-scroll to index</li>
+                        <li>Tiny overhead (&lt;2KB)</li>
+                    </ul>
+                    <div class="lib-install">npm install react-window</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feedback Section -->
+        <section class="feedback-section" id="feedback">
+            <h2>Feedback & Notes</h2>
+            <p style="color: #7dd3fc; margin-bottom: 1rem;">
+                Any questions, corrections, or ideas on the competitive landscape? Let us know.
+            </p>
+            <textarea id="feedbackText" placeholder="Share your thoughts on the analysis, proposed architecture, or implementation priorities..."></textarea>
+            <div class="button-row">
+                <button onclick="submitFeedback()">Submit Feedback</button>
+                <button onclick="downloadReport()" style="background: linear-gradient(90deg, rgba(0, 229, 255, 0.5), rgba(34, 197, 94, 0.5)); border: 1px solid rgba(0, 229, 255, 0.3);">Download as HTML</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Sorting & Filtering
+        let currentFilter = 'all';
+        let sortColumn = -1;
+        let sortAscending = true;
+
+        function filterTable(category) {
+            currentFilter = category;
+            const rows = document.querySelectorAll('#compTable tbody tr');
+            rows.forEach(row => {
+                if (category === 'all' || row.getAttribute('data-category') === 'all' || row.getAttribute('data-category') === category) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function sortTable(colIndex) {
+            const table = document.getElementById('compTable');
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            if (sortColumn === colIndex) {
+                sortAscending = !sortAscending;
+            } else {
+                sortAscending = true;
+                sortColumn = colIndex;
+            }
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[colIndex].textContent.trim();
+                let bVal = b.cells[colIndex].textContent.trim();
+
+                // Try numeric sort
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return sortAscending ? aNum - bNum : bNum - aNum;
+                }
+
+                // String sort
+                return sortAscending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function submitFeedback() {
+            const text = document.getElementById('feedbackText').value;
+            if (text.trim()) {
+                alert('Feedback received:\n\n' + text + '\n\n(In production, this would be sent to HAL-O backend)');
+                document.getElementById('feedbackText').value = '';
+            } else {
+                alert('Please enter feedback before submitting.');
+            }
+        }
+
+        function downloadReport() {
+            const html = document.documentElement.outerHTML;
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'hal-o-competitive-analysis.html';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Smooth scroll on load
+        window.addEventListener('load', () => {
+            document.body.style.opacity = '0.95';
+            setTimeout(() => { document.body.style.opacity = '1'; }, 100);
+        });
+    </script>
+</body>
+</html>

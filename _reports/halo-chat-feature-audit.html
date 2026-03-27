@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halo Chat — Competitive Feature Audit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #06080f;
+            --bg-secondary: #0f1419;
+            --bg-tertiary: #1a1f2e;
+            --accent-cyan: #00e5ff;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --text-primary: #e4e6eb;
+            --text-secondary: #9ca3af;
+            --border-color: #1e293b;
+            --glass-bg: rgba(15, 20, 25, 0.7);
+            --glass-border: rgba(0, 229, 255, 0.1);
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--accent-cyan);
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.05) 0%, transparent 100%);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            color: var(--accent-cyan);
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+
+        section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.08) 0%, rgba(34, 197, 94, 0.05) 100%);
+            border-left: 4px solid var(--accent-cyan);
+            border-radius: 8px;
+        }
+
+        .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            font-weight: bold;
+            border-radius: 50%;
+            margin-right: 1rem;
+            font-size: 1.2rem;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .filter-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+
+        button {
+            background: var(--bg-tertiary);
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: rgba(0, 229, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+
+        button.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-secondary);
+        }
+
+        thead {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        th:hover {
+            background: rgba(0, 229, 255, 0.15);
+        }
+
+        th.sortable::after {
+            content: ' ⇅';
+            opacity: 0.5;
+        }
+
+        th.sorted-asc::after {
+            content: ' ↑';
+            opacity: 1;
+            color: var(--accent-green);
+        }
+
+        th.sorted-desc::after {
+            content: ' ↓';
+            opacity: 1;
+            color: var(--accent-green);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        tr.halo-chat {
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        tr.halo-chat:hover {
+            background: rgba(34, 197, 94, 0.12);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-yes {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .badge-no {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .badge-partial {
+            background: rgba(235, 179, 8, 0.2);
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
+        .gap-item {
+            background: var(--bg-tertiary);
+            border-left: 4px solid var(--border-color);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .gap-item.critical {
+            border-left-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .gap-item.warning {
+            border-left-color: var(--accent-yellow);
+            background: rgba(235, 179, 8, 0.08);
+        }
+
+        .gap-item.done {
+            border-left-color: var(--accent-green);
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .gap-item:hover {
+            transform: translateX(5px);
+        }
+
+        .gap-title {
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .gap-severity {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .gap-severity.critical {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .gap-severity.warning {
+            background: var(--accent-yellow);
+            color: var(--bg-primary);
+        }
+
+        .gap-severity.done {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .gap-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .gantt-timeline {
+            position: relative;
+            padding: 2rem 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .gantt-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .gantt-label {
+            width: 200px;
+            flex-shrink: 0;
+            padding-right: 1rem;
+        }
+
+        .gantt-label-title {
+            font-weight: bold;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .gantt-label-phase {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+
+        .gantt-bar {
+            flex-grow: 1;
+            height: 30px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 4px;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .gantt-bar:hover {
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
+            transform: scaleY(1.2);
+        }
+
+        .gantt-duration {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            color: var(--bg-primary);
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .feedback-section {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-top: 3rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .feedback-label {
+            color: var(--text-primary);
+            font-weight: bold;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+
+        .submit-btn {
+            margin-top: 1rem;
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            color: var(--bg-primary);
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.4);
+        }
+
+        .legend {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .color-yes {
+            background: var(--accent-green);
+        }
+
+        .color-no {
+            background: var(--accent-red);
+        }
+
+        .color-partial {
+            background: var(--accent-yellow);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .section-number {
+                margin-right: 0;
+                margin-bottom: 0.5rem;
+            }
+
+            .gantt-label {
+                width: 120px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        .icon-bar {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .icon-large {
+            font-size: 2rem;
+            color: var(--accent-cyan);
+        }
+
+        .expanded-row {
+            display: none;
+        }
+
+        .expanded-row.show {
+            display: table-row;
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--accent-cyan);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .expand-btn.expanded {
+            transform: rotate(90deg);
+        }
+
+        .detail-cell {
+            padding: 1.5rem 2rem;
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        .detail-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .detail-group {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        .detail-group-title {
+            color: var(--accent-cyan);
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .detail-group-content {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <h1>⚡ HALO CHAT</h1>
+            <p class="subtitle">Competitive Feature Audit & Implementation Roadmap</p>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Apps Analyzed</div>
+                    <div class="stat-value">10</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Feature Categories</div>
+                    <div class="stat-value">5</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Features</div>
+                    <div class="stat-value">48</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Halo Chat Coverage</div>
+                    <div class="stat-value">58%</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SECTION 1: FEATURE MATRIX -->
+        <section id="matrix-section">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2>FEATURE MATRIX</h2>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color color-yes"></div>
+                    <span>Fully Implemented</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-partial"></div>
+                    <span>Partial / In Progress</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-no"></div>
+                    <span>Not Implemented</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="filter-group">
+                    <span class="filter-label">Filter Category:</span>
+                    <select id="categoryFilter">
+                        <option value="">All Categories</option>
+                        <option value="Core Messaging">Core Messaging</option>
+                        <option value="Voice & Audio">Voice & Audio</option>
+                        <option value="Media">Media</option>
+                        <option value="UI/UX">UI/UX</option>
+                        <option value="AI-Specific">AI-Specific</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Show Only:</span>
+                    <button id="showAll" class="filter-btn active">All</button>
+                    <button id="showMissing" class="filter-btn">Missing</button>
+                    <button id="showPartial" class="filter-btn">Partial</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="featureMatrix">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-column="category">Category</th>
+                            <th class="sortable" data-column="feature">Feature</th>
+                            <th class="sortable" data-column="telegram">Telegram</th>
+                            <th class="sortable" data-column="signal">Signal</th>
+                            <th class="sortable" data-column="imessage">iMessage</th>
+                            <th class="sortable" data-column="whatsapp">WhatsApp</th>
+                            <th class="sortable" data-column="chatgpt">ChatGPT</th>
+                            <th class="sortable" data-column="gemini">Gemini</th>
+                            <th class="sortable" data-column="character">Character.ai</th>
+                            <th class="sortable" data-column="pi">Pi.ai</th>
+                            <th class="sortable" data-column="claude">Claude</th>
+                            <th class="sortable" data-column="halo">Halo Chat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrixBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 2: GAP ANALYSIS -->
+        <section id="gap-section">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2>GAP ANALYSIS</h2>
+            </div>
+
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Features ranked by severity (red = critical for competitiveness, yellow = important for parity, green = already competitive).
+            </p>
+
+            <div id="gapContainer"></div>
+        </section>
+
+        <!-- SECTION 3: TOP 20 PRIORITIES -->
+        <section id="priority-section">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2>TOP 20 PRIORITY FEATURES</h2>
+            </div>
+
+            <div class="controls">
+                <div class="filter-group">
+                    <span class="filter-label">Sort By:</span>
+                    <select id="prioritySort">
+                        <option value="priority">Priority Score</option>
+                        <option value="impact">Impact</option>
+                        <option value="effort">Effort (Low First)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="priorityTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-column="rank">#</th>
+                            <th class="sortable" data-column="feature">Feature</th>
+                            <th class="sortable" data-column="impact">Impact (1-10)</th>
+                            <th class="sortable" data-column="feasibility">Feasibility (1-10)</th>
+                            <th class="sortable" data-column="priority">Priority Score</th>
+                            <th class="sortable" data-column="effort">Est. Effort</th>
+                            <th class="sortable" data-column="pwa">PWA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="priorityBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 4: IMPLEMENTATION ROADMAP -->
+        <section id="roadmap-section">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2>IMPLEMENTATION ROADMAP</h2>
+            </div>
+
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                Timeline showing phased rollout across Q2-Q3 2026.
+            </p>
+
+            <div class="gantt-timeline" id="ganttTimeline"></div>
+        </section>
+
+        <!-- FEEDBACK SECTION -->
+        <section class="feedback-section">
+            <label class="feedback-label">📝 Feedback & Notes</label>
+            <textarea id="feedbackText" placeholder="Share observations, blockers, or strategic notes about this audit..."></textarea>
+            <button class="submit-btn" onclick="submitFeedback()">SUBMIT FEEDBACK</button>
+            <div id="feedbackStatus" style="margin-top: 1rem; color: var(--text-secondary); display: none;"></div>
+        </section>
+
+        <div class="icon-bar">
+            <div class="icon-item">
+                <div class="icon-large">⚙️</div>
+                <span>Competitive Analysis</span>
+            </div>
+            <div class="icon-item">
+                <div class="icon-large">🎯</div>
+                <span>Strategic Roadmap</span>
+            </div>
+            <div class="icon-item">
+                <div class="icon-large">🚀</div>
+                <span>Ready to Deploy</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== DATA ====================
+        const featureData = [
+            // Core Messaging
+            { category: 'Core Messaging', feature: 'Message bubbles', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Yes' },
+            { category: 'Core Messaging', feature: 'Timestamps', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Partial', gemini: 'Partial', character: 'No', pi: 'No', claude: 'Yes', halo: 'Yes' },
+            { category: 'Core Messaging', feature: 'Edit messages', telegram: 'Yes', signal: 'Yes', imessage: 'No', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'Core Messaging', feature: 'Delete messages', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Core Messaging', feature: 'Reply/Quote', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'Partial', pi: 'No', claude: 'Yes', halo: 'Yes' },
+            { category: 'Core Messaging', feature: 'Forward messages', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Core Messaging', feature: 'Pin messages', telegram: 'Yes', signal: 'No', imessage: 'No', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Core Messaging', feature: 'Search messages', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Core Messaging', feature: 'Reactions/Emoji', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'Yes' },
+
+            // Voice & Audio
+            { category: 'Voice & Audio', feature: 'Record voice message', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'Yes' },
+            { category: 'Voice & Audio', feature: 'Waveform visualization', telegram: 'Partial', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'Partial' },
+            { category: 'Voice & Audio', feature: 'Scrub/seek voice', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Voice & Audio', feature: 'Playback speed control', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Voice & Audio', feature: 'Realtime voice chat', telegram: 'No', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Voice & Audio', feature: 'STT (speech-to-text)', telegram: 'No', signal: 'No', imessage: 'Yes', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Yes' },
+            { category: 'Voice & Audio', feature: 'TTS (text-to-speech)', telegram: 'No', signal: 'No', imessage: 'Yes', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Yes' },
+            { category: 'Voice & Audio', feature: 'Streaming audio response', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'No', gemini: 'Yes', character: 'No', pi: 'No', claude: 'No', halo: 'Partial' },
+
+            // Media
+            { category: 'Media', feature: 'Image upload', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Partial', pi: 'Partial', claude: 'Yes', halo: 'Yes' },
+            { category: 'Media', feature: 'Image captions', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Partial', pi: 'Partial', claude: 'Yes', halo: 'Partial' },
+            { category: 'Media', feature: 'Camera capture', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Media', feature: 'Video playback', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'Media', feature: 'File uploads', telegram: 'Yes', signal: 'Yes', imessage: 'No', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'Media', feature: 'Drag-drop upload', telegram: 'Partial', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Yes' },
+            { category: 'Media', feature: 'Media gallery view', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'Media', feature: 'GIF support', telegram: 'Yes', signal: 'Partial', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+
+            // UI/UX
+            { category: 'UI/UX', feature: 'Swipe-to-reply', telegram: 'No', signal: 'No', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'UI/UX', feature: 'Long-press menu', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'Partial' },
+            { category: 'UI/UX', feature: 'Haptic feedback', telegram: 'Partial', signal: 'Partial', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Partial', gemini: 'Partial', character: 'No', pi: 'No', claude: 'Partial', halo: 'No' },
+            { category: 'UI/UX', feature: 'Smooth scrolling', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Yes' },
+            { category: 'UI/UX', feature: 'Native keyboard', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Partial' },
+            { category: 'UI/UX', feature: 'Jump to bottom', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Partial' },
+            { category: 'UI/UX', feature: 'Online status', telegram: 'Yes', signal: 'No', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'No', halo: 'No' },
+            { category: 'UI/UX', feature: 'Dark/Light themes', telegram: 'Yes', signal: 'Yes', imessage: 'Yes', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'Yes', character: 'Yes', pi: 'Yes', claude: 'Yes', halo: 'Yes' },
+
+            // AI-Specific
+            { category: 'AI-Specific', feature: 'Streaming responses', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'Yes', claude: 'Yes', halo: 'Yes' },
+            { category: 'AI-Specific', feature: 'Regenerate response', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'AI-Specific', feature: 'Edit + regenerate', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'No' },
+            { category: 'AI-Specific', feature: 'Model selection', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'No', character: 'No', pi: 'No', claude: 'Yes', halo: 'Yes' },
+            { category: 'AI-Specific', feature: 'Context window display', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'No', gemini: 'No', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'AI-Specific', feature: 'Multimodal input', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'Partial', claude: 'Yes', halo: 'Yes' },
+            { category: 'AI-Specific', feature: 'Code syntax highlighting', telegram: 'No', signal: 'No', imessage: 'No', whatsapp: 'No', chatgpt: 'Yes', gemini: 'Yes', character: 'No', pi: 'No', claude: 'Yes', halo: 'Partial' },
+            { category: 'AI-Specific', feature: 'Export conversation', telegram: 'Partial', signal: 'No', imessage: 'No', whatsapp: 'Yes', chatgpt: 'Yes', gemini: 'No', character: 'No', pi: 'No', claude: 'Yes', halo: 'No' },
+        ];
+
+        const gapData = [
+            { severity: 'critical', title: 'Edit + Regenerate', description: 'Allow users to modify AI prompts and regenerate responses inline. ChatGPT/Gemini standard.', impact: 10 },
+            { severity: 'critical', title: 'Search Conversations', description: 'Full-text search across chat history. Essential for long conversations.', impact: 9 },
+            { severity: 'critical', title: 'Swipe-to-Reply Gesture', description: 'Native mobile gesture for replying. iOS/Android standard.', impact: 8 },
+            { severity: 'critical', title: 'Push Notifications', description: 'Real-time notifications for new messages when app is backgrounded.', impact: 9 },
+            { severity: 'warning', title: 'Voice Scrub & Playback Speed', description: 'Allow seeking within voice messages and speed control (1.25x, 1.5x, 2x).', impact: 6 },
+            { severity: 'warning', title: 'Advanced Model Selection UI', description: 'Dropdown/modal to switch between models with parameter visibility (temperature, top-p, etc).', impact: 7 },
+            { severity: 'warning', title: 'Message Export/Download', description: 'Save conversations as JSON, PDF, or Markdown.', impact: 5 },
+            { severity: 'warning', title: 'Haptic Feedback', description: 'Vibration on send, reactions, typing indicators.', impact: 4 },
+            { severity: 'warning', title: 'Video Upload & Playback', description: 'Full video support with progressive loading.', impact: 6 },
+            { severity: 'warning', title: 'Camera Capture', description: 'Direct camera access for quick photo/video messages.', impact: 5 },
+            { severity: 'done', title: 'Reactions to Messages', description: 'Emoji reactions (👍, ❤️, etc). Already implemented.', impact: 6 },
+            { severity: 'done', title: 'Reply/Quote Threading', description: 'Reply to specific messages with quote display. Already implemented.', impact: 7 },
+            { severity: 'done', title: 'Voice Recording & STT', description: 'Record voice messages and transcribe with STT. Already implemented.', impact: 8 },
+            { severity: 'done', title: 'Text-to-Speech Output', description: 'Read messages aloud via TTS. Already implemented.', impact: 7 },
+            { severity: 'done', title: 'Streaming AI Responses', description: 'Show response as it\'s generated token-by-token. Already implemented.', impact: 9 },
+            { severity: 'done', title: 'Dark/Light Themes', description: 'Full theme support with persistent user preference. Already implemented.', impact: 6 },
+            { severity: 'done', title: 'Image Upload', description: 'Image upload with drag-drop support. Already implemented.', impact: 8 },
+            { severity: 'done', title: 'Multimodal AI Input', description: 'Send images + text to AI models. Already implemented.', impact: 8 },
+        ];
+
+        const priorityData = [
+            { rank: 1, feature: 'Edit + Regenerate', impact: 10, feasibility: 8, effort: '2-3 days', pwa: 'Yes' },
+            { rank: 2, feature: 'Search Messages', impact: 9, feasibility: 7, effort: '3-4 days', pwa: 'Yes' },
+            { rank: 3, feature: 'Push Notifications', impact: 9, feasibility: 6, effort: '2-3 days', pwa: 'Yes' },
+            { rank: 4, feature: 'Swipe-to-Reply', impact: 8, feasibility: 7, effort: '2 days', pwa: 'No' },
+            { rank: 5, feature: 'Voice Scrub Control', impact: 7, feasibility: 8, effort: '1-2 days', pwa: 'Yes' },
+            { rank: 6, feature: 'Advanced Model Selection', impact: 7, feasibility: 8, effort: '2 days', pwa: 'Yes' },
+            { rank: 7, feature: 'Delete Messages', impact: 7, feasibility: 8, effort: '1 day', pwa: 'Yes' },
+            { rank: 8, feature: 'Forward Messages', impact: 6, feasibility: 7, effort: '2 days', pwa: 'Yes' },
+            { rank: 9, feature: 'Message Export (JSON/MD)', impact: 6, feasibility: 8, effort: '1-2 days', pwa: 'Yes' },
+            { rank: 10, feature: 'Media Gallery View', impact: 6, feasibility: 7, effort: '2-3 days', pwa: 'Yes' },
+            { rank: 11, feature: 'Haptic Feedback', impact: 5, feasibility: 8, effort: '1 day', pwa: 'No' },
+            { rank: 12, feature: 'Playback Speed Control', impact: 5, feasibility: 8, effort: '1 day', pwa: 'Yes' },
+            { rank: 13, feature: 'Pin Messages', impact: 5, feasibility: 7, effort: '2 days', pwa: 'Yes' },
+            { rank: 14, feature: 'Full Video Support', impact: 6, feasibility: 6, effort: '3-4 days', pwa: 'Yes' },
+            { rank: 15, feature: 'Camera Capture', impact: 5, feasibility: 6, effort: '2 days', pwa: 'No' },
+            { rank: 16, feature: 'Message Reactions UI Polish', impact: 4, feasibility: 9, effort: '1 day', pwa: 'Yes' },
+            { rank: 17, feature: 'GIF Support', impact: 4, feasibility: 8, effort: '1 day', pwa: 'Yes' },
+            { rank: 18, feature: 'Better Long-Press Menu', impact: 4, feasibility: 8, effort: '1 day', pwa: 'No' },
+            { rank: 19, feature: 'Online Status Indicator', impact: 3, feasibility: 6, effort: '2 days', pwa: 'Yes' },
+            { rank: 20, feature: 'Typing Indicator Animation', impact: 3, feasibility: 7, effort: '1 day', pwa: 'Yes' },
+        ];
+
+        const roadmapData = [
+            { phase: 'Phase 1: Foundation', items: ['Edit + Regenerate', 'Search Messages', 'Delete Messages'], weeks: '2 weeks', start: 0, duration: 2 },
+            { phase: 'Phase 2: Mobile UX', items: ['Swipe-to-Reply', 'Haptic Feedback', 'Better Long-Press'], weeks: '1.5 weeks', start: 2, duration: 1.5 },
+            { phase: 'Phase 3: Voice Polish', items: ['Voice Scrub', 'Playback Speed', 'Streaming Audio'], weeks: '1 week', start: 3.5, duration: 1 },
+            { phase: 'Phase 4: Media Parity', items: ['Video Upload', 'Gallery View', 'Camera Capture'], weeks: '2 weeks', start: 4.5, duration: 2 },
+            { phase: 'Phase 5: AI Features', items: ['Advanced Model UI', 'Context Display', 'Export'], weeks: '1.5 weeks', start: 6.5, duration: 1.5 },
+            { phase: 'Phase 6: Polish', items: ['Push Notifications', 'Reactions UI', 'Typing Indicators'], weeks: '1 week', start: 8, duration: 1 },
+        ];
+
+        // ==================== UTILITIES ====================
+        function getBadge(value) {
+            if (value === 'Yes') return { class: 'badge-yes', text: '✓ Yes' };
+            if (value === 'No') return { class: 'badge-no', text: '✗ No' };
+            if (value === 'Partial') return { class: 'badge-partial', text: '⊗ Partial' };
+            return { class: 'badge-no', text: '✗ No' };
+        }
+
+        function renderFeatureMatrix() {
+            const tbody = document.getElementById('matrixBody');
+            tbody.innerHTML = '';
+
+            featureData.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = row.halo === 'Halo Chat' ? 'halo-chat' : '';
+                tr.innerHTML = `
+                    <td>${row.category}</td>
+                    <td><strong>${row.feature}</strong></td>
+                    <td><span class="badge ${getBadge(row.telegram).class}">${getBadge(row.telegram).text}</span></td>
+                    <td><span class="badge ${getBadge(row.signal).class}">${getBadge(row.signal).text}</span></td>
+                    <td><span class="badge ${getBadge(row.imessage).class}">${getBadge(row.imessage).text}</span></td>
+                    <td><span class="badge ${getBadge(row.whatsapp).class}">${getBadge(row.whatsapp).text}</span></td>
+                    <td><span class="badge ${getBadge(row.chatgpt).class}">${getBadge(row.chatgpt).text}</span></td>
+                    <td><span class="badge ${getBadge(row.gemini).class}">${getBadge(row.gemini).text}</span></td>
+                    <td><span class="badge ${getBadge(row.character).class}">${getBadge(row.character).text}</span></td>
+                    <td><span class="badge ${getBadge(row.pi).class}">${getBadge(row.pi).text}</span></td>
+                    <td><span class="badge ${getBadge(row.claude).class}">${getBadge(row.claude).text}</span></td>
+                    <td><span class="badge ${getBadge(row.halo).class}">${getBadge(row.halo).text}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderGapAnalysis() {
+            const container = document.getElementById('gapContainer');
+            container.innerHTML = '';
+
+            gapData.forEach(gap => {
+                const div = document.createElement('div');
+                div.className = `gap-item ${gap.severity}`;
+                div.innerHTML = `
+                    <div class="gap-title">
+                        <span class="gap-severity ${gap.severity}">${gap.severity.toUpperCase()}</span>
+                        <span>${gap.title}</span>
+                    </div>
+                    <div class="gap-description">${gap.description}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderPriorityTable() {
+            const tbody = document.getElementById('priorityBody');
+            tbody.innerHTML = '';
+
+            priorityData.forEach(row => {
+                const priorityScore = Math.round((row.impact * row.feasibility) / 10);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: center; font-weight: bold; color: var(--accent-cyan);">#${row.rank}</td>
+                    <td><strong>${row.feature}</strong></td>
+                    <td style="text-align: center;">${row.impact}/10</td>
+                    <td style="text-align: center;">${row.feasibility}/10</td>
+                    <td style="text-align: center; color: var(--accent-green); font-weight: bold;">${priorityScore}</td>
+                    <td>${row.effort}</td>
+                    <td><span class="badge ${row.pwa === 'Yes' ? 'badge-yes' : 'badge-no'}">${row.pwa === 'Yes' ? '✓' : '✗'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderRoadmap() {
+            const timeline = document.getElementById('ganttTimeline');
+            timeline.innerHTML = '';
+
+            roadmapData.forEach(phase => {
+                const div = document.createElement('div');
+                const barWidth = (phase.duration / 9) * 100;
+                const leftOffset = (phase.start / 9) * 100;
+                div.className = 'gantt-item';
+                div.innerHTML = `
+                    <div class="gantt-label">
+                        <div class="gantt-label-title">${phase.phase}</div>
+                        <div class="gantt-label-phase">${phase.weeks}</div>
+                    </div>
+                    <div style="flex-grow: 1; position: relative;">
+                        <div class="gantt-bar" style="width: ${barWidth}%; margin-left: ${leftOffset}%;">
+                            <div class="gantt-duration">${phase.weeks}</div>
+                        </div>
+                    </div>
+                `;
+                timeline.appendChild(div);
+            });
+        }
+
+        function submitFeedback() {
+            const text = document.getElementById('feedbackText').value;
+            if (!text.trim()) {
+                alert('Please enter feedback before submitting.');
+                return;
+            }
+            const status = document.getElementById('feedbackStatus');
+            status.textContent = '✓ Feedback recorded. Thank you!';
+            status.style.display = 'block';
+            status.style.color = 'var(--accent-green)';
+            setTimeout(() => {
+                document.getElementById('feedbackText').value = '';
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        // ==================== FILTERS ====================
+        document.getElementById('categoryFilter').addEventListener('change', (e) => {
+            const category = e.target.value;
+            const rows = document.querySelectorAll('#matrixBody tr');
+            rows.forEach(row => {
+                const rowCategory = row.querySelector('td:first-child').textContent;
+                row.style.display = category === '' || rowCategory === category ? '' : 'none';
+            });
+        });
+
+        document.getElementById('showAll').addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('showAll').classList.add('active');
+            document.querySelectorAll('#matrixBody tr').forEach(r => r.style.display = '');
+        });
+
+        document.getElementById('showMissing').addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('showMissing').classList.add('active');
+            document.querySelectorAll('#matrixBody tr').forEach(row => {
+                const badge = row.querySelector('[style*="badge"]');
+                const hasMissing = Array.from(row.querySelectorAll('.badge')).some(b => b.classList.contains('badge-no'));
+                row.style.display = hasMissing ? '' : 'none';
+            });
+        });
+
+        document.getElementById('showPartial').addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('showPartial').classList.add('active');
+            document.querySelectorAll('#matrixBody tr').forEach(row => {
+                const hasPartial = Array.from(row.querySelectorAll('.badge')).some(b => b.classList.contains('badge-partial'));
+                row.style.display = hasPartial ? '' : 'none';
+            });
+        });
+
+        // ==================== SORTING ====================
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const column = th.dataset.column;
+                const tableId = th.closest('table').id;
+                const tbody = document.querySelector(`#${tableId} tbody`);
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                const isAsc = th.classList.contains('sorted-asc');
+                document.querySelectorAll(`#${tableId} th.sortable`).forEach(h => {
+                    h.classList.remove('sorted-asc', 'sorted-desc');
+                });
+
+                rows.sort((a, b) => {
+                    let aVal = a.querySelector(`td:nth-child(${Array.from(th.parentNode.children).indexOf(th) + 1})`).textContent.trim();
+                    let bVal = b.querySelector(`td:nth-child(${Array.from(th.parentNode.children).indexOf(th) + 1})`).textContent.trim();
+
+                    aVal = isNaN(aVal) ? aVal : parseFloat(aVal);
+                    bVal = isNaN(bVal) ? bVal : parseFloat(bVal);
+
+                    return isAsc ? (aVal > bVal ? -1 : 1) : (aVal < bVal ? -1 : 1);
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+                th.classList.add(isAsc ? 'sorted-desc' : 'sorted-asc');
+            });
+        });
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderFeatureMatrix();
+            renderGapAnalysis();
+            renderPriorityTable();
+            renderRoadmap();
+        });
+    </script>
+</body>
+</html>

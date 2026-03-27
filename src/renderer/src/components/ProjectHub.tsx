@@ -1045,6 +1045,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           onOpenBrowser={onOpenBrowser}
           autoRotateEnabled={autoRotateEnabled}
           autoRotateSpeed={autoRotateSpeed}
+          onProjectContextMenu={(x, y, path, name, rulesOutdated) => setCtxMenu({ x, y, projectPath: path, projectName: name, rulesOutdated })}
         />
         {!sceneDismissed && (
           <div className={`hal-scene-overlay${sceneDismissed ? ' faded' : ''}`}>

@@ -191,6 +191,7 @@ const api = {
   dispatchMessage: (message: string) => ipcRenderer.invoke('dispatch-message', message),
   setStickySession: (sessionId: string | null) => ipcRenderer.invoke('set-sticky-session', sessionId),
   getStickySession: () => ipcRenderer.invoke('get-sticky-session'),
+  getVoiceForProject: (projectName: string): Promise<string | null> => ipcRenderer.invoke('get-voice-for-project', projectName),
 
   // Dev: 2D Preview Mode toggle
   onToggle2dPreview: (callback: (enabled: boolean) => void) => {
