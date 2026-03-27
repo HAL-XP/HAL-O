@@ -109,44 +109,170 @@
             transform: translateY(-1px);
         }
 
-        .control-btn.active {
-            background: rgba(0, 229, 255, 0.3);
-            border-color: #00e5ff;
-        }
-
-        /* Canvas */
+        /* Canvas container with SVG + nodes */
         .canvas-container {
             position: fixed;
             top: 60px;
             left: 0;
             right: 0;
-            bottom: 0;
+            bottom: 200px;
             overflow: hidden;
-            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%);
+            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%),
+                        repeating-linear-gradient(
+                            0deg,
+                            rgba(0, 229, 255, 0.03) 0px,
+                            rgba(0, 229, 255, 0.03) 1px,
+                            transparent 1px,
+                            transparent 40px
+                        ),
+                        repeating-linear-gradient(
+                            90deg,
+                            rgba(0, 229, 255, 0.03) 0px,
+                            rgba(0, 229, 255, 0.03) 1px,
+                            transparent 1px,
+                            transparent 40px
+                        );
+            cursor: grab;
         }
 
-        canvas {
-            display: block;
+        .canvas-container.panning {
+            cursor: grabbing;
+        }
+
+        .flow-container {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            background:
-                repeating-linear-gradient(
-                    0deg,
-                    rgba(0, 229, 255, 0.03) 0px,
-                    rgba(0, 229, 255, 0.03) 1px,
-                    transparent 1px,
-                    transparent 40px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    rgba(0, 229, 255, 0.03) 0px,
-                    rgba(0, 229, 255, 0.03) 1px,
-                    transparent 1px,
-                    transparent 40px
-                );
+            transform-origin: 0 0;
+            will-change: transform;
         }
 
-        /* Node Popup */
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .nodes-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Node styling */
+        .node {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-width: 2px;
+            border-style: solid;
+            border-radius: 6px;
+            padding: 8px;
+            min-width: 140px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            user-select: none;
+            pointer-events: auto;
+        }
+
+        .node:hover {
+            filter: brightness(1.2);
+            border-width: 3px;
+        }
+
+        .node.start, .node.end {
+            border-radius: 30px;
+            min-width: 150px;
+        }
+
+        .node.decision {
+            width: 100px;
+            height: 100px;
+            padding: 0;
+            border-radius: 0;
+            transform: rotate(45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .node.decision::after {
+            content: attr(data-title);
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Node type colors */
+        .node.start {
+            background: linear-gradient(135deg, #00e5ff, #0a8fa0);
+            border-color: #00e5ff;
+            color: #000;
+        }
+
+        .node.end {
+            background: linear-gradient(135deg, #9f7aea, #6b5b95);
+            border-color: #b0a0d0;
+            color: #000;
+        }
+
+        .node.state {
+            background: linear-gradient(135deg, #0a3a52, #051a33);
+            border-color: #0066cc;
+            color: #00e5ff;
+        }
+
+        .node.decision {
+            background: linear-gradient(135deg, #fbbf24, #d97706);
+            border-color: #f59e0b;
+            color: #000;
+        }
+
+        .node.action {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #22c55e;
+            color: #000;
+        }
+
+        .node.system {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            border-color: #888;
+            color: #e0e0e0;
+        }
+
+        /* Section labels */
+        .section-label {
+            position: absolute;
+            color: rgba(0, 229, 255, 0.4);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Node popup */
         .node-popup {
             position: fixed;
             background: rgba(5, 8, 16, 0.98);
@@ -287,55 +413,6 @@
             border-color: rgba(0, 229, 255, 0.4);
         }
 
-        /* Footer */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(5, 8, 16, 0.95);
-            border-top: 1px solid rgba(0, 229, 255, 0.2);
-            padding: 16px 24px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .feedback-label {
-            font-size: 11px;
-            color: #888;
-            margin-bottom: 8px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .feedback-input {
-            width: 100%;
-            background: rgba(0, 229, 255, 0.05);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            color: #e0e0e0;
-            padding: 12px;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 12px;
-            resize: none;
-            max-height: 120px;
-            transition: all 0.2s;
-        }
-
-        .feedback-input:focus {
-            outline: none;
-            background: rgba(0, 229, 255, 0.1);
-            border-color: rgba(0, 229, 255, 0.4);
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
-        }
-
-        .feedback-input::placeholder {
-            color: #555;
-        }
-
         /* Legend */
         .legend {
             position: fixed;
@@ -406,6 +483,55 @@
             font-weight: 600;
         }
 
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(5, 8, 16, 0.95);
+            border-top: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 16px 24px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .feedback-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .feedback-input {
+            width: 100%;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            color: #e0e0e0;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            resize: none;
+            max-height: 120px;
+            transition: all 0.2s;
+        }
+
+        .feedback-input:focus {
+            outline: none;
+            background: rgba(0, 229, 255, 0.1);
+            border-color: rgba(0, 229, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+        }
+
+        .feedback-input::placeholder {
+            color: #555;
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -424,13 +550,42 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 229, 255, 0.4);
         }
+
+        /* Connection lines */
+        .connection-line {
+            stroke: #00e5ff;
+            stroke-width: 2px;
+            fill: none;
+            opacity: 0.8;
+            stroke-dasharray: 6, 4;
+            stroke-dashoffset: 0;
+            animation: dashMove 20s linear infinite;
+        }
+
+        @keyframes dashMove {
+            to {
+                stroke-dashoffset: 10;
+            }
+        }
+
+        .connection-arrow {
+            fill: #00e5ff;
+            opacity: 0.9;
+        }
+
+        .connection-label {
+            fill: #f59e0b;
+            font-size: 10px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-title">
             <h1>⬤ HAL-O — User Flow</h1>
-            <div class="version-badge">v1</div>
+            <div class="version-badge">v2</div>
         </div>
         <div class="header-controls">
             <div class="timestamp">
@@ -476,8 +631,11 @@
         <div class="shortcut-line"><span class="shortcut-key">L:</span> Toggle legend</div>
     </div>
 
-    <div class="canvas-container">
-        <canvas id="flowCanvas"></canvas>
+    <div class="canvas-container" id="canvasContainer">
+        <div class="flow-container" id="flowContainer">
+            <svg class="connections" id="connectionsSvg"></svg>
+            <div class="nodes-wrapper" id="nodesWrapper"></div>
+        </div>
     </div>
 
     <div class="node-popup" id="nodePopup">
@@ -508,70 +666,7 @@
             minute: '2-digit'
         });
 
-        // Canvas setup
-        const canvas = document.getElementById('flowCanvas');
-        const ctx = canvas.getContext('2d');
-        const headerHeight = 60;
-        const footerHeight = 200;
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - headerHeight - footerHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // Zoom and pan
-        let zoomLevel = 1;
-        let panX = 0;
-        let panY = 0;
-        let isDragging = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
-
-        canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const oldZoom = zoomLevel;
-            const zoomFactor = 0.1;
-            zoomLevel = Math.max(0.5, Math.min(3, zoomLevel - e.deltaY * zoomFactor * 0.001));
-
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const zoomDiff = zoomLevel - oldZoom;
-            panX -= mouseX * zoomDiff / oldZoom;
-            panY -= mouseY * zoomDiff / oldZoom;
-
-            draw();
-        });
-
-        canvas.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            dragStartX = e.clientX - panX;
-            dragStartY = e.clientY - panY;
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                panX = e.clientX - dragStartX;
-                panY = e.clientY - dragStartY;
-                draw();
-            }
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-
-        document.getElementById('zoomReset').addEventListener('click', () => {
-            zoomLevel = 1;
-            panX = 0;
-            panY = 0;
-            draw();
-        });
-
-        // Node data structure
+        // Node data
         const nodes = [
             // App Launch Flow
             { id: 'start', type: 'start', title: 'User Opens HAL-O', x: 150, y: 80, width: 120, height: 60 },
@@ -641,536 +736,273 @@
             { id: 'halo_fallback', type: 'system', title: 'API Fallback', x: 2040, y: 760, width: 90, height: 60 },
         ];
 
-        // Edge definitions (from, to, label)
+        // Edges
         const edges = [
-            // App Launch Flow
-            ('start', 'decision_external', ''),
-            ('decision_external', 'absorb_session', 'YES'),
-            ('absorb_session', 'hub_online', ''),
-            ('decision_external', 'decision_firsttime', 'NO'),
-            ('decision_firsttime', 'wizard_state', 'YES'),
-            ('wizard_state', 'choice_path', ''),
-            ('choice_path', 'manage_projects', 'Projects'),
-            ('choice_path', 'personal_asst', 'Assistant'),
-            ('manage_projects', 'import_first', ''),
-            ('personal_asst', 'create_asst', ''),
-            ('import_first', 'start_session', ''),
-            ('create_asst', 'start_session', ''),
-            ('start_session', 'hub_firsttime', ''),
-            ('decision_firsttime', 'auto_resume', 'NO'),
-            ('auto_resume', 'hub_online', ''),
-
-            // Daily Use - Hub
-            ('hub_main', 'click_project', ''),
-            ('click_project', 'terminal_opens', ''),
-            ('hub_main', 'voice_cmd', ''),
-            ('voice_cmd', 'dispatch_project', ''),
-            ('hub_main', 'manage_btn', ''),
-            ('manage_btn', 'manage_page', ''),
-            ('hub_main', 'halo_chat', ''),
-            ('halo_chat', 'halo_pwa', ''),
-            ('hub_main', 'toggle_term', ''),
-            ('toggle_term', 'term_shown', ''),
-
-            // Halo Chat Flow
-            ('halo_start', 'app_running', ''),
-            ('app_running', 'websocket', 'YES'),
-            ('websocket', 'chat_shared', ''),
-            ('app_running', 'api_fallback', 'NO'),
-            ('api_fallback', 'chat_standalone', ''),
-            ('chat_shared', 'type_msg', ''),
-            ('chat_shared', 'mic_tap', ''),
-            ('type_msg', 'stream_response', ''),
-            ('mic_tap', 'record_transcribe', ''),
-            ('stream_response', 'tts_gen', ''),
-            ('record_transcribe', 'stream_response', ''),
-            ('tts_gen', 'audio_play', ''),
-            ('chat_standalone', 'type_msg', ''),
-
-            // Manage Projects Flow
-            ('manage_start', 'import_btn', ''),
-            ('import_btn', 'import_modal', ''),
-            ('manage_start', 'dispatcher_btn', ''),
-            ('dispatcher_btn', 'create_node', ''),
-            ('manage_start', 'click_card', ''),
-            ('click_card', 'detail_panel', ''),
-            ('manage_start', 'drag_card', ''),
-            ('drag_card', 'move_tree', ''),
-            ('manage_start', 'back_btn', ''),
-            ('back_btn', 'back_hub', ''),
-
-            // Session Lifecycle
-            ('session_running', 'close_app', ''),
-            ('close_app', 'headless', ''),
-            ('session_running', 'reopen_app', ''),
-            ('reopen_app', 'reattach', ''),
-            ('session_running', 'tg_closed', ''),
-            ('tg_closed', 'tg_route', ''),
-            ('session_running', 'halo_closed', ''),
-            ('halo_closed', 'halo_fallback', ''),
-        ].map(([from, to, label]) => ({ from, to, label }));
+            { from: 'start', to: 'decision_external', label: '' },
+            { from: 'decision_external', to: 'absorb_session', label: 'YES' },
+            { from: 'absorb_session', to: 'hub_online', label: '' },
+            { from: 'decision_external', to: 'decision_firsttime', label: 'NO' },
+            { from: 'decision_firsttime', to: 'wizard_state', label: 'YES' },
+            { from: 'wizard_state', to: 'choice_path', label: '' },
+            { from: 'choice_path', to: 'manage_projects', label: 'Projects' },
+            { from: 'choice_path', to: 'personal_asst', label: 'Assistant' },
+            { from: 'manage_projects', to: 'import_first', label: '' },
+            { from: 'personal_asst', to: 'create_asst', label: '' },
+            { from: 'import_first', to: 'start_session', label: '' },
+            { from: 'create_asst', to: 'start_session', label: '' },
+            { from: 'start_session', to: 'hub_firsttime', label: '' },
+            { from: 'decision_firsttime', to: 'auto_resume', label: 'NO' },
+            { from: 'auto_resume', to: 'hub_online', label: '' },
+            { from: 'hub_main', to: 'click_project', label: '' },
+            { from: 'click_project', to: 'terminal_opens', label: '' },
+            { from: 'hub_main', to: 'voice_cmd', label: '' },
+            { from: 'voice_cmd', to: 'dispatch_project', label: '' },
+            { from: 'hub_main', to: 'manage_btn', label: '' },
+            { from: 'manage_btn', to: 'manage_page', label: '' },
+            { from: 'hub_main', to: 'halo_chat', label: '' },
+            { from: 'halo_chat', to: 'halo_pwa', label: '' },
+            { from: 'hub_main', to: 'toggle_term', label: '' },
+            { from: 'toggle_term', to: 'term_shown', label: '' },
+            { from: 'halo_start', to: 'app_running', label: '' },
+            { from: 'app_running', to: 'websocket', label: 'YES' },
+            { from: 'websocket', to: 'chat_shared', label: '' },
+            { from: 'app_running', to: 'api_fallback', label: 'NO' },
+            { from: 'api_fallback', to: 'chat_standalone', label: '' },
+            { from: 'chat_shared', to: 'type_msg', label: '' },
+            { from: 'chat_shared', to: 'mic_tap', label: '' },
+            { from: 'type_msg', to: 'stream_response', label: '' },
+            { from: 'mic_tap', to: 'record_transcribe', label: '' },
+            { from: 'stream_response', to: 'tts_gen', label: '' },
+            { from: 'record_transcribe', to: 'stream_response', label: '' },
+            { from: 'tts_gen', to: 'audio_play', label: '' },
+            { from: 'chat_standalone', to: 'type_msg', label: '' },
+            { from: 'manage_start', to: 'import_btn', label: '' },
+            { from: 'import_btn', to: 'import_modal', label: '' },
+            { from: 'manage_start', to: 'dispatcher_btn', label: '' },
+            { from: 'dispatcher_btn', to: 'create_node', label: '' },
+            { from: 'manage_start', to: 'click_card', label: '' },
+            { from: 'click_card', to: 'detail_panel', label: '' },
+            { from: 'manage_start', to: 'drag_card', label: '' },
+            { from: 'drag_card', to: 'move_tree', label: '' },
+            { from: 'manage_start', to: 'back_btn', label: '' },
+            { from: 'back_btn', to: 'back_hub', label: '' },
+            { from: 'session_running', to: 'close_app', label: '' },
+            { from: 'close_app', to: 'headless', label: '' },
+            { from: 'session_running', to: 'reopen_app', label: '' },
+            { from: 'reopen_app', to: 'reattach', label: '' },
+            { from: 'session_running', to: 'tg_closed', label: '' },
+            { from: 'tg_closed', to: 'tg_route', label: '' },
+            { from: 'session_running', to: 'halo_closed', label: '' },
+            { from: 'halo_closed', to: 'halo_fallback', label: '' },
+        ];
 
         // Node details
         const nodeDetails = {
-            start: {
-                story: 'As a user, I want to launch HAL-O and start working immediately.',
-                status: '✅ Implemented',
-                files: ['src/main/index.ts']
-            },
-            decision_external: {
-                story: 'The app checks if there\'s already a Claude session running externally.',
-                status: '✅ Implemented',
-                files: ['src/main/ipc-handlers.ts']
-            },
-            absorb_session: {
-                story: 'If an external session exists, it\'s absorbed into the app for seamless connection.',
-                status: '🔨 In Progress',
-                files: ['src/main/terminal-manager.ts']
-            },
-            hub_online: {
-                story: 'The Hub displays with a glowing ONLINE sphere, ready for interaction.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ProjectHub.tsx', 'src/renderer/src/components/three/PbrHoloScene.tsx']
-            },
-            decision_firsttime: {
-                story: 'First-time users are routed to onboarding; returning users skip ahead.',
-                status: '🔨 In Progress',
-                files: ['src/main/ipc-handlers.ts']
-            },
-            wizard_state: {
-                story: 'As a new user, I step through a guided onboarding wizard to set up HAL-O.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/OnboardingWizard.tsx']
-            },
-            choice_path: {
-                story: 'I choose my primary use case: project management or personal assistant.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/OnboardingWizard.tsx']
-            },
-            manage_projects: {
-                story: 'I select "Manage Projects" to organize my workflow with HAL-O.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/ImportScreen.tsx']
-            },
-            personal_asst: {
-                story: 'I select "Personal Assistant" to configure HAL as my everyday AI companion.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/AssistantSetup.tsx']
-            },
-            import_first: {
-                story: 'I import my first project into HAL-O via folder selection.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ImportScreen.tsx']
-            },
-            create_asst: {
-                story: 'I create a personal assistant with name, voice, and language preferences.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/AssistantSetup.tsx']
-            },
-            start_session: {
-                story: 'HAL-O starts a headless Claude session in the background.',
-                status: '✅ Implemented',
-                files: ['src/main/terminal-manager.ts']
-            },
-            hub_firsttime: {
-                story: 'The Hub is now set up and ready for first use.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ProjectHub.tsx']
-            },
-            auto_resume: {
-                story: 'Returning users skip onboarding and auto-resume their session.',
-                status: '✅ Implemented',
-                files: ['src/main/terminal-manager.ts']
-            },
-            hub_main: {
-                story: 'I see my projects as interactive 3D cards in the Hub.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/three/PbrHoloScene.tsx']
-            },
-            click_project: {
-                story: 'I click on a project card to interact with it.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/three/ScreenPanel.tsx']
-            },
-            terminal_opens: {
-                story: 'The terminal for that project pops open, ready for commands.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/TerminalView.tsx']
-            },
-            voice_cmd: {
-                story: 'I hold CTRL+SPACE to issue a voice command to HAL-O.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/MicButton.tsx']
-            },
-            dispatch_project: {
-                story: 'The voice command is routed to the correct project session.',
-                status: '✅ Implemented',
-                files: ['src/main/ipc-handlers.ts']
-            },
-            manage_btn: {
-                story: 'I click the MANAGE button to edit project tree structure.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            manage_page: {
-                story: 'The Manage Projects tree view opens with full CRUD controls.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            halo_chat: {
-                story: 'I open Halo Chat on my phone to chat with HAL from anywhere.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/index.html']
-            },
-            halo_pwa: {
-                story: 'Halo Chat PWA connects to my HAL-O session for real-time messaging.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            toggle_term: {
-                story: 'I toggle the embedded terminal visibility with a keyboard shortcut.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/TerminalView.tsx']
-            },
-            term_shown: {
-                story: 'The terminal pane is now visible or hidden based on my preference.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/TerminalView.tsx']
-            },
-            halo_start: {
-                story: 'I open Halo Chat on my phone to message HAL-O.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/index.html']
-            },
-            app_running: {
-                story: 'Halo Chat checks if the HAL-O app is currently running.',
-                status: '✅ Implemented',
-                files: ['src/main/http-api.ts']
-            },
-            websocket: {
-                story: 'A WebSocket connection is established for real-time communication.',
-                status: '✅ Implemented',
-                files: ['src/main/http-api.ts']
-            },
-            chat_shared: {
-                story: 'I chat with HAL/Bob/Karen using the same brain and memory.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            api_fallback: {
-                story: 'If HAL-O isn\'t running, Halo Chat falls back to a standalone API.',
-                status: '✅ Implemented',
-                files: ['src/main/http-api.ts']
-            },
-            chat_standalone: {
-                story: 'I chat with a standalone AI without shared session memory.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            type_msg: {
-                story: 'I type a message into Halo Chat.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            stream_response: {
-                story: 'HAL-O streams the response back in real-time.',
-                status: '✅ Implemented',
-                files: ['src/main/http-api.ts']
-            },
-            tts_gen: {
-                story: 'The response is converted to audio using TTS (Chatterbox/Voicebox/Edge).',
-                status: '✅ Implemented',
-                files: ['C:/Users/dindo/.claude/scripts/tts.py']
-            },
-            audio_play: {
-                story: 'The audio plays through my phone speaker.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            mic_tap: {
-                story: 'I tap the microphone button to record a voice message.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            record_transcribe: {
-                story: 'My voice is recorded and transcribed using faster-whisper.',
-                status: '✅ Implemented',
-                files: ['C:/Users/dindo/.claude/scripts/transcribe.py']
-            },
-            manage_start: {
-                story: 'I see a tree view of all my projects and dispatchers.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            import_btn: {
-                story: 'I click "Import Project" to add a new project to the tree.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ImportScreen.tsx']
-            },
-            import_modal: {
-                story: 'A modal opens to browse, name, and parent the new project.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ImportScreen.tsx']
-            },
-            dispatcher_btn: {
-                story: 'I click "+ Dispatcher" to create a new dispatcher node.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            create_node: {
-                story: 'A new dispatcher node is created in the tree structure.',
-                status: '📋 Planned',
-                files: ['src/main/http-api.ts']
-            },
-            click_card: {
-                story: 'I click a project/dispatcher card to see its details.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            detail_panel: {
-                story: 'A side panel shows name, model, voice, color, and other settings.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            drag_card: {
-                story: 'I drag a card to reorganize the tree hierarchy.',
-                status: '📋 Planned',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            move_tree: {
-                story: 'The node moves to its new parent in the tree.',
-                status: '📋 Planned',
-                files: ['src/main/http-api.ts']
-            },
-            back_btn: {
-                story: 'I click "Back" to return to the Hub.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ManageProjects.tsx']
-            },
-            back_hub: {
-                story: 'I\'m back at the main Hub view.',
-                status: '✅ Implemented',
-                files: ['src/renderer/src/components/ProjectHub.tsx']
-            },
-            session_running: {
-                story: 'A Claude session is running in the background.',
-                status: '✅ Implemented',
-                files: ['src/main/terminal-manager.ts']
-            },
-            close_app: {
-                story: 'I close the HAL-O app window.',
-                status: '✅ Implemented',
-                files: ['src/main/index.ts']
-            },
-            headless: {
-                story: 'The session continues running as a headless process.',
-                status: '✅ Implemented',
-                files: ['src/main/terminal-manager.ts']
-            },
-            reopen_app: {
-                story: 'I reopen the HAL-O app later.',
-                status: '✅ Implemented',
-                files: ['src/main/index.ts']
-            },
-            reattach: {
-                story: 'The app automatically reattaches to the running session.',
-                status: '✅ Implemented',
-                files: ['src/main/terminal-manager.ts']
-            },
-            tg_closed: {
-                story: 'I send a Telegram message while HAL-O is closed.',
-                status: '✅ Implemented',
-                files: ['src/main/telegram-handler.ts']
-            },
-            tg_route: {
-                story: 'The message still routes to the headless session.',
-                status: '✅ Implemented',
-                files: ['src/main/telegram-handler.ts']
-            },
-            halo_closed: {
-                story: 'I open Halo Chat while HAL-O is not running.',
-                status: '✅ Implemented',
-                files: ['src/renderer/public/halo-chat/']
-            },
-            halo_fallback: {
-                story: 'Halo Chat falls back to API mode without session awareness.',
-                status: '✅ Implemented',
-                files: ['src/main/http-api.ts']
-            },
+            start: { story: 'As a user, I want to launch HAL-O and start working immediately.', status: '✅ Implemented', files: ['src/main/index.ts'] },
+            decision_external: { story: 'The app checks if there\'s already a Claude session running externally.', status: '✅ Implemented', files: ['src/main/ipc-handlers.ts'] },
+            absorb_session: { story: 'If an external session exists, it\'s absorbed into the app for seamless connection.', status: '🔨 In Progress', files: ['src/main/terminal-manager.ts'] },
+            hub_online: { story: 'The Hub displays with a glowing ONLINE sphere, ready for interaction.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx', 'src/renderer/src/components/three/PbrHoloScene.tsx'] },
+            decision_firsttime: { story: 'First-time users are routed to onboarding; returning users skip ahead.', status: '🔨 In Progress', files: ['src/main/ipc-handlers.ts'] },
+            wizard_state: { story: 'As a new user, I step through a guided onboarding wizard to set up HAL-O.', status: '📋 Planned', files: ['src/renderer/src/components/OnboardingWizard.tsx'] },
+            choice_path: { story: 'I choose my primary use case: project management or personal assistant.', status: '📋 Planned', files: ['src/renderer/src/components/OnboardingWizard.tsx'] },
+            manage_projects: { story: 'I select "Manage Projects" to organize my workflow with HAL-O.', status: '📋 Planned', files: ['src/renderer/src/components/ImportScreen.tsx'] },
+            personal_asst: { story: 'I select "Personal Assistant" to configure HAL as my everyday AI companion.', status: '📋 Planned', files: ['src/renderer/src/components/AssistantSetup.tsx'] },
+            import_first: { story: 'I import my first project into HAL-O via folder selection.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
+            create_asst: { story: 'I create a personal assistant with name, voice, and language preferences.', status: '📋 Planned', files: ['src/renderer/src/components/AssistantSetup.tsx'] },
+            start_session: { story: 'HAL-O starts a headless Claude session in the background.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
+            hub_firsttime: { story: 'The Hub is now set up and ready for first use.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx'] },
+            auto_resume: { story: 'Returning users skip onboarding and auto-resume their session.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
+            hub_main: { story: 'I see my projects as interactive 3D cards in the Hub.', status: '✅ Implemented', files: ['src/renderer/src/components/three/PbrHoloScene.tsx'] },
+            click_project: { story: 'I click on a project card to interact with it.', status: '✅ Implemented', files: ['src/renderer/src/components/three/ScreenPanel.tsx'] },
+            terminal_opens: { story: 'The terminal for that project pops open, ready for commands.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
+            voice_cmd: { story: 'I hold CTRL+SPACE to issue a voice command to HAL-O.', status: '✅ Implemented', files: ['src/renderer/src/components/MicButton.tsx'] },
+            dispatch_project: { story: 'The voice command is routed to the correct project session.', status: '✅ Implemented', files: ['src/main/ipc-handlers.ts'] },
+            manage_btn: { story: 'I click the MANAGE button to edit project tree structure.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            manage_page: { story: 'The Manage Projects tree view opens with full CRUD controls.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            halo_chat: { story: 'I open Halo Chat on my phone to chat with HAL from anywhere.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/index.html'] },
+            halo_pwa: { story: 'Halo Chat PWA connects to my HAL-O session for real-time messaging.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            toggle_term: { story: 'I toggle the embedded terminal visibility with a keyboard shortcut.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
+            term_shown: { story: 'The terminal pane is now visible or hidden based on my preference.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
+            halo_start: { story: 'I open Halo Chat on my phone to message HAL-O.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/index.html'] },
+            app_running: { story: 'Halo Chat checks if the HAL-O app is currently running.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
+            websocket: { story: 'A WebSocket connection is established for real-time communication.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
+            chat_shared: { story: 'I chat with HAL/Bob/Karen using the same brain and memory.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            api_fallback: { story: 'If HAL-O isn\'t running, Halo Chat falls back to a standalone API.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
+            chat_standalone: { story: 'I chat with a standalone AI without shared session memory.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            type_msg: { story: 'I type a message into Halo Chat.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            stream_response: { story: 'HAL-O streams the response back in real-time.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
+            tts_gen: { story: 'The response is converted to audio using TTS (Chatterbox/Voicebox/Edge).', status: '✅ Implemented', files: ['C:/Users/dindo/.claude/scripts/tts.py'] },
+            audio_play: { story: 'The audio plays through my phone speaker.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            mic_tap: { story: 'I tap the microphone button to record a voice message.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            record_transcribe: { story: 'My voice is recorded and transcribed using faster-whisper.', status: '✅ Implemented', files: ['C:/Users/dindo/.claude/scripts/transcribe.py'] },
+            manage_start: { story: 'I see a tree view of all my projects and dispatchers.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            import_btn: { story: 'I click "Import Project" to add a new project to the tree.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
+            import_modal: { story: 'A modal opens to browse, name, and parent the new project.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
+            dispatcher_btn: { story: 'I click "+ Dispatcher" to create a new dispatcher node.', status: '📋 Planned', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            create_node: { story: 'A new dispatcher node is created in the tree structure.', status: '📋 Planned', files: ['src/main/http-api.ts'] },
+            click_card: { story: 'I click a project/dispatcher card to see its details.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            detail_panel: { story: 'A side panel shows name, model, voice, color, and other settings.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            drag_card: { story: 'I drag a card to reorganize the tree hierarchy.', status: '📋 Planned', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            move_tree: { story: 'The node moves to its new parent in the tree.', status: '📋 Planned', files: ['src/main/http-api.ts'] },
+            back_btn: { story: 'I click "Back" to return to the Hub.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
+            back_hub: { story: 'I\'m back at the main Hub view.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx'] },
+            session_running: { story: 'A Claude session is running in the background.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
+            close_app: { story: 'I close the HAL-O app window.', status: '✅ Implemented', files: ['src/main/index.ts'] },
+            headless: { story: 'The session continues running as a headless process.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
+            reopen_app: { story: 'I reopen the HAL-O app later.', status: '✅ Implemented', files: ['src/main/index.ts'] },
+            reattach: { story: 'The app automatically reattaches to the running session.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
+            tg_closed: { story: 'I send a Telegram message while HAL-O is closed.', status: '✅ Implemented', files: ['src/main/telegram-handler.ts'] },
+            tg_route: { story: 'The message still routes to the headless session.', status: '✅ Implemented', files: ['src/main/telegram-handler.ts'] },
+            halo_closed: { story: 'I open Halo Chat while HAL-O is not running.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
+            halo_fallback: { story: 'Halo Chat falls back to API mode without session awareness.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
         };
 
-        // Draw functions
-        function getNodeColor(type) {
-            switch (type) {
-                case 'start':
-                    return { main: '#00e5ff', dark: '#0a8fa0', border: '#00e5ff' };
-                case 'state':
-                    return { main: '#0a3a52', dark: '#051a33', border: '#0066cc' };
-                case 'decision':
-                    return { main: '#fbbf24', dark: '#d97706', border: '#f59e0b' };
-                case 'action':
-                    return { main: '#10b981', dark: '#059669', border: '#22c55e' };
-                case 'system':
-                    return { main: '#6b7280', dark: '#4b5563', border: '#888' };
-                case 'end':
-                    return { main: '#9f7aea', dark: '#6b5b95', border: '#b0a0d0' };
-                default:
-                    return { main: '#4b5563', dark: '#353d4f', border: '#666' };
-            }
-        }
+        // State
+        let zoomLevel = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
 
-        function drawNode(node, isHovered) {
-            const x = node.x + panX;
-            const y = node.y + panY;
-            const w = node.width * zoomLevel;
-            const h = node.height * zoomLevel;
-            const fontSize = 11 * zoomLevel;
-            const colors = getNodeColor(node.type);
+        const container = document.getElementById('canvasContainer');
+        const flowContainer = document.getElementById('flowContainer');
+        const svg = document.getElementById('connectionsSvg');
+        const nodesWrapper = document.getElementById('nodesWrapper');
 
-            // Background
-            ctx.fillStyle = colors.main;
-            ctx.strokeStyle = colors.border;
-            ctx.lineWidth = isHovered ? 3 : 2;
-
-            if (node.type === 'start' || node.type === 'end') {
-                // Rounded pill
-                const radius = h / 2;
-                ctx.beginPath();
-                ctx.moveTo(x + radius, y);
-                ctx.lineTo(x + w - radius, y);
-                ctx.arc(x + w - radius, y + h / 2, radius, -Math.PI / 2, Math.PI / 2);
-                ctx.lineTo(x + radius, y + h);
-                ctx.arc(x + radius, y + h / 2, radius, Math.PI / 2, -Math.PI / 2);
-                ctx.fill();
-                ctx.stroke();
-            } else if (node.type === 'decision') {
-                // Diamond
-                ctx.beginPath();
-                ctx.moveTo(x + w / 2, y);
-                ctx.lineTo(x + w, y + h / 2);
-                ctx.lineTo(x + w / 2, y + h);
-                ctx.lineTo(x, y + h / 2);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            } else {
-                // Rectangle with slight rounding
-                const radius = 4;
-                ctx.beginPath();
-                ctx.roundRect(x, y, w, h, radius);
-                ctx.fill();
-                ctx.stroke();
-            }
-
-            // Text
-            ctx.fillStyle = node.type === 'decision' ? '#000' : '#000';
-            ctx.font = `bold ${fontSize}px 'JetBrains Mono'`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            const lines = node.title.split('\n');
-            const lineHeight = fontSize + 2;
-            const totalHeight = lineHeight * lines.length;
-            const startY = y + h / 2 - totalHeight / 2 + fontSize / 2;
-
-            lines.forEach((line, i) => {
-                ctx.fillText(line, x + w / 2, startY + i * lineHeight);
+        // Render nodes
+        function renderNodes() {
+            nodesWrapper.innerHTML = '';
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = `node ${node.type}`;
+                div.textContent = node.title;
+                div.style.left = node.x + 'px';
+                div.style.top = node.y + 'px';
+                div.style.width = node.width + 'px';
+                div.style.height = node.height + 'px';
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showPopup(node, e.clientX, e.clientY);
+                });
+                nodesWrapper.appendChild(div);
             });
         }
 
-        function drawEdge(fromNode, toNode, label) {
-            const x1 = fromNode.x + fromNode.width / 2 + panX;
-            const y1 = fromNode.y + fromNode.height / 2 + panY;
-            const x2 = toNode.x + toNode.width / 2 + panX;
-            const y2 = toNode.y + toNode.height / 2 + panY;
+        // Draw connections
+        function drawConnections() {
+            svg.innerHTML = '';
+            const svgNS = 'http://www.w3.org/2000/svg';
 
-            // Arrow line
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Arrowhead
-            const angle = Math.atan2(y2 - y1, x2 - x1);
-            const arrowSize = 8;
-            const x2Adj = x2 - Math.cos(angle) * arrowSize;
-            const y2Adj = y2 - Math.sin(angle) * arrowSize;
-
-            ctx.fillStyle = 'rgba(0, 229, 255, 0.6)';
-            ctx.beginPath();
-            ctx.moveTo(x2, y2);
-            ctx.lineTo(x2Adj - Math.sin(angle) * arrowSize / 2, y2Adj + Math.cos(angle) * arrowSize / 2);
-            ctx.lineTo(x2Adj + Math.sin(angle) * arrowSize / 2, y2Adj - Math.cos(angle) * arrowSize / 2);
-            ctx.closePath();
-            ctx.fill();
-
-            // Edge label
-            if (label) {
-                const midX = (x1 + x2) / 2;
-                const midY = (y1 + y2) / 2;
-                const offset = 15;
-                const perpAngle = angle + Math.PI / 2;
-
-                ctx.fillStyle = '#f59e0b';
-                ctx.font = `bold 10px 'JetBrains Mono'`;
-                ctx.textAlign = 'center';
-                ctx.fillText(label, midX + Math.cos(perpAngle) * offset, midY + Math.sin(perpAngle) * offset);
-            }
-        }
-
-        function draw() {
-            ctx.fillStyle = 'rgba(5, 8, 16, 0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw edges first (behind nodes)
             edges.forEach(edge => {
                 const fromNode = nodes.find(n => n.id === edge.from);
                 const toNode = nodes.find(n => n.id === edge.to);
-                if (fromNode && toNode) {
-                    drawEdge(fromNode, toNode, edge.label);
-                }
-            });
+                if (!fromNode || !toNode) return;
 
-            // Draw nodes
-            nodes.forEach(node => {
-                const mouseX = lastMouseX - panX;
-                const mouseY = lastMouseY - panY - headerHeight;
-                const isHovered = mouseX >= node.x && mouseX <= node.x + node.width &&
-                                  mouseY >= node.y && mouseY <= node.y + node.height;
-                drawNode(node, isHovered);
+                const x1 = fromNode.x + fromNode.width / 2;
+                const y1 = fromNode.y + fromNode.height / 2;
+                const x2 = toNode.x + toNode.width / 2;
+                const y2 = toNode.y + toNode.height / 2;
+
+                // Line
+                const line = document.createElementNS(svgNS, 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('class', 'connection-line');
+                svg.appendChild(line);
+
+                // Arrowhead
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const arrowSize = 8;
+                const x2Adj = x2 - Math.cos(angle) * arrowSize;
+                const y2Adj = y2 - Math.sin(angle) * arrowSize;
+
+                const arrowPath = document.createElementNS(svgNS, 'path');
+                const arrowPoints = `M ${x2} ${y2} L ${x2Adj - Math.sin(angle) * arrowSize / 2} ${y2Adj + Math.cos(angle) * arrowSize / 2} L ${x2Adj + Math.sin(angle) * arrowSize / 2} ${y2Adj - Math.cos(angle) * arrowSize / 2} Z`;
+                arrowPath.setAttribute('d', arrowPoints);
+                arrowPath.setAttribute('class', 'connection-arrow');
+                svg.appendChild(arrowPath);
+
+                // Label
+                if (edge.label) {
+                    const midX = (x1 + x2) / 2;
+                    const midY = (y1 + y2) / 2;
+                    const offset = 15;
+                    const perpAngle = angle + Math.PI / 2;
+
+                    const text = document.createElementNS(svgNS, 'text');
+                    text.setAttribute('x', midX + Math.cos(perpAngle) * offset);
+                    text.setAttribute('y', midY + Math.sin(perpAngle) * offset);
+                    text.setAttribute('class', 'connection-label');
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('dominant-baseline', 'middle');
+                    text.textContent = edge.label;
+                    svg.appendChild(text);
+                }
             });
         }
 
-        let lastMouseX = 0;
-        let lastMouseY = 0;
+        // Update SVG size and content
+        function updateView() {
+            svg.setAttribute('width', container.clientWidth);
+            svg.setAttribute('height', container.clientHeight);
+            drawConnections();
+        }
 
-        canvas.addEventListener('mousemove', (e) => {
-            lastMouseX = e.clientX;
-            lastMouseY = e.clientY;
-            if (!isDragging) draw();
+        // Pan and zoom
+        function applyTransform() {
+            flowContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+        }
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const oldZoom = zoomLevel;
+            const zoomFactor = 0.1;
+            zoomLevel = Math.max(0.3, Math.min(4, zoomLevel - e.deltaY * zoomFactor * 0.01));
+
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomDiff = zoomLevel - oldZoom;
+            panX -= mouseX * zoomDiff / oldZoom;
+            panY -= mouseY * zoomDiff / oldZoom;
+
+            applyTransform();
         });
 
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left - panX;
-            const mouseY = e.clientY - rect.top - panY;
-
-            const clicked = nodes.find(node =>
-                mouseX >= node.x && mouseX <= node.x + node.width &&
-                mouseY >= node.y && mouseY <= node.y + node.height
-            );
-
-            if (clicked) {
-                showPopup(clicked, e.clientX, e.clientY);
-            } else {
-                hidePopup();
+        container.addEventListener('mousedown', (e) => {
+            if (e.target === container || e.target === svg) {
+                isDragging = true;
+                dragStartX = e.clientX - panX;
+                dragStartY = e.clientY - panY;
+                container.classList.add('panning');
             }
         });
 
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                panX = e.clientX - dragStartX;
+                panY = e.clientY - dragStartY;
+                applyTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.classList.remove('panning');
+        });
+
+        document.getElementById('zoomReset').addEventListener('click', () => {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            applyTransform();
+        });
+
+        // Popup
         function showPopup(node, x, y) {
             const popup = document.getElementById('nodePopup');
             const details = nodeDetails[node.id] || {};
@@ -1179,8 +1011,8 @@
             document.getElementById('popupType').textContent = node.type.toUpperCase();
             document.getElementById('popupStory').textContent = details.story || 'No description available.';
 
-            const statusHtml = `<span class="status-badge ${details.status?.includes('Progress') ? 'inprogress' : details.status?.includes('Planned') ? 'planned' : ''}">${details.status || 'Unknown'}</span>`;
-            document.getElementById('popupStatus').innerHTML = statusHtml;
+            const statusClass = details.status?.includes('Progress') ? 'inprogress' : details.status?.includes('Planned') ? 'planned' : '';
+            document.getElementById('popupStatus').innerHTML = `<span class="status-badge ${statusClass}">${details.status || 'Unknown'}</span>`;
 
             if (details.files && details.files.length > 0) {
                 document.getElementById('popupFiles').style.display = 'block';
@@ -1215,7 +1047,7 @@
         document.getElementById('popupClose').addEventListener('click', hidePopup);
         document.getElementById('nodePopup').addEventListener('click', (e) => e.stopPropagation());
 
-        // Legend toggle
+        // Legend
         document.getElementById('legendBtn').addEventListener('click', () => {
             document.getElementById('legend').classList.toggle('visible');
         });
@@ -1226,7 +1058,7 @@
                 zoomLevel = 1;
                 panX = 0;
                 panY = 0;
-                draw();
+                applyTransform();
             }
             if (e.key === 'l' || e.key === 'L') {
                 document.getElementById('legend').classList.toggle('visible');
@@ -1241,26 +1073,12 @@
         feedbackInput.addEventListener('change', () => {
             localStorage.setItem('hal-o-flow-feedback', feedbackInput.value);
         });
-
         feedbackInput.value = localStorage.getItem('hal-o-flow-feedback') || '';
 
-        // Initial draw
-        draw();
-
-        // Polyfill for roundRect if not available
-        if (!CanvasRenderingContext2D.prototype.roundRect) {
-            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-                if (w < 2 * r) r = w / 2;
-                if (h < 2 * r) r = h / 2;
-                this.beginPath();
-                this.moveTo(x + r, y);
-                this.arcTo(x + w, y, x + w, y + h, r);
-                this.arcTo(x + w, y + h, x, y + h, r);
-                this.arcTo(x, y + h, x, y, r);
-                this.arcTo(x, y, x + w, y, r);
-                this.closePath();
-            };
-        }
+        // Initialize
+        renderNodes();
+        updateView();
+        window.addEventListener('resize', updateView);
     </script>
 </body>
 </html>
