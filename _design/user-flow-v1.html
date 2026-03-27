@@ -1,1066 +1,209 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HAL-O — User Flow v1</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
-            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%);
-            color: #e0e0e0;
-            overflow: hidden;
-            height: 100vh;
-        }
-
-        /* Header */
-        .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: rgba(5, 8, 16, 0.95);
-            border-bottom: 1px solid rgba(0, 229, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-title h1 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #00e5ff;
-            letter-spacing: 0.5px;
-        }
-
-        .version-badge {
-            background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(34, 197, 94, 0.2));
-            border: 1px solid rgba(0, 229, 255, 0.4);
-            color: #00e5ff;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-size: 12px;
-            color: #888;
-        }
-
-        .timestamp {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 2px;
-        }
-
-        .timestamp-label {
-            font-size: 10px;
-            color: #666;
-        }
-
-        .timestamp-value {
-            color: #00e5ff;
-            font-weight: 600;
-        }
-
-        .controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .control-btn {
-            background: rgba(0, 229, 255, 0.1);
-            border: 1px solid rgba(0, 229, 255, 0.3);
-            color: #00e5ff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-            font-family: inherit;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }
-
-        .control-btn:hover {
-            background: rgba(0, 229, 255, 0.2);
-            border-color: rgba(0, 229, 255, 0.6);
-            transform: translateY(-1px);
-        }
-
-        /* Canvas container with SVG + nodes */
-        .canvas-container {
-            position: fixed;
-            top: 60px;
-            left: 0;
-            right: 0;
-            bottom: 200px;
-            overflow: hidden;
-            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%),
-                        repeating-linear-gradient(
-                            0deg,
-                            rgba(0, 229, 255, 0.03) 0px,
-                            rgba(0, 229, 255, 0.03) 1px,
-                            transparent 1px,
-                            transparent 40px
-                        ),
-                        repeating-linear-gradient(
-                            90deg,
-                            rgba(0, 229, 255, 0.03) 0px,
-                            rgba(0, 229, 255, 0.03) 1px,
-                            transparent 1px,
-                            transparent 40px
-                        );
-            cursor: grab;
-        }
-
-        .canvas-container.panning {
-            cursor: grabbing;
-        }
-
-        .flow-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transform-origin: 0 0;
-            will-change: transform;
-        }
-
-        svg.connections {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .nodes-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Node styling */
-        .node {
-            position: absolute;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-width: 2px;
-            border-style: solid;
-            border-radius: 6px;
-            padding: 8px;
-            min-width: 140px;
-            font-size: 12px;
-            font-weight: 600;
-            text-align: center;
-            line-height: 1.3;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            user-select: none;
-            pointer-events: auto;
-        }
-
-        .node:hover {
-            filter: brightness(1.2);
-            border-width: 3px;
-        }
-
-        .node.start, .node.end {
-            border-radius: 30px;
-            min-width: 150px;
-        }
-
-        /* decision diamond removed — using styled rect instead */
-
-        /* Node type colors */
-        .node.start {
-            background: linear-gradient(135deg, #00e5ff, #0a8fa0);
-            border-color: #00e5ff;
-            color: #000;
-        }
-
-        .node.end {
-            background: linear-gradient(135deg, #9f7aea, #6b5b95);
-            border-color: #b0a0d0;
-            color: #000;
-        }
-
-        .node.state {
-            background: linear-gradient(135deg, #0a3a52, #051a33);
-            border-color: #0066cc;
-            color: #00e5ff;
-        }
-
-        .node.decision {
-            background: rgba(245, 158, 11, 0.15);
-            border-color: #f59e0b;
-            border-left: 4px solid #f59e0b;
-            color: #fbbf24;
-        }
-
-        .node.action {
-            background: linear-gradient(135deg, #10b981, #059669);
-            border-color: #22c55e;
-            color: #000;
-        }
-
-        .node.system {
-            background: linear-gradient(135deg, #6b7280, #4b5563);
-            border-color: #888;
-            color: #e0e0e0;
-        }
-
-        /* Section labels */
-        .section-label {
-            position: absolute;
-            color: rgba(0, 229, 255, 0.4);
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            z-index: 10;
-            pointer-events: none;
-        }
-
-        /* Node popup */
-        .node-popup {
-            position: fixed;
-            background: rgba(5, 8, 16, 0.98);
-            border: 1px solid rgba(0, 229, 255, 0.4);
-            border-radius: 12px;
-            padding: 20px;
-            max-width: 400px;
-            max-height: 500px;
-            overflow-y: auto;
-            z-index: 2000;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 20px 60px rgba(0, 229, 255, 0.1);
-            display: none;
-        }
-
-        .node-popup.visible {
-            display: block;
-            animation: popupSlideIn 0.2s ease;
-        }
-
-        @keyframes popupSlideIn {
-            from {
-                opacity: 0;
-                transform: translate(-10px, -10px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translate(0, 0) scale(1);
-            }
-        }
-
-        .popup-close {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            font-size: 20px;
-            line-height: 1;
-            padding: 4px;
-            transition: color 0.2s;
-        }
-
-        .popup-close:hover {
-            color: #00e5ff;
-        }
-
-        .popup-title {
-            color: #00e5ff;
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 12px;
-            margin-right: 20px;
-            letter-spacing: 0.3px;
-        }
-
-        .popup-type {
-            display: inline-block;
-            background: rgba(0, 229, 255, 0.15);
-            color: #00e5ff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            letter-spacing: 0.2px;
-        }
-
-        .popup-story {
-            color: #b0b0b0;
-            font-size: 13px;
-            line-height: 1.6;
-            margin-bottom: 14px;
-            font-style: italic;
-        }
-
-        .popup-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            margin-bottom: 12px;
-            color: #888;
-        }
-
-        .status-badge {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 11px;
-        }
-
-        .status-badge.inprogress {
-            background: rgba(251, 146, 60, 0.2);
-            color: #fb923c;
-        }
-
-        .status-badge.planned {
-            background: rgba(147, 112, 219, 0.2);
-            color: #a78bfa;
-        }
-
-        .popup-files {
-            margin-top: 14px;
-            padding-top: 14px;
-            border-top: 1px solid rgba(0, 229, 255, 0.2);
-        }
-
-        .popup-files-title {
-            font-size: 11px;
-            color: #666;
-            font-weight: 600;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .popup-file {
-            background: rgba(0, 229, 255, 0.05);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            color: #00e5ff;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin-bottom: 6px;
-            font-family: 'Courier New', monospace;
-            word-break: break-all;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .popup-file:hover {
-            background: rgba(0, 229, 255, 0.15);
-            border-color: rgba(0, 229, 255, 0.4);
-        }
-
-        /* Legend */
-        .legend {
-            position: fixed;
-            top: 70px;
-            right: 20px;
-            background: rgba(5, 8, 16, 0.95);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            border-radius: 8px;
-            padding: 16px;
-            width: 200px;
-            z-index: 900;
-            backdrop-filter: blur(10px);
-            display: none;
-        }
-
-        .legend.visible {
-            display: block;
-        }
-
-        .legend-title {
-            color: #00e5ff;
-            font-size: 12px;
-            font-weight: 700;
-            margin-bottom: 12px;
-            letter-spacing: 0.3px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-            font-size: 11px;
-            color: #b0b0b0;
-        }
-
-        .legend-swatch {
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            flex-shrink: 0;
-            border: 1px solid rgba(0, 229, 255, 0.3);
-        }
-
-        /* Shortcuts */
-        .shortcuts {
-            position: fixed;
-            bottom: 210px;
-            right: 20px;
-            background: rgba(5, 8, 16, 0.95);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            border-radius: 8px;
-            padding: 12px;
-            width: 200px;
-            z-index: 900;
-            backdrop-filter: blur(10px);
-            font-size: 10px;
-            color: #888;
-            line-height: 1.6;
-        }
-
-        .shortcut-line {
-            margin-bottom: 6px;
-        }
-
-        .shortcut-key {
-            color: #00e5ff;
-            font-weight: 600;
-        }
-
-        /* Footer */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(5, 8, 16, 0.95);
-            border-top: 1px solid rgba(0, 229, 255, 0.2);
-            padding: 16px 24px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .feedback-label {
-            font-size: 11px;
-            color: #888;
-            margin-bottom: 8px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .feedback-input {
-            width: 100%;
-            background: rgba(0, 229, 255, 0.05);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            color: #e0e0e0;
-            padding: 12px;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 12px;
-            resize: none;
-            max-height: 120px;
-            transition: all 0.2s;
-        }
-
-        .feedback-input:focus {
-            outline: none;
-            background: rgba(0, 229, 255, 0.1);
-            border-color: rgba(0, 229, 255, 0.4);
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
-        }
-
-        .feedback-input::placeholder {
-            color: #555;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 229, 255, 0.2);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 229, 255, 0.4);
-        }
-
-        /* Connection lines */
-        .connection-line {
-            stroke: #00e5ff;
-            stroke-width: 2px;
-            fill: none;
-            opacity: 0.8;
-            stroke-dasharray: 6, 4;
-            stroke-dashoffset: 0;
-            animation: dashMove 20s linear infinite;
-        }
-
-        @keyframes dashMove {
-            to {
-                stroke-dashoffset: 10;
-            }
-        }
-
-        .connection-arrow {
-            fill: #00e5ff;
-            opacity: 0.9;
-        }
-
-        .connection-label {
-            fill: #f59e0b;
-            font-size: 10px;
-            font-weight: 600;
-            font-family: 'JetBrains Mono', monospace;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HAL-O — User Flow v1</title>
+<style>
+body { background: #050810; color: #e0e0e0; font-family: 'JetBrains Mono', monospace; margin: 0; }
+.header { background: rgba(5,8,16,0.95); border-bottom: 1px solid rgba(0,229,255,0.2); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 18px; color: #00e5ff; margin: 0; }
+.header .badge { background: #00e5ff; color: #050810; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+.header .meta { font-size: 11px; color: #6b7a8d; }
+.section { padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.section h2 { color: #00e5ff; font-size: 14px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.section p { color: #6b7a8d; font-size: 12px; margin-bottom: 16px; }
+.mermaid { background: rgba(10,14,24,0.5); border-radius: 12px; padding: 20px; overflow-x: auto; }
+.mermaid svg { max-width: 100%; }
+.feedback { padding: 20px 24px; }
+.feedback textarea { width: 100%; height: 80px; background: rgba(16,24,42,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; color: #e0e0e0; padding: 12px; font-size: 13px; font-family: inherit; resize: vertical; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 24px; font-size: 11px; color: #6b7a8d; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 3px; }
+</style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-title">
-            <h1>⬤ HAL-O — User Flow</h1>
-            <div class="version-badge">v2</div>
-        </div>
-        <div class="header-controls">
-            <div class="timestamp">
-                <div class="timestamp-label">Last Updated</div>
-                <div class="timestamp-value" id="timestamp"></div>
-            </div>
-            <div class="controls">
-                <button class="control-btn" id="zoomReset" title="Reset zoom (Z)">Reset Zoom</button>
-                <button class="control-btn" id="legendBtn" title="Toggle legend (L)">Legend</button>
-            </div>
-        </div>
-    </div>
 
-    <div class="legend" id="legend">
-        <div class="legend-title">Node Types</div>
-        <div class="legend-item">
-            <div class="legend-swatch" style="background: linear-gradient(135deg, #00e5ff, #0a8fa0); border-color: #00e5ff;"></div>
-            <span>Start / End</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-swatch" style="background: linear-gradient(135deg, #0a3a52, #051a33); border-color: #0066cc;"></div>
-            <span>State / UI</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-swatch" style="background: linear-gradient(135deg, #fbbf24, #d97706); border-color: #f59e0b;"></div>
-            <span>Decision</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-swatch" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #22c55e;"></div>
-            <span>Action</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-swatch" style="background: linear-gradient(135deg, #6b7280, #4b5563); border-color: #888;"></div>
-            <span>System</span>
-        </div>
-    </div>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <h1>HAL-O — User Flow</h1>
+    <span class="badge">v1</span>
+  </div>
+  <span class="meta">Last updated: <script>document.write(new Date().toLocaleString())</script></span>
+</div>
 
-    <div class="shortcuts">
-        <div class="shortcut-line"><span class="shortcut-key">Scroll:</span> Zoom</div>
-        <div class="shortcut-line"><span class="shortcut-key">Drag:</span> Pan</div>
-        <div class="shortcut-line"><span class="shortcut-key">Click:</span> Node details</div>
-        <div class="shortcut-line"><span class="shortcut-key">Z:</span> Reset zoom</div>
-        <div class="shortcut-line"><span class="shortcut-key">L:</span> Toggle legend</div>
-    </div>
+<div class="legend">
+  <span><span class="dot" style="background:#00e5ff"></span> Start/State</span>
+  <span><span class="dot" style="background:#f59e0b"></span> Decision</span>
+  <span><span class="dot" style="background:#22c55e"></span> Action</span>
+  <span><span class="dot" style="background:#6b7a8d"></span> System</span>
+  <span style="color:#00e5ff">Click any node for details</span>
+</div>
 
-    <div class="canvas-container" id="canvasContainer">
-        <div class="flow-container" id="flowContainer">
-            <svg class="connections" id="connectionsSvg"></svg>
-            <div class="nodes-wrapper" id="nodesWrapper"></div>
-        </div>
-    </div>
+<div class="section">
+  <h2>1. App Launch Flow</h2>
+  <p>What happens when the user opens HAL-O</p>
+  <div class="mermaid">
+flowchart TD
+    A([User Opens HAL-O]):::start --> B{External Claude\nSession Running?}:::decision
+    B -->|YES| C[Absorb External\nSession]:::system
+    C --> D([Hub — ONLINE\n✅ Sphere Connected]):::state
+    B -->|NO| E{First Time\nEver?}:::decision
+    E -->|YES| F([Onboarding Wizard]):::state
+    F --> G{Choose Path}:::decision
+    G -->|Manage Projects| H[Import First\nProject]:::action
+    G -->|Personal Assistant| I[Create First\nAssistant]:::action
+    H --> J[Start Headless\nSession]:::system
+    I --> J
+    J --> D
+    E -->|NO| K[Auto-Resume\nHeadless Session]:::system
+    K --> D
 
-    <div class="node-popup" id="nodePopup">
-        <button class="popup-close" id="popupClose">&times;</button>
-        <div class="popup-title" id="popupTitle"></div>
-        <div class="popup-type" id="popupType"></div>
-        <div class="popup-story" id="popupStory"></div>
-        <div class="popup-status" id="popupStatus"></div>
-        <div class="popup-files" id="popupFiles" style="display: none;">
-            <div class="popup-files-title">Related Files</div>
-            <div id="popupFilesList"></div>
-        </div>
-    </div>
+    classDef start fill:#0a3a52,stroke:#00e5ff,color:#00e5ff
+    classDef state fill:#0a2a42,stroke:#0066cc,color:#00e5ff
+    classDef decision fill:#3d2800,stroke:#f59e0b,color:#fbbf24
+    classDef action fill:#052e1a,stroke:#22c55e,color:#22c55e
+    classDef system fill:#1a1a2e,stroke:#6b7a8d,color:#9ca3af
+  </div>
+</div>
 
-    <div class="footer">
-        <div class="feedback-label">Feedback</div>
-        <textarea class="feedback-input" id="feedbackInput" placeholder="Share your thoughts on this flow diagram..."></textarea>
-    </div>
+<div class="section">
+  <h2>2. Daily Use — Hub</h2>
+  <p>The main 3D hub with project cards and voice</p>
+  <div class="mermaid">
+flowchart TD
+    HUB([Hub — 3D Scene\nProject Cards]):::state
+    HUB --> A1[Click Project\nCard]:::action
+    HUB --> A2[Voice\nCommand]:::action
+    HUB --> A3[Click\nMANAGE]:::action
+    HUB --> A4[Open\nHalo Chat]:::action
+    HUB --> A5[Toggle\nTerminal]:::action
 
-    <script>
-        // Update timestamp
-        const now = new Date();
-        document.getElementById('timestamp').textContent = now.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    A1 --> S1([Terminal Opens\nfor Project]):::state
+    A2 --> S2[Dispatch to\nRight Project]:::system
+    S2 --> S1
+    A3 --> S3([Manage Projects\nTree Page]):::state
+    A4 --> S4([Halo Chat\nPWA]):::state
+    A5 --> S5([Terminal\nShown/Hidden]):::state
 
-        // Node data
-        const nodes = [
-            // App Launch Flow
-            { id: 'start', type: 'start', title: 'User Opens HAL-O', x: 150, y: 80, width: 120, height: 60 },
-            { id: 'decision_external', type: 'decision', title: 'External Claude Session?', x: 120, y: 220, width: 180, height: 50 },
-            { id: 'absorb_session', type: 'system', title: 'Absorb External Session', x: 30, y: 340, width: 160, height: 50 },
-            { id: 'hub_online', type: 'state', title: 'Hub (ONLINE)', x: 30, y: 480, width: 160, height: 50 },
-            { id: 'decision_firsttime', type: 'decision', title: 'First Time?', x: 270, y: 360, width: 150, height: 50 },
-            { id: 'wizard_state', type: 'state', title: 'Onboarding Wizard', x: 460, y: 440, width: 160, height: 50 },
-            { id: 'choice_path', type: 'decision', title: 'Choose Path', x: 320, y: 600, width: 150, height: 50 },
-            { id: 'manage_projects', type: 'action', title: '"Manage Projects"', x: 240, y: 660, width: 90, height: 60 },
-            { id: 'personal_asst', type: 'action', title: '"Personal Assistant"', x: 420, y: 660, width: 90, height: 60 },
-            { id: 'import_first', type: 'state', title: 'Import First Project', x: 240, y: 760, width: 100, height: 60 },
-            { id: 'create_asst', type: 'state', title: 'Create Assistant', x: 420, y: 760, width: 100, height: 60 },
-            { id: 'start_session', type: 'system', title: 'Start Headless Session', x: 360, y: 860, width: 110, height: 60 },
-            { id: 'hub_firsttime', type: 'state', title: 'Hub Connected', x: 360, y: 960, width: 90, height: 60 },
-            { id: 'auto_resume', type: 'system', title: 'Resume Auto (no wizard)', x: 250, y: 440, width: 180, height: 50 },
+    classDef start fill:#0a3a52,stroke:#00e5ff,color:#00e5ff
+    classDef state fill:#0a2a42,stroke:#0066cc,color:#00e5ff
+    classDef decision fill:#3d2800,stroke:#f59e0b,color:#fbbf24
+    classDef action fill:#052e1a,stroke:#22c55e,color:#22c55e
+    classDef system fill:#1a1a2e,stroke:#6b7a8d,color:#9ca3af
+  </div>
+</div>
 
-            // Daily Use - Hub
-            { id: 'hub_main', type: 'state', title: 'Hub (Project Cards)', x: 600, y: 80, width: 110, height: 60 },
-            { id: 'click_project', type: 'action', title: 'Click Project Card', x: 480, y: 200, width: 100, height: 60 },
-            { id: 'terminal_opens', type: 'state', title: 'Terminal Opens', x: 480, y: 320, width: 100, height: 60 },
-            { id: 'voice_cmd', type: 'action', title: 'Voice Command', x: 600, y: 200, width: 90, height: 60 },
-            { id: 'dispatch_project', type: 'system', title: 'Dispatch to Project', x: 600, y: 320, width: 100, height: 60 },
-            { id: 'manage_btn', type: 'action', title: 'Click MANAGE', x: 720, y: 200, width: 90, height: 60 },
-            { id: 'manage_page', type: 'state', title: 'Manage Projects', x: 720, y: 320, width: 100, height: 60 },
-            { id: 'halo_chat', type: 'action', title: 'Open Halo Chat', x: 840, y: 200, width: 90, height: 60 },
-            { id: 'halo_pwa', type: 'state', title: 'Halo Chat PWA', x: 840, y: 320, width: 90, height: 60 },
-            { id: 'toggle_term', type: 'action', title: 'Toggle Terminal', x: 960, y: 200, width: 100, height: 60 },
-            { id: 'term_shown', type: 'state', title: 'Terminal Visible', x: 960, y: 320, width: 90, height: 60 },
+<div class="section">
+  <h2>3. Halo Chat (Phone)</h2>
+  <p>Mobile messaging — same brain or fallback API</p>
+  <div class="mermaid">
+flowchart TD
+    OPEN([Open Halo Chat\nPWA on Phone]):::state
+    OPEN --> CHECK{HAL-O App\nRunning?}:::decision
+    CHECK -->|YES| WS[WebSocket\nConnect]:::system
+    WS --> SAME([Chat — Same Brain\nvia Terminal Bridge]):::state
+    CHECK -->|NO| API[API Fallback\n⚠ No Shared Memory]:::system
+    API --> STANDALONE([Chat — Standalone\nAI Session]):::state
 
-            // Halo Chat Flow
-            { id: 'halo_start', type: 'state', title: 'Halo Chat Opens', x: 1200, y: 80, width: 110, height: 60 },
-            { id: 'app_running', type: 'decision', title: 'HAL-O Running?', x: 1250, y: 220, width: 160, height: 50 },
-            { id: 'websocket', type: 'system', title: 'WebSocket Connect', x: 1080, y: 320, width: 100, height: 60 },
-            { id: 'chat_shared', type: 'state', title: 'Chat (Shared Brain)', x: 1080, y: 420, width: 110, height: 60 },
-            { id: 'api_fallback', type: 'system', title: 'API Fallback', x: 1320, y: 320, width: 90, height: 60 },
-            { id: 'chat_standalone', type: 'state', title: 'Chat (Standalone)', x: 1320, y: 420, width: 110, height: 60 },
-            { id: 'type_msg', type: 'action', title: 'Type Message', x: 1080, y: 540, width: 90, height: 60 },
-            { id: 'stream_response', type: 'system', title: 'Stream Response', x: 1080, y: 640, width: 100, height: 60 },
-            { id: 'tts_gen', type: 'system', title: 'Generate TTS', x: 1080, y: 740, width: 90, height: 60 },
-            { id: 'audio_play', type: 'state', title: 'Audio Plays', x: 1080, y: 840, width: 90, height: 60 },
-            { id: 'mic_tap', type: 'action', title: 'Tap Microphone', x: 1200, y: 540, width: 100, height: 60 },
-            { id: 'record_transcribe', type: 'system', title: 'Record → Transcribe', x: 1200, y: 640, width: 120, height: 60 },
+    SAME --> TYPE[Type\nMessage]:::action
+    SAME --> MIC[Tap\nMicrophone]:::action
+    TYPE --> STREAM[Stream\nResponse]:::system
+    MIC --> TRANSCRIBE[Record →\nTranscribe]:::system
+    TRANSCRIBE --> STREAM
+    STREAM --> TTS[Generate\nTTS Audio]:::system
+    TTS --> PLAY([Audio\nPlays]):::state
 
-            // Manage Projects Flow
-            { id: 'manage_start', type: 'state', title: 'Manage Projects Tree', x: 1500, y: 80, width: 120, height: 60 },
-            { id: 'import_btn', type: 'action', title: 'Click "Import"', x: 1380, y: 200, width: 90, height: 60 },
-            { id: 'import_modal', type: 'state', title: 'Import Modal', x: 1380, y: 320, width: 90, height: 60 },
-            { id: 'dispatcher_btn', type: 'action', title: 'Click "+ Dispatcher"', x: 1500, y: 200, width: 110, height: 60 },
-            { id: 'create_node', type: 'system', title: 'Create Node', x: 1500, y: 320, width: 90, height: 60 },
-            { id: 'click_card', type: 'action', title: 'Click Card', x: 1620, y: 200, width: 80, height: 60 },
-            { id: 'detail_panel', type: 'state', title: 'Detail Panel', x: 1620, y: 320, width: 90, height: 60 },
-            { id: 'drag_card', type: 'action', title: 'Drag Card', x: 1740, y: 200, width: 80, height: 60 },
-            { id: 'move_tree', type: 'system', title: 'Move in Tree', x: 1740, y: 320, width: 90, height: 60 },
-            { id: 'back_btn', type: 'action', title: 'Click "Back"', x: 1860, y: 200, width: 90, height: 60 },
-            { id: 'back_hub', type: 'state', title: 'Return to Hub', x: 1860, y: 320, width: 90, height: 60 },
+    classDef start fill:#0a3a52,stroke:#00e5ff,color:#00e5ff
+    classDef state fill:#0a2a42,stroke:#0066cc,color:#00e5ff
+    classDef decision fill:#3d2800,stroke:#f59e0b,color:#fbbf24
+    classDef action fill:#052e1a,stroke:#22c55e,color:#22c55e
+    classDef system fill:#1a1a2e,stroke:#6b7a8d,color:#9ca3af
+  </div>
+</div>
 
-            // Session Lifecycle
-            { id: 'session_running', type: 'state', title: 'Session Running', x: 1800, y: 540, width: 110, height: 60 },
-            { id: 'close_app', type: 'action', title: 'Close App', x: 1680, y: 660, width: 90, height: 60 },
-            { id: 'headless', type: 'system', title: 'Session Headless', x: 1680, y: 760, width: 100, height: 60 },
-            { id: 'reopen_app', type: 'action', title: 'Reopen App', x: 1800, y: 660, width: 90, height: 60 },
-            { id: 'reattach', type: 'system', title: 'Reattach to Session', x: 1800, y: 760, width: 110, height: 60 },
-            { id: 'tg_closed', type: 'action', title: 'Telegram (app closed)', x: 1920, y: 660, width: 110, height: 60 },
-            { id: 'tg_route', type: 'system', title: 'Still Routes', x: 1920, y: 760, width: 90, height: 60 },
-            { id: 'halo_closed', type: 'action', title: 'Halo Chat (app closed)', x: 2040, y: 660, width: 120, height: 60 },
-            { id: 'halo_fallback', type: 'system', title: 'API Fallback', x: 2040, y: 760, width: 90, height: 60 },
-        ];
+<div class="section">
+  <h2>4. Manage Projects</h2>
+  <p>Tree-based project management with node/card layout</p>
+  <div class="mermaid">
+flowchart TD
+    MP([Manage Projects\nTree View]):::state
+    MP --> IMP[Click\nImport Project]:::action
+    MP --> DISP[Click\n+ Dispatcher]:::action
+    MP --> CLICK[Click\nCard]:::action
+    MP --> DRAG[Drag\nCard]:::action
+    MP --> BACK[Click\nBack]:::action
 
-        // Edges
-        const edges = [
-            { from: 'start', to: 'decision_external', label: '' },
-            { from: 'decision_external', to: 'absorb_session', label: 'YES' },
-            { from: 'absorb_session', to: 'hub_online', label: '' },
-            { from: 'decision_external', to: 'decision_firsttime', label: 'NO' },
-            { from: 'decision_firsttime', to: 'wizard_state', label: 'YES' },
-            { from: 'wizard_state', to: 'choice_path', label: '' },
-            { from: 'choice_path', to: 'manage_projects', label: 'Projects' },
-            { from: 'choice_path', to: 'personal_asst', label: 'Assistant' },
-            { from: 'manage_projects', to: 'import_first', label: '' },
-            { from: 'personal_asst', to: 'create_asst', label: '' },
-            { from: 'import_first', to: 'start_session', label: '' },
-            { from: 'create_asst', to: 'start_session', label: '' },
-            { from: 'start_session', to: 'hub_firsttime', label: '' },
-            { from: 'decision_firsttime', to: 'auto_resume', label: 'NO' },
-            { from: 'auto_resume', to: 'hub_online', label: '' },
-            { from: 'hub_main', to: 'click_project', label: '' },
-            { from: 'click_project', to: 'terminal_opens', label: '' },
-            { from: 'hub_main', to: 'voice_cmd', label: '' },
-            { from: 'voice_cmd', to: 'dispatch_project', label: '' },
-            { from: 'hub_main', to: 'manage_btn', label: '' },
-            { from: 'manage_btn', to: 'manage_page', label: '' },
-            { from: 'hub_main', to: 'halo_chat', label: '' },
-            { from: 'halo_chat', to: 'halo_pwa', label: '' },
-            { from: 'hub_main', to: 'toggle_term', label: '' },
-            { from: 'toggle_term', to: 'term_shown', label: '' },
-            { from: 'halo_start', to: 'app_running', label: '' },
-            { from: 'app_running', to: 'websocket', label: 'YES' },
-            { from: 'websocket', to: 'chat_shared', label: '' },
-            { from: 'app_running', to: 'api_fallback', label: 'NO' },
-            { from: 'api_fallback', to: 'chat_standalone', label: '' },
-            { from: 'chat_shared', to: 'type_msg', label: '' },
-            { from: 'chat_shared', to: 'mic_tap', label: '' },
-            { from: 'type_msg', to: 'stream_response', label: '' },
-            { from: 'mic_tap', to: 'record_transcribe', label: '' },
-            { from: 'stream_response', to: 'tts_gen', label: '' },
-            { from: 'record_transcribe', to: 'stream_response', label: '' },
-            { from: 'tts_gen', to: 'audio_play', label: '' },
-            { from: 'chat_standalone', to: 'type_msg', label: '' },
-            { from: 'manage_start', to: 'import_btn', label: '' },
-            { from: 'import_btn', to: 'import_modal', label: '' },
-            { from: 'manage_start', to: 'dispatcher_btn', label: '' },
-            { from: 'dispatcher_btn', to: 'create_node', label: '' },
-            { from: 'manage_start', to: 'click_card', label: '' },
-            { from: 'click_card', to: 'detail_panel', label: '' },
-            { from: 'manage_start', to: 'drag_card', label: '' },
-            { from: 'drag_card', to: 'move_tree', label: '' },
-            { from: 'manage_start', to: 'back_btn', label: '' },
-            { from: 'back_btn', to: 'back_hub', label: '' },
-            { from: 'session_running', to: 'close_app', label: '' },
-            { from: 'close_app', to: 'headless', label: '' },
-            { from: 'session_running', to: 'reopen_app', label: '' },
-            { from: 'reopen_app', to: 'reattach', label: '' },
-            { from: 'session_running', to: 'tg_closed', label: '' },
-            { from: 'tg_closed', to: 'tg_route', label: '' },
-            { from: 'session_running', to: 'halo_closed', label: '' },
-            { from: 'halo_closed', to: 'halo_fallback', label: '' },
-        ];
+    IMP --> MODAL([Import Modal\nBrowse → Name → Parent]):::state
+    MODAL --> CREATE[Create Node\nin Tree]:::system
+    DISP --> CREATE
+    CLICK --> PANEL([Detail Panel\nName, Model, Voice, Color]):::state
+    DRAG --> MOVE[Move Node\nin Tree]:::system
+    BACK --> HUB([Hub]):::state
+    CREATE --> MP
 
-        // Node details
-        const nodeDetails = {
-            start: { story: 'As a user, I want to launch HAL-O and start working immediately.', status: '✅ Implemented', files: ['src/main/index.ts'] },
-            decision_external: { story: 'The app checks if there\'s already a Claude session running externally.', status: '✅ Implemented', files: ['src/main/ipc-handlers.ts'] },
-            absorb_session: { story: 'If an external session exists, it\'s absorbed into the app for seamless connection.', status: '🔨 In Progress', files: ['src/main/terminal-manager.ts'] },
-            hub_online: { story: 'The Hub displays with a glowing ONLINE sphere, ready for interaction.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx', 'src/renderer/src/components/three/PbrHoloScene.tsx'] },
-            decision_firsttime: { story: 'First-time users are routed to onboarding; returning users skip ahead.', status: '🔨 In Progress', files: ['src/main/ipc-handlers.ts'] },
-            wizard_state: { story: 'As a new user, I step through a guided onboarding wizard to set up HAL-O.', status: '📋 Planned', files: ['src/renderer/src/components/OnboardingWizard.tsx'] },
-            choice_path: { story: 'I choose my primary use case: project management or personal assistant.', status: '📋 Planned', files: ['src/renderer/src/components/OnboardingWizard.tsx'] },
-            manage_projects: { story: 'I select "Manage Projects" to organize my workflow with HAL-O.', status: '📋 Planned', files: ['src/renderer/src/components/ImportScreen.tsx'] },
-            personal_asst: { story: 'I select "Personal Assistant" to configure HAL as my everyday AI companion.', status: '📋 Planned', files: ['src/renderer/src/components/AssistantSetup.tsx'] },
-            import_first: { story: 'I import my first project into HAL-O via folder selection.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
-            create_asst: { story: 'I create a personal assistant with name, voice, and language preferences.', status: '📋 Planned', files: ['src/renderer/src/components/AssistantSetup.tsx'] },
-            start_session: { story: 'HAL-O starts a headless Claude session in the background.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
-            hub_firsttime: { story: 'The Hub is now set up and ready for first use.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx'] },
-            auto_resume: { story: 'Returning users skip onboarding and auto-resume their session.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
-            hub_main: { story: 'I see my projects as interactive 3D cards in the Hub.', status: '✅ Implemented', files: ['src/renderer/src/components/three/PbrHoloScene.tsx'] },
-            click_project: { story: 'I click on a project card to interact with it.', status: '✅ Implemented', files: ['src/renderer/src/components/three/ScreenPanel.tsx'] },
-            terminal_opens: { story: 'The terminal for that project pops open, ready for commands.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
-            voice_cmd: { story: 'I hold CTRL+SPACE to issue a voice command to HAL-O.', status: '✅ Implemented', files: ['src/renderer/src/components/MicButton.tsx'] },
-            dispatch_project: { story: 'The voice command is routed to the correct project session.', status: '✅ Implemented', files: ['src/main/ipc-handlers.ts'] },
-            manage_btn: { story: 'I click the MANAGE button to edit project tree structure.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            manage_page: { story: 'The Manage Projects tree view opens with full CRUD controls.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            halo_chat: { story: 'I open Halo Chat on my phone to chat with HAL from anywhere.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/index.html'] },
-            halo_pwa: { story: 'Halo Chat PWA connects to my HAL-O session for real-time messaging.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            toggle_term: { story: 'I toggle the embedded terminal visibility with a keyboard shortcut.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
-            term_shown: { story: 'The terminal pane is now visible or hidden based on my preference.', status: '✅ Implemented', files: ['src/renderer/src/components/TerminalView.tsx'] },
-            halo_start: { story: 'I open Halo Chat on my phone to message HAL-O.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/index.html'] },
-            app_running: { story: 'Halo Chat checks if the HAL-O app is currently running.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
-            websocket: { story: 'A WebSocket connection is established for real-time communication.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
-            chat_shared: { story: 'I chat with HAL/Bob/Karen using the same brain and memory.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            api_fallback: { story: 'If HAL-O isn\'t running, Halo Chat falls back to a standalone API.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
-            chat_standalone: { story: 'I chat with a standalone AI without shared session memory.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            type_msg: { story: 'I type a message into Halo Chat.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            stream_response: { story: 'HAL-O streams the response back in real-time.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
-            tts_gen: { story: 'The response is converted to audio using TTS (Chatterbox/Voicebox/Edge).', status: '✅ Implemented', files: ['C:/Users/dindo/.claude/scripts/tts.py'] },
-            audio_play: { story: 'The audio plays through my phone speaker.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            mic_tap: { story: 'I tap the microphone button to record a voice message.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            record_transcribe: { story: 'My voice is recorded and transcribed using faster-whisper.', status: '✅ Implemented', files: ['C:/Users/dindo/.claude/scripts/transcribe.py'] },
-            manage_start: { story: 'I see a tree view of all my projects and dispatchers.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            import_btn: { story: 'I click "Import Project" to add a new project to the tree.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
-            import_modal: { story: 'A modal opens to browse, name, and parent the new project.', status: '✅ Implemented', files: ['src/renderer/src/components/ImportScreen.tsx'] },
-            dispatcher_btn: { story: 'I click "+ Dispatcher" to create a new dispatcher node.', status: '📋 Planned', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            create_node: { story: 'A new dispatcher node is created in the tree structure.', status: '📋 Planned', files: ['src/main/http-api.ts'] },
-            click_card: { story: 'I click a project/dispatcher card to see its details.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            detail_panel: { story: 'A side panel shows name, model, voice, color, and other settings.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            drag_card: { story: 'I drag a card to reorganize the tree hierarchy.', status: '📋 Planned', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            move_tree: { story: 'The node moves to its new parent in the tree.', status: '📋 Planned', files: ['src/main/http-api.ts'] },
-            back_btn: { story: 'I click "Back" to return to the Hub.', status: '✅ Implemented', files: ['src/renderer/src/components/ManageProjects.tsx'] },
-            back_hub: { story: 'I\'m back at the main Hub view.', status: '✅ Implemented', files: ['src/renderer/src/components/ProjectHub.tsx'] },
-            session_running: { story: 'A Claude session is running in the background.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
-            close_app: { story: 'I close the HAL-O app window.', status: '✅ Implemented', files: ['src/main/index.ts'] },
-            headless: { story: 'The session continues running as a headless process.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
-            reopen_app: { story: 'I reopen the HAL-O app later.', status: '✅ Implemented', files: ['src/main/index.ts'] },
-            reattach: { story: 'The app automatically reattaches to the running session.', status: '✅ Implemented', files: ['src/main/terminal-manager.ts'] },
-            tg_closed: { story: 'I send a Telegram message while HAL-O is closed.', status: '✅ Implemented', files: ['src/main/telegram-handler.ts'] },
-            tg_route: { story: 'The message still routes to the headless session.', status: '✅ Implemented', files: ['src/main/telegram-handler.ts'] },
-            halo_closed: { story: 'I open Halo Chat while HAL-O is not running.', status: '✅ Implemented', files: ['src/renderer/public/halo-chat/'] },
-            halo_fallback: { story: 'Halo Chat falls back to API mode without session awareness.', status: '✅ Implemented', files: ['src/main/http-api.ts'] },
-        };
+    classDef start fill:#0a3a52,stroke:#00e5ff,color:#00e5ff
+    classDef state fill:#0a2a42,stroke:#0066cc,color:#00e5ff
+    classDef decision fill:#3d2800,stroke:#f59e0b,color:#fbbf24
+    classDef action fill:#052e1a,stroke:#22c55e,color:#22c55e
+    classDef system fill:#1a1a2e,stroke:#6b7a8d,color:#9ca3af
+  </div>
+</div>
 
-        // State
-        let zoomLevel = 1;
-        let panX = 0;
-        let panY = 0;
-        let isDragging = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
+<div class="section">
+  <h2>5. Session Lifecycle</h2>
+  <p>The session persists independently of the app window</p>
+  <div class="mermaid">
+flowchart TD
+    RUN([Session Running\nHeadless or Visible]):::state
+    RUN --> CLOSE[Close\nApp]:::action
+    RUN --> REOPEN[Reopen\nApp]:::action
+    RUN --> TG[Telegram Message\nWhile App Closed]:::action
+    RUN --> HC[Halo Chat\nWhile App Closed]:::action
 
-        const container = document.getElementById('canvasContainer');
-        const flowContainer = document.getElementById('flowContainer');
-        const svg = document.getElementById('connectionsSvg');
-        const nodesWrapper = document.getElementById('nodesWrapper');
+    CLOSE --> HEADLESS[Session Keeps\nRunning Headless]:::system
+    HEADLESS --> RUN
+    REOPEN --> ABSORB[Reattach to\nRunning Session]:::system
+    ABSORB --> RUN
+    TG --> ROUTE[Still Routes\nto Session]:::system
+    ROUTE --> RUN
+    HC --> FALLBACK[API Fallback\n⚠ Limited Context]:::system
 
-        // Render nodes
-        function renderNodes() {
-            nodesWrapper.innerHTML = '';
-            nodes.forEach(node => {
-                const div = document.createElement('div');
-                div.className = `node ${node.type}`;
-                div.textContent = node.title;
-                div.style.left = node.x + 'px';
-                div.style.top = node.y + 'px';
-                div.style.width = node.width + 'px';
-                div.style.height = node.height + 'px';
-                div.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    showPopup(node, e.clientX, e.clientY);
-                });
-                nodesWrapper.appendChild(div);
-            });
-        }
+    classDef start fill:#0a3a52,stroke:#00e5ff,color:#00e5ff
+    classDef state fill:#0a2a42,stroke:#0066cc,color:#00e5ff
+    classDef decision fill:#3d2800,stroke:#f59e0b,color:#fbbf24
+    classDef action fill:#052e1a,stroke:#22c55e,color:#22c55e
+    classDef system fill:#1a1a2e,stroke:#6b7a8d,color:#9ca3af
+  </div>
+</div>
 
-        // Draw connections
-        function drawConnections() {
-            svg.innerHTML = '';
-            const svgNS = 'http://www.w3.org/2000/svg';
+<div class="feedback">
+  <h2 style="color:#00e5ff;font-size:14px;margin-bottom:8px">FEEDBACK</h2>
+  <textarea placeholder="Notes on this flow..."></textarea>
+</div>
 
-            edges.forEach(edge => {
-                const fromNode = nodes.find(n => n.id === edge.from);
-                const toNode = nodes.find(n => n.id === edge.to);
-                if (!fromNode || !toNode) return;
-
-                const x1 = fromNode.x + fromNode.width / 2;
-                const y1 = fromNode.y + fromNode.height / 2;
-                const x2 = toNode.x + toNode.width / 2;
-                const y2 = toNode.y + toNode.height / 2;
-
-                // Line
-                const line = document.createElementNS(svgNS, 'line');
-                line.setAttribute('x1', x1);
-                line.setAttribute('y1', y1);
-                line.setAttribute('x2', x2);
-                line.setAttribute('y2', y2);
-                line.setAttribute('class', 'connection-line');
-                svg.appendChild(line);
-
-                // Arrowhead
-                const angle = Math.atan2(y2 - y1, x2 - x1);
-                const arrowSize = 8;
-                const x2Adj = x2 - Math.cos(angle) * arrowSize;
-                const y2Adj = y2 - Math.sin(angle) * arrowSize;
-
-                const arrowPath = document.createElementNS(svgNS, 'path');
-                const arrowPoints = `M ${x2} ${y2} L ${x2Adj - Math.sin(angle) * arrowSize / 2} ${y2Adj + Math.cos(angle) * arrowSize / 2} L ${x2Adj + Math.sin(angle) * arrowSize / 2} ${y2Adj - Math.cos(angle) * arrowSize / 2} Z`;
-                arrowPath.setAttribute('d', arrowPoints);
-                arrowPath.setAttribute('class', 'connection-arrow');
-                svg.appendChild(arrowPath);
-
-                // Label
-                if (edge.label) {
-                    const midX = (x1 + x2) / 2;
-                    const midY = (y1 + y2) / 2;
-                    const offset = 15;
-                    const perpAngle = angle + Math.PI / 2;
-
-                    const text = document.createElementNS(svgNS, 'text');
-                    text.setAttribute('x', midX + Math.cos(perpAngle) * offset);
-                    text.setAttribute('y', midY + Math.sin(perpAngle) * offset);
-                    text.setAttribute('class', 'connection-label');
-                    text.setAttribute('text-anchor', 'middle');
-                    text.setAttribute('dominant-baseline', 'middle');
-                    text.textContent = edge.label;
-                    svg.appendChild(text);
-                }
-            });
-        }
-
-        // Update SVG size and content
-        function updateView() {
-            svg.setAttribute('width', container.clientWidth);
-            svg.setAttribute('height', container.clientHeight);
-            drawConnections();
-        }
-
-        // Pan and zoom
-        function applyTransform() {
-            flowContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-        }
-
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const oldZoom = zoomLevel;
-            const zoomFactor = 0.1;
-            zoomLevel = Math.max(0.3, Math.min(4, zoomLevel - e.deltaY * zoomFactor * 0.01));
-
-            const rect = container.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const zoomDiff = zoomLevel - oldZoom;
-            panX -= mouseX * zoomDiff / oldZoom;
-            panY -= mouseY * zoomDiff / oldZoom;
-
-            applyTransform();
-        });
-
-        container.addEventListener('mousedown', (e) => {
-            // Allow drag from container, svg, OR any non-node element
-            const clickedNode = e.target.closest('.node');
-            if (!clickedNode) {
-                isDragging = true;
-                dragStartX = e.clientX - panX;
-                dragStartY = e.clientY - panY;
-                container.classList.add('panning');
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                panX = e.clientX - dragStartX;
-                panY = e.clientY - dragStartY;
-                applyTransform();
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-            container.classList.remove('panning');
-        });
-
-        document.getElementById('zoomReset').addEventListener('click', () => {
-            zoomLevel = 1;
-            panX = 0;
-            panY = 0;
-            applyTransform();
-        });
-
-        // Popup
-        function showPopup(node, x, y) {
-            const popup = document.getElementById('nodePopup');
-            const details = nodeDetails[node.id] || {};
-
-            document.getElementById('popupTitle').textContent = node.title;
-            document.getElementById('popupType').textContent = node.type.toUpperCase();
-            document.getElementById('popupStory').textContent = details.story || 'No description available.';
-
-            const statusClass = details.status?.includes('Progress') ? 'inprogress' : details.status?.includes('Planned') ? 'planned' : '';
-            document.getElementById('popupStatus').innerHTML = `<span class="status-badge ${statusClass}">${details.status || 'Unknown'}</span>`;
-
-            if (details.files && details.files.length > 0) {
-                document.getElementById('popupFiles').style.display = 'block';
-                const filesList = details.files.map(f => `<div class="popup-file">${f}</div>`).join('');
-                document.getElementById('popupFilesList').innerHTML = filesList;
-            } else {
-                document.getElementById('popupFiles').style.display = 'none';
-            }
-
-            popup.classList.add('visible');
-            const popupWidth = popup.offsetWidth;
-            const popupHeight = popup.offsetHeight;
-
-            let posX = x + 10;
-            let posY = y + 10;
-
-            if (posX + popupWidth > window.innerWidth - 10) {
-                posX = window.innerWidth - popupWidth - 10;
-            }
-            if (posY + popupHeight > window.innerHeight - 210) {
-                posY = window.innerHeight - popupHeight - 210;
-            }
-
-            popup.style.left = posX + 'px';
-            popup.style.top = posY + 'px';
-        }
-
-        function hidePopup() {
-            document.getElementById('nodePopup').classList.remove('visible');
-        }
-
-        document.getElementById('popupClose').addEventListener('click', hidePopup);
-        document.getElementById('nodePopup').addEventListener('click', (e) => e.stopPropagation());
-
-        // Legend
-        document.getElementById('legendBtn').addEventListener('click', () => {
-            document.getElementById('legend').classList.toggle('visible');
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'z' || e.key === 'Z') {
-                zoomLevel = 1;
-                panX = 0;
-                panY = 0;
-                applyTransform();
-            }
-            if (e.key === 'l' || e.key === 'L') {
-                document.getElementById('legend').classList.toggle('visible');
-            }
-            if (e.key === 'Escape') {
-                hidePopup();
-            }
-        });
-
-        // Feedback storage
-        const feedbackInput = document.getElementById('feedbackInput');
-        feedbackInput.addEventListener('change', () => {
-            localStorage.setItem('hal-o-flow-feedback', feedbackInput.value);
-        });
-        feedbackInput.value = localStorage.getItem('hal-o-flow-feedback') || '';
-
-        // Initialize
-        renderNodes();
-        updateView();
-        window.addEventListener('resize', updateView);
-    </script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#0a2a42',
+    primaryTextColor: '#00e5ff',
+    primaryBorderColor: '#0066cc',
+    lineColor: '#00e5ff',
+    secondaryColor: '#1a1a2e',
+    tertiaryColor: '#052e1a',
+    fontSize: '13px',
+    fontFamily: 'JetBrains Mono, monospace',
+  },
+  flowchart: {
+    curve: 'basis',
+    padding: 15,
+    nodeSpacing: 30,
+    rankSpacing: 60,
+  }
+});
+</script>
 </body>
 </html>
