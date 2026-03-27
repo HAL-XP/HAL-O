@@ -1390,9 +1390,28 @@ function connectWs() {
 // ── Agents ──
 async function loadAgents() {
   try {
-    const r = await fetch(API + '/chat/aliases');
-    const d = await r.json();
-    agents = d.aliases || [];
+    // Load from tree API (primary) with aliases fallback
+    let r = await fetch(API + '/tree/nodes');
+    let d = await r.json();
+    const treeNodes = d.nodes || [];
+    // Filter to dispatchers and agents (not projects/groups — those aren't chat targets)
+    agents = treeNodes
+      .filter(n => n.type === 'dispatcher' || n.type === 'agent')
+      .map(n => ({
+        name: n.alias || n.name.toLowerCase(),
+        displayName: n.name,
+        voice: n.config?.voice,
+        color: n.config?.color,
+        icon: n.config?.icon,
+        type: n.type,
+        status: n.status,
+      }));
+    if (agents.length === 0) {
+      // Fallback to aliases
+      r = await fetch(API + '/chat/aliases');
+      d = await r.json();
+      agents = (d.aliases || []).map(a => ({ ...a, displayName: a.name.charAt(0).toUpperCase() + a.name.slice(1) }));
+    }
     renderSidebar();
     if (!activeAgent && agents.length > 0) switchAgent(agents[0].name);
   } catch {}
@@ -1401,13 +1420,15 @@ async function loadAgents() {
 function renderSidebar() {
   sidebar.innerHTML = '';
   agents.forEach(a => {
-    const theme = AGENT_THEMES[a.name] || { color: '#00e5ff', icon: '🤖' };
+    const color = a.color || AGENT_THEMES[a.name]?.color || '#00e5ff';
+    const icon = a.icon || AGENT_THEMES[a.name]?.icon || '🤖';
+    const theme = { color, icon };
     const div = document.createElement('div');
     div.className = 'agent-avatar' + (activeAgent === a.name ? ' active' : '');
     div.style.background = theme.color + '22';
     div.style.color = theme.color;
-    div.innerHTML = theme.icon + '<div class="status-dot"></div>';
-    div.title = a.name.toUpperCase();
+    div.innerHTML = theme.icon + '<div class="status-dot" style="background:' + (a.status === 'online' ? 'var(--green)' : 'var(--muted)') + '"></div>';
+    div.title = (a.displayName || a.name).toUpperCase();
     div.onclick = () => switchAgent(a.name);
     sidebar.appendChild(div);
   });

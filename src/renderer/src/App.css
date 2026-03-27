@@ -4912,3 +4912,53 @@ textarea.text-input {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MANAGE PROJECTS — Tree Node/Card Layout
+   ══════════════════════════════════════════════════════════════ */
+.manage-projects { display: flex; flex-direction: column; height: 100%; background: #050810; color: #e4eaf2; font-family: -apple-system, 'SF Pro', 'Segoe UI', sans-serif; }
+.manage-projects-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7a8d; }
+.mp-topbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(12,18,32,0.9); border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; backdrop-filter: blur(16px); }
+.mp-title { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 14px; color: #00e5ff; font-weight: 600; letter-spacing: 1px; }
+.mp-back { background: none; border: 1px solid rgba(255,255,255,0.1); color: #6b7a8d; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.mp-back:hover { color: #00e5ff; border-color: rgba(0,229,255,0.3); }
+.mp-search { background: rgba(16,24,42,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; color: #e4eaf2; padding: 6px 14px; font-size: 13px; outline: none; min-width: 150px; }
+.mp-search:focus { border-color: rgba(0,229,255,0.3); }
+.mp-btn { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); color: #00e5ff; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+.mp-btn:hover { background: rgba(0,229,255,0.15); }
+.mp-canvas { flex: 1; position: relative; overflow: auto; padding: 20px; }
+.mp-card { position: absolute; background: rgba(14,20,36,0.8); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(8px); }
+.mp-card:hover { border-color: rgba(0,229,255,0.3); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+.mp-card.selected { border-width: 2px; }
+.mp-card-icon { font-size: 20px; margin-bottom: 4px; }
+.mp-card-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-card-meta { display: flex; gap: 4px; flex-wrap: wrap; }
+.mp-card-type { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-family: monospace; }
+.mp-card-alias { font-size: 10px; color: #6b7a8d; }
+.mp-card-status { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #6b7a8d; }
+.mp-card-status.online { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.mp-card-status.loading { background: #f59e0b; animation: pulse 1.5s infinite; }
+.mp-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 320px; background: rgba(12,18,32,0.95); border-left: 1px solid rgba(255,255,255,0.06); padding: 20px; overflow-y: auto; backdrop-filter: blur(24px); z-index: 10; animation: slideInRight 0.2s ease-out; }
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.mp-panel-close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #6b7a8d; font-size: 20px; cursor: pointer; }
+.mp-panel-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.mp-panel-icon { font-size: 28px; }
+.mp-panel-name { font-size: 18px; font-weight: 600; }
+.mp-panel-type { font-size: 12px; color: #6b7a8d; font-family: monospace; }
+.mp-panel-fields { display: flex; flex-direction: column; gap: 6px; }
+.mp-panel-fields label { font-size: 11px; color: #6b7a8d; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
+.mp-panel-fields input, .mp-panel-fields select { background: rgba(16,24,42,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; color: #e4eaf2; padding: 8px 12px; font-size: 13px; outline: none; }
+.mp-panel-fields input:focus, .mp-panel-fields select:focus { border-color: rgba(0,229,255,0.3); }
+.mp-panel-children { margin-top: 16px; }
+.mp-panel-children label { font-size: 11px; color: #6b7a8d; text-transform: uppercase; display: block; margin-bottom: 8px; }
+.mp-panel-child { padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 4px; cursor: pointer; font-size: 13px; }
+.mp-panel-child:hover { background: rgba(0,229,255,0.08); }
+.mp-btn-small { font-size: 11px; color: #00e5ff; background: none; border: 1px dashed rgba(0,229,255,0.2); border-radius: 6px; padding: 4px 10px; cursor: pointer; margin-top: 4px; }
+.mp-panel-actions { margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); }
+.mp-btn-danger { background: rgba(255,61,61,0.1); border: 1px solid rgba(255,61,61,0.3); color: #ff3d3d; padding: 8px 16px; border-radius: 8px; cursor: pointer; width: 100%; }
+.mp-btn-danger:hover { background: rgba(255,61,61,0.2); }
+.mp-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.mp-modal { background: #0c1220; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px; width: 400px; max-width: 90vw; }
+.mp-modal h3 { color: #00e5ff; margin-bottom: 16px; }
+.mp-modal label { display: block; font-size: 11px; color: #6b7a8d; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; }
+.mp-modal input, .mp-modal select { width: 100%; background: rgba(16,24,42,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; color: #e4eaf2; padding: 8px 12px; font-size: 13px; outline: none; }

@@ -193,6 +193,17 @@ const api = {
   getStickySession: () => ipcRenderer.invoke('get-sticky-session'),
   getVoiceForProject: (projectName: string): Promise<string | null> => ipcRenderer.invoke('get-voice-for-project', projectName),
 
+  // Tree CRUD
+  treeGet: () => ipcRenderer.invoke('tree-get'),
+  treeGetNode: (id: string) => ipcRenderer.invoke('tree-get-node', id),
+  treeGetRoot: () => ipcRenderer.invoke('tree-get-root'),
+  treeGetChildren: (parentId: string) => ipcRenderer.invoke('tree-get-children', parentId),
+  treeGetAll: () => ipcRenderer.invoke('tree-get-all'),
+  treeCreate: (type: string, name: string, parentId: string, options?: any) => ipcRenderer.invoke('tree-create', type, name, parentId, options),
+  treeUpdate: (id: string, updates: any) => ipcRenderer.invoke('tree-update', id, updates),
+  treeDelete: (id: string) => ipcRenderer.invoke('tree-delete', id),
+  treeMove: (id: string, newParentId: string) => ipcRenderer.invoke('tree-move', id, newParentId),
+
   // Dev: 2D Preview Mode toggle
   onToggle2dPreview: (callback: (enabled: boolean) => void) => {
     const listener = (_: unknown, enabled: boolean) => callback(enabled)
