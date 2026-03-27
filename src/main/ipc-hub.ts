@@ -123,14 +123,16 @@ export function registerHubHandlers(): void {
   })
 
   ipcMain.handle('scan-projects', async () => {
-    // OPT-IN MODE: If tree.json has projects, load from tree instead of scanning filesystem.
-    // This replaces auto-scan with explicit import. Tree is the source of truth.
+    // OPT-IN MODE: If tree.json exists, ALWAYS use it. No more auto-scan.
+    // Returns only explicitly imported projects. Empty list = blank hub (user imports what they want).
     try {
-      const { loadTree, getAllNodes } = await import('./halo-tree')
-      const tree = loadTree()
-      const treeProjects = getAllNodes().filter(n => n.type === 'project' && n.path)
-      if (treeProjects.length > 0) {
-        console.log(`[Hub] Loading ${treeProjects.length} projects from tree (opt-in mode)`)
+      const { existsSync } = await import('fs')
+      const { join } = await import('path')
+      const treePath = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'tree.json')
+      if (existsSync(treePath)) {
+        const { getAllNodes } = await import('./halo-tree')
+        const treeProjects = getAllNodes().filter(n => n.type === 'project' && n.path)
+        console.log(`[Hub] Opt-in mode: ${treeProjects.length} projects from tree`)
         return treeProjects.map(n => ({
           name: n.name,
           path: n.path!,
