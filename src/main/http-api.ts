@@ -7,6 +7,7 @@ import { terminalManager } from './terminal-manager'
 import { dispatchMessage, getActiveTerminals, setStickySession, getVoiceForProject, getAliasForProject } from './dispatcher'
 import { getOrCreateAgent, sendMessage as agentSendMessage, listAgents, getHistory, clearHistory } from './agent-api'
 import { injectAndCapture, findHalSession, processPtyOutput } from './response-capture'
+import { loadTree, getAllNodes, getNode, createNode, updateNode, deleteNode, moveNode, syncAliasesFromTree, migrateFromAliases, findNodeByAlias, type NodeType } from './halo-tree'
 import { spawn } from 'child_process'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -253,6 +254,62 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       })
       res.end(data)
       return
+    }
+
+    // ── GET /tree — full tree ──
+    if (url === '/tree' && method === 'GET') {
+      return json(res, 200, loadTree())
+    }
+
+    // ── GET /tree/nodes — all nodes flat ──
+    if (url === '/tree/nodes' && method === 'GET') {
+      return json(res, 200, { nodes: getAllNodes() })
+    }
+
+    // ── GET /tree/node?id=xxx ──
+    if (url?.startsWith('/tree/node') && method === 'GET') {
+      const id = new URL(url, 'http://localhost').searchParams.get('id')
+      if (!id) return json(res, 400, { error: 'id required' })
+      const node = getNode(id)
+      return node ? json(res, 200, node) : json(res, 404, { error: 'Node not found' })
+    }
+
+    // ── POST /tree/create — create node ──
+    if (url === '/tree/create' && method === 'POST') {
+      const body = JSON.parse(await readBody(req))
+      const { type, name, parentId, options } = body
+      if (!type || !name || !parentId) return json(res, 400, { error: 'type, name, parentId required' })
+      try {
+        const node = createNode(type as NodeType, name, parentId, options)
+        syncAliasesFromTree()
+        return json(res, 200, node)
+      } catch (err) { return json(res, 400, { error: String(err) }) }
+    }
+
+    // ── POST /tree/update — update node ──
+    if (url === '/tree/update' && method === 'POST') {
+      const body = JSON.parse(await readBody(req))
+      const { id, ...updates } = body
+      if (!id) return json(res, 400, { error: 'id required' })
+      const node = updateNode(id, updates)
+      syncAliasesFromTree()
+      return node ? json(res, 200, node) : json(res, 404, { error: 'Node not found' })
+    }
+
+    // ── POST /tree/delete ──
+    if (url === '/tree/delete' && method === 'POST') {
+      const body = JSON.parse(await readBody(req))
+      const ok = deleteNode(body.id)
+      syncAliasesFromTree()
+      return json(res, 200, { deleted: ok })
+    }
+
+    // ── POST /tree/move ──
+    if (url === '/tree/move' && method === 'POST') {
+      const body = JSON.parse(await readBody(req))
+      const ok = moveNode(body.id, body.newParentId)
+      syncAliasesFromTree()
+      return json(res, 200, { moved: ok })
     }
 
     // ── POST /chat/session — route through HAL terminal (same session everywhere) ──
