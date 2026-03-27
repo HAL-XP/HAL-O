@@ -48,14 +48,20 @@ body { background: #050810; color: #e0e0e0; font-family: 'JetBrains Mono', monos
   <div class="mermaid">
 flowchart TD
     A([User Opens HAL-O]):::start --> B{External Claude\nSession Running?}:::decision
-    B -->|YES| C[Absorb External\nSession]:::system
-    C --> D([Hub — ONLINE\n✅ Sphere Connected]):::state
+    B -->|YES, Dev Mode| C1[Detect + Route\nDon't Absorb]:::system
+    B -->|YES, User Mode| C2[Auto-Absorb\nSession]:::system
+    C1 --> D([Hub — ONLINE\n✅ Sphere Connected]):::state
+    C2 --> D
     B -->|NO| E{First Time\nEver?}:::decision
     E -->|YES| F([Onboarding Wizard]):::state
-    F --> G{Choose Path}:::decision
-    G -->|Manage Projects| H[Import First\nProject]:::action
-    G -->|Personal Assistant| I[Create First\nAssistant]:::action
+    F --> G{Select Workspaces\nto Set Up}:::decision
+    G -->|Personal Assistant ☑| I[Create Personal\nAssistant]:::action
+    G -->|Work Assistant ☑| H2[Create Work\nAssistant]:::action
+    G -->|Project Manager ☑| H[Import First\nProject]:::action
+    G -->|Custom| H3[Create Custom\nDispatcher]:::action
     H --> J[Start Headless\nSession]:::system
+    H2 --> J
+    H3 --> J
     I --> J
     J --> D
     E -->|NO| K[Auto-Resume\nHeadless Session]:::system

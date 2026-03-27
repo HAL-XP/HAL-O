@@ -74,12 +74,18 @@ export async function detectOrStartHalSession(): Promise<void> {
     return
   }
 
-  // 2. External session running? Log it (absorb is handled by detect-external-sessions IPC)
+  // 2. External session running?
   const external = await detectExternalHalSession()
   if (external) {
-    console.log(`[Session] External HAL-O session detected (PID ${external.pid}) — can be absorbed via UI`)
-    // Don't start a new one — the external session IS the session
-    // The user can absorb it via the project card's "Absorb" button
+    // Dev mode: detect + route, but NEVER absorb (protects dev session from app crashes)
+    // User mode: auto-absorb into app terminal
+    const devMode = process.env.HAL_DEV_MODE === '1' || process.cwd().toLowerCase().includes('hal-o')
+    if (devMode) {
+      console.log(`[Session] External HAL-O session detected (PID ${external.pid}) — DEV MODE: routing only, not absorbing`)
+    } else {
+      console.log(`[Session] External HAL-O session detected (PID ${external.pid}) — USER MODE: can absorb via UI`)
+    }
+    // Either way, don't start a new one — the external session IS the session
     return
   }
 
