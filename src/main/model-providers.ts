@@ -211,6 +211,85 @@ export function invalidateProviderCache(): void {
 }
 
 /**
+ * Fetch the list of models from a running Ollama instance.
+ * Returns empty array if Ollama is not running.
+ */
+export async function listOllamaModels(): Promise<ModelEntry[]> {
+  try {
+    const resp = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) })
+    if (!resp.ok) return []
+    const data = await resp.json()
+    const models = (data.models || []) as Array<{ name: string; size: number }>
+    return models.map((m, i) => ({
+      id: `ollama-${m.name.replace(/[:/]/g, '-')}`,
+      name: m.name,
+      modelId: m.name,
+      isDefault: i === 0,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Pull a model in Ollama. Returns a stream of progress updates.
+ * Throws if Ollama is not running.
+ */
+export async function pullOllamaModel(modelName: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const resp = await fetch('http://localhost:11434/api/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: modelName, stream: false }),
+      signal: AbortSignal.timeout(600_000), // 10 min timeout for large models
+    })
+    if (!resp.ok) {
+      const text = await resp.text()
+      return { success: false, error: text }
+    }
+    return { success: true }
+  } catch (e: unknown) {
+    return { success: false, error: String(e) }
+  }
+}
+
+/**
+ * Chat completion via Ollama's /api/chat endpoint (OpenAI-compatible).
+ * Used for dispatcher/assistant roles that run locally.
+ */
+export async function ollamaChat(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options?: { temperature?: number; maxTokens?: number }
+): Promise<{ response: string; error?: string }> {
+  try {
+    const resp = await fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        think: false, // Disable Qwen3 thinking mode for direct responses
+        options: {
+          temperature: options?.temperature ?? 0.7,
+          num_predict: options?.maxTokens ?? 512,
+        },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!resp.ok) {
+      const text = await resp.text()
+      return { response: '', error: text }
+    }
+    const data = await resp.json()
+    return { response: data.message?.content || '' }
+  } catch (e: unknown) {
+    return { response: '', error: String(e) }
+  }
+}
+
+/**
  * Serialize provider list for IPC transport (strips functions, keeps data).
  */
 export interface ModelProviderSerialized {

@@ -176,28 +176,74 @@ export function HudTopbar({
     return () => window.removeEventListener('keydown', handler)
   }, [taskBoardOpen])
 
-  // Mic is disabled when hub is focused but no HAL terminal is linked
-  const micDisabled = voiceFocus === 'hub' && !halSessionId
+  // Resolve focused project name from session list
+  const [focusedProjectName, setFocusedProjectName] = useState<string | null>(null)
+  useEffect(() => {
+    if (voiceFocus === 'hub' || !voiceFocus) { setFocusedProjectName(null); return }
+    window.api?.ptySessions?.().then((sessions) => {
+      const match = sessions.find(s => s.id === voiceFocus)
+      setFocusedProjectName(match?.projectName?.toUpperCase() || null)
+    }).catch(() => {})
+  }, [voiceFocus])
+
+  const micDisabled = false // dispatcher handles routing; mic always available
 
   const handleBlockedAttempt = useCallback(() => {
     onVoiceBlocked?.()
   }, [onVoiceBlocked])
 
   const handleTranscript = (text: string) => {
-    const target = voiceFocus === 'hub' ? halSessionId : voiceFocus
-    if (target) {
-      ;(window as any).__voiceResponseTarget = target
-      window.api.ptyInput(target, `[voice] ${text}\r`).catch(() => {})
-    } else if (voiceFocus !== 'hub') {
-      // Terminal focused but target missing — try any session
-      window.api.ptySessions().then((sessions) => {
-        if (sessions.length > 0) {
-          ;(window as any).__voiceResponseTarget = sessions[0].id
-          window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
+    const focusTarget = voiceFocus !== 'hub' ? voiceFocus : halSessionId
+
+    // If we have a focused terminal: use it by default.
+    // Only override for explicit switch commands ("@project", "switch to X", "work on X").
+    // Never override based on accidental project name matches in regular speech.
+    if (focusTarget) {
+      window.api.dispatchMessage?.(text).then((result) => {
+        // Only override focus for Layer 0 (@prefix, confidence 1.0)
+        const isExplicitSwitch = result.layer === 0 && result.confidence >= 0.9 && result.sessionId
+        const target = isExplicitSwitch ? result.sessionId! : focusTarget
+
+        ;(window as any).__voiceResponseTarget = target
+        const prefix = isExplicitSwitch && result.projectName
+          ? `[voice → ${result.projectName}]`
+          : '[voice]'
+        window.api.ptyInput(target, `${prefix} ${result.cleanMessage || text}\r`).catch(() => {})
+
+        if (isExplicitSwitch && result.projectName) {
+          import('../components/ErrorToast').then(({ showToast }) => {
+            showToast(`Voice → ${result.projectName}`, 'Explicit switch')
+          })
         }
-      }).catch(() => {})
+      }).catch(() => {
+        ;(window as any).__voiceResponseTarget = focusTarget
+        window.api.ptyInput(focusTarget, `[voice] ${text}\r`).catch(() => {})
+      })
+      return
     }
-    // No fallback to search — if no valid target, mic should be disabled
+
+    // No focused terminal (hub view) — full dispatch with all layers
+    window.api.dispatchMessage?.(text).then((result) => {
+      if (result.sessionId) {
+        ;(window as any).__voiceResponseTarget = result.sessionId
+        const prefix = result.projectName && result.confidence > 0.5
+          ? `[voice → ${result.projectName}]`
+          : '[voice]'
+        window.api.ptyInput(result.sessionId, `${prefix} ${result.cleanMessage || text}\r`).catch(() => {})
+        if (result.projectName && result.confidence > 0.5) {
+          import('../components/ErrorToast').then(({ showToast }) => {
+            showToast(`Voice → ${result.projectName}`, `Layer ${result.layer} (${Math.round(result.confidence * 100)}%)`)
+          })
+        }
+      } else {
+        window.api.ptySessions().then((sessions) => {
+          if (sessions.length > 0) {
+            ;(window as any).__voiceResponseTarget = sessions[0].id
+            window.api.ptyInput(sessions[0].id, `[voice] ${text}\r`).catch(() => {})
+          }
+        }).catch(() => {})
+      }
+    }).catch(() => {})
   }
 
   return (
@@ -219,7 +265,7 @@ export function HudTopbar({
       )}
       <div className="hal-topbar-center">
         <span className="hal-prompt">&gt;</span>
-        <input className="hal-search" placeholder="SEARCH... (CTRL+SPACE to talk)" value={search} onChange={(e) => onSearchChange(e.target.value)} />
+        <input className="hal-search" placeholder="SEARCH... (Ctrl+Space = voice)" value={search} onChange={(e) => onSearchChange(e.target.value)} />
         <MicButton
           onTranscript={handleTranscript}
           onListeningChange={onListeningChange}
@@ -227,7 +273,20 @@ export function HudTopbar({
           disabledTooltip="No embedded terminal — open a project terminal first"
           onBlockedAttempt={handleBlockedAttempt}
         />
-        <span className="hal-voice-target">{voiceFocus === 'hub' ? (halSessionId ? 'HAL' : 'NO LINK') : 'TERM'}</span>
+        <button className="hal-voice-toggle" onClick={() => {
+          onVoiceOut(!voiceOut)
+          // Stop any currently playing audio
+          if (voiceOut) {
+            document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0 })
+            // Also stop Web Audio sources
+            ;(window as any).__haloAudioSource?.stop?.()
+          }
+        }} title={voiceOut ? 'Voice output ON — click to mute' : 'Voice output OFF — click to unmute'}>
+          {voiceOut ? '🔊' : '🔇'}
+        </button>
+        <span className="hal-voice-target">{
+          voiceFocus === 'hub' ? 'DISPATCH' : (focusedProjectName || 'TERM')
+        }</span>
       </div>
       <div className="hal-topbar-right">
         {onCreateGroup && onDeleteGroup && onRenameGroup && onReorderGroups && onApplyPreset && (

@@ -178,6 +178,19 @@ const api = {
   getTerminalModel: (sessionId: string): Promise<string | null> =>
     ipcRenderer.invoke('get-terminal-model', sessionId),
   refreshModelProviders: () => ipcRenderer.invoke('refresh-model-providers'),
+  listOllamaModels: () => ipcRenderer.invoke('list-ollama-models'),
+  pullOllamaModel: (modelName: string) => ipcRenderer.invoke('pull-ollama-model', modelName),
+  getModelRouting: () => ipcRenderer.invoke('get-model-routing'),
+  setModelRouting: (preset: string, config: Record<string, string>) =>
+    ipcRenderer.invoke('set-model-routing', preset, config),
+  getModelPresets: () => ipcRenderer.invoke('get-model-presets'),
+  testOllamaChat: (model: string, prompt: string) =>
+    ipcRenderer.invoke('test-ollama-chat', model, prompt),
+
+  // Dispatcher
+  dispatchMessage: (message: string) => ipcRenderer.invoke('dispatch-message', message),
+  setStickySession: (sessionId: string | null) => ipcRenderer.invoke('set-sticky-session', sessionId),
+  getStickySession: () => ipcRenderer.invoke('get-sticky-session'),
 
   // Dev: 2D Preview Mode toggle
   onToggle2dPreview: (callback: (enabled: boolean) => void) => {

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
 import { VOICE_PROFILES, DOCK_POSITIONS, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, TOKEN_BUDGET_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId, type TokenBudgetId, type SettingsState } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
+import type { ModelRoutingConfig, ModelProviderSerialized, ModelEntry } from '../types'
 import { LAYOUTS_3D } from '../layouts3d'
 import { THREE_STYLES } from '../data/three-styles'
 
@@ -71,7 +72,7 @@ function savePresetsStorage(p: SavedPresets) { localStorage.setItem('hal-o-prese
 
 // ── Tab definitions ──
 
-type TabId = 'display' | 'graphics' | 'scene' | 'terminal' | 'voice-ai' | 'presets' | 'system'
+type TabId = 'display' | 'graphics' | 'scene' | 'terminal' | 'voice-ai' | 'models' | 'presets' | 'system'
 
 interface TabDef {
   id: TabId
@@ -85,6 +86,7 @@ const TABS: TabDef[] = [
   { id: 'scene',     label: 'SCENE',      icon: 'camera' },
   { id: 'terminal',  label: 'TERMINAL',   icon: 'terminal' },
   { id: 'voice-ai',  label: 'VOICE & AI', icon: 'mic' },
+  { id: 'models',    label: 'MODELS',     icon: 'cpu' },
   { id: 'presets',   label: 'PRESETS',     icon: 'save' },
   { id: 'system',    label: 'SYSTEM',     icon: 'gear' },
 ]
@@ -105,6 +107,8 @@ function TabIcon({ type, size = 16 }: { type: string; size?: number }) {
       return <svg {...s} viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
     case 'save':
       return <svg {...s} viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+    case 'cpu':
+      return <svg {...s} viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
     case 'gear':
       return <svg {...s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
     default:
@@ -285,6 +289,59 @@ export const SettingsMenu = React.memo(function SettingsMenu({
   const [launchOnStartup, setLaunchOnStartup] = useState(false)
   useEffect(() => { window.api?.getLaunchOnStartup?.().then((v) => setLaunchOnStartup(v)).catch(() => {}) }, [])
 
+  // ── Models state ──
+  const [modelRouting, setModelRouting] = useState<ModelRoutingConfig>({ dispatcher: '', coder: '', assistant: '', qa: '', voiceRewrite: '' })
+  const [modelPreset, setModelPreset] = useState('claudeOnly')
+  const [modelPresets, setModelPresets] = useState<Array<{ id: string; label: string; description: string; config: ModelRoutingConfig }>>([])
+  const [providers, setProviders] = useState<ModelProviderSerialized[]>([])
+  const [ollamaModels, setOllamaModels] = useState<ModelEntry[]>([])
+  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+  const [testResult, setTestResult] = useState<string | null>(null)
+  const [pulling, setPulling] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Load model routing, presets, providers, and ollama models on mount
+    window.api?.getModelRouting?.().then(({ preset, config }) => { setModelPreset(preset); setModelRouting(config) }).catch(() => {})
+    window.api?.getModelPresets?.().then(setModelPresets).catch(() => {})
+    window.api?.getAvailableModels?.().then((p) => {
+      setProviders(p)
+      const ollama = p.find(x => x.id === 'ollama')
+      setOllamaStatus(ollama?.available ? 'online' : 'offline')
+    }).catch(() => {})
+    window.api?.listOllamaModels?.().then(setOllamaModels).catch(() => {})
+  }, [])
+
+  const saveModelRouting = useCallback((preset: string, config: ModelRoutingConfig) => {
+    setModelPreset(preset); setModelRouting(config)
+    window.api?.setModelRouting?.(preset, config).catch(() => {})
+  }, [])
+
+  const refreshOllama = useCallback(() => {
+    setOllamaStatus('checking')
+    window.api?.refreshModelProviders?.().then((p) => {
+      setProviders(p)
+      const ollama = p.find(x => x.id === 'ollama')
+      setOllamaStatus(ollama?.available ? 'online' : 'offline')
+    }).catch(() => setOllamaStatus('offline'))
+    window.api?.listOllamaModels?.().then(setOllamaModels).catch(() => {})
+  }, [])
+
+  const handlePullModel = useCallback((name: string) => {
+    setPulling(name)
+    window.api?.pullOllamaModel?.(name).then((r) => {
+      setPulling(null)
+      if (r.success) refreshOllama()
+      else setTestResult('Pull failed: ' + (r.error || 'unknown'))
+    }).catch(() => setPulling(null))
+  }, [refreshOllama])
+
+  const handleTestOllama = useCallback((model: string) => {
+    setTestResult('Testing...')
+    window.api?.testOllamaChat?.(model, 'Say hello in exactly 5 words.').then((r) => {
+      setTestResult(r.error ? 'Error: ' + r.error : 'Response: ' + r.response)
+    }).catch((e: Error) => setTestResult('Error: ' + e.message))
+  }, [])
+
   const [tokenBudget, setTokenBudget] = useState<TokenBudgetId>(() => (localStorage.getItem('hal-o-token-budget') as TokenBudgetId) || 'full')
   const [subscriptionType, setSubscriptionType] = useState<'api' | 'subscription' | 'unknown'>('unknown')
   useEffect(() => { window.api?.detectSubscriptionType?.().then((info) => setSubscriptionType(info.type)).catch(() => {}) }, [])
@@ -310,6 +367,7 @@ export const SettingsMenu = React.memo(function SettingsMenu({
       'scene': ['AUTO ROTATE', 'ROTATION SPEED', 'SHIP VFX', 'INTRO ANIMATION', 'ACTIVITY FEEDBACK', 'SAVE CURRENT VIEW', 'RESET VIEW'],
       'terminal': ['TERMINAL DOCK', 'DOCK MODE', 'TERMINAL AI MODEL', 'DEFAULT IDE'],
       'voice-ai': ['VOICE OUTPUT', 'VOICE PROFILE', 'VOICE REACTION', 'HUMOR', 'FORMALITY', 'VERBOSITY', 'DRAMATIC', 'PERSONALITY PRESET', 'TOKEN BUDGET'],
+      'models': ['MODELS', 'OLLAMA', 'CLAUDE', 'DISPATCHER', 'CODER', 'ASSISTANT', 'QA', 'VOICE REWRITE', 'PRESET', 'LOCAL', 'HYBRID', 'BUDGET', 'PULL MODEL'],
       'presets': ['SAVE PRESET', 'LOAD PRESET'],
       'system': ['LAUNCH ON STARTUP', 'HIDDEN PROJECTS', 'ENABLED', 'PROJECT CARDS', 'TERMINAL AREAS', 'MIN TABS', 'MAX TABS', 'VFX SPAWN FREQUENCY', 'DEMO TEXT', 'DEMO VOICE'],
     }
@@ -563,6 +621,166 @@ export const SettingsMenu = React.memo(function SettingsMenu({
           )}
         </div>
       )
+
+      case 'models': {
+        // Build combined model options for dropdowns
+        const modelOptions: Array<{ value: string; label: string; available: boolean }> = []
+        for (const p of providers) {
+          for (const mod of p.models) {
+            modelOptions.push({ value: `${p.id}:${mod.modelId}`, label: `${p.name} — ${mod.name}`, available: p.available })
+          }
+        }
+        // Add discovered Ollama models
+        for (const om of ollamaModels) {
+          if (!modelOptions.some(o => o.value === `ollama:${om.modelId}`)) {
+            modelOptions.push({ value: `ollama:${om.modelId}`, label: `Ollama — ${om.name}`, available: ollamaStatus === 'online' })
+          }
+        }
+        // Common Ollama models to suggest pulling
+        const suggestedModels = ['qwen3:1.7b', 'qwen3:8b', 'qwen3:32b', 'llama3.2:3b', 'llama3.1:8b', 'deepseek-r1:7b', 'gemma3:4b']
+        const pulledNames = ollamaModels.map(m => m.modelId)
+
+        const ROLE_LABELS: Record<string, { label: string; desc: string; color: string }> = {
+          dispatcher: { label: 'DISPATCHER', desc: 'Classifies & routes messages', color: '#ffb300' },
+          coder: { label: 'CODER', desc: 'Writes & edits code', color: '#00e5ff' },
+          assistant: { label: 'ASSISTANT', desc: 'Calendar, reminders, personal', color: '#39ff14' },
+          qa: { label: 'QA', desc: 'Runs tests, validates', color: '#ff3366' },
+          voiceRewrite: { label: 'VOICE REWRITE', desc: 'Rewrites for spoken delivery', color: '#b388ff' },
+        }
+
+        const ModelSelect = ({ role }: { role: keyof ModelRoutingConfig }) => {
+          const info = ROLE_LABELS[role]
+          return (
+            <div className="hal-so-row hal-so-row-col" style={{ gap: 4, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: info.color, flexShrink: 0 }} />
+                <span className="hal-so-label" style={{ color: info.color }}>{info.label}</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginLeft: 'auto' }}>{info.desc}</span>
+              </div>
+              <select className="hal-so-select" style={{ width: '100%' }} value={modelRouting[role]}
+                onChange={(e) => { const nr = { ...modelRouting, [role]: e.target.value }; saveModelRouting('custom', nr) }}>
+                <option value="">— select —</option>
+                {modelOptions.map(o => (
+                  <option key={o.value} value={o.value} disabled={!o.available}>
+                    {o.label}{!o.available ? ' (unavailable)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
+        }
+
+        return (
+          <div className="hal-so-panel-content">
+            <SectionTitle>MODELS</SectionTitle>
+
+            {/* Provider Status */}
+            <div className="hal-so-subsection-label">PROVIDERS</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {providers.map(p => (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+                  background: p.available ? 'rgba(57,255,20,0.08)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${p.available ? 'rgba(57,255,20,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 4, fontSize: '0.7rem', fontFamily: 'var(--font-mono)',
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.available ? '#39ff14' : '#ff3366' }} />
+                  {p.name}
+                </div>
+              ))}
+              <button className="hal-so-action-btn" onClick={refreshOllama}
+                style={{ fontSize: '0.65rem', padding: '2px 8px' }}>REFRESH</button>
+            </div>
+
+            {/* Presets */}
+            {m('PRESET') && (
+              <>
+                <div className="hal-so-subsection-label">PRESETS</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                  {modelPresets.map(p => (
+                    <button key={p.id} className="hal-so-action-btn" onClick={() => saveModelRouting(p.id, p.config)}
+                      style={{
+                        color: modelPreset === p.id ? '#00e5ff' : 'var(--text-dim)',
+                        borderColor: modelPreset === p.id ? '#00e5ff55' : 'rgba(255,255,255,0.1)',
+                        background: modelPreset === p.id ? 'rgba(0,229,255,0.08)' : 'transparent',
+                      }}
+                      title={p.description}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Divider />
+
+            {/* Per-role model assignment */}
+            <div className="hal-so-subsection-label">ROLE → MODEL ASSIGNMENT</div>
+            <ModelSelect role="dispatcher" />
+            <ModelSelect role="coder" />
+            <ModelSelect role="assistant" />
+            <ModelSelect role="qa" />
+            <ModelSelect role="voiceRewrite" />
+
+            <Divider />
+
+            {/* Ollama section */}
+            <div className="hal-so-subsection-label">
+              OLLAMA LOCAL MODELS
+              <span style={{ marginLeft: 8, fontSize: '0.6rem', color: ollamaStatus === 'online' ? '#39ff14' : ollamaStatus === 'offline' ? '#ff3366' : '#ffb300' }}>
+                {ollamaStatus === 'online' ? 'ONLINE' : ollamaStatus === 'offline' ? 'OFFLINE' : 'CHECKING...'}
+              </span>
+            </div>
+
+            {ollamaStatus === 'offline' && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: 8, padding: '6px 10px', background: 'rgba(255,51,102,0.05)', border: '1px solid rgba(255,51,102,0.15)', borderRadius: 4 }}>
+                Ollama not detected. Install from <span style={{ color: '#00e5ff' }}>ollama.com</span> and start the service.
+              </div>
+            )}
+
+            {ollamaStatus === 'online' && (
+              <>
+                {/* Installed models */}
+                {ollamaModels.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {ollamaModels.map(om => (
+                      <div key={om.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: '0.75rem' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#39ff14', flexShrink: 0 }} />
+                        <span style={{ flex: 1, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{om.modelId}</span>
+                        <button className="hal-so-action-btn" onClick={() => handleTestOllama(om.modelId)}
+                          style={{ fontSize: '0.6rem', padding: '1px 6px' }}>TEST</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Suggested models to pull */}
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: 4 }}>Pull a model:</div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {suggestedModels.filter(s => !pulledNames.includes(s)).map(s => (
+                    <button key={s} className="hal-so-action-btn" onClick={() => handlePullModel(s)}
+                      disabled={!!pulling}
+                      style={{ fontSize: '0.6rem', padding: '2px 8px', color: '#ffb300', borderColor: '#ffb30033' }}>
+                      {pulling === s ? 'PULLING...' : s}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Test result */}
+            {testResult && (
+              <div style={{
+                fontSize: '0.7rem', color: testResult.startsWith('Error') ? '#ff3366' : '#39ff14',
+                padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 4,
+                fontFamily: 'var(--font-mono)', wordBreak: 'break-all', marginTop: 4,
+              }}>
+                {testResult}
+              </div>
+            )}
+          </div>
+        )
+      }
 
       case 'system': return (
         <div className="hal-so-panel-content">

@@ -213,8 +213,37 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
         ttsTimerRef.current = setTimeout(() => {
           // Clear the target flag
           ;(window as any).__voiceResponseTarget = null
-          const text = stripAnsi(outputBufferRef.current).trim()
+          const rawText = stripAnsi(outputBufferRef.current).trim()
           outputBufferRef.current = ''
+
+          // Clean terminal noise before TTS:
+          // - Remove status lines (Opus 4.6, context %, cost, tokens, etc.)
+          // - Remove permission prompts, tool use markers
+          // - Remove timestamps, progress bars, repeated patterns
+          const cleanLines = rawText.split('\n').filter(line => {
+            const l = line.trim()
+            if (!l) return false
+            // Skip the echoed voice input line
+            if (/^\[voice/.test(l)) return false
+            // Skip Claude Code status/progress lines
+            if (/opus|sonnet|haiku|claude/i.test(l) && /context|token|cost|\$|\d+%/i.test(l)) return false
+            if (/^\s*[▸▹►▻⏵❯→>]\s*(bypass|permissions|plan|auto)/i.test(l)) return false
+            if (/^\s*\d{4}-\d{2}-\d{2}/.test(l)) return false // timestamps
+            if (/^[─━═╌┄•·\s]{5,}$/.test(l)) return false // separator lines
+            if (/shift\+tab|ctrl\+/i.test(l)) return false // keybinding hints
+            if (/^\s*[●○◉⬤]\s/.test(l) && l.length < 10) return false // bullet status dots
+            if (/\|\s*\d+[KMG]?B?\s*\|/.test(l)) return false // progress/size indicators
+            // Skip prompt lines (> _)
+            if (/^>\s*$/.test(l)) return false
+            return true
+          })
+          // Strip leading bullet markers from Claude responses (●, •, etc.)
+          const text = cleanLines.map(l => l.replace(/^\s*[●○◉⬤•]\s*/, '')).join(' ').replace(/\s+/g, ' ').trim()
+
+          // Debug log for voice output diagnostics
+          console.log('[TTS-DEBUG] Raw buffer length:', rawText.length, '| Clean text length:', text.length)
+          console.log('[TTS-DEBUG] Text to speak:', text.slice(0, 200) + (text.length > 200 ? '...' : ''))
+
           if (text.length > 20) {
             const toSpeak = text.length > 800 ? text.slice(-800) : text
             // Check for a one-shot override (e.g. from zog-zog detection)
@@ -224,12 +253,15 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
             }
             // Resolve the effective profile: override > explicit profile > auto-select
             const effectiveProfile = override || (voiceProfile === 'auto' ? selectVoiceProfile(toSpeak) : voiceProfile)
+            console.log('[TTS-DEBUG] Profile:', effectiveProfile, '| Speaking', toSpeak.length, 'chars')
             window.api.voiceSpeak(toSpeak, effectiveProfile, 'en').then((result) => {
               if (result.success && result.audioDataUrl) {
                 // Play with Web Audio API for analyser data (base64 data URL works with contextIsolation)
                 playWithAnalyser(result.audioDataUrl)
               }
             }).catch(() => {})
+          } else {
+            console.log('[TTS-DEBUG] Skipped — text too short after cleaning:', text)
           }
         }, 3000) // wait 3s after output stops
       }

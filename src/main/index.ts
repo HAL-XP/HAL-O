@@ -7,6 +7,7 @@ import { getIconFilename, openTerminalAt, escapeCmdArg, isWin } from './platform
 import { terminalManager } from './terminal-manager'
 import { HAL_O_VERSION } from './version'
 import { initDebugLog, debugLog, isDebugEnabled } from './debug-log'
+import { startTelegramHandler, stopTelegramHandler } from './telegram-handler'
 
 // ── B25: V8 GC pressure mitigation ──
 // Give V8 more old-gen heap headroom so major GC runs less frequently.
@@ -332,6 +333,8 @@ app.whenReady().then(() => {
   createMenu()
   createWindow()
   startHeartbeat()
+  // Start own Telegram handler for dispatch-aware routing
+  startTelegramHandler()
 })
 
 app.on('before-quit', () => {
@@ -350,6 +353,7 @@ app.on('before-quit', () => {
       console.log(`[HAL-O] Saved ${data.length} sessions for auto-restore`)
     }
 
+    stopTelegramHandler()
     terminalManager.closeAll()
     unregisterPid('hal-o')
     cleanShutdown('user-quit')

@@ -260,6 +260,16 @@ export interface ModelEntry {
   isDefault: boolean
 }
 
+export type ModelRole = 'dispatcher' | 'coder' | 'assistant' | 'qa' | 'voiceRewrite'
+
+export interface ModelRoutingConfig {
+  dispatcher: string
+  coder: string
+  assistant: string
+  qa: string
+  voiceRewrite: string
+}
+
 export interface ModelProviderSerialized {
   id: string
   name: string
@@ -349,6 +359,17 @@ export interface ElectronAPI {
   setTerminalModel: (sessionId: string, modelId: string | null) => Promise<{ success: boolean }>
   getTerminalModel: (sessionId: string) => Promise<string | null>
   refreshModelProviders: () => Promise<ModelProviderSerialized[]>
+  listOllamaModels: () => Promise<ModelEntry[]>
+  pullOllamaModel: (modelName: string) => Promise<{ success: boolean; error?: string }>
+  getModelRouting: () => Promise<{ preset: string; config: ModelRoutingConfig }>
+  setModelRouting: (preset: string, config: ModelRoutingConfig) => Promise<{ success: boolean }>
+  getModelPresets: () => Promise<Array<{ id: string; label: string; description: string; config: ModelRoutingConfig }>>
+  testOllamaChat: (model: string, prompt: string) => Promise<{ response: string; error?: string }>
+
+  // Dispatcher
+  dispatchMessage: (message: string) => Promise<{ sessionId: string | null; projectName: string | null; layer: number; confidence: number; cleanMessage: string }>
+  setStickySession: (sessionId: string | null) => Promise<{ success: boolean }>
+  getStickySession: () => Promise<string | null>
 
   // Terminal (pty)
   ptySpawn: (options: {

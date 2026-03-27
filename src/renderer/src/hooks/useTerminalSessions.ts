@@ -49,7 +49,10 @@ export function useTerminalSessions(demoEnabled = false): TerminalSessionsState 
       return
     }
 
-    const args = ['--dangerously-skip-permissions', '-n', projectName, '--channels', 'plugin:telegram@claude-plugins-official']
+    // Only HAL-O terminal gets Telegram channel — dispatcher routes TG messages
+    const isHalProject = projectPath.toLowerCase().includes('hal-o') || projectName.toLowerCase().includes('hal-o')
+    const args = ['--dangerously-skip-permissions', '-n', projectName,
+      ...(isHalProject ? ['--channels', 'plugin:telegram@claude-plugins-official'] : [])]
     if (resume) args.push('--continue')
 
     window.api.ptySpawn({

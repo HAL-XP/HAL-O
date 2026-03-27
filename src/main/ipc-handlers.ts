@@ -15,6 +15,7 @@ import { registerVoiceHandlers } from './ipc-voice'
 import { registerUpgradeHandlers } from './ipc-upgrade'
 import { registerModelHandlers } from './ipc-models'
 import { registerMergeHandlers } from './ipc-merge'
+import { registerDispatcherHandlers } from './ipc-dispatcher'
 
 export function registerIpcHandlers(): void {
   registerSetupHandlers()
@@ -25,4 +26,5 @@ export function registerIpcHandlers(): void {
   registerUpgradeHandlers()
   registerModelHandlers()
   registerMergeHandlers()
+  registerDispatcherHandlers()
 }
