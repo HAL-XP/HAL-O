@@ -6,6 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { terminalManager } from './terminal-manager'
 import { dispatchMessage, getActiveTerminals, setStickySession, getVoiceForProject, getAliasForProject } from './dispatcher'
 import { getOrCreateAgent, sendMessage as agentSendMessage, listAgents, getHistory, clearHistory } from './agent-api'
+import { injectAndCapture, findHalSession, processPtyOutput } from './response-capture'
 import { spawn } from 'child_process'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -254,6 +255,74 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return
     }
 
+    // ── POST /chat/session — route through HAL terminal (same session everywhere) ──
+    // Falls back to API if terminal not running
+    if (url === '/chat/session' && method === 'POST') {
+      const body = JSON.parse(await readBody(req))
+      const { message, agent = 'hal' } = body
+      if (!message) return json(res, 400, { error: 'message required' })
+
+      const halSession = findHalSession()
+
+      if (!halSession) {
+        console.log('[HTTP-API] No HAL terminal running — returning fallback')
+        wsBroadcast('session_fallback', { agent, reason: 'HAL terminal not running. Using standalone AI (no shared memory).' })
+        return json(res, 200, { sessionMode: false, fallback: true, reason: 'No HAL terminal' })
+      }
+
+      if (halSession) {
+        const msgId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+
+        // Load aliases for voice/lang lookup
+        let sessAliases: Array<{name: string; voice?: string}> = []
+        try {
+          const raw = JSON.parse(readFileSync(join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json'), 'utf-8'))
+          for (const [alias, entry] of Object.entries(raw)) {
+            const e = typeof entry === 'string' ? { project: entry } : entry as any
+            sessAliases.push({ name: alias, voice: e.voice })
+          }
+        } catch {}
+        const aliasEntry = sessAliases.find(a => a.name === agent)
+        const voice = aliasEntry?.voice || 'butler'
+        const lang = agent === 'karen' ? 'fr' : 'en'
+
+        // Inject into terminal and capture response
+        const success = injectAndCapture(
+          halSession,
+          msgId,
+          agent,
+          message,
+          // onChunk — stream to PWA
+          (text) => {
+            wsBroadcast('session_chunk', { agent, chunk: text, done: false, msgId })
+          },
+          // onDone — response complete
+          (fullText) => {
+            wsBroadcast('session_chunk', { agent, chunk: '', done: true, fullText, msgId })
+            // Generate TTS
+            if (fullText.length > 5) {
+              generateTTS(fullText, voice, lang).then((files) => {
+                const audioIds = files.map((f, i) => {
+                  const id = `tts_${Date.now()}_${i}`
+                  _audioCache.set(id, f)
+                  return id
+                })
+                wsBroadcast('tts_ready', { agent, audioIds, msgId })
+              }).catch(() => {})
+            }
+          }
+        )
+
+        if (success) {
+          return json(res, 200, { status: 'injected', msgId, agent, sessionMode: true })
+        } else {
+          return json(res, 500, { error: 'Failed to inject message' })
+        }
+      }
+
+      // If we get here, no terminal — fall through to API handler below
+    }
+
     // ── POST /chat — send message to agent via Anthropic API (streaming) ──
     // Body: { message: string, agent?: string }
     if (url === '/chat' && method === 'POST') {
@@ -318,39 +387,73 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       }
 
       // Initialize agent + apply model override
-      const agentState = getOrCreateAgent(targetAlias, targetProject, targetPath, targetVoice)
-      if (model) agentState.config.model = model
+      const initAgent = getOrCreateAgent(targetAlias, targetProject, targetPath, targetVoice)
+      if (model) initAgent.config.model = model
 
       // Stream response
       let fullText = ''
       let sentenceBuffer = ''
+      let ttsBuffer = ''
+      let sentenceIndex = 0
+      const msgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+      const agentState = getOrCreateAgent(targetAlias, targetProject, targetPath, targetVoice)
+      const voice = agentState.config.voice || 'auto'
+      const lang = agentState.config.lang || 'en'
+
+      // Sentence-level TTS: serialize generation (GPU can only do one at a time)
+      const ttsQueue: Array<{ sentence: string; idx: number }> = []
+      let ttsProcessing = false
+
+      async function processTtsQueue() {
+        if (ttsProcessing || ttsQueue.length === 0) return
+        ttsProcessing = true
+        while (ttsQueue.length > 0) {
+          const { sentence, idx } = ttsQueue.shift()!
+          try {
+            console.log(`[HTTP-API] TTS sentence ${idx} for ${targetAlias} [${msgId}]: ${sentence.slice(0, 40)}...`)
+            const files = await generateTTS(sentence, voice, lang)
+            console.log(`[HTTP-API] TTS done sentence ${idx}: ${files.length} files`)
+            const audioIds = files.map((f, i) => {
+              const id = `tts_${Date.now()}_s${idx}_${i}`
+              _audioCache.set(id, f)
+              return id
+            })
+            wsBroadcast('tts_ready', { agent: targetAlias, audioIds, msgId, sentenceIndex: idx })
+          } catch (err) { console.error('[HTTP-API] TTS sentence error:', err) }
+        }
+        ttsProcessing = false
+      }
+
+      function tryFlushSentence() {
+        const match = ttsBuffer.match(/^(.*?[.!?])\s+(.*)$/s)
+        if (match) {
+          const sentence = stripMarkdown(match[1].trim())
+          ttsBuffer = match[2]
+          if (sentence.length > 3) {
+            ttsQueue.push({ sentence, idx: sentenceIndex++ })
+            processTtsQueue() // start processing (serialized)
+          }
+        }
+      }
 
       try {
         fullText = await agentSendMessage(targetAlias, message, (chunk, done) => {
           if (chunk) {
             sentenceBuffer += chunk
-            // Broadcast streaming chunks to WebSocket clients
-            wsBroadcast('chat_chunk', { agent: targetAlias, chunk, done: false })
+            ttsBuffer += chunk
+            wsBroadcast('chat_chunk', { agent: targetAlias, chunk, done: false, msgId })
+            // Check for sentence boundary
+            tryFlushSentence()
           }
           if (done) {
-            const accumulated = sentenceBuffer // use accumulated chunks, not fullText (not yet set)
+            const accumulated = sentenceBuffer
             const clean = stripMarkdown(accumulated)
-            wsBroadcast('chat_chunk', { agent: targetAlias, chunk: '', done: true, fullText: clean })
-            // Generate TTS in background and stream audio URLs
-            if (clean.length > 5) {
-              const agentState = getOrCreateAgent(targetAlias, targetProject, targetPath, targetVoice)
-              const voice = agentState.config.voice || 'auto'
-              const lang = agentState.config.lang || 'en'
-              console.log(`[HTTP-API] Generating TTS for ${targetAlias}: ${clean.slice(0, 50)}... (voice=${voice}, lang=${lang})`)
-              generateTTS(clean, voice, lang).then((files) => {
-                console.log(`[HTTP-API] TTS done: ${files.length} files`)
-                const audioIds = files.map((f, i) => {
-                  const id = `tts_${Date.now()}_${i}`
-                  _audioCache.set(id, f)
-                  return id
-                })
-                wsBroadcast('tts_ready', { agent: targetAlias, audioIds })
-              }).catch((err) => { console.error('[HTTP-API] TTS error:', err) })
+            wsBroadcast('chat_chunk', { agent: targetAlias, chunk: '', done: true, fullText: clean, msgId })
+            // Flush remaining text as final TTS chunk (via queue)
+            const remaining = stripMarkdown(ttsBuffer.trim())
+            if (remaining.length > 3) {
+              ttsQueue.push({ sentence: remaining, idx: sentenceIndex++ })
+              processTtsQueue()
             }
           }
         }, images)
@@ -1032,8 +1135,13 @@ setInterval(loadAgents, 10000);
 export function startHttpApi(): void {
   const server = createServer(handleRequest)
 
+  // Register response capture subscriber (for Halo Chat session bridge)
+  terminalManager.onExternalData((id, projectName, data) => {
+    processPtyOutput(id, projectName, data)
+  })
+
   // Stream terminal output to WebSocket clients
-  // Buffer + debounce: collect output for 500ms, then send as one message
+  // Buffer + debounce: collect output for 2000ms, then send as one message
   const outputBuffers = new Map<string, { text: string; timer: ReturnType<typeof setTimeout> | null; projectName: string }>()
   terminalManager.onExternalData((id, projectName, data) => {
     if (WS_CLIENTS.size === 0) return

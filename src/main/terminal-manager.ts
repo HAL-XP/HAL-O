@@ -65,11 +65,12 @@ export class TerminalManager {
   private sessions = new Map<string, PtySession>()
   private window: BrowserWindow | null = null
   private activityTimer: ReturnType<typeof setInterval> | null = null
-  private _onDataCallback: ((id: string, projectName: string, data: string) => void) | null = null
+  private _outputSubscribers: Array<(id: string, projectName: string, data: string) => void> = []
 
-  /** Register external callback for terminal output (used by HTTP API for WebSocket streaming) */
-  onExternalData(cb: (id: string, projectName: string, data: string) => void) {
-    this._onDataCallback = cb
+  /** Register external callback for terminal output (returns unsubscribe fn) */
+  onExternalData(cb: (id: string, projectName: string, data: string) => void): () => void {
+    this._outputSubscribers.push(cb)
+    return () => { this._outputSubscribers = this._outputSubscribers.filter(s => s !== cb) }
   }
 
   setWindow(win: BrowserWindow) {
@@ -207,8 +208,10 @@ export class TerminalManager {
         }
       } catch { /* window destroyed during shutdown */ }
 
-      // Notify external listeners (HTTP API WebSocket)
-      try { this._onDataCallback?.(id, session.projectName, data) } catch { /* ignore */ }
+      // Notify external listeners (HTTP API WebSocket, response capture, etc.)
+      for (const sub of this._outputSubscribers) {
+        try { sub(id, session.projectName, data) } catch { /* ignore */ }
+      }
     })
 
     p.onExit(({ exitCode }) => {

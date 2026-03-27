@@ -1308,13 +1308,28 @@ function connectWs() {
   ws.onclose = () => { headerStatus.textContent = 'offline'; headerStatus.style.color = 'var(--red)'; setTimeout(connectWs, 3000); };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    if (msg.type === 'chat_chunk') {
+    // Session fallback notification
+    if (msg.type === 'session_fallback') {
+      const notice = document.getElementById('sessionNotice');
+      if (notice) { notice.textContent = '⚠ ' + msg.reason; notice.style.display = 'block'; }
+      else {
+        const el = document.createElement('div');
+        el.id = 'sessionNotice';
+        el.style.cssText = 'padding:6px 12px;background:rgba(255,160,0,0.15);border:1px solid rgba(255,160,0,0.3);color:#ffa000;font-size:12px;text-align:center;flex-shrink:0';
+        el.textContent = '⚠ ' + msg.reason;
+        document.querySelector('.chat-area')?.insertBefore(el, document.querySelector('.scene-strip'));
+      }
+    }
+    // Handle both session_chunk (terminal bridge) and chat_chunk (API) the same way
+    if (msg.type === 'chat_chunk' || msg.type === 'session_chunk') {
       if (!msg.done && msg.chunk) {
         typingIndicator.classList.add('visible');
-        if (!window._streamEl || window._streamAgent !== msg.agent) {
+        if (!window._streamEl || window._streamMsgId !== msg.msgId) {
           typingIndicator.classList.remove('visible');
           window._streamEl = addMessage('agent', '', msg.agent);
+          window._streamEl.setAttribute('data-msg-id', msg.msgId); // tag with unique ID
           window._streamAgent = msg.agent;
+          window._streamMsgId = msg.msgId;
           window._streamText = '';
         }
         window._streamText += msg.chunk;
@@ -1332,9 +1347,14 @@ function connectWs() {
         saveHistory();
       }
     } else if (msg.type === 'tts_ready') {
-      // Add replay button to the last agent message
-      const agentMsgs = messagesEl.querySelectorAll('.msg-wrap[data-agent="' + msg.agent + '"][data-role="agent"]');
-      const lastMsg = agentMsgs[agentMsgs.length - 1];
+      // Find the EXACT message by msgId (not just last agent message)
+      let targetMsg = msg.msgId ? messagesEl.querySelector('.msg-wrap[data-msg-id="' + msg.msgId + '"]') : null;
+      if (!targetMsg) {
+        // Fallback: last agent message for this agent
+        const agentMsgs = messagesEl.querySelectorAll('.msg-wrap[data-agent="' + msg.agent + '"][data-role="agent"]');
+        targetMsg = agentMsgs[agentMsgs.length - 1];
+      }
+      const lastMsg = targetMsg;
       if (lastMsg) {
         const audioIds = msg.audioIds;
         const playBtn = document.createElement('button');
@@ -1358,9 +1378,9 @@ function connectWs() {
         lastMsg.querySelector('.msg')?.appendChild(playBtn);
         saveHistory();
       }
-      // Auto-play only if visible
+      // Auto-play: queue sentences in order
       if (autoPlayVoice && document.visibilityState === 'visible') {
-        playAudioSequence(msg.audioIds);
+        queueAudio(msg.msgId, msg.sentenceIndex || 0, msg.audioIds);
       }
     }
   };
@@ -1533,12 +1553,23 @@ async function sendMessage(text) {
   typingIndicator.classList.add('visible');
 
   try {
-    const res = await fetch(API + '/chat', {
+    // Try session endpoint first (same brain), fall back to API
+    let res = await fetch(API + '/chat/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: messageText, agent: activeAgent, model: document.getElementById('setModel')?.value }),
+      body: JSON.stringify({ message: messageText, agent: activeAgent }),
     });
-    const data = await res.json();
+    let data = await res.json();
+
+    // If session endpoint has no terminal, fall back to standalone API
+    if (!data.sessionMode && !data.error) {
+      res = await fetch(API + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: messageText, agent: activeAgent, model: document.getElementById('setModel')?.value }),
+      });
+      data = await res.json();
+    }
     if (data.error) {
       typingIndicator.classList.remove('visible');
       addMessage('agent', 'Error: ' + data.error, activeAgent);
@@ -1551,6 +1582,29 @@ async function sendMessage(text) {
 }
 
 // ── Audio ──
+// ── Audio queue (plays sentences in order) ──
+const audioQueues = {}; // msgId → { next: 0, pending: {idx: audioIds}, playing: false }
+
+function queueAudio(msgId, sentenceIndex, audioIds) {
+  if (!audioQueues[msgId]) audioQueues[msgId] = { next: 0, pending: {}, playing: false };
+  const q = audioQueues[msgId];
+  q.pending[sentenceIndex] = audioIds;
+  processQueue(msgId);
+}
+
+async function processQueue(msgId) {
+  const q = audioQueues[msgId];
+  if (!q || q.playing) return;
+  while (q.pending[q.next]) {
+    q.playing = true;
+    const ids = q.pending[q.next];
+    delete q.pending[q.next];
+    q.next++;
+    await playAudioSequence(ids);
+    q.playing = false;
+  }
+}
+
 async function playAudioSequence(audioIds, speed) {
   for (const id of audioIds) {
     await new Promise(resolve => {
