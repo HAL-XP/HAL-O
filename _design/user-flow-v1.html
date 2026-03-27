@@ -199,29 +199,7 @@
             min-width: 150px;
         }
 
-        .node.decision {
-            width: 100px;
-            height: 100px;
-            padding: 0;
-            border-radius: 0;
-            transform: rotate(45deg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .node.decision::after {
-            content: attr(data-title);
-            transform: rotate(-45deg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+        /* decision diamond removed — using styled rect instead */
 
         /* Node type colors */
         .node.start {
@@ -243,9 +221,10 @@
         }
 
         .node.decision {
-            background: linear-gradient(135deg, #fbbf24, #d97706);
+            background: rgba(245, 158, 11, 0.15);
             border-color: #f59e0b;
-            color: #000;
+            border-left: 4px solid #f59e0b;
+            color: #fbbf24;
         }
 
         .node.action {
@@ -670,19 +649,19 @@
         const nodes = [
             // App Launch Flow
             { id: 'start', type: 'start', title: 'User Opens HAL-O', x: 150, y: 80, width: 120, height: 60 },
-            { id: 'decision_external', type: 'decision', title: 'External Claude Session?', x: 150, y: 200, width: 100, height: 80 },
-            { id: 'absorb_session', type: 'system', title: 'Absorb External Session', x: 30, y: 320, width: 90, height: 60 },
-            { id: 'hub_online', type: 'state', title: 'Hub (ONLINE)', x: 30, y: 420, width: 90, height: 60 },
-            { id: 'decision_firsttime', type: 'decision', title: 'First Time?', x: 270, y: 320, width: 80, height: 80 },
-            { id: 'wizard_state', type: 'state', title: 'Onboarding Wizard', x: 360, y: 420, width: 100, height: 60 },
-            { id: 'choice_path', type: 'decision', title: 'Choose Path', x: 360, y: 540, width: 80, height: 80 },
+            { id: 'decision_external', type: 'decision', title: 'External Claude Session?', x: 120, y: 220, width: 180, height: 50 },
+            { id: 'absorb_session', type: 'system', title: 'Absorb External Session', x: 30, y: 340, width: 160, height: 50 },
+            { id: 'hub_online', type: 'state', title: 'Hub (ONLINE)', x: 30, y: 480, width: 160, height: 50 },
+            { id: 'decision_firsttime', type: 'decision', title: 'First Time?', x: 270, y: 360, width: 150, height: 50 },
+            { id: 'wizard_state', type: 'state', title: 'Onboarding Wizard', x: 460, y: 440, width: 160, height: 50 },
+            { id: 'choice_path', type: 'decision', title: 'Choose Path', x: 320, y: 600, width: 150, height: 50 },
             { id: 'manage_projects', type: 'action', title: '"Manage Projects"', x: 240, y: 660, width: 90, height: 60 },
             { id: 'personal_asst', type: 'action', title: '"Personal Assistant"', x: 420, y: 660, width: 90, height: 60 },
             { id: 'import_first', type: 'state', title: 'Import First Project', x: 240, y: 760, width: 100, height: 60 },
             { id: 'create_asst', type: 'state', title: 'Create Assistant', x: 420, y: 760, width: 100, height: 60 },
             { id: 'start_session', type: 'system', title: 'Start Headless Session', x: 360, y: 860, width: 110, height: 60 },
             { id: 'hub_firsttime', type: 'state', title: 'Hub Connected', x: 360, y: 960, width: 90, height: 60 },
-            { id: 'auto_resume', type: 'system', title: 'Resume Auto (no wizard)', x: 270, y: 420, width: 110, height: 60 },
+            { id: 'auto_resume', type: 'system', title: 'Resume Auto (no wizard)', x: 250, y: 440, width: 180, height: 50 },
 
             // Daily Use - Hub
             { id: 'hub_main', type: 'state', title: 'Hub (Project Cards)', x: 600, y: 80, width: 110, height: 60 },
@@ -699,7 +678,7 @@
 
             // Halo Chat Flow
             { id: 'halo_start', type: 'state', title: 'Halo Chat Opens', x: 1200, y: 80, width: 110, height: 60 },
-            { id: 'app_running', type: 'decision', title: 'HAL-O Running?', x: 1200, y: 200, width: 90, height: 80 },
+            { id: 'app_running', type: 'decision', title: 'HAL-O Running?', x: 1250, y: 220, width: 160, height: 50 },
             { id: 'websocket', type: 'system', title: 'WebSocket Connect', x: 1080, y: 320, width: 100, height: 60 },
             { id: 'chat_shared', type: 'state', title: 'Chat (Shared Brain)', x: 1080, y: 420, width: 110, height: 60 },
             { id: 'api_fallback', type: 'system', title: 'API Fallback', x: 1320, y: 320, width: 90, height: 60 },
@@ -974,11 +953,14 @@
         });
 
         container.addEventListener('mousedown', (e) => {
-            if (e.target === container || e.target === svg) {
+            // Allow drag from container, svg, OR any non-node element
+            const clickedNode = e.target.closest('.node');
+            if (!clickedNode) {
                 isDragging = true;
                 dragStartX = e.clientX - panX;
                 dragStartY = e.clientY - panY;
                 container.classList.add('panning');
+                e.preventDefault();
             }
         });
 
