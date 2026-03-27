@@ -701,6 +701,27 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return json(res, 200, { status: 'ok' })
     }
 
+    // ── GET /screenshot — trigger app screenshot ──
+    if (url === '/screenshot' && method === 'GET') {
+      try {
+        const { ipcMain } = await import('electron')
+        // Trigger via IPC (mainWindow captures page)
+        const screenshotPath = join(process.cwd(), '_screenshot_app.png')
+        // Use the BrowserWindow directly
+        const { BrowserWindow } = await import('electron')
+        const win = BrowserWindow.getAllWindows()[0]
+        if (win) {
+          const image = await win.webContents.capturePage()
+          writeFileSync(screenshotPath, image.toPNG())
+          const data = readFileSync(screenshotPath)
+          res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': data.length })
+          res.end(data)
+          return
+        }
+        return json(res, 500, { error: 'No window found' })
+      } catch (err) { return json(res, 500, { error: String(err) }) }
+    }
+
     // ── GET /health ──
     if (url === '/health' && method === 'GET') {
       return json(res, 200, {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HAL-O — Manage Projects: Node/Card Layout Mockup</title>
+    <title>HAL-O — Manage Projects: Org-Chart Tree Layout</title>
     <style>
         * {
             margin: 0;
@@ -49,6 +49,7 @@
             backdrop-filter: blur(10px);
             z-index: 100;
             gap: 16px;
+            flex-shrink: 0;
         }
 
         .topbar-left {
@@ -64,6 +65,7 @@
             letter-spacing: 0.5px;
             color: var(--cyan);
             text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            white-space: nowrap;
         }
 
         .search-box {
@@ -146,6 +148,7 @@
             transition: all 0.3s ease;
             text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         .btn:hover {
@@ -164,6 +167,20 @@
             box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
         }
 
+        .btn-reset {
+            padding: 6px 10px;
+            font-size: 11px;
+            background: rgba(107, 114, 128, 0.1);
+            border-color: rgba(107, 114, 128, 0.3);
+            color: var(--gray);
+        }
+
+        .btn-reset:hover {
+            background: rgba(107, 114, 128, 0.2);
+            border-color: var(--gray);
+            box-shadow: none;
+        }
+
         /* Main Content */
         .content {
             display: flex;
@@ -176,25 +193,34 @@
             position: relative;
             background: linear-gradient(135deg, #050810 0%, #0a0f1a 100%);
             overflow: hidden;
+            cursor: grab;
+        }
+
+        .canvas-area.grabbing {
+            cursor: grabbing;
         }
 
         .grid-bg {
             position: absolute;
-            width: 100%;
-            height: 100%;
+            width: 300%;
+            height: 300%;
+            top: -100%;
+            left: -100%;
             background-image:
-                linear-gradient(0deg, transparent 24%, rgba(0, 229, 255, 0.05) 25%, rgba(0, 229, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.05) 75%, rgba(0, 229, 255, 0.05) 76%, transparent 77%, transparent),
-                linear-gradient(90deg, transparent 24%, rgba(0, 229, 255, 0.05) 25%, rgba(0, 229, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.05) 75%, rgba(0, 229, 255, 0.05) 76%, transparent 77%, transparent);
+                linear-gradient(0deg, transparent 24%, rgba(0, 229, 255, 0.04) 25%, rgba(0, 229, 255, 0.04) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.04) 75%, rgba(0, 229, 255, 0.04) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(0, 229, 255, 0.04) 25%, rgba(0, 229, 255, 0.04) 26%, transparent 27%, transparent 74%, rgba(0, 229, 255, 0.04) 75%, rgba(0, 229, 255, 0.04) 76%, transparent 77%, transparent);
             background-size: 60px 60px;
             pointer-events: none;
             z-index: 1;
         }
 
-        .canvas-wrapper {
+        .pan-zoom-layer {
             position: absolute;
             width: 100%;
             height: 100%;
-            overflow: auto;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
             z-index: 2;
         }
 
@@ -205,15 +231,15 @@
             top: 0;
             left: 0;
             pointer-events: none;
-            z-index: 2;
+            overflow: visible;
         }
 
         .cards-container {
-            position: relative;
-            width: 200%;
-            height: 200%;
-            min-width: 100%;
-            min-height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
         }
 
         /* Cards */
@@ -226,7 +252,7 @@
             border-radius: 8px;
             backdrop-filter: blur(10px);
             cursor: move;
-            transition: all 0.3s ease;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease, opacity 0.3s ease;
             user-select: none;
             touch-action: none;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -234,7 +260,6 @@
         }
 
         .card:hover {
-            transform: translateY(-4px);
             box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
         }
 
@@ -244,25 +269,20 @@
             background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(15, 23, 42, 0.7));
         }
 
-        .card.dispatcher {
-            --color: var(--cyan);
-        }
-
-        .card.project {
-            --color: var(--green);
-        }
-
-        .card.agent {
-            --color: var(--pink);
-        }
-
-        .card.group {
-            --color: var(--gray);
-        }
+        .card.dispatcher { --color: var(--cyan); }
+        .card.project { --color: var(--green); }
+        .card.agent { --color: var(--pink); }
+        .card.group { --color: var(--gray); }
 
         .card:hover {
             border-color: var(--color);
             box-shadow: 0 0 25px rgba(0, 229, 255, 0.3), 0 12px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        .card.dragging {
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(0, 229, 255, 0.4), 0 20px 60px rgba(0, 0, 0, 0.8);
+            opacity: 0.9;
         }
 
         .card-icon {
@@ -283,7 +303,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .badge {
@@ -348,9 +368,14 @@
             50% { opacity: 0.6; }
         }
 
+        @keyframes dashFlow {
+            to { stroke-dashoffset: -20; }
+        }
+
         /* Detail Panel */
         .detail-panel {
-            width: 30%;
+            width: 320px;
+            min-width: 320px;
             background: linear-gradient(180deg, rgba(10, 15, 26, 0.9), rgba(5, 8, 16, 0.8));
             border-left: 1px solid rgba(0, 229, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -373,6 +398,30 @@
             top: 0;
             background: linear-gradient(180deg, rgba(10, 15, 26, 0.95), rgba(5, 8, 16, 0.85));
             backdrop-filter: blur(10px);
+        }
+
+        .detail-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 28px;
+            height: 28px;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(0, 229, 255, 0.05);
+            color: rgba(224, 231, 255, 0.6);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .detail-close:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 229, 255, 0.15);
         }
 
         .detail-icon {
@@ -505,6 +554,7 @@
             align-items: center;
             color: rgba(224, 231, 255, 0.8);
             transition: all 0.2s ease;
+            cursor: pointer;
         }
 
         .child-item:hover {
@@ -584,14 +634,8 @@
         }
 
         @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .modal-title {
@@ -672,48 +716,21 @@
             border-color: var(--gray);
         }
 
-        /* Feedback Section */
-        .feedback-section {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(180deg, rgba(5, 8, 16, 0.8), rgba(10, 15, 26, 0.9));
-            border-top: 1px solid rgba(0, 229, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 16px 24px;
-            z-index: 60;
-            max-height: 150px;
-        }
-
-        .feedback-label {
+        /* Zoom indicator */
+        .zoom-indicator {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            padding: 6px 12px;
+            background: rgba(10, 15, 26, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            border-radius: 4px;
             font-size: 11px;
-            color: var(--cyan);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            opacity: 0.8;
-        }
-
-        .feedback-textarea {
-            width: 100%;
-            height: 100px;
-            padding: 10px;
-            background: rgba(0, 229, 255, 0.05);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            border-radius: 6px;
-            color: #e0e7ff;
-            font-family: inherit;
-            font-size: 12px;
-            resize: none;
-            transition: all 0.2s ease;
-        }
-
-        .feedback-textarea:focus {
-            outline: none;
-            border-color: var(--cyan);
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
-            background: rgba(0, 229, 255, 0.1);
+            color: rgba(224, 231, 255, 0.5);
+            z-index: 30;
+            pointer-events: none;
+            backdrop-filter: blur(6px);
+            letter-spacing: 0.5px;
         }
 
         /* Scrollbars */
@@ -738,7 +755,7 @@
         /* Toast */
         .toast {
             position: fixed;
-            bottom: 170px;
+            bottom: 24px;
             right: 24px;
             padding: 12px 16px;
             background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(34, 197, 94, 0.1));
@@ -746,19 +763,44 @@
             border-radius: 6px;
             color: var(--cyan);
             font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
             animation: slideInRight 0.3s ease;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 300;
         }
 
         @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Minimap */
+        .minimap {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            width: 180px;
+            height: 120px;
+            background: rgba(5, 8, 16, 0.85);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            border-radius: 6px;
+            z-index: 30;
+            overflow: hidden;
+            backdrop-filter: blur(6px);
+        }
+
+        .minimap-viewport {
+            position: absolute;
+            border: 1px solid rgba(0, 229, 255, 0.5);
+            background: rgba(0, 229, 255, 0.05);
+            pointer-events: none;
+        }
+
+        .minimap-dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
         }
     </style>
 </head>
@@ -767,36 +809,40 @@
         <!-- Top Bar -->
         <div class="topbar">
             <div class="topbar-left">
-                <div class="topbar-title">🛰️ HAL-O — MANAGE PROJECTS</div>
+                <div class="topbar-title">HAL-O  /  MANAGE PROJECTS</div>
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="Filter by name...">
                 </div>
             </div>
             <div class="view-toggle">
-                <button class="active" data-view="cards">Cards</button>
-                <button data-view="tree">Tree</button>
+                <button data-view="cards">Cards</button>
+                <button class="active" data-view="tree">Tree</button>
                 <button data-view="3d">3D</button>
             </div>
             <div class="topbar-right">
-                <button class="btn" id="importBtn">📥 Import Project</button>
+                <button class="btn btn-reset" id="resetViewBtn" title="Reset zoom and position">Reset View</button>
+                <button class="btn" id="importBtn">Import Project</button>
                 <button class="btn btn-primary" id="newDispatcherBtn">+ New Dispatcher</button>
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="content">
-            <div class="canvas-area">
-                <div class="grid-bg"></div>
-                <svg class="connections" id="connections"></svg>
-                <div class="canvas-wrapper">
+            <div class="canvas-area" id="canvasArea">
+                <div class="grid-bg" id="gridBg"></div>
+                <div class="pan-zoom-layer" id="panZoomLayer">
+                    <svg class="connections" id="connections" xmlns="http://www.w3.org/2000/svg"></svg>
                     <div class="cards-container" id="cardsContainer"></div>
                 </div>
+                <div class="zoom-indicator" id="zoomIndicator">100%</div>
+                <div class="minimap" id="minimap"></div>
             </div>
 
             <!-- Detail Panel -->
             <div class="detail-panel" id="detailPanel">
                 <div class="detail-header">
-                    <div class="detail-icon" id="detailIcon">🏢</div>
+                    <button class="detail-close" id="detailClose">&times;</button>
+                    <div class="detail-icon" id="detailIcon"></div>
                     <div class="detail-name" id="detailName">Select a node</div>
                     <div class="detail-type" id="detailType">dispatcher</div>
                 </div>
@@ -810,7 +856,7 @@
     <!-- Import Modal -->
     <div class="modal-overlay" id="importModal">
         <div class="modal">
-            <div class="modal-title">📥 Import Project</div>
+            <div class="modal-title">Import Project</div>
             <div class="modal-field">
                 <label class="modal-label">Folder Path</label>
                 <input type="text" class="modal-input" id="importPath" placeholder="/path/to/project">
@@ -834,71 +880,55 @@
         </div>
     </div>
 
-    <!-- Feedback Section -->
-    <div class="feedback-section">
-        <div class="feedback-label">💬 Feedback & Notes</div>
-        <textarea class="feedback-textarea" placeholder="Share your thoughts on this mockup..."></textarea>
-    </div>
-
     <script>
-        // Data structure
+        // ===== DATA =====
         const projectTree = {
             id: 'hal-o',
             name: 'HAL-O',
             type: 'dispatcher',
-            icon: '🏢',
+            icon: '\u{1F3E2}',
             status: 'online',
             voice: 'HAL',
-            language: '🇬🇧 EN',
+            language: '\u{1F1EC}\u{1F1E7} EN',
             color: 'cyan',
-            x: 100,
-            y: 100,
             children: [
                 {
                     id: 'karen',
                     name: 'Karen',
                     type: 'dispatcher',
-                    icon: '🎯',
+                    icon: '\u{1F3AF}',
                     status: 'online',
                     voice: 'Hallie',
-                    language: '🇫🇷 FR',
+                    language: '\u{1F1EB}\u{1F1F7} FR',
                     color: 'pink',
-                    x: 400,
-                    y: 80,
                     children: []
                 },
                 {
                     id: 'bob',
                     name: 'Bob',
                     type: 'dispatcher',
-                    icon: '🤖',
+                    icon: '\u{1F916}',
                     status: 'offline',
                     voice: 'HAL',
-                    language: '🇬🇧 EN',
+                    language: '\u{1F1EC}\u{1F1E7} EN',
                     color: 'green',
-                    x: 700,
-                    y: 80,
                     children: [
                         {
                             id: 'client-api',
                             name: 'client-api',
                             type: 'project',
-                            icon: '📦',
+                            icon: '\u{1F4E6}',
                             status: 'online',
                             stack: 'React + TypeScript',
-                            x: 600,
-                            y: 280,
                             children: []
                         },
                         {
                             id: 'server-api',
                             name: 'server-api',
                             type: 'project',
-                            icon: '📦',
+                            icon: '\u{1F4E6}',
                             status: 'online',
                             stack: 'Node.js + Express',
-                            x: 800,
-                            y: 280,
                             children: []
                         }
                     ]
@@ -907,42 +937,34 @@
                     id: 'work',
                     name: 'Work',
                     type: 'dispatcher',
-                    icon: '💼',
+                    icon: '\u{1F4BC}',
                     status: 'online',
                     color: 'orange',
-                    x: 1100,
-                    y: 80,
                     children: [
                         {
                             id: 'company-a',
                             name: 'Company A',
                             type: 'dispatcher',
-                            icon: '🏢',
+                            icon: '\u{1F3E2}',
                             status: 'online',
                             color: 'blue',
-                            x: 1000,
-                            y: 280,
                             children: [
                                 {
                                     id: 'frontend',
                                     name: 'frontend',
                                     type: 'project',
-                                    icon: '📦',
+                                    icon: '\u{1F4E6}',
                                     status: 'online',
                                     stack: 'Next.js',
-                                    x: 900,
-                                    y: 480,
                                     children: []
                                 },
                                 {
                                     id: 'backend',
                                     name: 'backend',
                                     type: 'project',
-                                    icon: '📦',
+                                    icon: '\u{1F4E6}',
                                     status: 'loading',
                                     stack: 'Python + FastAPI',
-                                    x: 1100,
-                                    y: 480,
                                     children: []
                                 }
                             ]
@@ -951,21 +973,17 @@
                             id: 'company-b',
                             name: 'Company B',
                             type: 'dispatcher',
-                            icon: '🏢',
+                            icon: '\u{1F3E2}',
                             status: 'offline',
                             color: 'purple',
-                            x: 1300,
-                            y: 280,
                             children: [
                                 {
                                     id: 'mobile-app',
                                     name: 'mobile-app',
                                     type: 'project',
-                                    icon: '📦',
+                                    icon: '\u{1F4E6}',
                                     status: 'online',
                                     stack: 'React Native',
-                                    x: 1300,
-                                    y: 480,
                                     children: []
                                 }
                             ]
@@ -976,32 +994,26 @@
                     id: 'my-games',
                     name: 'My Games',
                     type: 'group',
-                    icon: '📁',
+                    icon: '\u{1F4C1}',
                     status: 'offline',
                     color: 'gray',
-                    x: 100,
-                    y: 280,
                     children: [
                         {
                             id: 'ue-phone',
                             name: 'UEPhoneGame',
                             type: 'project',
-                            icon: '🎮',
+                            icon: '\u{1F3AE}',
                             status: 'online',
                             stack: 'Unreal Engine 5',
-                            x: 80,
-                            y: 480,
                             children: []
                         },
                         {
                             id: 'offline-game',
                             name: 'OfflineGame',
                             type: 'project',
-                            icon: '🎮',
+                            icon: '\u{1F3AE}',
                             status: 'offline',
                             stack: 'Unity',
-                            x: 200,
-                            y: 480,
                             children: []
                         }
                     ]
@@ -1009,30 +1021,88 @@
             ]
         };
 
+        // ===== CONSTANTS =====
+        const CARD_W = 200;
+        const CARD_H = 110;
+        const H_GAP = 30;
+        const V_GAP = 180;
+        const TOP_PADDING = 60;
+
+        // ===== STATE =====
         let selectedNode = null;
         let draggedNode = null;
-        let dragOffsetX = 0;
-        let dragOffsetY = 0;
+        let dragStartX = 0, dragStartY = 0;
+        let dragNodeStartX = 0, dragNodeStartY = 0;
         let allNodes = [];
 
-        // Flatten tree for easier access
-        function flattenTree(node, parent = null) {
-            node.parent = parent;
+        // Pan/zoom state
+        let panX = 0, panY = 0, zoom = 1;
+        let isPanning = false;
+        let panStartX = 0, panStartY = 0;
+        let panStartPanX = 0, panStartPanY = 0;
+
+        // ===== COLOR UTILITIES =====
+        function getColorValue(color) {
+            const colors = {
+                cyan: '#00e5ff', green: '#22c55e', pink: '#ec4899',
+                orange: '#f97316', blue: '#3b82f6', purple: '#a855f7', gray: '#6b7280'
+            };
+            return colors[color] || colors.cyan;
+        }
+
+        // ===== TREE LAYOUT ALGORITHM =====
+        // Assigns x, y to each node using a bottom-up width calculation
+        function layoutTree(root) {
+            // 1. Compute subtree width for every node (leaf = CARD_W, branch = sum of children + gaps)
+            function computeWidth(node) {
+                if (!node.children || node.children.length === 0) {
+                    node._subtreeWidth = CARD_W;
+                } else {
+                    node.children.forEach(computeWidth);
+                    const totalChildWidth = node.children.reduce((s, c) => s + c._subtreeWidth, 0)
+                        + H_GAP * (node.children.length - 1);
+                    node._subtreeWidth = Math.max(CARD_W, totalChildWidth);
+                }
+                return node._subtreeWidth;
+            }
+
+            // 2. Assign x, y positions top-down
+            function assignPositions(node, depth, leftEdge) {
+                node._depth = depth;
+                node.y = TOP_PADDING + depth * V_GAP;
+
+                if (!node.children || node.children.length === 0) {
+                    // Center this leaf within its allocated subtree width
+                    node.x = leftEdge + (node._subtreeWidth - CARD_W) / 2;
+                } else {
+                    // Place children left-to-right within this node's subtree width
+                    let childLeft = leftEdge;
+                    node.children.forEach(child => {
+                        assignPositions(child, depth + 1, childLeft);
+                        childLeft += child._subtreeWidth + H_GAP;
+                    });
+                    // Center this node over its children
+                    const firstChild = node.children[0];
+                    const lastChild = node.children[node.children.length - 1];
+                    const childrenCenter = (firstChild.x + lastChild.x + CARD_W) / 2;
+                    node.x = childrenCenter - CARD_W / 2;
+                }
+            }
+
+            computeWidth(root);
+            assignPositions(root, 0, 0);
+        }
+
+        // ===== FLATTEN TREE =====
+        function flattenTree(node, parent) {
+            node.parent = parent || null;
             allNodes.push(node);
             if (node.children) {
                 node.children.forEach(child => flattenTree(child, node));
             }
         }
 
-        // Initialize
-        function init() {
-            flattenTree(projectTree);
-            renderCards();
-            renderConnections();
-            setupEventListeners();
-        }
-
-        // Render cards
+        // ===== RENDERING =====
         function renderCards() {
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
@@ -1043,15 +1113,15 @@
                 card.id = `card-${node.id}`;
                 card.style.left = node.x + 'px';
                 card.style.top = node.y + 'px';
+                card.style.width = CARD_W + 'px';
+
+                // Color tint on border
+                const nodeColor = getColorValue(node.color || (node.type === 'project' ? 'green' : node.type === 'group' ? 'gray' : 'cyan'));
+                card.style.borderColor = nodeColor + '40';
 
                 let badgesHTML = `<div class="badge type-${node.type}"><span class="status-dot ${node.status}"></span>${node.type}</div>`;
-
-                if (node.voice) {
-                    badgesHTML += `<div class="badge voice">🎤 ${node.voice}</div>`;
-                }
-                if (node.stack) {
-                    badgesHTML += `<div class="badge type-project">${node.stack}</div>`;
-                }
+                if (node.voice) badgesHTML += `<div class="badge voice">\u{1F3A4} ${node.voice}</div>`;
+                if (node.stack) badgesHTML += `<div class="badge type-project">${node.stack}</div>`;
 
                 card.innerHTML = `
                     <div class="card-icon">${node.icon}</div>
@@ -1059,74 +1129,285 @@
                     <div class="card-badges">${badgesHTML}</div>
                 `;
 
+                card.addEventListener('mousedown', (e) => onCardMouseDown(e, node));
                 card.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    selectNode(node);
+                    // Only select if we didn't drag
+                    if (!node._wasDragged) {
+                        e.stopPropagation();
+                        selectNode(node);
+                    }
+                    node._wasDragged = false;
                 });
 
-                card.addEventListener('mousedown', startDrag);
                 container.appendChild(card);
             });
         }
 
-        // Render connections
         function renderConnections() {
             const svg = document.getElementById('connections');
             svg.innerHTML = '';
 
             allNodes.forEach(node => {
-                if (node.parent) {
-                    const parent = node.parent;
-                    const x1 = parent.x + 100;
-                    const y1 = parent.y + 60;
-                    const x2 = node.x + 100;
-                    const y2 = node.y;
+                if (!node.parent) return;
 
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    const controlY = (y1 + y2) / 2;
-                    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${controlY}, ${x2} ${controlY}, ${x2} ${y2}`);
-                    path.setAttribute('stroke', getColorValue(parent.color || 'cyan'));
-                    path.setAttribute('stroke-width', '2');
-                    path.setAttribute('fill', 'none');
-                    path.setAttribute('opacity', '0.4');
-                    path.setAttribute('stroke-dasharray', '5,5');
-                    path.setAttribute('stroke-linecap', 'round');
+                const parent = node.parent;
+                // Parent bottom-center
+                const x1 = parent.x + CARD_W / 2;
+                const y1 = parent.y + CARD_H;
+                // Child top-center
+                const x2 = node.x + CARD_W / 2;
+                const y2 = node.y;
+                // Midpoint Y for the elbow
+                const midY = y1 + (y2 - y1) / 2;
 
-                    svg.appendChild(path);
-                }
+                const color = getColorValue(parent.color || 'cyan');
+
+                // Orthogonal elbow path: down from parent, horizontal, down to child
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('opacity', '0.3');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+                svg.appendChild(path);
+
+                // Animated dash overlay
+                const dashPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                dashPath.setAttribute('d', `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+                dashPath.setAttribute('stroke', color);
+                dashPath.setAttribute('stroke-width', '1.5');
+                dashPath.setAttribute('fill', 'none');
+                dashPath.setAttribute('opacity', '0.15');
+                dashPath.setAttribute('stroke-dasharray', '6,14');
+                dashPath.setAttribute('stroke-linecap', 'round');
+                dashPath.setAttribute('stroke-linejoin', 'round');
+                dashPath.style.animation = 'dashFlow 2s linear infinite';
+                svg.appendChild(dashPath);
+
+                // Small dot at the junction point on the child end
+                const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                dot.setAttribute('cx', x2);
+                dot.setAttribute('cy', y2);
+                dot.setAttribute('r', '3');
+                dot.setAttribute('fill', color);
+                dot.setAttribute('opacity', '0.4');
+                svg.appendChild(dot);
             });
         }
 
-        // Get color value
-        function getColorValue(color) {
-            const colors = {
-                cyan: '#00e5ff',
-                green: '#22c55e',
-                pink: '#ec4899',
-                orange: '#f97316',
-                blue: '#3b82f6',
-                purple: '#a855f7',
-                gray: '#6b7280'
-            };
-            return colors[color] || colors.cyan;
+        function renderMinimap() {
+            const minimap = document.getElementById('minimap');
+            minimap.innerHTML = '';
+
+            if (allNodes.length === 0) return;
+
+            // Compute bounding box of all nodes
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            allNodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + CARD_W);
+                maxY = Math.max(maxY, n.y + CARD_H);
+            });
+
+            const treeW = maxX - minX + 40;
+            const treeH = maxY - minY + 40;
+            const mmW = 180, mmH = 120;
+            const scale = Math.min(mmW / treeW, mmH / treeH);
+
+            // Draw dots for each node
+            allNodes.forEach(n => {
+                const dot = document.createElement('div');
+                dot.className = 'minimap-dot';
+                const nodeColor = getColorValue(n.color || (n.type === 'project' ? 'green' : n.type === 'group' ? 'gray' : 'cyan'));
+                dot.style.background = nodeColor;
+                dot.style.left = ((n.x - minX + 20) * scale) + 'px';
+                dot.style.top = ((n.y - minY + 20) * scale) + 'px';
+                dot.style.width = Math.max(3, CARD_W * scale) + 'px';
+                dot.style.height = Math.max(2, CARD_H * scale * 0.3) + 'px';
+                dot.style.borderRadius = '1px';
+                minimap.appendChild(dot);
+            });
+
+            // Draw viewport rect
+            const canvasArea = document.getElementById('canvasArea');
+            const vw = canvasArea.clientWidth;
+            const vh = canvasArea.clientHeight;
+            const vpRect = document.createElement('div');
+            vpRect.className = 'minimap-viewport';
+            const vpX = (-panX / zoom - minX + 20) * scale;
+            const vpY = (-panY / zoom - minY + 20) * scale;
+            const vpW = (vw / zoom) * scale;
+            const vpH = (vh / zoom) * scale;
+            vpRect.style.left = Math.max(0, vpX) + 'px';
+            vpRect.style.top = Math.max(0, vpY) + 'px';
+            vpRect.style.width = Math.min(mmW, vpW) + 'px';
+            vpRect.style.height = Math.min(mmH, vpH) + 'px';
+            minimap.appendChild(vpRect);
         }
 
-        // Select node
+        // ===== PAN & ZOOM =====
+        function applyTransform() {
+            const layer = document.getElementById('panZoomLayer');
+            layer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+
+            const grid = document.getElementById('gridBg');
+            grid.style.transform = `translate(${panX * 0.3}px, ${panY * 0.3}px)`;
+
+            document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%';
+            renderMinimap();
+        }
+
+        function centerTreeInView() {
+            if (allNodes.length === 0) return;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            allNodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + CARD_W);
+                maxY = Math.max(maxY, n.y + CARD_H);
+            });
+
+            const treeW = maxX - minX;
+            const treeH = maxY - minY;
+            const canvasArea = document.getElementById('canvasArea');
+            const vw = canvasArea.clientWidth;
+            const vh = canvasArea.clientHeight;
+
+            // Fit to viewport with some padding
+            const fitZoom = Math.min(1.0, (vw - 80) / treeW, (vh - 80) / treeH);
+            zoom = Math.max(0.3, fitZoom);
+
+            const treeCenterX = (minX + maxX) / 2;
+            const treeCenterY = (minY + maxY) / 2;
+            panX = vw / 2 - treeCenterX * zoom;
+            panY = vh / 2 - treeCenterY * zoom;
+
+            applyTransform();
+        }
+
+        // ===== CARD DRAG =====
+        function onCardMouseDown(e, node) {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+
+            draggedNode = node;
+            node._wasDragged = false;
+
+            // Compute mouse position in tree-space
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragNodeStartX = node.x;
+            dragNodeStartY = node.y;
+
+            const card = document.getElementById(`card-${node.id}`);
+            card.classList.add('dragging');
+
+            document.addEventListener('mousemove', onCardMouseMove);
+            document.addEventListener('mouseup', onCardMouseUp);
+        }
+
+        function onCardMouseMove(e) {
+            if (!draggedNode) return;
+            const dx = (e.clientX - dragStartX) / zoom;
+            const dy = (e.clientY - dragStartY) / zoom;
+
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                draggedNode._wasDragged = true;
+            }
+
+            draggedNode.x = dragNodeStartX + dx;
+            draggedNode.y = dragNodeStartY + dy;
+
+            const card = document.getElementById(`card-${draggedNode.id}`);
+            card.style.left = draggedNode.x + 'px';
+            card.style.top = draggedNode.y + 'px';
+            renderConnections();
+        }
+
+        function onCardMouseUp() {
+            if (draggedNode) {
+                const card = document.getElementById(`card-${draggedNode.id}`);
+                card.classList.remove('dragging');
+                draggedNode = null;
+            }
+            document.removeEventListener('mousemove', onCardMouseMove);
+            document.removeEventListener('mouseup', onCardMouseUp);
+            renderMinimap();
+        }
+
+        // ===== CANVAS PAN =====
+        function onCanvasMouseDown(e) {
+            if (e.target.closest('.card') || e.target.closest('.minimap')) return;
+            if (e.button !== 0) return;
+
+            isPanning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartPanX = panX;
+            panStartPanY = panY;
+
+            document.getElementById('canvasArea').classList.add('grabbing');
+            document.addEventListener('mousemove', onCanvasPan);
+            document.addEventListener('mouseup', onCanvasPanEnd);
+        }
+
+        function onCanvasPan(e) {
+            if (!isPanning) return;
+            panX = panStartPanX + (e.clientX - panStartX);
+            panY = panStartPanY + (e.clientY - panStartY);
+            applyTransform();
+        }
+
+        function onCanvasPanEnd() {
+            isPanning = false;
+            document.getElementById('canvasArea').classList.remove('grabbing');
+            document.removeEventListener('mousemove', onCanvasPan);
+            document.removeEventListener('mouseup', onCanvasPanEnd);
+        }
+
+        // ===== ZOOM (scroll wheel) =====
+        function onWheel(e) {
+            e.preventDefault();
+            const canvasArea = document.getElementById('canvasArea');
+            const rect = canvasArea.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const oldZoom = zoom;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.min(3, Math.max(0.15, zoom * delta));
+
+            // Zoom toward mouse position
+            panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
+            panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
+
+            applyTransform();
+        }
+
+        // ===== SELECT / DETAIL =====
         function selectNode(node) {
             if (selectedNode) {
-                document.getElementById(`card-${selectedNode.id}`)?.classList.remove('selected');
+                const prev = document.getElementById(`card-${selectedNode.id}`);
+                if (prev) prev.classList.remove('selected');
             }
             selectedNode = node;
             document.getElementById(`card-${node.id}`).classList.add('selected');
             showDetailPanel(node);
         }
 
-        // Show detail panel
         function showDetailPanel(node) {
             const panel = document.getElementById('detailPanel');
             document.getElementById('detailIcon').textContent = node.icon;
             document.getElementById('detailName').textContent = node.name;
             document.getElementById('detailType').textContent = node.type.toUpperCase();
+
+            // Color the name
+            const nodeColor = getColorValue(node.color || (node.type === 'project' ? 'green' : node.type === 'group' ? 'gray' : 'cyan'));
+            document.getElementById('detailName').style.color = nodeColor;
 
             let fieldsHTML = '';
 
@@ -1137,17 +1418,17 @@
                         <div class="detail-field">
                             <label class="detail-label">Voice Profile</label>
                             <select class="detail-input">
-                                <option>HAL (Butler)</option>
-                                <option selected="${node.voice === 'Hallie'}">Hallie (Soft)</option>
+                                <option ${node.voice === 'HAL' ? 'selected' : ''}>HAL (Butler)</option>
+                                <option ${node.voice === 'Hallie' ? 'selected' : ''}>Hallie (Soft)</option>
                                 <option>Auto</option>
                             </select>
                         </div>
                         <div class="detail-field">
                             <label class="detail-label">Language</label>
                             <select class="detail-input">
-                                <option selected="${node.language?.includes('EN')}">🇬🇧 English</option>
-                                <option selected="${node.language?.includes('FR')}">🇫🇷 Français</option>
-                                <option>🇪🇸 Español</option>
+                                <option ${node.language?.includes('EN') ? 'selected' : ''}>\u{1F1EC}\u{1F1E7} English</option>
+                                <option ${node.language?.includes('FR') ? 'selected' : ''}>\u{1F1EB}\u{1F1F7} Fran\u00e7ais</option>
+                                <option>\u{1F1EA}\u{1F1F8} Espa\u00f1ol</option>
                             </select>
                         </div>
                         <div class="detail-field">
@@ -1157,17 +1438,16 @@
                         <div class="detail-field">
                             <label class="detail-label">Color</label>
                             <div style="display: flex; gap: 8px;">
-                                <button style="width: 32px; height: 32px; background: #00e5ff; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
-                                <button style="width: 32px; height: 32px; background: #22c55e; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
-                                <button style="width: 32px; height: 32px; background: #ec4899; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
-                                <button style="width: 32px; height: 32px; background: #f97316; border: 2px solid rgba(0,229,255,0.3); border-radius: 4px; cursor: pointer;"></button>
+                                ${['#00e5ff','#22c55e','#ec4899','#f97316','#3b82f6','#a855f7'].map(c =>
+                                    `<button style="width:28px;height:28px;background:${c};border:2px solid ${c}40;border-radius:4px;cursor:pointer;" onclick="this.style.boxShadow='0 0 12px ${c}'"></button>`
+                                ).join('')}
                             </div>
                         </div>
                     </div>
                     <div class="detail-section">
                         <div class="detail-section-title">Children (${node.children?.length || 0})</div>
                         <div class="children-list">
-                            ${node.children?.map(child => `<div class="child-item"><span>${child.icon} ${child.name}</span><span style="color: rgba(224,231,255,0.4);">${child.type}</span></div>`).join('') || '<div style="color: rgba(224,231,255,0.4); font-size: 11px;">No children yet</div>'}
+                            ${node.children?.map(child => `<div class="child-item" onclick="selectNode(allNodes.find(n=>n.id==='${child.id}'))"><span>${child.icon} ${child.name}</span><span style="color: rgba(224,231,255,0.4);">${child.type}</span></div>`).join('') || '<div style="color: rgba(224,231,255,0.4); font-size: 11px;">No children yet</div>'}
                         </div>
                         <button class="action-btn" style="margin-top: 12px;">+ Add Child</button>
                     </div>
@@ -1199,14 +1479,34 @@
                             <div class="detail-value">${node.children?.length || 0} projects</div>
                         </div>
                     </div>
+                    <div class="detail-section">
+                        <div class="detail-section-title">Children (${node.children?.length || 0})</div>
+                        <div class="children-list">
+                            ${node.children?.map(child => `<div class="child-item" onclick="selectNode(allNodes.find(n=>n.id==='${child.id}'))"><span>${child.icon} ${child.name}</span><span style="color: rgba(224,231,255,0.4);">${child.type}</span></div>`).join('') || '<div style="color: rgba(224,231,255,0.4); font-size: 11px;">No children yet</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Parent info
+            if (node.parent) {
+                fieldsHTML += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">Parent</div>
+                        <div class="child-item" onclick="selectNode(allNodes.find(n=>n.id==='${node.parent.id}'))">
+                            <span>${node.parent.icon} ${node.parent.name}</span>
+                            <span style="color: rgba(224,231,255,0.4);">${node.parent.type}</span>
+                        </div>
+                    </div>
                 `;
             }
 
             fieldsHTML += `
                 <div class="action-buttons">
-                    <button class="action-btn">🖥️ Open Terminal</button>
-                    <button class="action-btn">📍 Move to...</button>
-                    <button class="action-btn danger">🗑️ Remove Node</button>
+                    <button class="action-btn" onclick="focusOnNode('${node.id}')">Focus View</button>
+                    <button class="action-btn">Open Terminal</button>
+                    <button class="action-btn">Move to...</button>
+                    <button class="action-btn danger">Remove Node</button>
                 </div>
             `;
 
@@ -1214,76 +1514,105 @@
             panel.classList.add('open');
         }
 
-        // Start drag
-        function startDrag(e) {
-            const card = e.currentTarget;
-            const nodeId = card.id.replace('card-', '');
-            draggedNode = allNodes.find(n => n.id === nodeId);
-            dragOffsetX = e.clientX - draggedNode.x;
-            dragOffsetY = e.clientY - draggedNode.y;
-            document.addEventListener('mousemove', doDrag);
-            document.addEventListener('mouseup', stopDrag);
+        function closeDetailPanel() {
+            if (selectedNode) {
+                const card = document.getElementById(`card-${selectedNode.id}`);
+                if (card) card.classList.remove('selected');
+                selectedNode = null;
+            }
+            document.getElementById('detailPanel').classList.remove('open');
         }
 
-        function doDrag(e) {
-            if (!draggedNode) return;
-            draggedNode.x = e.clientX - dragOffsetX;
-            draggedNode.y = e.clientY - dragOffsetY;
-            const card = document.getElementById(`card-${draggedNode.id}`);
-            card.style.left = draggedNode.x + 'px';
-            card.style.top = draggedNode.y + 'px';
-            renderConnections();
+        function focusOnNode(nodeId) {
+            const node = allNodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const canvasArea = document.getElementById('canvasArea');
+            const vw = canvasArea.clientWidth;
+            const vh = canvasArea.clientHeight;
+
+            zoom = 1;
+            panX = vw / 2 - (node.x + CARD_W / 2) * zoom;
+            panY = vh / 2 - (node.y + CARD_H / 2) * zoom;
+            applyTransform();
         }
 
-        function stopDrag() {
-            draggedNode = null;
-            document.removeEventListener('mousemove', doDrag);
-            document.removeEventListener('mouseup', stopDrag);
+        // ===== SEARCH =====
+        function onSearch(query) {
+            query = query.toLowerCase().trim();
+            allNodes.forEach(node => {
+                const card = document.getElementById(`card-${node.id}`);
+                if (!card) return;
+                const match = !query || node.name.toLowerCase().includes(query) || (node.stack && node.stack.toLowerCase().includes(query));
+                card.style.opacity = match ? '1' : '0.15';
+                card.style.pointerEvents = match ? 'auto' : 'none';
+            });
         }
 
-        // Setup event listeners
+        // ===== EVENT SETUP =====
         function setupEventListeners() {
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase();
-                allNodes.forEach(node => {
-                    const card = document.getElementById(`card-${node.id}`);
-                    card.style.opacity = node.name.toLowerCase().includes(query) ? '1' : '0.3';
-                    card.style.pointerEvents = node.name.toLowerCase().includes(query) ? 'auto' : 'none';
-                });
-            });
+            const canvasArea = document.getElementById('canvasArea');
 
-            document.querySelectorAll('.view-toggle button').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    if (e.target.dataset.view !== 'cards') {
-                        const toast = document.createElement('div');
-                        toast.className = 'toast';
-                        toast.textContent = '🚀 Coming soon...';
-                        document.body.appendChild(toast);
-                        setTimeout(() => toast.remove(), 2000);
-                    }
-                });
-            });
+            // Pan
+            canvasArea.addEventListener('mousedown', onCanvasMouseDown);
 
-            document.getElementById('importBtn').addEventListener('click', openImportModal);
-            document.getElementById('newDispatcherBtn').addEventListener('click', () => {
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = '✨ New dispatcher created!';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 2000);
-            });
+            // Zoom
+            canvasArea.addEventListener('wheel', onWheel, { passive: false });
 
-            document.addEventListener('click', (e) => {
-                if (e.target.id === 'cardsContainer') {
-                    if (selectedNode) {
-                        document.getElementById(`card-${selectedNode.id}`).classList.remove('selected');
-                        selectedNode = null;
-                    }
-                    document.getElementById('detailPanel').classList.remove('open');
+            // Search
+            document.getElementById('searchInput').addEventListener('input', (e) => onSearch(e.target.value));
+
+            // Close detail panel
+            document.getElementById('detailClose').addEventListener('click', closeDetailPanel);
+
+            // Click on empty canvas to deselect
+            canvasArea.addEventListener('click', (e) => {
+                if (!e.target.closest('.card') && !e.target.closest('.minimap') && !isPanning) {
+                    closeDetailPanel();
                 }
             });
+
+            // View toggles
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    if (e.target.dataset.view !== 'tree') {
+                        showToast('View mode: ' + e.target.dataset.view + ' (coming soon)');
+                    }
+                });
+            });
+
+            // Buttons
+            document.getElementById('importBtn').addEventListener('click', openImportModal);
+            document.getElementById('newDispatcherBtn').addEventListener('click', () => {
+                showToast('New dispatcher created!');
+            });
+            document.getElementById('resetViewBtn').addEventListener('click', () => {
+                // Reset any manual drag positions
+                layoutTree(projectTree);
+                allNodes = [];
+                flattenTree(projectTree);
+                renderCards();
+                renderConnections();
+                centerTreeInView();
+            });
+
+            // Keyboard
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    closeDetailPanel();
+                }
+            });
+
+            // Resize
+            window.addEventListener('resize', () => {
+                renderMinimap();
+            });
         }
 
+        // ===== MODAL =====
         function openImportModal() {
             document.getElementById('importModal').classList.add('active');
             const parentList = document.getElementById('importParentList');
@@ -1308,20 +1637,37 @@
             const path = document.getElementById('importPath').value;
             const name = document.getElementById('importName').value;
             if (path && name) {
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.textContent = `📥 Imported: ${name}`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 2000);
+                showToast('Imported: ' + name);
                 closeModal();
             }
         }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
-        });
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.3s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
 
-        // Initialize on load
+        // ===== INIT =====
+        function init() {
+            layoutTree(projectTree);
+            flattenTree(projectTree);
+            renderCards();
+            renderConnections();
+            setupEventListeners();
+
+            // Center the tree in the viewport after first paint
+            requestAnimationFrame(() => {
+                centerTreeInView();
+            });
+        }
+
         init();
     </script>
 </body>
