@@ -123,6 +123,30 @@ export function registerHubHandlers(): void {
   })
 
   ipcMain.handle('scan-projects', async () => {
+    // OPT-IN MODE: If tree.json has projects, load from tree instead of scanning filesystem.
+    // This replaces auto-scan with explicit import. Tree is the source of truth.
+    try {
+      const { loadTree, getAllNodes } = await import('./halo-tree')
+      const tree = loadTree()
+      const treeProjects = getAllNodes().filter(n => n.type === 'project' && n.path)
+      if (treeProjects.length > 0) {
+        console.log(`[Hub] Loading ${treeProjects.length} projects from tree (opt-in mode)`)
+        return treeProjects.map(n => ({
+          name: n.name,
+          path: n.path!,
+          stack: '',
+          hasClaude: true,
+          hasClaudeDir: true,
+          hasHalOMeta: true,
+          configLevel: 'hal-o-enhanced' as const,
+          lastModified: n.updatedAt,
+          gitOwner: '',
+          runCmd: '',
+        }))
+      }
+    } catch { /* tree not available, fall back to scan */ }
+
+    // LEGACY: Filesystem scan (will be removed once all users migrate to tree)
     const dirs = getCommonProjectDirs()
 
     // Also scan ~/.claude/projects/ cache to find ALL projects ever used with Claude
