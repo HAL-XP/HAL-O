@@ -448,8 +448,15 @@ export function App() {
       })
       setViewMode('wizard')
     }
-    const hubOnConvertProject = (path: string) => {
+    const hubOnConvertProject = async (path: string) => {
       if (demo.enabled) return
+      // Add to tree (opt-in) so it persists
+      const name = path.split(/[/\\]/).filter(Boolean).pop() || 'project'
+      try {
+        const tree = await window.api.treeGet()
+        await window.api.treeCreate('project', name, tree.rootId, { path })
+      } catch {}
+      // Also open wizard for full configuration
       setConfigurePath(path)
       setViewMode('configure')
     }
