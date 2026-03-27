@@ -78,6 +78,7 @@ interface HudTopbarProps {
   onUnhide?: (path: string) => void
   demo?: DemoSettings
   onVoiceBlocked?: () => void
+  onManageProjects?: () => void
   // IDE (U19)
   defaultIde?: IdeOptionId
   onDefaultIdeChange?: (id: IdeOptionId) => void
@@ -130,6 +131,7 @@ export function HudTopbar({
   hiddenPaths = [], onUnhide,
   demo,
   onVoiceBlocked,
+  onManageProjects,
   defaultIde = 'auto', onDefaultIdeChange,
   defaultTerminalModel = 'default', onDefaultTerminalModelChange,
   dockMode = false, onDockModeChange,
@@ -259,6 +261,12 @@ export function HudTopbar({
           <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           <span className="hal-btn-label">ADD PROJECT</span>
         </button>
+        {onManageProjects && (
+          <button className="hal-cmd hal-topbar-btn" onClick={onManageProjects} title="Manage project tree">
+            <svg className="hal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
+            <span className="hal-btn-label">MANAGE</span>
+          </button>
+        )}
       </div>
       {onFilterChange && allProjects.length > 0 && (
         <FilterBar projects={allProjects} activeFilter={activeFilter} onFilterChange={onFilterChange} isFavorite={isFavorite} />

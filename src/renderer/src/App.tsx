@@ -7,6 +7,7 @@ import { useDemoSettings } from './hooks/useDemoSettings'
 import { useTerminalSessions } from './hooks/useTerminalSessions'
 import { SetupScreen } from './components/SetupScreen'
 import { ProjectHub } from './components/ProjectHub'
+import { ManageProjects } from './components/ManageProjects'
 import { Logo } from './components/Logo'
 import { StepProgress } from './components/StepProgress'
 import { CompletedStep } from './components/CompletedStep'
@@ -162,6 +163,7 @@ export function App() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const demo = useDemoSettings()
   const { termSessions, voiceFocus, setVoiceFocus, getHalSessionId, openTerminal, closeTerminal } = useTerminalSessions(demo.enabled)
+  const [showManageProjects, setShowManageProjects] = useState(false)
   // UX16: Focus zone management — 'hub' or 'terminal'
   const { focusZone } = useFocusZone(termSessions.length > 0 || (demo.enabled && (demo.terminalCount ?? 0) > 0))
   const settingsState = useSettings()
@@ -559,6 +561,9 @@ export function App() {
       <ErrorBoundary>
       <div className="app" style={{ display: 'flex', flexDirection: flexDir, height: '100vh' }}>
         <div style={hubStyle}>
+          {showManageProjects ? (
+            <ManageProjects onBack={() => setShowManageProjects(false)} />
+          ) : (
           <ProjectHub
             settings={settingsState}
             onNewProject={hubOnNewProject}
@@ -646,7 +651,9 @@ export function App() {
             onParticleBrightnessOverrideChange={updateParticleBrightnessOverride}
             vignetteOverride={vignetteOverride}
             onVignetteOverrideChange={updateVignetteOverride}
+            onManageProjects={() => setShowManageProjects(true)}
           />
+          )}
         </div>
         {hasTerminals && (
           <div
