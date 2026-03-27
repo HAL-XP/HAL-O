@@ -327,7 +327,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[HAL-O] Unhandled rejection:', reason)
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerPid('hal-o')
   registerIpcHandlers()
   createMenu()
@@ -335,6 +335,17 @@ app.whenReady().then(() => {
   startHeartbeat()
   // Start own Telegram handler for dispatch-aware routing
   startTelegramHandler()
+
+  // Session lifecycle: detect or start HAL-O Claude session
+  // This ensures there's always ONE session running for HAL
+  setTimeout(async () => {
+    try {
+      const { detectOrStartHalSession } = await import('./session-lifecycle')
+      await detectOrStartHalSession()
+    } catch (err) {
+      console.error('[HAL-O] Session lifecycle error:', err)
+    }
+  }, 3000) // Wait 3s for window + terminals to initialize
 })
 
 app.on('before-quit', () => {

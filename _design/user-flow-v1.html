@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAL-O — User Flow v1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(5, 8, 16, 0.95);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #00e5ff;
+            letter-spacing: 0.5px;
+        }
+
+        .version-badge {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(34, 197, 94, 0.2));
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            color: #00e5ff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .timestamp {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .timestamp-label {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .timestamp-value {
+            color: #00e5ff;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            color: #00e5ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: rgba(0, 229, 255, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .control-btn.active {
+            background: rgba(0, 229, 255, 0.3);
+            border-color: #00e5ff;
+        }
+
+        /* Canvas */
+        .canvas-container {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #050810 0%, #0a0e18 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 229, 255, 0.03) 0px,
+                    rgba(0, 229, 255, 0.03) 1px,
+                    transparent 1px,
+                    transparent 40px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    rgba(0, 229, 255, 0.03) 0px,
+                    rgba(0, 229, 255, 0.03) 1px,
+                    transparent 1px,
+                    transparent 40px
+                );
+        }
+
+        /* Node Popup */
+        .node-popup {
+            position: fixed;
+            background: rgba(5, 8, 16, 0.98);
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            max-height: 500px;
+            overflow-y: auto;
+            z-index: 2000;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0, 229, 255, 0.1);
+            display: none;
+        }
+
+        .node-popup.visible {
+            display: block;
+            animation: popupSlideIn 0.2s ease;
+        }
+
+        @keyframes popupSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-10px, -10px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+
+        .popup-close:hover {
+            color: #00e5ff;
+        }
+
+        .popup-title {
+            color: #00e5ff;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            margin-right: 20px;
+            letter-spacing: 0.3px;
+        }
+
+        .popup-type {
+            display: inline-block;
+            background: rgba(0, 229, 255, 0.15);
+            color: #00e5ff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: 0.2px;
+        }
+
+        .popup-story {
+            color: #b0b0b0;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+            font-style: italic;
+        }
+
+        .popup-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            margin-bottom: 12px;
+            color: #888;
+        }
+
+        .status-badge {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .status-badge.inprogress {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }
+
+        .status-badge.planned {
+            background: rgba(147, 112, 219, 0.2);
+            color: #a78bfa;
+        }
+
+        .popup-files {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(0, 229, 255, 0.2);
+        }
+
+        .popup-files-title {
+            font-size: 11px;
+            color: #666;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .popup-file {
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            color: #00e5ff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 6px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .popup-file:hover {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: rgba(0, 229, 255, 0.4);
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(5, 8, 16, 0.95);
+            border-top: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 16px 24px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .feedback-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .feedback-input {
+            width: 100%;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            color: #e0e0e0;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 12px;
+            resize: none;
+            max-height: 120px;
+            transition: all 0.2s;
+        }
+
+        .feedback-input:focus {
+            outline: none;
+            background: rgba(0, 229, 255, 0.1);
+            border-color: rgba(0, 229, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+        }
+
+        .feedback-input::placeholder {
+            color: #555;
+        }
+
+        /* Legend */
+        .legend {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(5, 8, 16, 0.95);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            width: 200px;
+            z-index: 900;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .legend.visible {
+            display: block;
+        }
+
+        .legend-title {
+            color: #00e5ff;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: 0.3px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 11px;
+            color: #b0b0b0;
+        }
+
+        .legend-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+        }
+
+        /* Shortcuts */
+        .shortcuts {
+            position: fixed;
+            bottom: 210px;
+            right: 20px;
+            background: rgba(5, 8, 16, 0.95);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            width: 200px;
+            z-index: 900;
+            backdrop-filter: blur(10px);
+            font-size: 10px;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        .shortcut-line {
+            margin-bottom: 6px;
+        }
+
+        .shortcut-key {
+            color: #00e5ff;
+            font-weight: 600;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 229, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 229, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <h1>⬤ HAL-O — User Flow</h1>
+            <div class="version-badge">v1</div>
+        </div>
+        <div class="header-controls">
+            <div class="timestamp">
+                <div class="timestamp-label">Last Updated</div>
+                <div class="timestamp-value" id="timestamp"></div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" id="zoomReset" title="Reset zoom (Z)">Reset Zoom</button>
+                <button class="control-btn" id="legendBtn" title="Toggle legend (L)">Legend</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="legend" id="legend">
+        <div class="legend-title">Node Types</div>
+        <div class="legend-item">
+            <div class="legend-swatch" style="background: linear-gradient(135deg, #00e5ff, #0a8fa0); border-color: #00e5ff;"></div>
+            <span>Start / End</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-swatch" style="background: linear-gradient(135deg, #0a3a52, #051a33); border-color: #0066cc;"></div>
+            <span>State / UI</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-swatch" style="background: linear-gradient(135deg, #fbbf24, #d97706); border-color: #f59e0b;"></div>
+            <span>Decision</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-swatch" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #22c55e;"></div>
+            <span>Action</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-swatch" style="background: linear-gradient(135deg, #6b7280, #4b5563); border-color: #888;"></div>
+            <span>System</span>
+        </div>
+    </div>
+
+    <div class="shortcuts">
+        <div class="shortcut-line"><span class="shortcut-key">Scroll:</span> Zoom</div>
+        <div class="shortcut-line"><span class="shortcut-key">Drag:</span> Pan</div>
+        <div class="shortcut-line"><span class="shortcut-key">Click:</span> Node details</div>
+        <div class="shortcut-line"><span class="shortcut-key">Z:</span> Reset zoom</div>
+        <div class="shortcut-line"><span class="shortcut-key">L:</span> Toggle legend</div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="flowCanvas"></canvas>
+    </div>
+
+    <div class="node-popup" id="nodePopup">
+        <button class="popup-close" id="popupClose">&times;</button>
+        <div class="popup-title" id="popupTitle"></div>
+        <div class="popup-type" id="popupType"></div>
+        <div class="popup-story" id="popupStory"></div>
+        <div class="popup-status" id="popupStatus"></div>
+        <div class="popup-files" id="popupFiles" style="display: none;">
+            <div class="popup-files-title">Related Files</div>
+            <div id="popupFilesList"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="feedback-label">Feedback</div>
+        <textarea class="feedback-input" id="feedbackInput" placeholder="Share your thoughts on this flow diagram..."></textarea>
+    </div>
+
+    <script>
+        // Update timestamp
+        const now = new Date();
+        document.getElementById('timestamp').textContent = now.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Canvas setup
+        const canvas = document.getElementById('flowCanvas');
+        const ctx = canvas.getContext('2d');
+        const headerHeight = 60;
+        const footerHeight = 200;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - headerHeight - footerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Zoom and pan
+        let zoomLevel = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const oldZoom = zoomLevel;
+            const zoomFactor = 0.1;
+            zoomLevel = Math.max(0.5, Math.min(3, zoomLevel - e.deltaY * zoomFactor * 0.001));
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomDiff = zoomLevel - oldZoom;
+            panX -= mouseX * zoomDiff / oldZoom;
+            panY -= mouseY * zoomDiff / oldZoom;
+
+            draw();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStartX = e.clientX - panX;
+            dragStartY = e.clientY - panY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                panX = e.clientX - dragStartX;
+                panY = e.clientY - dragStartY;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        document.getElementById('zoomReset').addEventListener('click', () => {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            draw();
+        });
+
+        // Node data structure
+        const nodes = [
+            // App Launch Flow
+            { id: 'start', type: 'start', title: 'User Opens HAL-O', x: 150, y: 80, width: 120, height: 60 },
+            { id: 'decision_external', type: 'decision', title: 'External Claude Session?', x: 150, y: 200, width: 100, height: 80 },
+            { id: 'absorb_session', type: 'system', title: 'Absorb External Session', x: 30, y: 320, width: 90, height: 60 },
+            { id: 'hub_online', type: 'state', title: 'Hub (ONLINE)', x: 30, y: 420, width: 90, height: 60 },
+            { id: 'decision_firsttime', type: 'decision', title: 'First Time?', x: 270, y: 320, width: 80, height: 80 },
+            { id: 'wizard_state', type: 'state', title: 'Onboarding Wizard', x: 360, y: 420, width: 100, height: 60 },
+            { id: 'choice_path', type: 'decision', title: 'Choose Path', x: 360, y: 540, width: 80, height: 80 },
+            { id: 'manage_projects', type: 'action', title: '"Manage Projects"', x: 240, y: 660, width: 90, height: 60 },
+            { id: 'personal_asst', type: 'action', title: '"Personal Assistant"', x: 420, y: 660, width: 90, height: 60 },
+            { id: 'import_first', type: 'state', title: 'Import First Project', x: 240, y: 760, width: 100, height: 60 },
+            { id: 'create_asst', type: 'state', title: 'Create Assistant', x: 420, y: 760, width: 100, height: 60 },
+            { id: 'start_session', type: 'system', title: 'Start Headless Session', x: 360, y: 860, width: 110, height: 60 },
+            { id: 'hub_firsttime', type: 'state', title: 'Hub Connected', x: 360, y: 960, width: 90, height: 60 },
+            { id: 'auto_resume', type: 'system', title: 'Resume Auto (no wizard)', x: 270, y: 420, width: 110, height: 60 },
+
+            // Daily Use - Hub
+            { id: 'hub_main', type: 'state', title: 'Hub (Project Cards)', x: 600, y: 80, width: 110, height: 60 },
+            { id: 'click_project', type: 'action', title: 'Click Project Card', x: 480, y: 200, width: 100, height: 60 },
+            { id: 'terminal_opens', type: 'state', title: 'Terminal Opens', x: 480, y: 320, width: 100, height: 60 },
+            { id: 'voice_cmd', type: 'action', title: 'Voice Command', x: 600, y: 200, width: 90, height: 60 },
+            { id: 'dispatch_project', type: 'system', title: 'Dispatch to Project', x: 600, y: 320, width: 100, height: 60 },
+            { id: 'manage_btn', type: 'action', title: 'Click MANAGE', x: 720, y: 200, width: 90, height: 60 },
+            { id: 'manage_page', type: 'state', title: 'Manage Projects', x: 720, y: 320, width: 100, height: 60 },
+            { id: 'halo_chat', type: 'action', title: 'Open Halo Chat', x: 840, y: 200, width: 90, height: 60 },
+            { id: 'halo_pwa', type: 'state', title: 'Halo Chat PWA', x: 840, y: 320, width: 90, height: 60 },
+            { id: 'toggle_term', type: 'action', title: 'Toggle Terminal', x: 960, y: 200, width: 100, height: 60 },
+            { id: 'term_shown', type: 'state', title: 'Terminal Visible', x: 960, y: 320, width: 90, height: 60 },
+
+            // Halo Chat Flow
+            { id: 'halo_start', type: 'state', title: 'Halo Chat Opens', x: 1200, y: 80, width: 110, height: 60 },
+            { id: 'app_running', type: 'decision', title: 'HAL-O Running?', x: 1200, y: 200, width: 90, height: 80 },
+            { id: 'websocket', type: 'system', title: 'WebSocket Connect', x: 1080, y: 320, width: 100, height: 60 },
+            { id: 'chat_shared', type: 'state', title: 'Chat (Shared Brain)', x: 1080, y: 420, width: 110, height: 60 },
+            { id: 'api_fallback', type: 'system', title: 'API Fallback', x: 1320, y: 320, width: 90, height: 60 },
+            { id: 'chat_standalone', type: 'state', title: 'Chat (Standalone)', x: 1320, y: 420, width: 110, height: 60 },
+            { id: 'type_msg', type: 'action', title: 'Type Message', x: 1080, y: 540, width: 90, height: 60 },
+            { id: 'stream_response', type: 'system', title: 'Stream Response', x: 1080, y: 640, width: 100, height: 60 },
+            { id: 'tts_gen', type: 'system', title: 'Generate TTS', x: 1080, y: 740, width: 90, height: 60 },
+            { id: 'audio_play', type: 'state', title: 'Audio Plays', x: 1080, y: 840, width: 90, height: 60 },
+            { id: 'mic_tap', type: 'action', title: 'Tap Microphone', x: 1200, y: 540, width: 100, height: 60 },
+            { id: 'record_transcribe', type: 'system', title: 'Record → Transcribe', x: 1200, y: 640, width: 120, height: 60 },
+
+            // Manage Projects Flow
+            { id: 'manage_start', type: 'state', title: 'Manage Projects Tree', x: 1500, y: 80, width: 120, height: 60 },
+            { id: 'import_btn', type: 'action', title: 'Click "Import"', x: 1380, y: 200, width: 90, height: 60 },
+            { id: 'import_modal', type: 'state', title: 'Import Modal', x: 1380, y: 320, width: 90, height: 60 },
+            { id: 'dispatcher_btn', type: 'action', title: 'Click "+ Dispatcher"', x: 1500, y: 200, width: 110, height: 60 },
+            { id: 'create_node', type: 'system', title: 'Create Node', x: 1500, y: 320, width: 90, height: 60 },
+            { id: 'click_card', type: 'action', title: 'Click Card', x: 1620, y: 200, width: 80, height: 60 },
+            { id: 'detail_panel', type: 'state', title: 'Detail Panel', x: 1620, y: 320, width: 90, height: 60 },
+            { id: 'drag_card', type: 'action', title: 'Drag Card', x: 1740, y: 200, width: 80, height: 60 },
+            { id: 'move_tree', type: 'system', title: 'Move in Tree', x: 1740, y: 320, width: 90, height: 60 },
+            { id: 'back_btn', type: 'action', title: 'Click "Back"', x: 1860, y: 200, width: 90, height: 60 },
+            { id: 'back_hub', type: 'state', title: 'Return to Hub', x: 1860, y: 320, width: 90, height: 60 },
+
+            // Session Lifecycle
+            { id: 'session_running', type: 'state', title: 'Session Running', x: 1800, y: 540, width: 110, height: 60 },
+            { id: 'close_app', type: 'action', title: 'Close App', x: 1680, y: 660, width: 90, height: 60 },
+            { id: 'headless', type: 'system', title: 'Session Headless', x: 1680, y: 760, width: 100, height: 60 },
+            { id: 'reopen_app', type: 'action', title: 'Reopen App', x: 1800, y: 660, width: 90, height: 60 },
+            { id: 'reattach', type: 'system', title: 'Reattach to Session', x: 1800, y: 760, width: 110, height: 60 },
+            { id: 'tg_closed', type: 'action', title: 'Telegram (app closed)', x: 1920, y: 660, width: 110, height: 60 },
+            { id: 'tg_route', type: 'system', title: 'Still Routes', x: 1920, y: 760, width: 90, height: 60 },
+            { id: 'halo_closed', type: 'action', title: 'Halo Chat (app closed)', x: 2040, y: 660, width: 120, height: 60 },
+            { id: 'halo_fallback', type: 'system', title: 'API Fallback', x: 2040, y: 760, width: 90, height: 60 },
+        ];
+
+        // Edge definitions (from, to, label)
+        const edges = [
+            // App Launch Flow
+            ('start', 'decision_external', ''),
+            ('decision_external', 'absorb_session', 'YES'),
+            ('absorb_session', 'hub_online', ''),
+            ('decision_external', 'decision_firsttime', 'NO'),
+            ('decision_firsttime', 'wizard_state', 'YES'),
+            ('wizard_state', 'choice_path', ''),
+            ('choice_path', 'manage_projects', 'Projects'),
+            ('choice_path', 'personal_asst', 'Assistant'),
+            ('manage_projects', 'import_first', ''),
+            ('personal_asst', 'create_asst', ''),
+            ('import_first', 'start_session', ''),
+            ('create_asst', 'start_session', ''),
+            ('start_session', 'hub_firsttime', ''),
+            ('decision_firsttime', 'auto_resume', 'NO'),
+            ('auto_resume', 'hub_online', ''),
+
+            // Daily Use - Hub
+            ('hub_main', 'click_project', ''),
+            ('click_project', 'terminal_opens', ''),
+            ('hub_main', 'voice_cmd', ''),
+            ('voice_cmd', 'dispatch_project', ''),
+            ('hub_main', 'manage_btn', ''),
+            ('manage_btn', 'manage_page', ''),
+            ('hub_main', 'halo_chat', ''),
+            ('halo_chat', 'halo_pwa', ''),
+            ('hub_main', 'toggle_term', ''),
+            ('toggle_term', 'term_shown', ''),
+
+            // Halo Chat Flow
+            ('halo_start', 'app_running', ''),
+            ('app_running', 'websocket', 'YES'),
+            ('websocket', 'chat_shared', ''),
+            ('app_running', 'api_fallback', 'NO'),
+            ('api_fallback', 'chat_standalone', ''),
+            ('chat_shared', 'type_msg', ''),
+            ('chat_shared', 'mic_tap', ''),
+            ('type_msg', 'stream_response', ''),
+            ('mic_tap', 'record_transcribe', ''),
+            ('stream_response', 'tts_gen', ''),
+            ('record_transcribe', 'stream_response', ''),
+            ('tts_gen', 'audio_play', ''),
+            ('chat_standalone', 'type_msg', ''),
+
+            // Manage Projects Flow
+            ('manage_start', 'import_btn', ''),
+            ('import_btn', 'import_modal', ''),
+            ('manage_start', 'dispatcher_btn', ''),
+            ('dispatcher_btn', 'create_node', ''),
+            ('manage_start', 'click_card', ''),
+            ('click_card', 'detail_panel', ''),
+            ('manage_start', 'drag_card', ''),
+            ('drag_card', 'move_tree', ''),
+            ('manage_start', 'back_btn', ''),
+            ('back_btn', 'back_hub', ''),
+
+            // Session Lifecycle
+            ('session_running', 'close_app', ''),
+            ('close_app', 'headless', ''),
+            ('session_running', 'reopen_app', ''),
+            ('reopen_app', 'reattach', ''),
+            ('session_running', 'tg_closed', ''),
+            ('tg_closed', 'tg_route', ''),
+            ('session_running', 'halo_closed', ''),
+            ('halo_closed', 'halo_fallback', ''),
+        ].map(([from, to, label]) => ({ from, to, label }));
+
+        // Node details
+        const nodeDetails = {
+            start: {
+                story: 'As a user, I want to launch HAL-O and start working immediately.',
+                status: '✅ Implemented',
+                files: ['src/main/index.ts']
+            },
+            decision_external: {
+                story: 'The app checks if there\'s already a Claude session running externally.',
+                status: '✅ Implemented',
+                files: ['src/main/ipc-handlers.ts']
+            },
+            absorb_session: {
+                story: 'If an external session exists, it\'s absorbed into the app for seamless connection.',
+                status: '🔨 In Progress',
+                files: ['src/main/terminal-manager.ts']
+            },
+            hub_online: {
+                story: 'The Hub displays with a glowing ONLINE sphere, ready for interaction.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ProjectHub.tsx', 'src/renderer/src/components/three/PbrHoloScene.tsx']
+            },
+            decision_firsttime: {
+                story: 'First-time users are routed to onboarding; returning users skip ahead.',
+                status: '🔨 In Progress',
+                files: ['src/main/ipc-handlers.ts']
+            },
+            wizard_state: {
+                story: 'As a new user, I step through a guided onboarding wizard to set up HAL-O.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/OnboardingWizard.tsx']
+            },
+            choice_path: {
+                story: 'I choose my primary use case: project management or personal assistant.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/OnboardingWizard.tsx']
+            },
+            manage_projects: {
+                story: 'I select "Manage Projects" to organize my workflow with HAL-O.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/ImportScreen.tsx']
+            },
+            personal_asst: {
+                story: 'I select "Personal Assistant" to configure HAL as my everyday AI companion.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/AssistantSetup.tsx']
+            },
+            import_first: {
+                story: 'I import my first project into HAL-O via folder selection.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ImportScreen.tsx']
+            },
+            create_asst: {
+                story: 'I create a personal assistant with name, voice, and language preferences.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/AssistantSetup.tsx']
+            },
+            start_session: {
+                story: 'HAL-O starts a headless Claude session in the background.',
+                status: '✅ Implemented',
+                files: ['src/main/terminal-manager.ts']
+            },
+            hub_firsttime: {
+                story: 'The Hub is now set up and ready for first use.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ProjectHub.tsx']
+            },
+            auto_resume: {
+                story: 'Returning users skip onboarding and auto-resume their session.',
+                status: '✅ Implemented',
+                files: ['src/main/terminal-manager.ts']
+            },
+            hub_main: {
+                story: 'I see my projects as interactive 3D cards in the Hub.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/three/PbrHoloScene.tsx']
+            },
+            click_project: {
+                story: 'I click on a project card to interact with it.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/three/ScreenPanel.tsx']
+            },
+            terminal_opens: {
+                story: 'The terminal for that project pops open, ready for commands.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/TerminalView.tsx']
+            },
+            voice_cmd: {
+                story: 'I hold CTRL+SPACE to issue a voice command to HAL-O.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/MicButton.tsx']
+            },
+            dispatch_project: {
+                story: 'The voice command is routed to the correct project session.',
+                status: '✅ Implemented',
+                files: ['src/main/ipc-handlers.ts']
+            },
+            manage_btn: {
+                story: 'I click the MANAGE button to edit project tree structure.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            manage_page: {
+                story: 'The Manage Projects tree view opens with full CRUD controls.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            halo_chat: {
+                story: 'I open Halo Chat on my phone to chat with HAL from anywhere.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/index.html']
+            },
+            halo_pwa: {
+                story: 'Halo Chat PWA connects to my HAL-O session for real-time messaging.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            toggle_term: {
+                story: 'I toggle the embedded terminal visibility with a keyboard shortcut.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/TerminalView.tsx']
+            },
+            term_shown: {
+                story: 'The terminal pane is now visible or hidden based on my preference.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/TerminalView.tsx']
+            },
+            halo_start: {
+                story: 'I open Halo Chat on my phone to message HAL-O.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/index.html']
+            },
+            app_running: {
+                story: 'Halo Chat checks if the HAL-O app is currently running.',
+                status: '✅ Implemented',
+                files: ['src/main/http-api.ts']
+            },
+            websocket: {
+                story: 'A WebSocket connection is established for real-time communication.',
+                status: '✅ Implemented',
+                files: ['src/main/http-api.ts']
+            },
+            chat_shared: {
+                story: 'I chat with HAL/Bob/Karen using the same brain and memory.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            api_fallback: {
+                story: 'If HAL-O isn\'t running, Halo Chat falls back to a standalone API.',
+                status: '✅ Implemented',
+                files: ['src/main/http-api.ts']
+            },
+            chat_standalone: {
+                story: 'I chat with a standalone AI without shared session memory.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            type_msg: {
+                story: 'I type a message into Halo Chat.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            stream_response: {
+                story: 'HAL-O streams the response back in real-time.',
+                status: '✅ Implemented',
+                files: ['src/main/http-api.ts']
+            },
+            tts_gen: {
+                story: 'The response is converted to audio using TTS (Chatterbox/Voicebox/Edge).',
+                status: '✅ Implemented',
+                files: ['C:/Users/dindo/.claude/scripts/tts.py']
+            },
+            audio_play: {
+                story: 'The audio plays through my phone speaker.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            mic_tap: {
+                story: 'I tap the microphone button to record a voice message.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            record_transcribe: {
+                story: 'My voice is recorded and transcribed using faster-whisper.',
+                status: '✅ Implemented',
+                files: ['C:/Users/dindo/.claude/scripts/transcribe.py']
+            },
+            manage_start: {
+                story: 'I see a tree view of all my projects and dispatchers.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            import_btn: {
+                story: 'I click "Import Project" to add a new project to the tree.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ImportScreen.tsx']
+            },
+            import_modal: {
+                story: 'A modal opens to browse, name, and parent the new project.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ImportScreen.tsx']
+            },
+            dispatcher_btn: {
+                story: 'I click "+ Dispatcher" to create a new dispatcher node.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            create_node: {
+                story: 'A new dispatcher node is created in the tree structure.',
+                status: '📋 Planned',
+                files: ['src/main/http-api.ts']
+            },
+            click_card: {
+                story: 'I click a project/dispatcher card to see its details.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            detail_panel: {
+                story: 'A side panel shows name, model, voice, color, and other settings.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            drag_card: {
+                story: 'I drag a card to reorganize the tree hierarchy.',
+                status: '📋 Planned',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            move_tree: {
+                story: 'The node moves to its new parent in the tree.',
+                status: '📋 Planned',
+                files: ['src/main/http-api.ts']
+            },
+            back_btn: {
+                story: 'I click "Back" to return to the Hub.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ManageProjects.tsx']
+            },
+            back_hub: {
+                story: 'I\'m back at the main Hub view.',
+                status: '✅ Implemented',
+                files: ['src/renderer/src/components/ProjectHub.tsx']
+            },
+            session_running: {
+                story: 'A Claude session is running in the background.',
+                status: '✅ Implemented',
+                files: ['src/main/terminal-manager.ts']
+            },
+            close_app: {
+                story: 'I close the HAL-O app window.',
+                status: '✅ Implemented',
+                files: ['src/main/index.ts']
+            },
+            headless: {
+                story: 'The session continues running as a headless process.',
+                status: '✅ Implemented',
+                files: ['src/main/terminal-manager.ts']
+            },
+            reopen_app: {
+                story: 'I reopen the HAL-O app later.',
+                status: '✅ Implemented',
+                files: ['src/main/index.ts']
+            },
+            reattach: {
+                story: 'The app automatically reattaches to the running session.',
+                status: '✅ Implemented',
+                files: ['src/main/terminal-manager.ts']
+            },
+            tg_closed: {
+                story: 'I send a Telegram message while HAL-O is closed.',
+                status: '✅ Implemented',
+                files: ['src/main/telegram-handler.ts']
+            },
+            tg_route: {
+                story: 'The message still routes to the headless session.',
+                status: '✅ Implemented',
+                files: ['src/main/telegram-handler.ts']
+            },
+            halo_closed: {
+                story: 'I open Halo Chat while HAL-O is not running.',
+                status: '✅ Implemented',
+                files: ['src/renderer/public/halo-chat/']
+            },
+            halo_fallback: {
+                story: 'Halo Chat falls back to API mode without session awareness.',
+                status: '✅ Implemented',
+                files: ['src/main/http-api.ts']
+            },
+        };
+
+        // Draw functions
+        function getNodeColor(type) {
+            switch (type) {
+                case 'start':
+                    return { main: '#00e5ff', dark: '#0a8fa0', border: '#00e5ff' };
+                case 'state':
+                    return { main: '#0a3a52', dark: '#051a33', border: '#0066cc' };
+                case 'decision':
+                    return { main: '#fbbf24', dark: '#d97706', border: '#f59e0b' };
+                case 'action':
+                    return { main: '#10b981', dark: '#059669', border: '#22c55e' };
+                case 'system':
+                    return { main: '#6b7280', dark: '#4b5563', border: '#888' };
+                case 'end':
+                    return { main: '#9f7aea', dark: '#6b5b95', border: '#b0a0d0' };
+                default:
+                    return { main: '#4b5563', dark: '#353d4f', border: '#666' };
+            }
+        }
+
+        function drawNode(node, isHovered) {
+            const x = node.x + panX;
+            const y = node.y + panY;
+            const w = node.width * zoomLevel;
+            const h = node.height * zoomLevel;
+            const fontSize = 11 * zoomLevel;
+            const colors = getNodeColor(node.type);
+
+            // Background
+            ctx.fillStyle = colors.main;
+            ctx.strokeStyle = colors.border;
+            ctx.lineWidth = isHovered ? 3 : 2;
+
+            if (node.type === 'start' || node.type === 'end') {
+                // Rounded pill
+                const radius = h / 2;
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + w - radius, y);
+                ctx.arc(x + w - radius, y + h / 2, radius, -Math.PI / 2, Math.PI / 2);
+                ctx.lineTo(x + radius, y + h);
+                ctx.arc(x + radius, y + h / 2, radius, Math.PI / 2, -Math.PI / 2);
+                ctx.fill();
+                ctx.stroke();
+            } else if (node.type === 'decision') {
+                // Diamond
+                ctx.beginPath();
+                ctx.moveTo(x + w / 2, y);
+                ctx.lineTo(x + w, y + h / 2);
+                ctx.lineTo(x + w / 2, y + h);
+                ctx.lineTo(x, y + h / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                // Rectangle with slight rounding
+                const radius = 4;
+                ctx.beginPath();
+                ctx.roundRect(x, y, w, h, radius);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Text
+            ctx.fillStyle = node.type === 'decision' ? '#000' : '#000';
+            ctx.font = `bold ${fontSize}px 'JetBrains Mono'`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const lines = node.title.split('\n');
+            const lineHeight = fontSize + 2;
+            const totalHeight = lineHeight * lines.length;
+            const startY = y + h / 2 - totalHeight / 2 + fontSize / 2;
+
+            lines.forEach((line, i) => {
+                ctx.fillText(line, x + w / 2, startY + i * lineHeight);
+            });
+        }
+
+        function drawEdge(fromNode, toNode, label) {
+            const x1 = fromNode.x + fromNode.width / 2 + panX;
+            const y1 = fromNode.y + fromNode.height / 2 + panY;
+            const x2 = toNode.x + toNode.width / 2 + panX;
+            const y2 = toNode.y + toNode.height / 2 + panY;
+
+            // Arrow line
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Arrowhead
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const arrowSize = 8;
+            const x2Adj = x2 - Math.cos(angle) * arrowSize;
+            const y2Adj = y2 - Math.sin(angle) * arrowSize;
+
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.6)';
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2Adj - Math.sin(angle) * arrowSize / 2, y2Adj + Math.cos(angle) * arrowSize / 2);
+            ctx.lineTo(x2Adj + Math.sin(angle) * arrowSize / 2, y2Adj - Math.cos(angle) * arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Edge label
+            if (label) {
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                const offset = 15;
+                const perpAngle = angle + Math.PI / 2;
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = `bold 10px 'JetBrains Mono'`;
+                ctx.textAlign = 'center';
+                ctx.fillText(label, midX + Math.cos(perpAngle) * offset, midY + Math.sin(perpAngle) * offset);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(5, 8, 16, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw edges first (behind nodes)
+            edges.forEach(edge => {
+                const fromNode = nodes.find(n => n.id === edge.from);
+                const toNode = nodes.find(n => n.id === edge.to);
+                if (fromNode && toNode) {
+                    drawEdge(fromNode, toNode, edge.label);
+                }
+            });
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const mouseX = lastMouseX - panX;
+                const mouseY = lastMouseY - panY - headerHeight;
+                const isHovered = mouseX >= node.x && mouseX <= node.x + node.width &&
+                                  mouseY >= node.y && mouseY <= node.y + node.height;
+                drawNode(node, isHovered);
+            });
+        }
+
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        canvas.addEventListener('mousemove', (e) => {
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            if (!isDragging) draw();
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left - panX;
+            const mouseY = e.clientY - rect.top - panY;
+
+            const clicked = nodes.find(node =>
+                mouseX >= node.x && mouseX <= node.x + node.width &&
+                mouseY >= node.y && mouseY <= node.y + node.height
+            );
+
+            if (clicked) {
+                showPopup(clicked, e.clientX, e.clientY);
+            } else {
+                hidePopup();
+            }
+        });
+
+        function showPopup(node, x, y) {
+            const popup = document.getElementById('nodePopup');
+            const details = nodeDetails[node.id] || {};
+
+            document.getElementById('popupTitle').textContent = node.title;
+            document.getElementById('popupType').textContent = node.type.toUpperCase();
+            document.getElementById('popupStory').textContent = details.story || 'No description available.';
+
+            const statusHtml = `<span class="status-badge ${details.status?.includes('Progress') ? 'inprogress' : details.status?.includes('Planned') ? 'planned' : ''}">${details.status || 'Unknown'}</span>`;
+            document.getElementById('popupStatus').innerHTML = statusHtml;
+
+            if (details.files && details.files.length > 0) {
+                document.getElementById('popupFiles').style.display = 'block';
+                const filesList = details.files.map(f => `<div class="popup-file">${f}</div>`).join('');
+                document.getElementById('popupFilesList').innerHTML = filesList;
+            } else {
+                document.getElementById('popupFiles').style.display = 'none';
+            }
+
+            popup.classList.add('visible');
+            const popupWidth = popup.offsetWidth;
+            const popupHeight = popup.offsetHeight;
+
+            let posX = x + 10;
+            let posY = y + 10;
+
+            if (posX + popupWidth > window.innerWidth - 10) {
+                posX = window.innerWidth - popupWidth - 10;
+            }
+            if (posY + popupHeight > window.innerHeight - 210) {
+                posY = window.innerHeight - popupHeight - 210;
+            }
+
+            popup.style.left = posX + 'px';
+            popup.style.top = posY + 'px';
+        }
+
+        function hidePopup() {
+            document.getElementById('nodePopup').classList.remove('visible');
+        }
+
+        document.getElementById('popupClose').addEventListener('click', hidePopup);
+        document.getElementById('nodePopup').addEventListener('click', (e) => e.stopPropagation());
+
+        // Legend toggle
+        document.getElementById('legendBtn').addEventListener('click', () => {
+            document.getElementById('legend').classList.toggle('visible');
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'z' || e.key === 'Z') {
+                zoomLevel = 1;
+                panX = 0;
+                panY = 0;
+                draw();
+            }
+            if (e.key === 'l' || e.key === 'L') {
+                document.getElementById('legend').classList.toggle('visible');
+            }
+            if (e.key === 'Escape') {
+                hidePopup();
+            }
+        });
+
+        // Feedback storage
+        const feedbackInput = document.getElementById('feedbackInput');
+        feedbackInput.addEventListener('change', () => {
+            localStorage.setItem('hal-o-flow-feedback', feedbackInput.value);
+        });
+
+        feedbackInput.value = localStorage.getItem('hal-o-flow-feedback') || '';
+
+        // Initial draw
+        draw();
+
+        // Polyfill for roundRect if not available
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+            };
+        }
+    </script>
+</body>
+</html>
