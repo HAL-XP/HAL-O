@@ -18,11 +18,15 @@ interface TelegramConfig {
 
 function loadConfig(): TelegramConfig | null {
   // Read from ~/.claude_credentials
+  // Uses TELEGRAM_MAIN_BOT_TOKEN (the app's own bot, separate from HALDEV CLI bot)
   try {
     const credPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude_credentials')
     if (!existsSync(credPath)) return null
     const content = readFileSync(credPath, 'utf-8')
-    const tokenMatch = content.match(/TELEGRAM_BOT_TOKEN=["']?([^"'\s\r\n]+)/)
+    // Prefer TELEGRAM_MAIN_BOT_TOKEN (app dispatcher bot), fall back to TELEGRAM_BOT_TOKEN
+    const mainMatch = content.match(/TELEGRAM_MAIN_BOT_TOKEN=["']?([^"'\s\r\n]+)/)
+    const fallbackMatch = content.match(/TELEGRAM_BOT_TOKEN=["']?([^"'\s\r\n]+)/)
+    const tokenMatch = mainMatch || fallbackMatch
     const chatMatch = content.match(/TELEGRAM_CHAT_ID=["']?([^"'\s\r\n]+)/)
     if (!tokenMatch || !chatMatch) return null
     return { botToken: tokenMatch[1], chatId: chatMatch[1] }
