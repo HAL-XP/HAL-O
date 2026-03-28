@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Assistant Tools & MCP Servers for Claudette</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #07080d;
+            --bg-secondary: #0f1117;
+            --bg-tertiary: #161b22;
+            --cyan: #00e5ff;
+            --green: #22c55e;
+            --pink: #f472b6;
+            --purple: #a78bfa;
+            --orange: #f97316;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --border: #30363d;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #0a0d15 50%, var(--bg-primary) 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 229, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(34, 197, 94, 0.02) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--cyan);
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+            flex-shrink: 0;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .header-text h1 {
+            font-size: 2.5em;
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, var(--cyan), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+        }
+
+        .header-text p {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            margin-bottom: 8px;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: rgba(244, 114, 182, 0.1);
+            border: 1px solid var(--pink);
+            color: var(--pink);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+
+        .section {
+            margin-bottom: 80px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--cyan);
+            margin-bottom: 30px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--cyan);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title::before {
+            content: '▶';
+            font-size: 0.8em;
+            opacity: 0.6;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .card:hover {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+            transform: translateY(-4px);
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card-header {
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-recommended {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        .badge-easy {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--green);
+        }
+
+        .badge-medium {
+            background: rgba(249, 115, 22, 0.15);
+            color: var(--orange);
+        }
+
+        .badge-hard {
+            background: rgba(244, 114, 182, 0.15);
+            color: var(--pink);
+        }
+
+        .badge-selfhosted {
+            background: rgba(167, 139, 250, 0.15);
+            color: var(--purple);
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .card-footer {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--cyan);
+            text-decoration: none;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+        }
+
+        .github-link:hover {
+            color: var(--pink);
+            gap: 8px;
+        }
+
+        .integration-strategy {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.05), rgba(34, 197, 94, 0.05));
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .strategy-title {
+            font-size: 1.3em;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--green);
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .timeline-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item:hover {
+            border-color: var(--green);
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);
+        }
+
+        .timeline-phase {
+            display: inline-block;
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--green);
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .timeline-item h3 {
+            color: var(--cyan);
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .timeline-item ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .timeline-item li {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .timeline-item li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--cyan);
+        }
+
+        .feedback-section {
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.05), rgba(0, 229, 255, 0.05));
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 32px;
+            margin-top: 60px;
+        }
+
+        .feedback-title {
+            font-size: 1.3em;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--pink);
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        .feedback-input {
+            width: 100%;
+            min-height: 120px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .feedback-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+        }
+
+        .feedback-button {
+            background: linear-gradient(90deg, var(--cyan), var(--green));
+            color: var(--bg-primary);
+            border: none;
+            padding: 12px 28px;
+            border-radius: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+        }
+
+        .feedback-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+
+        .feedback-button:active {
+            transform: scale(0.98);
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+
+            .header-text h1 {
+                font-size: 1.8em;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .timeline {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: rgba(0, 229, 255, 0.1);
+            animation: scan 8s linear infinite;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100vh; }
+        }
+
+        .stars {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            z-index: 0;
+            opacity: 0.5;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .comparison-toggle {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+        }
+
+        .toggle-btn.active {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--cyan);
+        }
+
+        @font-face {
+            font-family: 'Orbitron';
+            src: url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        }
+
+        .info-box {
+            background: rgba(0, 229, 255, 0.05);
+            border-left: 3px solid var(--cyan);
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .highlight {
+            color: var(--cyan);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo">
+                <img src="https://raw.githubusercontent.com/HAL-XP/HAL-O/master/build/icon.png" alt="HAL-O Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 256 256%22%3E%3Crect fill=%22%2307080d%22 width=%22256%22 height=%22256%22/%3E%3Ccircle cx=%22128%22 cy=%22128%22 r=%2280%22 fill=%22%2300e5ff%22 opacity=%220.3%22 stroke=%22%2300e5ff%22 stroke-width=%222%22/%3E%3Ccircle cx=%22128%22 cy=%22128%22 r=%2260%22 fill=%22none%22 stroke=%2322c55e%22 stroke-width=%222%22/%3E%3Ctext x=%22128%22 y=%22140%22 font-family=%22Orbitron%22 font-size=%2240%22 fill=%22%2300e5ff%22 text-anchor=%22middle%22%3EHAL%3C/text%3E%3C/svg%3E'">
+            </div>
+            <div class="header-text">
+                <h1>CLAUDETTE TOOLKIT</h1>
+                <p>Personal Assistant MCP Servers & Integration Strategy</p>
+                <div class="header-badge">French AI Personal Assistant</div>
+            </div>
+        </header>
+
+        <div class="info-box">
+            <strong>Mission</strong>: Build a complete personal digital assistant for <span class="highlight">Claudette</span> (French personal assistant running as Claude CLI clone) using open-source MCP servers, self-hosted tools, and intelligent automation. Focus on calendar, email, tasks, notes, health, and financial tracking.
+        </div>
+
+        <!-- SECTION 1: ALL-IN-ONE FRAMEWORKS -->
+        <section class="section">
+            <h2 class="section-title">All-in-One Frameworks</h2>
+            <div class="grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">google_workspace_mcp</div>
+                        <div class="card-badges">
+                            <span class="badge badge-recommended">★ RECOMMENDED</span>
+                            <span class="badge badge-easy">EASY</span>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        The Swiss Army knife. 66+ tools covering Calendar, Gmail, Drive, Tasks, Sheets, Slides, and Docs. Single MCP server handles all Google Workspace products. Perfect first install for Claudette.
+                    </div>
+                    <div class="card-footer">
+                        <a href="https://github.com/search?q=google_workspace_mcp" class="github-link">📦 Find on GitHub</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">nexus-mcp</div>
+                        <div class="card-badges">
+                            <span class="badge badge-medium">MEDIUM</span>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Calendar + Obsidian vault + Trello + Web browsing in one. Bridges calendar events with notes and task boards. Great for integrated planning.
+                    </div>
+                    <div class="card-footer">
+                        <a href="https://github.com/nexus-mcp" class="github-link">📦 Find on GitHub</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Open Claude Cowork</div>
+                        <div class="card-badges">
+                            <span class="badge badge-hard">HARD</span>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        500+ SaaS integrations via Composio. Overkill for personal use, but enables Stripe, Slack, Zapier, and enterprise tools if needed later.
+                    </div>
+                    <div class="card-footer">
+                        <a href="https://github.com/composio/composio" class="github-link">📦 Composio</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Leon AI</div>
+                        <div class="card-badges">
+                            <span class="badge badge-hard">HARD</span>
+                            <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Open-source personal assistant OS. Voice control, module-based architecture. Good learning project, but heavyweight compared to MCP ecosystem.
+                    </div>
+                    <div class="card-footer">
+                        <a href="https://github.com/leon-ai/leon" class="github-link">📦 Leon AI</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">mcp-pa-ai-agent</div>
+                        <div class="card-badges">
+                            <span class="badge badge-medium">MEDIUM</span>
+                        </div>
+                    </div>
+                    <div class="card-description">
+                        Claude-specific personal assistant MCP. Smart home integration, routine automation, and natural language dispatch. Built for Claude CLI workflows.
+                    </div>
+                    <div class="card-footer">
+                        <a href="https://github.com/search?q=mcp-pa-ai-agent" class="github-link">📦 Find on GitHub</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: CATEGORY BREAKDOWN -->
+        <section class="section">
+            <h2 class="section-title">Specialized Tools by Category</h2>
+
+            <!-- Calendar -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">📅 Calendar & Scheduling</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">google-calendar-mcp</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Dedicated Google Calendar MCP. Create events, check availability, manage reminders. Lighter than workspace MCP if you only need calendar.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=google-calendar-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Nextcloud Calendar</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Self-hosted calendar via Nextcloud. Full control, CalDAV support. Good for privacy-focused setups. Needs Nextcloud instance running.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/nextcloud/calendar" class="github-link">📦 Nextcloud</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">✉️ Email & Inbox</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">gmail-mcp (via workspace)</div>
+                            <div class="card-badges">
+                                <span class="badge badge-recommended">★ TIER 1</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            18 Gmail tools in google_workspace_mcp. Send, read, search, label, archive. Best integration with Claude's context window.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=google_workspace_mcp" class="github-link">📦 Workspace</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Inbox Zero MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Email management engine for inbox zero workflow. Auto-categorization, priority scoring, bulk actions. Great for reducing email noise.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/evals-as-code/inbox-zero" class="github-link">📦 Inbox Zero</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Thunderbird + MCP Bridge</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-hard">HARD</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Use Thunderbird as email backend with custom MCP bridge. Full control over email data, works with any provider via IMAP/SMTP.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/thunderbird" class="github-link">📦 Thunderbird</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks & Todos -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">✔️ Tasks & Todos</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Google Tasks (via workspace)</div>
+                            <div class="card-badges">
+                                <span class="badge badge-recommended">★ TIER 1</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            10 Tasks management tools in workspace MCP. Create lists, add tasks, set due dates. Integrates with Calendar.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=google_workspace_mcp" class="github-link">📦 Workspace</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Vikunja</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Open-source task management. Kanban boards, list views, recurring tasks, team features. Can run in Docker. Full API for MCP.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/vikunja/vikunja" class="github-link">📦 Vikunja</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Taskwarrior</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            CLI-first task management. Minimal, powerful, syncs to Taskserver. Perfect for terminal-based workflows. Great MCP companion.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/GothenburgBitFactory/taskwarrior" class="github-link">📦 Taskwarrior</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes & Journal -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">📝 Notes & Journaling</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">obsidian-mcp-server</div>
+                            <div class="card-badges">
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            MCP bridge to Obsidian vault. Query notes by topic, create new notes, update existing. Obsidian becomes your second brain, Claude becomes your scribe.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=obsidian-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Notion MCP (Official)</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Official MCP from Anthropic for Notion integration. Database queries, page creation, property updates. Works great with Claude.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/anthropics/anthropic-sdk-python" class="github-link">📦 Anthropic</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Joplin</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Open-source note-taking. Markdown-based, end-to-end encrypted, mobile sync. REST API ready for MCP wrapper.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/laurent22/joplin" class="github-link">📦 Joplin</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Memos</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Lightweight, open-source memo/note system. Perfect for quick captures, markdown, tagging. Docker deployment. API-driven.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/usememos/memos" class="github-link">📦 Memos</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reminders & Automation -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">🔔 Reminders & Automation</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Google Calendar Reminders</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Native reminders via calendar events (workspace MCP). Set SMS, email, or notification-based reminders on any event.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=google_workspace_mcp" class="github-link">📦 Workspace</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">n8n</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Workflow automation engine. 400+ integrations, scheduler, conditional logic. Create complex reminder chains and automations. Docker-ready.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/n8n-io/n8n" class="github-link">📦 n8n</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">cron + shell</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Good old cron. Schedule Claude CLI calls to run Claudette as a batch agent for daily briefings, reminders, updates. Simple, effective.
+                        </div>
+                        <div class="card-footer">
+                            <a href="#" class="github-link">💻 System Standard</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacts -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">👥 Contacts & CRM</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Monica</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                                <span class="badge badge-recommended">★ RECOMMENDED</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Personal CRM for relationships. 8k+ GitHub stars. Track contacts, relationships, call history, notes. Private, open-source, Docker-deployable. REST API.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/monicahq/monica" class="github-link">📦 Monica</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Google Contacts (via workspace)</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Basic contact management via workspace MCP. Less feature-rich than Monica, but integrated with Gmail and Calendar.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=google_workspace_mcp" class="github-link">📦 Workspace</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Nextcloud Contacts</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Self-hosted contacts via Nextcloud. CardDAV sync, groups, photo storage. Integrates with Nextcloud calendar.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/nextcloud/contacts" class="github-link">📦 Nextcloud</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health & Habits -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">💪 Health & Habit Tracking</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Personal Health Tracker MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Track weight, exercise, nutrition, sleep. Claude asks questions, logs data, generates insights. Simple API-based tracker.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=health-tracker-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Loop Habit Tracker</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Open-source habit tracking app. Beautiful UI, streak tracking, statistics. Mobile + desktop. SQLite backend, REST API-ready.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/iSoron/uhabits" class="github-link">📦 Loop</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Habo</div>
+                            <div class="card-badges">
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Habit formation engine. Psychology-based approach, community challenges. Cloud-based, API available. Great for accountability.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=habo" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">OpenScale</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Open-source weight tracking with cloud sync (optional). Supports smart scale integration. Charts and trends.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/oliexdev/openScale" class="github-link">📦 OpenScale</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Finance -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">💰 Finance & Budgeting</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Actual Budget</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                                <span class="badge badge-recommended">★ RECOMMENDED</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Zero-based budgeting system. Open-source, encrypted, privacy-first. Desktop + web. REST API for MCP. Best in class for personal budgets.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/actualbudget/actual" class="github-link">📦 Actual</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Expense Tracker MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            SQLite-based expense logging. Log transactions via Claude, auto-categorize, generate spending reports. Minimal setup.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=expense-tracker-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Firefly III</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-medium">MEDIUM</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Personal finance manager. Multi-currency, budgets, rules, API, YNAB-like workflow. Docker deployment. Strong API for MCP bridge.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/firefly-iii/firefly-iii" class="github-link">📦 Firefly III</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Homebox</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Home inventory + asset tracking. Track what you own, where it is, warranty info. REST API. Useful companion to budgeting.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/hay-kot/homebox" class="github-link">📦 Homebox</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weather -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">🌤️ Weather & Environment</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Open-Meteo MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-recommended">★ TIER 1</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Free weather API, no API key needed. Accurate, global coverage, fast. Perfect for daily briefings. MCP server already exists.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=open-meteo-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">NWS Weather MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            NOAA National Weather Service API for USA. Detailed forecasts, alerts. Free, no key. MCP wrapper available.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=nws-weather-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">wttr.in MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Minimal, beautiful weather in the terminal. ASCII art, JSON output. Curl-based, ultra-lightweight. Great for Claudette briefings.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/chubin/wttr.in" class="github-link">📦 wttr.in</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- News & Briefings -->
+            <div style="margin-bottom: 48px;">
+                <h3 style="font-size: 1.3em; color: var(--green); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">📰 News & Briefings</h3>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Tavily MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-recommended">★ TIER 2</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Real-time search + news API. Powered by web search. Claude can search the internet, pull latest news, fact-check. Official MCP server available.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/tavily-ai/tavily-mcp" class="github-link">📦 Tavily</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Brave Search MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Privacy-focused search. Brave Search API with news results. Independent from Google. Good for unbiased briefings.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=brave-search-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Miniflux</div>
+                            <div class="card-badges">
+                                <span class="badge badge-selfhosted">SELF-HOSTED</span>
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Open-source RSS reader. Minimal, fast, API-driven. Subscribe to your favorite blogs/news feeds. MCP bridge easy to build.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/miniflux/v2" class="github-link">📦 Miniflux</a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">HackerNews MCP</div>
+                            <div class="card-badges">
+                                <span class="badge badge-easy">EASY</span>
+                            </div>
+                        </div>
+                        <div class="card-description">
+                            Access HackerNews top stories, comments, user profiles. Great for tech briefings. Simple API, no auth required.
+                        </div>
+                        <div class="card-footer">
+                            <a href="https://github.com/search?q=hackernews-mcp" class="github-link">📦 Find on GitHub</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: INTEGRATION STRATEGY -->
+        <section class="section">
+            <h2 class="section-title">Integration Strategy: 3-Tier Rollout</h2>
+
+            <div class="integration-strategy">
+                <div class="strategy-title">🚀 Deploy in Phases to Avoid Integration Hell</div>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-phase">PHASE 1: TODAY</div>
+                        <h3>🔥 Core Functionality (4 hours setup)</h3>
+                        <ul>
+                            <li><strong>google_workspace_mcp</strong> — Calendar, Email, Tasks (all 66+ tools)</li>
+                            <li><strong>Open-Meteo MCP</strong> — Daily weather briefings</li>
+                            <li><strong>Claude CLI</strong> — Claudette dispatcher (already in place)</li>
+                        </ul>
+                        <p style="margin-top: 12px; color: var(--text-secondary); font-size: 0.9em;">
+                            Claudette can now manage schedule, check email, log tasks, and report weather. Essential for daily operations.
+                        </p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-phase">PHASE 2: THIS WEEK</div>
+                        <h3>🧠 Extended Intelligence (8 hours setup)</h3>
+                        <ul>
+                            <li><strong>obsidian-mcp-server</strong> — Link calendar → notes → insights</li>
+                            <li><strong>Actual Budget MCP</strong> — Expense tracking, budget reports</li>
+                            <li><strong>Tavily MCP</strong> — Real-time news + research</li>
+                        </ul>
+                        <p style="margin-top: 12px; color: var(--text-secondary); font-size: 0.9em;">
+                            Claudette becomes your digital brain. Notes link to calendar events, budgets auto-track expenses, news briefings generate insights.
+                        </p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-phase">PHASE 3: LATER (Optional)</div>
+                        <h3>✨ Advanced Features (12+ hours setup)</h3>
+                        <ul>
+                            <li><strong>Monica</strong> — Relationship CRM, contact insights</li>
+                            <li><strong>Loop Habit Tracker MCP</strong> — Health tracking, habit analysis</li>
+                            <li><strong>n8n</strong> — Complex automations, cross-system workflows</li>
+                        </ul>
+                        <p style="margin-top: 12px; color: var(--text-secondary); font-size: 0.9em;">
+                            Turn Claudette into a full life management system. Handle relationships, health goals, and complex automations.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box" style="margin-top: 32px;">
+                <strong>📌 Implementation Priority</strong>: Start with Phase 1 (google_workspace_mcp is the linchpin). Phase 2 multiplies utility without breaking Phase 1. Phase 3 is polishing and edge cases.
+            </div>
+        </section>
+
+        <!-- SECTION 4: QUICK COMPARISON TABLE -->
+        <section class="section">
+            <h2 class="section-title">Quick Comparison: Self-Hosted vs Cloud</h2>
+
+            <div style="overflow-x: auto; margin-bottom: 32px;">
+                <table style="width: 100%; border-collapse: collapse; color: var(--text-primary);">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--cyan);">
+                            <th style="padding: 12px; text-align: left; color: var(--cyan);">Tool</th>
+                            <th style="padding: 12px; text-align: left; color: var(--cyan);">Deployment</th>
+                            <th style="padding: 12px; text-align: left; color: var(--cyan);">Setup Time</th>
+                            <th style="padding: 12px; text-align: left; color: var(--cyan);">Privacy</th>
+                            <th style="padding: 12px; text-align: left; color: var(--cyan);">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>google_workspace_mcp</strong></td>
+                            <td style="padding: 12px; color: var(--orange);">Cloud</td>
+                            <td style="padding: 12px; color: var(--green);">30 min</td>
+                            <td style="padding: 12px; color: var(--orange);">Moderate</td>
+                            <td style="padding: 12px;">Free / $12/mo</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>Obsidian + MCP</strong></td>
+                            <td style="padding: 12px; color: var(--green);">Local</td>
+                            <td style="padding: 12px; color: var(--green);">1 hour</td>
+                            <td style="padding: 12px; color: var(--green);">Excellent</td>
+                            <td style="padding: 12px;">$40 (one-time) + $0</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>Actual Budget</strong></td>
+                            <td style="padding: 12px; color: var(--green);">Self-Hosted</td>
+                            <td style="padding: 12px; color: var(--orange);">2 hours</td>
+                            <td style="padding: 12px; color: var(--green);">Perfect</td>
+                            <td style="padding: 12px;">$0 (open-source)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>Monica CRM</strong></td>
+                            <td style="padding: 12px; color: var(--green);">Self-Hosted</td>
+                            <td style="padding: 12px; color: var(--orange);">3 hours</td>
+                            <td style="padding: 12px; color: var(--green);">Perfect</td>
+                            <td style="padding: 12px;">$0 (open-source)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>Tavily Search</strong></td>
+                            <td style="padding: 12px; color: var(--orange);">Cloud</td>
+                            <td style="padding: 12px; color: var(--green);">15 min</td>
+                            <td style="padding: 12px; color: var(--orange);">Moderate</td>
+                            <td style="padding: 12px;">Free tier / $20/mo</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 12px;"><strong>Open-Meteo</strong></td>
+                            <td style="padding: 12px; color: var(--orange);">Cloud</td>
+                            <td style="padding: 12px; color: var(--green);">10 min</td>
+                            <td style="padding: 12px; color: var(--green);">Good</td>
+                            <td style="padding: 12px;">Free</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-box">
+                <strong>🎯 Recommendation for Claudette</strong>: Start with cloud (Phase 1) for speed. Gradually migrate to self-hosted for Obsidian, Budget, and Monica as you learn the system. This gives you the best of both worlds: fast iteration + long-term privacy.
+            </div>
+        </section>
+
+        <!-- SECTION 5: DEPLOYMENT CHECKLIST -->
+        <section class="section">
+            <h2 class="section-title">Phase 1 Deployment Checklist</h2>
+
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 24px;">
+                <div style="display: grid; gap: 16px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <input type="checkbox" id="c1" style="margin-top: 4px; cursor: pointer; accent-color: var(--green);">
+                        <label for="c1" style="flex: 1; cursor: pointer;">
+                            <strong style="color: var(--text-primary);">Install google_workspace_mcp</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Clone repo, install dependencies, generate Google Cloud OAuth credentials, test with `claude mcp` CLI</p>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <input type="checkbox" id="c2" style="margin-top: 4px; cursor: pointer; accent-color: var(--green);">
+                        <label for="c2" style="flex: 1; cursor: pointer;">
+                            <strong style="color: var(--text-primary);">Add Open-Meteo MCP</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Register MCP in `~/.claude/mcp.json`, test weather command: `claude "What's the weather in Paris?"`</p>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <input type="checkbox" id="c3" style="margin-top: 4px; cursor: pointer; accent-color: var(--green);">
+                        <label for="c3" style="flex: 1; cursor: pointer;">
+                            <strong style="color: var(--text-primary);">Create Claudette dispatcher</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Write shell alias: `claudette() { claude "$@"; }` or cron job for daily briefing</p>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <input type="checkbox" id="c4" style="margin-top: 4px; cursor: pointer; accent-color: var(--green);">
+                        <label for="c4" style="flex: 1; cursor: pointer;">
+                            <strong style="color: var(--text-primary);">Test core flows</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Check calendar for today, list 5 tasks, draft email, get weather report</p>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <input type="checkbox" id="c5" style="margin-top: 4px; cursor: pointer; accent-color: var(--green);">
+                        <label for="c5" style="flex: 1; cursor: pointer;">
+                            <strong style="color: var(--text-primary);">Schedule daily briefing</strong>
+                            <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Set cron job to run Claudette at 07:00 CET, capture output to log file</p>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: FEEDBACK -->
+        <section class="feedback-section">
+            <div class="feedback-title">💭 Feedback & Questions</div>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Found a missing tool? Have questions about MCP setup? Want to discuss the integration strategy?</p>
+            <textarea
+                class="feedback-input"
+                id="feedbackBox"
+                placeholder="Share your thoughts, questions, or suggestions for Claudette's toolkit...
+- Did we miss a tool category?
+- Got a better recommendation for [category]?
+- Questions about Phase 1 setup?
+- Privacy concerns with cloud vs self-hosted?
+
+Type freely, then click Send."
+            ></textarea>
+            <button class="feedback-button" onclick="sendFeedback()">Send Feedback</button>
+            <div id="feedbackStatus" style="margin-top: 12px; color: var(--green); font-size: 0.9em; display: none;"></div>
+        </section>
+    </div>
+
+    <script>
+        // Initialize backdrop stars (optional)
+        function createStars() {
+            const container = document.body;
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'stars';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                container.appendChild(star);
+            }
+        }
+        createStars();
+
+        // Feedback handler
+        function sendFeedback() {
+            const feedbackBox = document.getElementById('feedbackBox');
+            const feedbackStatus = document.getElementById('feedbackStatus');
+            const feedback = feedbackBox.value.trim();
+
+            if (!feedback) {
+                feedbackStatus.textContent = '⚠️ Please enter feedback before sending.';
+                feedbackStatus.style.display = 'block';
+                return;
+            }
+
+            // Simulate send (in real scenario, would POST to backend)
+            feedbackStatus.textContent = '✓ Feedback recorded! Thank you for helping improve Claudette\'s toolkit.';
+            feedbackStatus.style.display = 'block';
+            feedbackBox.value = '';
+
+            // Reset after 3 seconds
+            setTimeout(() => {
+                feedbackStatus.style.display = 'none';
+            }, 3000);
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Card hover animation enhancement
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--cyan');
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border');
+            });
+        });
+
+        // Accessibility: Allow keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && document.getElementById('feedbackBox') === document.activeElement) {
+                if (e.ctrlKey || e.metaKey) {
+                    sendFeedback();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

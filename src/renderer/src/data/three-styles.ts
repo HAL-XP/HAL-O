@@ -85,6 +85,21 @@ export const THREE_STYLES: ThreeStyleDef[] = [
     surfaceRoughness: 0.95,
   },
   {
+    id: 'amethyst',
+    label: 'AMETHYST',
+    bloom: { threshold: 0.25, intensity: 2.1, radius: 0.8 },
+    backgroundDarkness: 0.025,
+    gridOpacity: 0.5,
+    edgeGlowBase: 0.6,
+    particleBrightness: 1.15,
+    sphereColorShift: 0.9,     // sphere follows accent (purple hue)
+    sphereGlowIntensity: 3.2,
+    chromaticOffset: 0.0009,
+    vignetteStrength: 0.55,
+    surfaceMetalness: 0.35,
+    surfaceRoughness: 0.87,
+  },
+  {
     id: 'ember',
     label: 'EMBER',
     bloom: { threshold: 0.25, intensity: 2.0, radius: 0.75 },

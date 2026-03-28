@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
 // node-pty is a native module — try prebuilt first, then regular
@@ -165,6 +165,14 @@ export class TerminalManager {
     if (!isHalO) {
       delete childEnv.TELEGRAM_MAIN_BOT_TOKEN
     }
+
+    // Write instance token to TG plugin .env (prevents cross-instance token conflict)
+    try {
+      const tgEnvPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'channels', 'telegram', '.env')
+      if (childEnv.TELEGRAM_BOT_TOKEN) {
+        writeFileSync(tgEnvPath, `TELEGRAM_BOT_TOKEN=${childEnv.TELEGRAM_BOT_TOKEN}\n`, 'utf-8')
+      }
+    } catch { /* TG plugin dir may not exist */ }
 
     const p = pty.spawn(shell, shellArgs, {
       name: 'xterm-256color',

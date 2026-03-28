@@ -817,6 +817,48 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
     )
   })
 
+  // ── Single HudTopbar instance shared by all renderer paths ──
+  const hudTopbar = (
+    <HudTopbar
+      settings={settings}
+      search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
+      voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
+      projectCount={visibleProjects.length} readyCount={readyCount}
+      allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
+      hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
+      particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
+      renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
+      camera={camera}
+      rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
+      onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
+      onCameraChange={onCameraChange} onCameraReset={onCameraReset}
+      onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
+      shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
+      introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
+      activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
+      graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
+      bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
+      chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
+      floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
+      groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
+      autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
+      autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
+      onRedetectGpu={onRedetectGpu}
+      sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
+      voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
+      personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
+      groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
+      demo={demo}
+      hiddenPaths={hiddenPaths} onUnhide={unhideProject}
+      onVoiceBlocked={handleVoiceBlocked}
+      defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
+      defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
+      dockMode={dockMode} onDockModeChange={onDockModeChange}
+      projects={projects.map(p => ({ path: p.path, name: p.name }))}
+      devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
+    />
+  )
+
   // 2D Preview Mode — flat grid of all project cards (triggered via Dev menu)
   if (preview2d) {
     return (
@@ -826,44 +868,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           isFullySetup={isFullySetup}
           onOpenTerminal={onOpenTerminal}
         />
-        <HudTopbar
-          settings={settings}
-          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
-          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={visibleProjects.length} readyCount={readyCount}
-          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
-          camera={camera}
-          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
-          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
-          introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
-          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
-          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
-          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
-          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
-          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
-          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
-          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
-          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
-          onRedetectGpu={onRedetectGpu}
-          sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
-          voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
-          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
-          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
-          demo={demo}
-          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
-          onVoiceBlocked={handleVoiceBlocked}
-          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
-          defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
-          dockMode={dockMode} onDockModeChange={onDockModeChange}
-          projects={projects.map(p => ({ path: p.path, name: p.name }))}
-          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
-        />
+        {hudTopbar}
         {renderAbsorptionOverlay()}
       </div>
     )
@@ -963,44 +968,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           transitioning={sectors.transitioning}
           sectorHue={sectors.sectorHue}
         />
-        <HudTopbar
-          settings={settings}
-          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
-          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={visibleProjects.length} readyCount={readyCount}
-          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
-          camera={camera}
-          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
-          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
-          introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
-          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
-          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
-          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
-          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
-          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
-          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
-          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
-          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
-          onRedetectGpu={onRedetectGpu}
-          sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
-          voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
-          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
-          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
-          demo={demo}
-          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
-          onVoiceBlocked={handleVoiceBlocked}
-          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
-          defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
-          dockMode={dockMode} onDockModeChange={onDockModeChange}
-          projects={projects.map(p => ({ path: p.path, name: p.name }))}
-          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
-        />
+        {hudTopbar}
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : externalSessions.some(s => s.projectPath.toLowerCase().includes('hal-o')) ? 'EXTERNAL SESSION' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
         {ctxMenu && (
@@ -1053,44 +1021,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           </div>
         )}
 
-        <HudTopbar
-          settings={settings}
-          search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
-          voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-          projectCount={visibleProjects.length} readyCount={readyCount}
-          allProjects={projects} activeFilter={activeFilter} onFilterChange={handleFilterChange} isFavorite={isFavorite}
-          hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-          particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-          renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
-          camera={camera}
-          rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
-          onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-          onCameraChange={onCameraChange} onCameraReset={onCameraReset}
-          onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
-          shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
-          introAnimation={introAnimation} onIntroAnimationChange={onIntroAnimationChange}
-          activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
-          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
-          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
-          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
-          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
-          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
-          autoRotateEnabled={autoRotateEnabled} onAutoRotateEnabledChange={onAutoRotateEnabledChange}
-          autoRotateSpeed={autoRotateSpeed} onAutoRotateSpeedChange={onAutoRotateSpeedChange}
-          onRedetectGpu={onRedetectGpu}
-          sphereStyle={sphereStyle} onSphereStyleChange={onSphereStyleChange}
-          voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
-          personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
-          groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
-          demo={demo}
-          hiddenPaths={hiddenPaths} onUnhide={unhideProject}
-          onVoiceBlocked={handleVoiceBlocked}
-          defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
-          defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
-          dockMode={dockMode} onDockModeChange={onDockModeChange}
-          projects={projects.map(p => ({ path: p.path, name: p.name }))}
-          devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
-        />
+        {hudTopbar}
 
         <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : externalSessions.some(s => s.projectPath.toLowerCase().includes('hal-o')) ? 'EXTERNAL SESSION' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
@@ -1137,36 +1068,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
       <div className="hal-edge br">SESSION {new Date().toISOString().slice(0, 10)}</div>
 
       {/* Top HUD bar */}
-      <HudTopbar
-        settings={settings}
-        search={search} onSearchChange={setSearch} onNewProject={onNewProject} onConvertProject={onConvertProject}
-        voiceFocus={voiceFocus} halSessionId={halSessionId} onListeningChange={setIsListening}
-        projectCount={projects.length} readyCount={readyCount}
-        hubFontSize={hubFontSize} termFontSize={termFontSize} wizardFontSize={wizardFontSize} onWizardFontSize={onWizardFontSize} voiceOut={voiceOut} voiceProfile={voiceProfile} dockPosition={dockPosition} screenOpacity={screenOpacity}
-        particleDensity={particleDensity} onParticleDensityChange={onParticleDensityChange}
-        renderQuality={renderQuality} onRenderQualityChange={onRenderQualityChange}
-        camera={camera}
-        rendererId={rendererId} layoutId={layoutId} threeTheme={threeTheme}
-        onHubFontSize={onHubFontSize} onTermFontSize={onTermFontSize} onVoiceOut={onVoiceOut} onVoiceProfileChange={onVoiceProfileChange} onDockPositionChange={onDockPositionChange} onScreenOpacityChange={onScreenOpacityChange}
-        onCameraChange={onCameraChange} onCameraReset={onCameraReset}
-        onRendererChange={onRendererChange} onLayoutChange={onLayoutChange} onThreeThemeChange={onThreeThemeChange}
-        shipVfxEnabled={shipVfxEnabled} onShipVfxEnabledChange={onShipVfxEnabledChange}
-        activityFeedback={activityFeedback} onActivityFeedbackChange={onActivityFeedbackChange}
-          graphicsPreset={graphicsPreset} onGraphicsPresetChange={onGraphicsPresetChange}
-          bloomEnabled={bloomEnabled} onBloomEnabledChange={onBloomEnabledChange}
-          chromaticAberrationEnabled={chromaticAberrationEnabled} onChromaticAberrationEnabledChange={onChromaticAberrationEnabledChange}
-          floorLinesEnabled={floorLinesEnabled} onFloorLinesEnabledChange={onFloorLinesEnabledChange}
-          groupTrailsEnabled={groupTrailsEnabled} onGroupTrailsEnabledChange={onGroupTrailsEnabledChange}
-        voiceReactionIntensity={voiceReactionIntensity} onVoiceReactionIntensityChange={onVoiceReactionIntensityChange}
-        personality={personality} onPersonalityChange={onPersonalityChange} onPersonalityPreset={onPersonalityPreset}
-        groups={groups} onCreateGroup={createGroup} onDeleteGroup={deleteGroup} onRenameGroup={renameGroup} onReorderGroups={reorderGroups} onApplyPreset={applyPreset}
-        demo={demo}
-        onVoiceBlocked={handleVoiceBlocked}
-        defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
-        dockMode={dockMode} onDockModeChange={onDockModeChange}
-        projects={projects.map(p => ({ path: p.path, name: p.name }))}
-        devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
-      />
+      {hudTopbar}
 
       {/* Status label */}
       <div className="hal-center-label">

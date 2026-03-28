@@ -17,12 +17,65 @@ import { getPort, dataPath, getInstanceName } from './instance'
 import { createDebate, createDebateFromPanel, getDebate, listDebates, deleteDebate, runDebateRound, runFullDebate, scoreDebate, detectConsensus, getDebateSummary, type DebateMode, type DebateMessage } from './multi-agent-orchestrator'
 import { listPresets, listPanelConfigs } from './debate-presets'
 import { getProviderStatus } from './provider-clients'
+import { getAllFlags, setFlag } from './feature-flags'
 
 // WebSocket — Electron bundles ws
 let WebSocketServer: any
 try { WebSocketServer = require('ws').WebSocketServer } catch { /* no ws */ }
 
 const PORT = getPort()
+
+// ── Rate Limiting ──
+const RATE_LIMIT_WINDOW_MS = 60_000        // 1 minute sliding window
+const RATE_LIMIT_MAX_REQUESTS = 60         // max requests per window per IP
+const RATE_LIMIT_CLEANUP_INTERVAL_MS = 60_000  // purge stale entries every 60s
+
+interface RateLimitEntry {
+  count: number
+  windowStart: number
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>()
+
+// Periodic cleanup of stale entries
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimitMap) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      rateLimitMap.delete(ip)
+    }
+  }
+}, RATE_LIMIT_CLEANUP_INTERVAL_MS)
+
+/** Extract client IP from request (supports X-Forwarded-For for proxied setups) */
+function getClientIp(req: IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim()
+  return req.socket.remoteAddress || '0.0.0.0'
+}
+
+/**
+ * Check rate limit for a given IP. Returns null if allowed,
+ * or the number of seconds until the window resets if denied.
+ */
+function checkRateLimit(ip: string): number | null {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // New window
+    rateLimitMap.set(ip, { count: 1, windowStart: now })
+    return null
+  }
+
+  entry.count++
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfter = Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000)
+    return Math.max(retryAfter, 1)
+  }
+
+  return null
+}
 
 // ── Bearer Token Auth ──
 let _apiToken: string | null = null
@@ -198,6 +251,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // ── Auth check (skip public routes) ──
   if (!isPublicRoute(url, method) && !checkAuth(req)) {
     return json(res, 401, { error: 'Unauthorized' })
+  }
+
+  // ── Rate limiting (exempt /health — already public, low cost) ──
+  if (url !== '/health') {
+    const ip = getClientIp(req)
+    const retryAfter = checkRateLimit(ip)
+    if (retryAfter !== null) {
+      res.writeHead(429, {
+        'Content-Type': 'application/json',
+        'Retry-After': String(retryAfter),
+        'Access-Control-Allow-Origin': '*',
+      })
+      res.end(JSON.stringify({ error: 'Rate limit exceeded', retryAfter }))
+      return
+    }
   }
 
   try {
@@ -975,6 +1043,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         }
         return json(res, 500, { error: 'No window found' })
       } catch (err) { return json(res, 500, { error: String(err) }) }
+    }
+
+    // ── GET /features ──
+    if (url === '/features' && method === 'GET') {
+      return json(res, 200, getAllFlags())
+    }
+
+    // ── POST /features ── { flag: string, value: boolean }
+    if (url === '/features' && method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req))
+        if (typeof body.flag !== 'string' || typeof body.value !== 'boolean') {
+          return json(res, 400, { error: 'Expected { flag: string, value: boolean }' })
+        }
+        setFlag(body.flag, body.value)
+        return json(res, 200, getAllFlags())
+      } catch { return json(res, 400, { error: 'Invalid JSON body' }) }
     }
 
     // ── GET /health ──
