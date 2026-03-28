@@ -1107,6 +1107,47 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       } catch { return json(res, 400, { error: 'Invalid JSON body' }) }
     }
 
+    // ── POST /shutdown — graceful shutdown with optional externalize ──
+    // Query params: ?reason=restart&wait-external=true
+    if (url?.startsWith('/shutdown') && method === 'POST') {
+      try {
+        const parsedUrl = new URL(url, 'http://localhost')
+        const reason = parsedUrl.searchParams.get('reason') || 'api-shutdown'
+        const waitForExternal = parsedUrl.searchParams.get('wait-external') === 'true'
+
+        console.log(`[HTTP-API] Shutdown requested — reason: ${reason}, waitForExternal: ${waitForExternal}`)
+
+        // Import dynamically to avoid circular deps at module load
+        const { gracefulShutdown } = await import('./electron-shutdown')
+
+        // Respond immediately — the shutdown happens after a 500ms delay
+        json(res, 200, {
+          status: 'shutting_down',
+          reason,
+          waitForExternal,
+          message: 'Shutdown initiated. Electron will exit after externalize completes.',
+        })
+
+        // Delay to let the HTTP response flush
+        setTimeout(async () => {
+          try {
+            const result = await gracefulShutdown({ reason, waitForExternal })
+            if (result.aborted) {
+              console.error(`[HTTP-API] Shutdown ABORTED: ${result.error}`)
+            } else {
+              console.log(`[HTTP-API] Shutdown result: success=${result.success}, externalPid=${result.externalPid}`)
+            }
+          } catch (err) {
+            console.error('[HTTP-API] Shutdown error:', err)
+          }
+        }, 500)
+
+        return
+      } catch (err) {
+        return json(res, 500, { error: String(err) })
+      }
+    }
+
     // ── GET /health ──
     if (url === '/health' && method === 'GET') {
       return json(res, 200, {

@@ -6,6 +6,7 @@
 import { exec, execSync } from 'child_process'
 import { terminalManager } from './terminal-manager'
 import { getInstanceName } from './instance'
+import { loadExternalSessionState, clearExternalSessionState, verifyExternalSession } from './session-externalize'
 
 /** Check if a HAL-O Claude session is already running externally */
 async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: string } | null> {
@@ -125,7 +126,24 @@ export async function detectOrStartHalSession(): Promise<void> {
     return
   }
 
-  // 2. Check for external session — auto-absorb if found
+  // 2. FAST PATH: Check state file from previous externalize
+  //    This avoids the slow WMI process scan (~2-5s) when we already know the PID.
+  const savedState = loadExternalSessionState()
+  if (savedState) {
+    console.log(`[Session] Found external session state file: PID ${savedState.pid} (${savedState.instanceName})`)
+    const alive = verifyExternalSession(savedState.pid)
+    if (alive) {
+      console.log(`[Session] State file PID ${savedState.pid} is alive — AUTO-ABSORBING (fast path)`)
+      clearExternalSessionState()
+      await autoAbsorb({ pid: savedState.pid, cmdLine: savedState.command })
+      return
+    } else {
+      console.log(`[Session] State file PID ${savedState.pid} is dead — clearing stale state`)
+      clearExternalSessionState()
+    }
+  }
+
+  // 3. SLOW PATH: Full process scan for external session — auto-absorb if found
   const external = await detectExternalHalSession()
   if (external) {
     console.log(`[Session] External session detected (PID ${external.pid}) — AUTO-ABSORBING`)
@@ -133,7 +151,7 @@ export async function detectOrStartHalSession(): Promise<void> {
     return
   }
 
-  // 3. No session anywhere — start fresh headless
+  // 4. No session anywhere — start fresh headless
   console.log('[Session] No HAL-O session found — starting headless')
   startHeadlessSession()
 }

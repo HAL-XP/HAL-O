@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAL-O Alpha Roadmap</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: linear-gradient(135deg, #050810 0%, #0a0e1a 100%);
+            color: #e0e6ed;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #00e5ff;
+            padding-bottom: 20px;
+        }
+
+        .header-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            background: rgba(0, 229, 255, 0.1);
+            padding: 4px;
+            border: 2px solid #00e5ff;
+        }
+
+        .header-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-family: 'Orbitron', sans-serif;
+            color: #00e5ff;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .progress-section {
+            margin-bottom: 30px;
+            background: rgba(0, 229, 255, 0.05);
+            padding: 20px;
+            border-left: 3px solid #22c55e;
+            border-radius: 4px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #b0b8c4;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 25%;
+            background: linear-gradient(90deg, #22c55e 0%, #10b981 100%);
+            border-radius: 11px;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: #050810;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-label {
+            color: #00e5ff;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .filter-btn {
+            padding: 8px 14px;
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid #00e5ff;
+            color: #00e5ff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-btn:hover {
+            background: rgba(0, 229, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+
+        .filter-btn.active {
+            background: #00e5ff;
+            color: #050810;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+        }
+
+        .filter-btn.reset {
+            border-color: #22c55e;
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .filter-btn.reset:hover {
+            background: rgba(34, 197, 94, 0.2);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+        }
+
+        .kanban-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .kanban-column {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #1a2332;
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 600px;
+            overflow-y: auto;
+        }
+
+        .kanban-column.done {
+            border-left: 3px solid #22c55e;
+        }
+
+        .kanban-column.in-progress {
+            border-left: 3px solid #00e5ff;
+        }
+
+        .kanban-column.blocker {
+            border-left: 3px solid #ef4444;
+        }
+
+        .kanban-column.nice {
+            border-left: 3px solid #a855f7;
+        }
+
+        .kanban-column.stale {
+            border-left: 3px solid #6b7280;
+        }
+
+        .column-header {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-header.done {
+            color: #22c55e;
+        }
+
+        .column-header.in-progress {
+            color: #00e5ff;
+        }
+
+        .column-header.blocker {
+            color: #ef4444;
+        }
+
+        .column-header.nice {
+            color: #a855f7;
+        }
+
+        .column-header.stale {
+            color: #9ca3af;
+        }
+
+        .column-count {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .card {
+            background: rgba(10, 14, 26, 0.6);
+            border: 1px solid #1a2d4d;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: grab;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .card:hover {
+            border-color: #00e5ff;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #e0e6ed;
+            line-height: 1.3;
+        }
+
+        .card-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 10px;
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .priority {
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-weight: bold;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .priority.p0 {
+            background: #ef4444;
+            color: white;
+        }
+
+        .priority.p1 {
+            background: #f97316;
+            color: white;
+        }
+
+        .priority.p2 {
+            background: #eab308;
+            color: #050810;
+        }
+
+        .priority.p3 {
+            background: #6b7280;
+            color: white;
+        }
+
+        .hours {
+            color: #00e5ff;
+            font-weight: bold;
+        }
+
+        .category-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 6px;
+        }
+
+        .cat-core {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid #22c55e;
+        }
+
+        .cat-ui {
+            background: rgba(0, 229, 255, 0.2);
+            color: #00e5ff;
+            border: 1px solid #00e5ff;
+        }
+
+        .cat-voice {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7;
+            border: 1px solid #a855f7;
+        }
+
+        .cat-3d {
+            background: rgba(249, 115, 22, 0.2);
+            color: #f97316;
+            border: 1px solid #f97316;
+        }
+
+        .cat-infra {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid #3b82f6;
+        }
+
+        .cat-mobile {
+            background: rgba(236, 72, 153, 0.2);
+            color: #ec4899;
+            border: 1px solid #ec4899;
+        }
+
+        .cat-docs {
+            background: rgba(107, 114, 128, 0.2);
+            color: #d1d5db;
+            border: 1px solid #9ca3af;
+        }
+
+        .comment-section {
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid #00e5ff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .comment-label {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #00e5ff;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .comment-box {
+            width: 100%;
+            height: 120px;
+            background: rgba(10, 14, 26, 0.6);
+            border: 1px solid #1a2d4d;
+            border-radius: 4px;
+            color: #e0e6ed;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 12px;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        .comment-box:focus {
+            outline: none;
+            border-color: #00e5ff;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+        }
+
+        .submit-btn {
+            margin-top: 12px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #00e5ff 0%, #22c55e 100%);
+            color: #050810;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+        }
+
+        .submit-btn:hover {
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.5), 0 0 15px rgba(34, 197, 94, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #22c55e;
+            color: #050810;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 1400px) {
+            .kanban-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .kanban-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00e5ff;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-icon">
+                <img src="data:image/png;base64,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" alt="HAL-O">
+            </div>
+            <h1>HAL-O ALPHA ROADMAP</h1>
+        </header>
+
+        <div class="progress-section">
+            <div class="progress-label">
+                <span>ALPHA COMPLETION</span>
+                <span id="progress-text">1 RESOLVED / 4 BLOCKERS</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill">25%</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <span class="filter-label">Filter by Category:</span>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="core">Core</button>
+            <button class="filter-btn" data-filter="ui">UI</button>
+            <button class="filter-btn" data-filter="voice">Voice</button>
+            <button class="filter-btn" data-filter="3d">3D</button>
+            <button class="filter-btn" data-filter="infra">Infra</button>
+            <button class="filter-btn" data-filter="mobile">Mobile</button>
+            <button class="filter-btn" data-filter="docs">Docs</button>
+            <button class="filter-btn reset" id="reset-filter">Reset View</button>
+        </div>
+
+        <div class="kanban-container" id="kanban">
+            <div class="kanban-column done" data-column="done">
+                <div class="column-header done">
+                    <span>DONE</span>
+                    <span class="column-count" id="count-done">18</span>
+                </div>
+            </div>
+            <div class="kanban-column in-progress" data-column="in-progress">
+                <div class="column-header in-progress">
+                    <span>IN PROGRESS</span>
+                    <span class="column-count" id="count-in-progress">0</span>
+                </div>
+            </div>
+            <div class="kanban-column blocker" data-column="blocker">
+                <div class="column-header blocker">
+                    <span>BLOCKER</span>
+                    <span class="column-count" id="count-blocker">3</span>
+                </div>
+            </div>
+            <div class="kanban-column nice" data-column="nice">
+                <div class="column-header nice">
+                    <span>NICE TO HAVE</span>
+                    <span class="column-count" id="count-nice">6</span>
+                </div>
+            </div>
+            <div class="kanban-column stale" data-column="stale">
+                <div class="column-header stale">
+                    <span>STALE</span>
+                    <span class="column-count" id="count-stale">4</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="comment-section">
+            <label class="comment-label">Feedback & Notes</label>
+            <textarea class="comment-box" id="comment-input" placeholder="Share feedback, blockers, or notes about this roadmap..."></textarea>
+            <button class="submit-btn" id="submit-btn">Submit Feedback</button>
+        </div>
+    </div>
+
+    <script>
+        const roadmapData = {
+            done: [
+                { id: 1, title: 'Instance system', priority: 'p0', hours: '—', category: 'core' },
+                { id: 2, title: 'Multi-agent debate', priority: 'p1', hours: '—', category: 'core' },
+                { id: 3, title: 'Claudette clone', priority: 'p1', hours: '—', category: 'infra' },
+                { id: 4, title: 'Bearer auth', priority: 'p0', hours: '—', category: 'infra' },
+                { id: 5, title: 'Feature flags', priority: 'p1', hours: '—', category: 'core' },
+                { id: 6, title: 'Response capture', priority: 'p1', hours: '—', category: 'core' },
+                { id: 7, title: 'Restart + watchdog', priority: 'p1', hours: '—', category: 'infra' },
+                { id: 8, title: 'HudTopbar dedup', priority: 'p2', hours: '—', category: 'ui' },
+                { id: 9, title: 'Pagination bar', priority: 'p2', hours: '—', category: 'ui' },
+                { id: 10, title: 'Amethyst theme', priority: 'p2', hours: '—', category: '3d' },
+                { id: 11, title: 'Halo Chat dispatcher', priority: 'p1', hours: '—', category: 'core' },
+                { id: 12, title: 'E2E tests', priority: 'p0', hours: '—', category: 'infra' },
+                { id: 13, title: 'TG isolation fix', priority: 'p0', hours: '—', category: 'infra' },
+                { id: 14, title: 'HTML reports hub', priority: 'p2', hours: '—', category: 'ui' },
+                { id: 15, title: 'Logging docs', priority: 'p3', hours: '—', category: 'docs' },
+                { id: 16, title: 'Dev philosophy docs', priority: 'p3', hours: '—', category: 'docs' },
+                { id: 17, title: 'Per-instance userData', priority: 'p1', hours: '—', category: 'infra' },
+                { id: 18, title: 'Gmail MCP', priority: 'p2', hours: '—', category: 'infra' },
+            ],
+            'in-progress': [],
+            blocker: [
+                { id: 19, title: 'Install wizard', priority: 'p0', hours: '3h', category: 'ui' },
+                { id: 20, title: 'Black screen bug', priority: 'p0', hours: '2h', category: 'core' },
+                { id: 21, title: 'Halo Chat routing', priority: 'p1', hours: '2h', category: 'core' },
+            ],
+            nice: [
+                { id: 22, title: 'CosyVoice 3', priority: 'p2', hours: '4h', category: 'voice' },
+                { id: 23, title: 'Debate 3D viz', priority: 'p2', hours: '4h', category: '3d' },
+                { id: 24, title: 'HAL-OS rebrand', priority: 'p3', hours: '1h', category: 'ui' },
+                { id: 25, title: 'dockview integration', priority: 'p2', hours: '8h', category: 'ui' },
+                { id: 26, title: 'Audio streaming', priority: 'p2', hours: '3h', category: 'voice' },
+                { id: 27, title: 'Google Calendar MCP', priority: 'p2', hours: '2h', category: 'infra' },
+            ],
+            stale: [
+                { id: 28, title: 'Bob/Karen agents', priority: 'p3', hours: '—', category: 'core' },
+                { id: 29, title: 'Private social network', priority: 'p3', hours: '—', category: 'core' },
+                { id: 30, title: 'Mobile 3D layout', priority: 'p3', hours: '—', category: 'mobile' },
+                { id: 31, title: 'Generic inter-agent comms', priority: 'p3', hours: '—', category: 'core' },
+            ],
+        };
+
+        const categoryMap = {
+            core: { name: 'Core', class: 'cat-core' },
+            ui: { name: 'UI', class: 'cat-ui' },
+            voice: { name: 'Voice', class: 'cat-voice' },
+            '3d': { name: '3D', class: 'cat-3d' },
+            infra: { name: 'Infra', class: 'cat-infra' },
+            mobile: { name: 'Mobile', class: 'cat-mobile' },
+            docs: { name: 'Docs', class: 'cat-docs' },
+        };
+
+        let draggedCard = null;
+        let currentFilter = 'all';
+
+        function getCategoryTag(category) {
+            const meta = categoryMap[category];
+            return `<span class="category-tag ${meta.class}">${meta.name}</span>`;
+        }
+
+        function renderCard(item, column) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.id = item.id;
+            card.dataset.column = column;
+            card.dataset.category = item.category;
+            card.innerHTML = `
+                <div class="card-title">${item.title}</div>
+                <div class="card-meta">
+                    <div class="card-row">
+                        <span class="priority ${item.priority}">${item.priority.toUpperCase()}</span>
+                        <span class="hours">${item.hours}</span>
+                    </div>
+                    ${getCategoryTag(item.category)}
+                </div>
+            `;
+
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+
+            return card;
+        }
+
+        function renderCards() {
+            document.querySelectorAll('.kanban-column').forEach(col => {
+                const column = col.dataset.column;
+                const header = col.querySelector('.column-header');
+                col.innerHTML = '';
+                col.appendChild(header);
+
+                roadmapData[column].forEach(item => {
+                    const card = renderCard(item, column);
+                    if (currentFilter === 'all' || card.dataset.category === currentFilter) {
+                        col.appendChild(card);
+                    }
+                });
+
+                updateColumnCount(column);
+            });
+        }
+
+        function updateColumnCount(column) {
+            const count = document.querySelectorAll(`[data-column="${column}"] .card`).length;
+            document.getElementById(`count-${column}`).textContent = count;
+        }
+
+        function handleDragStart(e) {
+            draggedCard = this;
+            this.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            draggedCard.classList.remove('dragging');
+            draggedCard = null;
+        }
+
+        document.querySelectorAll('.kanban-column').forEach(col => {
+            col.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+
+            col.addEventListener('drop', e => {
+                e.preventDefault();
+                if (draggedCard) {
+                    const fromColumn = draggedCard.dataset.column;
+                    const toColumn = col.dataset.column;
+                    const cardId = parseInt(draggedCard.dataset.id);
+
+                    if (fromColumn !== toColumn) {
+                        const item = roadmapData[fromColumn].find(i => i.id === cardId);
+                        if (item) {
+                            roadmapData[fromColumn] = roadmapData[fromColumn].filter(i => i.id !== cardId);
+                            roadmapData[toColumn].push(item);
+                            renderCards();
+                            showToast(`Moved to ${toColumn.toUpperCase().replace('-', ' ')}`);
+                        }
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                renderCards();
+            });
+        });
+
+        document.getElementById('reset-filter').addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-filter="all"]').classList.add('active');
+            currentFilter = 'all';
+            renderCards();
+        });
+
+        document.getElementById('submit-btn').addEventListener('click', () => {
+            const comment = document.getElementById('comment-input').value.trim();
+            if (comment) {
+                console.log('Feedback:', comment);
+                document.getElementById('comment-input').value = '';
+                showToast('Feedback recorded');
+            }
+        });
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        renderCards();
+    </script>
+</body>
+</html>
