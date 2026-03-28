@@ -382,28 +382,27 @@ app.on('before-quit', () => {
 // This lets the CLI agent restart the app without killing terminals.
 const restartSignalFile = join(process.cwd(), '.hal-o-restart')
 
-async function checkRestartSignal() {
+function checkRestartSignal() {
   if (existsSync(restartSignalFile)) {
-    console.log('[HAL-O] Restart signal detected — popping terminals external then quitting')
+    console.log('[HAL-O] Restart signal detected — launching restart orchestrator')
     try { require('fs').unlinkSync(restartSignalFile) } catch { /* */ }
 
-    // Pop all terminals to external windows FIRST
-    const sessions = terminalManager.getActiveSessions()
-    for (const s of sessions) {
-      try {
-        const { openTerminalAt } = await import('./platform')
-        openTerminalAt(s.projectPath)
-        console.log(`[HAL-O] Popped external: ${s.projectName}`)
-      } catch (e) {
-        console.error(`[HAL-O] Failed to pop ${s.projectName}:`, e)
-      }
-    }
-
-    // Wait 3s for external terminals to fully open before killing the app
-    setTimeout(() => {
-      console.log('[HAL-O] External terminals should be ready — quitting now')
+    // Launch the restart orchestrator script (runs OUTSIDE this process)
+    // It will: 1) start Claude externally with --continue, 2) wait for it,
+    // 3) kill this app, 4) relaunch the app
+    const scriptPath = join(process.cwd(), '_scripts', 'restart-cycle.ps1')
+    if (existsSync(scriptPath)) {
+      const { spawn } = require('child_process')
+      spawn('powershell', ['-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-HalODir', process.cwd()], {
+        detached: true,
+        stdio: 'ignore',
+        cwd: process.cwd(),
+      }).unref()
+      console.log('[HAL-O] Restart orchestrator launched — it will handle the cycle')
+    } else {
+      console.error('[HAL-O] restart-cycle.ps1 not found — falling back to simple quit')
       app.quit()
-    }, 3000)
+    }
   }
 }
 
