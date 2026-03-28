@@ -26,7 +26,9 @@ interface PendingCapture {
   onDone: (fullText: string) => void
   silenceTimer: ReturnType<typeof setTimeout> | null
   started: boolean  // true once we see actual response text (not just echo)
-  lastBufferSnapshot: string  // last known buffer content for diffing
+  responseStartSnapshot: string  // buffer content when response started (for final diff)
+  lastBufferSnapshot: string  // last known buffer content for chunk diffing
+  accumulatedResponse: string  // accumulated clean response text
 }
 
 const SILENCE_TIMEOUT = 4000 // 4s of no output = response complete
@@ -48,32 +50,54 @@ function readVTermBuffer(vterm: any): string {
 }
 
 // ── Strip CLI chrome from clean text ──
+// Aggressive filter: only keep lines that look like natural language response.
+// The PTY captures EVERYTHING: tool calls, file paths, status bars, spinners, WebSocket events.
+// We must be strict — better to miss a line than to show garbage.
 function stripCliChrome(text: string): string {
   return text
     .split('\n')
     .filter(line => {
       const t = line.trim()
       if (!t) return false
-      // Skip our own input echo (with or without prompt chars)
+      if (t.length < 3) return false
+
+      // ── Input echo ──
       if (t.includes('[halochat')) return false
       if (t.includes('halochat')) return false
-      // Skip CLI prompts and status lines
+
+      // ── CLI prompts ──
       if (/^[❯>$%#]\s*$/.test(t)) return false
-      if (t.length < 3) return false
-      // Skip spinner/progress lines
-      if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳✻✽✶✢·░▒▓█]+/.test(t)) return false
-      // Skip Claude CLI chrome
-      if (/bypass\s*permissions?\s*on/i.test(t)) return false
-      if (/shift\+tab\s*(to\s*cycle)?/i.test(t)) return false
-      if (/^(Hashing|ctx:|Git:master|\d+%\s*\|)/i.test(t)) return false
-      if (/Opus\s*4\.\d/i.test(t)) return false
-      if (/Sonnet\s*4\.\d/i.test(t)) return false
-      if (/Haiku\s*4\.\d/i.test(t)) return false
-      if (/^[░▒▓█]+/.test(t)) return false
-      // Skip lines that are just box-drawing / decorative chars
-      if (/^[─╭╰│├└┌┐┘┤┬┴┼╮╯]+$/.test(t)) return false
-      // Skip lines that are just prompt/status (❯, >, etc.)
       if (/^[❯>]\s/.test(t) && t.length < 10) return false
+
+      // ── Spinners / progress ──
+      if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳✻✽✶✢·░▒▓█*]+\s/.test(t)) return false
+      if (/^[░▒▓█]+/.test(t)) return false
+
+      // ── Claude CLI status lines ──
+      if (/bypass\s*permissions?\s*on/i.test(t)) return false
+      if (/shift\+tab/i.test(t)) return false
+      if (/^(Hashing|ctx:|Git:|Deliberating|Thinking|Processing)/i.test(t)) return false
+      if (/(Opus|Sonnet|Haiku)\s*\d+\.\d/i.test(t)) return false
+      if (/^\d+%\s*\|/.test(t)) return false
+
+      // ── Box-drawing / decorative ──
+      if (/^[─╭╰│├└┌┐┘┤┬┴┼╮╯━┃┏┓┗┛╋]+$/.test(t)) return false
+
+      // ── Internal code / tool calls leaking through ──
+      if (/\.(ts|js|tsx|jsx|json|css|html|md)\b/.test(t) && !/\s{2,}/.test(t)) return false  // file paths (unless part of prose)
+      if (/^(import|export|const|let|var|function|class|interface|type)\s/.test(t)) return false  // code
+      if (/\b(onChunk|onDone|audioIds|tts_ready|chat_chunk|session_chunk)\b/.test(t)) return false  // internal events
+      if (/^[A-Z_]{2,}\s*[:=]/.test(t)) return false  // CONST_NAME: value
+      if (/\bsrc[/\\](main|renderer|preload)\b/.test(t)) return false  // source paths
+      if (/\bnode_modules\b/.test(t)) return false
+      if (/\b(ipcMain|ipcRenderer|electron)\b/.test(t)) return false  // Electron internals
+      if (/^\s*[{}\[\]()]+\s*$/.test(t)) return false  // lone brackets
+      if (/^(Read|Write|Edit|Bash|Glob|Grep|Agent)\s/.test(t)) return false  // tool names
+
+      // ── Lines that are mostly non-word characters (garbage) ──
+      const wordChars = t.replace(/[^a-zA-Z\s]/g, '').trim()
+      if (wordChars.length < t.length * 0.3 && t.length > 10) return false
+
       return true
     })
     .join('\n')
@@ -119,7 +143,9 @@ export function injectAndCapture(
     onDone,
     silenceTimer: null,
     started: false,
+    responseStartSnapshot: '',
     lastBufferSnapshot: '',
+    accumulatedResponse: '',
   }
   pendingCaptures.set(msgId, capture)
 
@@ -145,9 +171,10 @@ function finishCapture(capture: PendingCapture) {
   if (capture.silenceTimer) clearTimeout(capture.silenceTimer)
   pendingCaptures.delete(capture.msgId)
 
-  // Read final clean text from the virtual terminal
-  const rawText = readVTermBuffer(capture.vterm)
-  const cleaned = stripCliChrome(rawText)
+  // Get the full response by diffing current buffer against the start snapshot
+  const currentText = readVTermBuffer(capture.vterm)
+  const responseRaw = currentText.slice(capture.responseStartSnapshot.length)
+  const cleaned = stripCliChrome(responseRaw)
   const fullText = stripMarkdown(cleaned)
 
   // Dispose the virtual terminal
@@ -155,6 +182,9 @@ function finishCapture(capture: PendingCapture) {
 
   if (fullText.length > 2) {
     capture.onDone(fullText)
+  } else if (capture.accumulatedResponse.length > 2) {
+    // Fallback: use accumulated chunks if buffer diff is empty
+    capture.onDone(stripMarkdown(capture.accumulatedResponse))
   } else {
     capture.onDone('(No response captured)')
   }
@@ -174,9 +204,10 @@ export function processPtyOutput(sessionId: string, _projectName: string, data: 
     // Skip the echo of our own input (prompt may include ❯ or > before [halochat])
     if (!capture.started) {
       const currentText = readVTermBuffer(capture.vterm)
-      if (currentText.includes('[halochat') || currentText.includes('halochat')) return // still echoing input
+      if (currentText.includes('[halochat') || currentText.includes('halochat')) return
       capture.started = true
-      // Snapshot AFTER the echo so we only capture the response
+      // Snapshot AFTER the echo so we only diff the actual response
+      capture.responseStartSnapshot = currentText
       capture.lastBufferSnapshot = currentText
       return
     }
@@ -189,6 +220,7 @@ export function processPtyOutput(sessionId: string, _projectName: string, data: 
     if (newContent) {
       const cleaned = stripCliChrome(newContent)
       if (cleaned) {
+        capture.accumulatedResponse += (capture.accumulatedResponse ? '\n' : '') + cleaned
         capture.onChunk(cleaned)
       }
     }
