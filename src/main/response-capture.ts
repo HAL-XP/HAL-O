@@ -231,13 +231,29 @@ export function processPtyOutput(sessionId: string, _projectName: string, data: 
   }
 }
 
-// ── Check if HAL-O terminal exists ──
+// ── Check if HAL-O terminal exists with an active Claude session ──
 export function findHalSession(): string | null {
   const sessions = terminalManager.getActiveSessions()
-  const hal = sessions.find(s =>
+  // Find HAL-O terminals
+  const halSessions = sessions.filter(s =>
     s.projectPath.toLowerCase().replace(/\\/g, '/').includes('hal-o')
   )
-  return hal?.id || null
+  if (halSessions.length === 0) return null
+
+  // Prefer terminals where Claude is actually running (not dead shell)
+  // Check scrollback for signs of a dead session
+  for (const s of halSessions) {
+    const scrollback = terminalManager.getScrollback(s.id)
+    const lastChunk = scrollback.slice(-500)
+    // If the terminal shows Claude exit tips or raw shell prompt, skip it
+    const isDead = /Tip:\s*Run claude/i.test(lastChunk) ||
+      /claude --continue|claude --resume/i.test(lastChunk) &&
+      !/\[halochat\]/i.test(lastChunk.slice(-200))
+    if (!isDead) return s.id
+  }
+
+  // Fallback: return first HAL-O terminal anyway (better than nothing)
+  return halSessions[0].id
 }
 
 // ── Check if any captures are pending ──
