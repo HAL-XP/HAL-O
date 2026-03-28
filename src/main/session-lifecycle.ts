@@ -3,7 +3,7 @@
 // On app boot: detect external session → absorb it, or start headless.
 // The session persists independently of the app window.
 
-import { exec } from 'child_process'
+import { exec, execSync } from 'child_process'
 import { terminalManager } from './terminal-manager'
 
 /** Check if a HAL-O Claude session is already running externally */
@@ -75,6 +75,42 @@ function startHeadlessSession(): void {
   }
 }
 
+/** Gracefully kill an external process, then start internal session */
+async function autoAbsorb(external: { pid: number; cmdLine: string }): Promise<void> {
+  console.log(`[Session] AUTO-ABSORB: killing external PID ${external.pid}, then starting internal session`)
+
+  // Kill the external process gracefully (tree kill without /F first)
+  try {
+    if (process.platform === 'win32') {
+      execSync(`taskkill /PID ${external.pid} /T`, {
+        encoding: 'utf-8', timeout: 5000, windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    } else {
+      execSync(`kill -TERM ${external.pid}`, {
+        encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    }
+  } catch { /* process may have already exited */ }
+
+  // Wait for process to die
+  await new Promise(r => setTimeout(r, 2000))
+
+  // Force kill if still alive
+  if (process.platform === 'win32') {
+    try {
+      execSync(`taskkill /PID ${external.pid} /T /F`, {
+        encoding: 'utf-8', timeout: 3000, windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    } catch { /* already dead */ }
+    await new Promise(r => setTimeout(r, 500))
+  }
+
+  console.log('[Session] External session killed — starting internal with --continue')
+  startHeadlessSession()
+}
+
 /** Main lifecycle function — called on app boot */
 export async function detectOrStartHalSession(): Promise<void> {
   if (process.env.HAL_TEST_MODE === '1') {
@@ -87,8 +123,15 @@ export async function detectOrStartHalSession(): Promise<void> {
     return
   }
 
-  // 2. Always start a headless session so Halo Chat has a terminal to route to.
-  // External sessions are detected by the UI for display purposes only.
-  console.log('[Session] Starting headless HAL-O session')
+  // 2. Check for external session — auto-absorb if found
+  const external = await detectExternalHalSession()
+  if (external) {
+    console.log(`[Session] External session detected (PID ${external.pid}) — AUTO-ABSORBING`)
+    await autoAbsorb(external)
+    return
+  }
+
+  // 3. No session anywhere — start fresh headless
+  console.log('[Session] No HAL-O session found — starting headless')
   startHeadlessSession()
 }
