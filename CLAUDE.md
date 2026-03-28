@@ -10,6 +10,7 @@
 - **HTML reports** → send as TG attachment (not local path). Exec format: risks first, done collapsed.
 - **Before spawning any agent:** give context (WHY, not just WHAT). Agents are empowered to challenge the brief.
 - **Parallelize everything.** Never ask "A or B?" — do both. Never idle.
+- **NEVER launch the Electron app from your own session.** `npm start` triggers session-lifecycle which spawns a competing Claude → kills you. If the app needs launching, tell the user or use a fully detached daemon script.
 
 ## Stack
 - Electron 35 + React 19 + TypeScript + electron-vite
