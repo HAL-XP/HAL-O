@@ -1001,7 +1001,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           projects={projects.map(p => ({ path: p.path, name: p.name }))}
           devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
         />
-        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : externalSessions.some(s => s.projectPath.toLowerCase().includes('hal-o')) ? 'EXTERNAL SESSION' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
         {ctxMenu && (
           <ProjectContextMenu
@@ -1092,7 +1092,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           devlogSections={devlogSections} onDevlogSectionChange={onDevlogSectionChange} onSetAllDevlogSections={onSetAllDevlogSections}
         />
 
-        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}</div>
+        <div className="hal-center-label">{loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : externalSessions.some(s => s.projectPath.toLowerCase().includes('hal-o')) ? 'EXTERNAL SESSION' : 'AWAITING CONNECTION'}</div>
         {renderAbsorptionOverlay()}
         {ctxMenu && (
           <ProjectContextMenu
@@ -1170,7 +1170,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
 
       {/* Status label */}
       <div className="hal-center-label">
-        {loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : 'AWAITING CONNECTION'}
+        {loading ? 'SCANNING...' : demo?.enabled ? 'DEMO MODE' : halSessionId ? 'ONLINE' : externalSessions.some(s => s.projectPath.toLowerCase().includes('hal-o')) ? 'EXTERNAL SESSION' : 'AWAITING CONNECTION'}
       </div>
 
       {/* Project cards — positioned by active layout */}
