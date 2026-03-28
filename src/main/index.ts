@@ -8,6 +8,15 @@ import { terminalManager } from './terminal-manager'
 import { HAL_O_VERSION } from './version'
 import { initDebugLog, debugLog, isDebugEnabled } from './debug-log'
 import { startTelegramHandler, stopTelegramHandler } from './telegram-handler'
+import { isClone, getInstanceId } from './instance'
+
+// ── Per-instance Electron userData ──
+// Clones get their own cache/state dir to prevent collisions
+if (isClone()) {
+  const instanceUserData = join(app.getPath('userData'), 'instances', getInstanceId())
+  if (!existsSync(instanceUserData)) mkdirSync(instanceUserData, { recursive: true })
+  app.setPath('userData', instanceUserData)
+}
 
 // ── B25: V8 GC pressure mitigation ──
 // Give V8 more old-gen heap headroom so major GC runs less frequently.
