@@ -1,0 +1,107 @@
+{
+  "providers": {
+    "anthropic": {
+      "file": "providers/anthropic.md",
+      "enabled": true,
+      "order": 1,
+      "defaultModel": "claude-sonnet-4-20250514",
+      "models": [
+        "claude-opus-4-20250514",
+        "claude-sonnet-4-20250514",
+        "claude-haiku-3-20250414"
+      ]
+    },
+    "openai": {
+      "file": "providers/openai.md",
+      "enabled": true,
+      "order": 2,
+      "defaultModel": "gpt-4.1",
+      "models": [
+        "o3",
+        "o4-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano"
+      ]
+    },
+    "gemini": {
+      "file": "providers/gemini.md",
+      "enabled": true,
+      "order": 3,
+      "defaultModel": "gemini-2.5-pro",
+      "models": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash-lite"
+      ]
+    },
+    "mistral": {
+      "file": "providers/mistral.md",
+      "enabled": true,
+      "order": 4,
+      "defaultModel": "mistral-large-latest",
+      "models": [
+        "mistral-large-latest",
+        "mistral-medium-latest",
+        "mistral-small-latest",
+        "codestral-latest",
+        "devstral-small-latest"
+      ]
+    },
+    "meta-llama": {
+      "file": "providers/meta-llama.md",
+      "enabled": true,
+      "order": 5,
+      "defaultModel": "llama-4-maverick",
+      "models": [
+        "llama-4-maverick",
+        "llama-4-scout",
+        "llama-3.3-70b"
+      ]
+    },
+    "cohere": {
+      "file": "providers/cohere.md",
+      "enabled": true,
+      "order": 6,
+      "defaultModel": "command-a",
+      "models": [
+        "command-a",
+        "command-r-plus",
+        "command-r",
+        "embed-v4"
+      ]
+    },
+    "huggingface": {
+      "file": "providers/huggingface.md",
+      "enabled": true,
+      "order": 7,
+      "defaultModel": "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+      "models": [
+        "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+        "Qwen/Qwen3-235B-A22B",
+        "mistralai/Devstral-Small-2505"
+      ]
+    },
+    "ollama": {
+      "file": "providers/ollama.md",
+      "enabled": true,
+      "order": 8,
+      "defaultModel": "llama3.3:70b",
+      "models": [
+        "llama3.3:70b",
+        "qwen3:32b",
+        "devstral:24b",
+        "gemma3:27b",
+        "phi-4:14b",
+        "deepseek-r1:32b"
+      ]
+    }
+  },
+  "taskRouting": {
+    "code-generation": ["anthropic", "openai", "gemini", "mistral"],
+    "reasoning": ["anthropic", "openai", "gemini"],
+    "summarization": ["gemini", "anthropic", "mistral", "cohere"],
+    "translation": ["gemini", "mistral", "openai", "meta-llama"],
+    "cheap-inference": ["ollama", "gemini", "openai", "mistral", "huggingface"]
+  }
+}
