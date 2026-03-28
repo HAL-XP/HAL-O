@@ -12,7 +12,8 @@ Write-Host "[Restart] Starting HAL-O restart cycle..." -ForegroundColor Cyan
 
 # Step 1: Launch Claude in an external terminal with --continue
 Write-Host "[Restart] Step 1: Launching Claude externally with --continue..." -ForegroundColor Yellow
-$extProcess = Start-Process "wt" -ArgumentList "new-tab", "--title", "HAL-O External", "-d", $HalODir, "cmd", "/k", "claude --continue" -PassThru
+# Use cmd /k with proper quoting — avoid wt argument parsing issues
+$extProcess = Start-Process "cmd.exe" -ArgumentList "/k", "cd /d `"$HalODir`" && claude --continue" -PassThru
 Write-Host "[Restart] External terminal launched (PID: $($extProcess.Id))"
 
 # Step 2: Wait for Claude CLI process to appear
@@ -47,7 +48,7 @@ Write-Host "[Restart] Electron killed."
 
 # Step 5: Relaunch the Electron app
 Write-Host "[Restart] Step 4: Relaunching HAL-O app..." -ForegroundColor Yellow
-Start-Process "npx" -ArgumentList "electron", "out/main/index.js" -WorkingDirectory $HalODir -WindowStyle Normal
+Start-Process "cmd.exe" -ArgumentList "/c", "cd /d `"$HalODir`" && npx electron out/main/index.js"
 Write-Host "[Restart] HAL-O app relaunched." -ForegroundColor Green
 
 # Step 6: Wait for the HTTP API to come online
