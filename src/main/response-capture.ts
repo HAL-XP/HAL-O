@@ -20,25 +20,37 @@ const SILENCE_TIMEOUT = 4000 // 4s of no output = response complete
 const pendingCaptures = new Map<string, PendingCapture>()
 
 // ── ANSI + CLI chrome cleaning ──
+// Comprehensive ANSI regex (based on ansi-regex npm package pattern)
+// Matches: CSI sequences, OSC sequences, SGR, cursor movement, DCS, etc.
+const ANSI_RE = /[\u001B\u009B][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]/g
+const OSC_RE = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g
+const CHARSET_RE = /\x1b[()][AB012]/g
+const MODE_RE = /\x1b[>=<N7-9]/g
+const CTRL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g
+// Catch-all for any remaining ESC sequences
+const ESC_LEFTOVER_RE = /\x1b[^[\]()>=<]?/g
+
 function cleanPtyOutput(raw: string): string {
   let clean = raw
-  // Convert cursor-right to spaces (Claude CLI uses ESC[nC between words)
-  clean = clean.replace(/\x1b\[(\d*)C/g, (_m, n) => ' '.repeat(parseInt(n) || 1))
-  // Strip all ANSI escape sequences
-  clean = clean.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
-  clean = clean.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
-  clean = clean.replace(/\x1b[()][AB012]/g, '')
-  clean = clean.replace(/\x1b[>=<]/g, '')
-  clean = clean.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
-  // Handle carriage returns (keep last content per line)
+  // Handle carriage returns FIRST (keep last content per line — terminal overwrite behavior)
   clean = clean.split('\n').map(line => {
     const parts = line.split('\r')
     return parts[parts.length - 1]
   }).join('\n')
-  // Remove CLI chrome
+  // Convert cursor-right to spaces (Claude CLI uses ESC[nC between words)
+  clean = clean.replace(/\x1b\[(\d*)C/g, (_m, n) => ' '.repeat(parseInt(n) || 1))
+  // Strip ALL ANSI/escape sequences (layered for completeness)
+  clean = clean.replace(OSC_RE, '')       // OSC (window title, etc.)
+  clean = clean.replace(CHARSET_RE, '')   // character set selection
+  clean = clean.replace(MODE_RE, '')      // mode switches
+  clean = clean.replace(ANSI_RE, '')      // CSI sequences (colors, cursor, etc.)
+  clean = clean.replace(ESC_LEFTOVER_RE, '') // any remaining ESC fragments
+  clean = clean.replace(CTRL_RE, '')      // control chars
+  // Remove CLI chrome (spinners, progress bars, status text)
   clean = clean
-    .replace(/[✻✽✶✢·░▓█▒⏵●❯❮▶◐◑◒◓⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳─]/g, '')
+    .replace(/[✻✽✶✢·░▓█▒⏵●❯❮▶◐◑◒◓⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳─╭╰│├└┌┐┘┤┬┴┼]/g, '')
     .replace(/Hashing/g, '')
+    .replace(/Burrowing/gi, '')  // Known garbage from partial ANSI decode
     .replace(/Opus\s*4\.\d.*$/gm, '')
     .replace(/ctx:.*$/gm, '')
     .replace(/bypass\s*permissions?\s*on/gi, '')
@@ -47,6 +59,12 @@ function cleanPtyOutput(raw: string): string {
     .replace(/░+.*$/gm, '')
     .replace(/\d+%\s*\|/g, '')
     .replace(/[●❯❮▶◐◑◒◓]/g, '')
+    // Filter out lines that are mostly non-alphanumeric garbage
+    .split('\n').filter(line => {
+      const stripped = line.replace(/[^a-zA-Z0-9]/g, '')
+      // If less than 30% of the line is alphanumeric, it's probably garbage
+      return stripped.length === 0 || stripped.length / Math.max(line.trim().length, 1) > 0.3
+    }).join('\n')
   // Collapse whitespace
   clean = clean.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
   return clean

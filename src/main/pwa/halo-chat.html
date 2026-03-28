@@ -1436,9 +1436,10 @@ function switchAgent(name) {
   document.querySelectorAll('#messages .msg-wrap').forEach(el => {
     el.style.display = (el.dataset.agent === name) ? '' : 'none';
   });
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  // Load history for this agent
+  // Load history for this agent, then scroll to bottom
   loadAgentHistory(name);
+  // Scroll after DOM renders loaded history
+  requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
   setTimeout(updateEmptyState, 100);
 }
 
