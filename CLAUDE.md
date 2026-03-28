@@ -18,6 +18,12 @@ ALL `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback` MUST be declared
 
 ### Process Management
 - Never kill `electron.exe` by name — always by PID
+- **NEVER use bulk process kill** (Get-Process | Stop-Process, taskkill by name). ALWAYS:
+  1. List ALL processes with PIDs first
+  2. Identify YOUR OWN PID (echo $$)
+  3. Kill ONLY specific PIDs that are NOT yours
+  4. Verify you're still alive after every kill command
+- This has killed the session 3+ times. ZERO TOLERANCE.
 - Before app restart: save terminal sessions, pop to external if running inside app
 - Clear vite cache before every build/dev: `node_modules/.vite`
 
