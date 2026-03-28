@@ -32,6 +32,8 @@ ALL `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback` MUST be declared
 - Smoke test: `npx playwright test e2e/smoke.spec.ts`
 - Visual changes require screenshot verification before presenting
 - Never self-validate visual work — spawn a QA agent
+- **Multi-instance changes**: ALWAYS run `npx playwright test e2e/isolation-test.spec.ts` before claiming "fixed"
+- **Before telling user "it works"**: test by actually launching both apps and verifying end-to-end
 
 ### Performance
 - No `new THREE.Vector3()` or `new THREE.Color()` inside `useFrame` — use module-level scratch objects
