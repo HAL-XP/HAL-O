@@ -77,6 +77,8 @@ function stripCliChrome(text: string): string {
       if (/bypass\s*permissions?\s*on/i.test(t)) return false
       if (/shift\+tab/i.test(t)) return false
       if (/^(Hashing|ctx:|Git:|Deliberating|Thinking|Processing)/i.test(t)) return false
+      if (/thinking with (high|low|medium)\s*(effort)?/i.test(t)) return false
+      if (/^\(thinking/i.test(t)) return false
       if (/(Opus|Sonnet|Haiku)\s*\d+\.\d/i.test(t)) return false
       if (/^\d+%\s*\|/.test(t)) return false
 
