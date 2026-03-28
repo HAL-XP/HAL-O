@@ -32,6 +32,11 @@ if not "!TG_TOKEN_KEY!"=="TELEGRAM_BOT_TOKEN" (
     )
 )
 
+REM ── Write token to shared plugin .env so plugin picks up the right bot ──
+if defined TELEGRAM_BOT_TOKEN (
+    echo TELEGRAM_BOT_TOKEN=!TELEGRAM_BOT_TOKEN!> "%USERPROFILE%\.claude\channels\telegram\.env"
+)
+
 REM ── Check if node_modules exists ──
 if not exist "node_modules" (
     echo [!INSTANCE_NAME!] First run — installing dependencies...
@@ -46,7 +51,6 @@ if exist "out\main\index.js" (
     npx electron-vite dev
 ) else (
     echo [!INSTANCE_NAME!] No build found — starting CLI mode...
-    set "TG_ARG="
-    if defined TELEGRAM_BOT_TOKEN set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
+    set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
     claude -n "!INSTANCE_NAME!" !TG_ARG!
 )

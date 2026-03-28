@@ -115,6 +115,13 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - Agents post tasks/results to each other
 - Async, clean, each agent stays independent
 
+## Low Priority: Trademark Registration (INPI France)
+- Register "HAL-OS" and "HAL-O" as trademarks with INPI (Institut National de la Propriété Industrielle)
+- Cost: ~€190 online per class
+- Timeline: 3-6 months
+- Link: https://www.inpi.fr/proteger-vos-creations/les-marques
+- Not urgent but smart to do before public alpha launch
+
 ## Google API Integration (Research Done)
 - Phase 1: Community MCP server (google_workspace_mcp or google-calendar-mcp) — 30-45 min
 - Phase 2: Custom Python MCP server wrapping official APIs — 10-14 hours

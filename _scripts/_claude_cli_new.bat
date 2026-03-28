@@ -34,11 +34,13 @@ if not "!TG_TOKEN_KEY!"=="TELEGRAM_BOT_TOKEN" (
     )
 )
 
-REM ── Enable Telegram channel if bot token available ──
-set "TG_ARG="
+REM ── Write token to shared plugin .env so plugin picks up the right bot ──
 if defined TELEGRAM_BOT_TOKEN (
-    set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
+    echo TELEGRAM_BOT_TOKEN=!TELEGRAM_BOT_TOKEN!> "%USERPROFILE%\.claude\channels\telegram\.env"
 )
+
+REM ── Enable Telegram channel (ALWAYS — this is a hard rule) ──
+set "TG_ARG=--channels plugin:telegram@claude-plugins-official"
 
 echo [!INSTANCE_NAME!] Starting new session...
 claude -n "!INSTANCE_NAME!" !TG_ARG!
