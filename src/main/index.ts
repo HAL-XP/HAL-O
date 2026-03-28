@@ -355,13 +355,20 @@ app.on('before-quit', () => {
 
     if (sessions.length > 0) {
       // Save for auto-restore on next launch (no pop-out — just save and restore)
+      // Exclude HAL-O sessions — session-lifecycle.ts owns those exclusively
       const pendingFile = join(
         process.env.USERPROFILE || process.env.HOME || '',
         '.hal-o-pending-sessions.json'
       )
-      const data = sessions.map((s) => ({ projectPath: s.projectPath, projectName: s.projectName }))
-      writeFileSync(pendingFile, JSON.stringify(data))
-      console.log(`[HAL-O] Saved ${data.length} sessions for auto-restore`)
+      const data = sessions
+        .map((s) => ({ projectPath: s.projectPath, projectName: s.projectName }))
+        .filter((s) => !s.projectPath.toLowerCase().replace(/\\/g, '/').includes('hal-o'))
+      if (data.length > 0) {
+        writeFileSync(pendingFile, JSON.stringify(data))
+        console.log(`[HAL-O] Saved ${data.length} non-HAL sessions for auto-restore`)
+      } else {
+        console.log('[HAL-O] No non-HAL sessions to save (HAL sessions handled by session-lifecycle)')
+      }
     }
 
     stopTelegramHandler()

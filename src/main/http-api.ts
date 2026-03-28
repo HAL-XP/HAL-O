@@ -12,7 +12,7 @@ import { loadTree, getAllNodes, getNode, createNode, updateNode, deleteNode, mov
 import { spawn } from 'child_process'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs'
 import { getPort, dataPath, getInstanceName } from './instance'
 import { createDebate, createDebateFromPanel, getDebate, listDebates, deleteDebate, runDebateRound, runFullDebate, scoreDebate, detectConsensus, getDebateSummary, type DebateMode, type DebateMessage } from './multi-agent-orchestrator'
 import { listPresets, listPanelConfigs } from './debate-presets'
@@ -289,7 +289,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return
     }
 
-    // ── GET /report/* — serve HTML reports ──
+    // ── GET /report/* — serve HTML reports from _reports/ ──
     if (url?.startsWith('/report/') && method === 'GET') {
       const name = url.slice(8).replace(/[^a-zA-Z0-9_-]/g, '')
       const reportPath = join(process.cwd(), '_reports', name + '.html')
@@ -297,6 +297,51 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         return html(res, readFileSync(reportPath, 'utf-8'))
       }
       return json(res, 404, { error: 'Report not found' })
+    }
+
+    // ── GET /report-temp/* — serve HTML reports from temp/ ──
+    if (url?.startsWith('/report-temp/') && method === 'GET') {
+      const name = url.slice(13).replace(/[^a-zA-Z0-9_-]/g, '')
+      const reportPath = join(process.cwd(), 'temp', name + '.html')
+      if (existsSync(reportPath)) {
+        return html(res, readFileSync(reportPath, 'utf-8'))
+      }
+      return json(res, 404, { error: 'Report not found' })
+    }
+
+    // ── GET /reports — list all HTML reports from _reports/ and temp/ ──
+    if (url === '/reports' && method === 'GET') {
+      const reports: Array<{ name: string; path: string; file: string; size: number; modified: string; source: string }> = []
+      const reportsDir = join(process.cwd(), '_reports')
+      const tempDir = join(process.cwd(), 'temp')
+
+      for (const [dir, source, prefix] of [[reportsDir, '_reports', '/report/'], [tempDir, 'temp', '/report-temp/']] as const) {
+        if (!existsSync(dir)) continue
+        try {
+          const files = readdirSync(dir)
+          for (const file of files) {
+            if (!file.endsWith('.html')) continue
+            const filePath = join(dir, file)
+            try {
+              const stat = statSync(filePath)
+              if (!stat.isFile()) continue
+              const name = file.replace(/\.html$/, '')
+              reports.push({
+                name,
+                path: prefix + name,
+                file,
+                size: stat.size,
+                modified: stat.mtime.toISOString(),
+                source,
+              })
+            } catch { /* skip unreadable files */ }
+          }
+        } catch { /* skip unreadable dirs */ }
+      }
+
+      // Sort by modified date, newest first
+      reports.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
+      return json(res, 200, { reports })
     }
 
     // ── GET /sw.js — service worker ──

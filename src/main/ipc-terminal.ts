@@ -70,12 +70,20 @@ export function registerTerminalHandlers(): void {
   })
 
   // Check for pending sessions from a previous restart
+  // NOTE: HAL-O project sessions are excluded here — session-lifecycle.ts
+  // is the sole owner of HAL-O session start/restore. Without this filter,
+  // closing a HAL-O terminal then quitting would cause a stale restore
+  // that conflicts with session-lifecycle's detectOrStartHalSession().
   ipcMain.handle('pty-check-pending', async () => {
     try {
       if (!existsSync(pendingSessionsFile)) return []
-      const data = JSON.parse(readFileSync(pendingSessionsFile, 'utf-8'))
+      const data = JSON.parse(readFileSync(pendingSessionsFile, 'utf-8')) as Array<{ projectPath: string; projectName: string }>
       unlinkSync(pendingSessionsFile) // consume it
-      return data as Array<{ projectPath: string; projectName: string }>
+      // Filter out HAL-O paths — session-lifecycle handles those
+      return data.filter(s => {
+        const normPath = s.projectPath.toLowerCase().replace(/\\/g, '/')
+        return !normPath.includes('hal-o')
+      })
     } catch {
       return []
     }
