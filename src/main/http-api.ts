@@ -14,6 +14,9 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { getPort, dataPath, getInstanceName } from './instance'
+import { createDebate, createDebateFromPanel, getDebate, listDebates, deleteDebate, runDebateRound, runFullDebate, scoreDebate, detectConsensus, getDebateSummary, type DebateMode, type DebateMessage } from './multi-agent-orchestrator'
+import { listPresets, listPanelConfigs } from './debate-presets'
+import { getProviderStatus } from './provider-clients'
 
 // WebSocket — Electron bundles ws
 let WebSocketServer: any
@@ -610,6 +613,191 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     // ── GET /agents — list API-backed agents ──
     if (url === '/agents' && method === 'GET') {
       return json(res, 200, { agents: listAgents() })
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── Multi-Agent Debate Endpoints ──
+    // ══════════════════════════════════════════════════════════
+
+    // ── GET /debate/presets — list agent presets and panel configs ──
+    if (url === '/debate/presets' && method === 'GET') {
+      return json(res, 200, {
+        presets: listPresets(),
+        panels: listPanelConfigs(),
+        providers: getProviderStatus(),
+      })
+    }
+
+    // ── GET /debates — list all debate sessions ──
+    if (url === '/debates' && method === 'GET') {
+      const debates = listDebates()
+      return json(res, 200, {
+        debates: debates.map(d => getDebateSummary(d.id)).filter(Boolean),
+      })
+    }
+
+    // ── POST /debate/start — create a new debate session ──
+    if (url === '/debate/start' && method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req))
+        const { topic, mode, agents, panelId, rounds, overrides } = body
+        if (!topic) return json(res, 400, { error: 'topic is required' })
+
+        let session
+        if (panelId) {
+          session = createDebateFromPanel(
+            topic,
+            panelId,
+            (mode as DebateMode) || 'round-robin',
+            rounds || 3
+          )
+        } else {
+          if (!agents || !Array.isArray(agents) || agents.length < 2) {
+            return json(res, 400, { error: 'agents array with at least 2 preset IDs is required (or use panelId)' })
+          }
+          session = createDebate(
+            topic,
+            (mode as DebateMode) || 'round-robin',
+            agents,
+            rounds || 3,
+            overrides
+          )
+        }
+
+        return json(res, 200, { debate: session })
+      } catch (err) {
+        return json(res, 400, { error: String(err) })
+      }
+    }
+
+    // ── GET /debate/:id — get full debate state ──
+    if (url?.startsWith('/debate/') && method === 'GET') {
+      const parts = url.split('/')
+      const debateId = parts[2]
+      if (!debateId || debateId === 'presets') {
+        // Already handled above
+      } else if (parts[3] === 'score') {
+        // ── GET /debate/:id/score — score + consensus ──
+        try {
+          const session = getDebate(debateId)
+          if (!session) return json(res, 404, { error: 'Debate not found' })
+
+          // Score if not already scored
+          const scores = session.scores ?? await scoreDebate(debateId)
+          const consensus = session.consensus ?? await detectConsensus(debateId)
+
+          return json(res, 200, {
+            debateId,
+            scores,
+            consensus,
+            status: session.status,
+          })
+        } catch (err) {
+          return json(res, 500, { error: String(err) })
+        }
+      } else {
+        // ── GET /debate/:id — full session state ──
+        const session = getDebate(debateId)
+        if (!session) return json(res, 404, { error: 'Debate not found' })
+        return json(res, 200, { debate: session })
+      }
+    }
+
+    // ── POST /debate/:id/run — execute round(s), broadcast via WebSocket ──
+    if (url?.match(/^\/debate\/[a-f0-9]+\/run$/) && method === 'POST') {
+      const debateId = url.split('/')[2]
+      const session = getDebate(debateId)
+      if (!session) return json(res, 404, { error: 'Debate not found' })
+
+      try {
+        const body = JSON.parse(await readBody(req))
+        const runAll = body.all === true
+
+        if (runAll) {
+          // Run all remaining rounds — stream via WebSocket, return when done
+          // Send initial acknowledgment
+          const onMessage = (msg: DebateMessage) => {
+            wsBroadcast('debate_message', {
+              debateId,
+              message: msg,
+            })
+          }
+          const onChunk = (agentId: string, chunk: string) => {
+            wsBroadcast('debate_chunk', {
+              debateId,
+              agentId,
+              chunk,
+            })
+          }
+          const onRoundComplete = (round: number, messages: DebateMessage[]) => {
+            wsBroadcast('debate_round_complete', {
+              debateId,
+              round,
+              messageCount: messages.length,
+            })
+          }
+
+          await runFullDebate(debateId, onMessage, onChunk, onRoundComplete)
+          const updated = getDebate(debateId)
+
+          wsBroadcast('debate_complete', {
+            debateId,
+            status: updated?.status,
+            rounds: updated?.currentRound,
+            messageCount: updated?.messages.length,
+          })
+
+          return json(res, 200, { debate: updated })
+        } else {
+          // Run a single round
+          const onMessage = (msg: DebateMessage) => {
+            wsBroadcast('debate_message', {
+              debateId,
+              message: msg,
+            })
+          }
+          const onChunk = (agentId: string, chunk: string) => {
+            wsBroadcast('debate_chunk', {
+              debateId,
+              agentId,
+              chunk,
+            })
+          }
+
+          const messages = await runDebateRound(debateId, onMessage, onChunk)
+          const updated = getDebate(debateId)
+
+          wsBroadcast('debate_round_complete', {
+            debateId,
+            round: updated?.currentRound,
+            messageCount: messages.length,
+          })
+
+          if (updated?.status === 'completed') {
+            wsBroadcast('debate_complete', {
+              debateId,
+              status: 'completed',
+              rounds: updated.currentRound,
+              messageCount: updated.messages.length,
+            })
+          }
+
+          return json(res, 200, {
+            round: updated?.currentRound,
+            messages,
+            status: updated?.status,
+          })
+        }
+      } catch (err) {
+        return json(res, 500, { error: String(err) })
+      }
+    }
+
+    // ── DELETE /debate/:id — delete a debate session ──
+    if (url?.match(/^\/debate\/[a-f0-9]+$/) && method === 'DELETE') {
+      const debateId = url.split('/')[2]
+      const deleted = deleteDebate(debateId)
+      return json(res, deleted ? 200 : 404, deleted ? { status: 'deleted' } : { error: 'Debate not found' })
     }
 
     // ── GET /chat/aliases — list configured aliases for PWA agent chips ──
