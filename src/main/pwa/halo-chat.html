@@ -1324,6 +1324,14 @@ function connectWs() {
       }
       if (msg.done) {
         typingIndicator.classList.remove('visible');
+        // If no stream element exists (chunks were suppressed), create the message now
+        if (!window._streamEl && msg.fullText) {
+          const el = addMessage('agent', msg.fullText.replace(/\n/g, '<br>'), msg.agent);
+          el.setAttribute('data-msg-id', msg.msgId);
+        } else if (window._streamEl && msg.fullText) {
+          // Update existing stream element with final clean text
+          window._streamEl.querySelector('.bubble').innerHTML = msg.fullText.replace(/\n/g, '<br>');
+        }
         window._streamEl = null;
         window._streamAgent = null;
         // Update delivery status on last user message to ✓✓
