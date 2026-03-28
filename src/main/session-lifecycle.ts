@@ -27,12 +27,14 @@ async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: strin
           // Skip our own Electron process and npm/node internals
           if (cmdLine.includes('electron')) continue
           if (cmdLine.includes('node_modules')) continue
-          // Match Claude sessions: either explicitly for hal-o, or any --continue session
-          // (if the app CWD is hal-o, any external Claude is likely ours)
-          const isHalO = cmdLine.toLowerCase().includes('hal-o') || cmdLine.toLowerCase().includes('hal_o')
-          const isContinue = cmdLine.includes('--continue')
-          if (isHalO || isContinue) {
-            console.log(`[Session] Found external Claude session: PID ${pid} (hal-o=${isHalO}, continue=${isContinue})`)
+          // ONLY match processes with THIS instance's name (-n flag)
+          // Claudette must NOT kill HAL-O. HAL-O must NOT kill Claudette.
+          const instanceName = getInstanceName()
+          const namePattern = `-n ${instanceName}` // e.g. "-n HAL-O" or "-n Claudette"
+          const namePatternQuoted = `-n "${instanceName}"` // e.g. '-n "HAL-O"'
+          const matchesThisInstance = cmdLine.includes(namePattern) || cmdLine.includes(namePatternQuoted)
+          if (matchesThisInstance) {
+            console.log(`[Session] Found external ${instanceName} session: PID ${pid}`)
             resolve({ pid, cmdLine })
             return
           }
