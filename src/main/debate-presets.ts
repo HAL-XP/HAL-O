@@ -67,7 +67,7 @@ Rules:
 - Keep responses focused and under 300 words. Lead with the strongest evidence.
 - Reference specific points from other agents by name when responding.`,
     defaultProvider: 'ollama',
-    defaultModel: 'mistral',
+    defaultModel: 'mistral:7b',
     color: '#3b82f6',
     icon: '📊',
     traits: ['Fact-driven', 'Cites sources', 'Contextual', 'Precise'],
