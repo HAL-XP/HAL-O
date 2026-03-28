@@ -13,7 +13,7 @@ Write-Host "[Restart] Starting HAL-O restart cycle..." -ForegroundColor Cyan
 # Step 1: Launch Claude in an external terminal with --continue
 Write-Host "[Restart] Step 1: Launching Claude externally with --continue..." -ForegroundColor Yellow
 # Use cmd /k with proper quoting — avoid wt argument parsing issues
-$extProcess = Start-Process "cmd.exe" -ArgumentList "/k", "cd /d `"$HalODir`" && claude --continue" -PassThru
+$extProcess = Start-Process "cmd.exe" -ArgumentList "/k", "cd /d `"$HalODir`" && claude --continue --channel telegram" -PassThru
 Write-Host "[Restart] External terminal launched (PID: $($extProcess.Id))"
 
 # Step 2: Wait for Claude CLI process to appear
