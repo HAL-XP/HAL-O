@@ -166,13 +166,11 @@ export class TerminalManager {
       delete childEnv.TELEGRAM_MAIN_BOT_TOKEN
     }
 
-    // Write instance token to TG plugin .env (prevents cross-instance token conflict)
-    try {
-      const tgEnvPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'channels', 'telegram', '.env')
-      if (childEnv.TELEGRAM_BOT_TOKEN) {
-        writeFileSync(tgEnvPath, `TELEGRAM_BOT_TOKEN=${childEnv.TELEGRAM_BOT_TOKEN}\n`, 'utf-8')
-      }
-    } catch { /* TG plugin dir may not exist */ }
+    // Pass TELEGRAM_STATE_DIR to child process if set (per-instance TG isolation)
+    // DO NOT write to shared ~/.claude/channels/telegram/.env — causes cross-instance conflicts
+    if (process.env.TELEGRAM_STATE_DIR) {
+      childEnv.TELEGRAM_STATE_DIR = process.env.TELEGRAM_STATE_DIR
+    }
 
     const p = pty.spawn(shell, shellArgs, {
       name: 'xterm-256color',

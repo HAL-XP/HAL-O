@@ -353,24 +353,24 @@ app.whenReady().then(async () => {
     const credPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude_credentials')
     if (existsSync(credPath)) {
       const content = readFileSync(credPath, 'utf-8')
-      // Determine which token to use based on instance
-      const { isClone } = require('./instance')
-      let token = ''
+      // Load TG token into process.env for session-lifecycle & terminal-manager
+      // DO NOT write to shared ~/.claude/channels/telegram/.env — that causes
+      // cross-instance token conflicts. Each instance's bat launcher sets
+      // TELEGRAM_STATE_DIR to its own dir. The plugin reads from env + per-instance .env.
+      const { isClone, getInstanceId } = require('./instance')
       if (isClone()) {
-        // Clone: use TELEGRAM_MAIN_BOT_TOKEN or TELEGRAM_CLAUDETTE_BOT_TOKEN
         const m = content.match(/TELEGRAM_MAIN_BOT_TOKEN=["']?([^\s"'\r\n]+)/) ||
                   content.match(/TELEGRAM_CLAUDETTE_BOT_TOKEN=["']?([^\s"'\r\n]+)/)
-        if (m) token = m[1]
+        if (m) {
+          process.env.TELEGRAM_BOT_TOKEN = m[1]
+          process.env.TELEGRAM_STATE_DIR = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'channels', `telegram-${getInstanceId()}`)
+          console.log(`[HAL-O] Clone TG token set in env (${m[1].slice(0, 10)}...), state dir: telegram-${getInstanceId()}`)
+        }
       } else {
-        // Main: use TELEGRAM_BOT_TOKEN
         const m = content.match(/TELEGRAM_BOT_TOKEN=["']?([^\s"'\r\n]+)/)
-        if (m) token = m[1]
-      }
-      if (token) {
-        const tgDir = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'channels', 'telegram')
-        if (existsSync(tgDir)) {
-          writeFileSync(join(tgDir, '.env'), `TELEGRAM_BOT_TOKEN=${token}\n`, 'utf-8')
-          console.log(`[HAL-O] TG token written to plugin .env (${token.slice(0, 10)}...)`)
+        if (m) {
+          process.env.TELEGRAM_BOT_TOKEN = m[1]
+          console.log(`[HAL-O] Main TG token set in env (${m[1].slice(0, 10)}...)`)
         }
       }
     }
