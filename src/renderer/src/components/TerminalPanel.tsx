@@ -120,43 +120,42 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
     fitRef.current = fit
 
     // ── Layer 1: Wheel event interception (rocket scroll fix) ──
-    // Intercept wheel events to clamp macOS momentum scrolling and prevent
-    // the viewport from rocketing past the buffer when output is arriving.
-    let lastWheelTime = 0
-    let wheelAccum = 0
-    const MAX_DELTA = 3 // max lines per wheel event
-    const WHEEL_THROTTLE_MS = 16 // ~60fps
-    const onWheel = (e: WheelEvent) => {
-      const now = performance.now()
-      // Detect momentum: rapid small deltas after a fast flick
-      const dt = now - lastWheelTime
-      if (dt < WHEEL_THROTTLE_MS) {
-        wheelAccum += Math.abs(e.deltaY)
-        // If momentum is building up, suppress
-        if (wheelAccum > 200) {
+    // Only on macOS — Windows mouse wheels don't have momentum scrolling.
+    // On macOS, intercept wheel events to clamp trackpad momentum.
+    let onWheel: ((e: WheelEvent) => void) | null = null
+    if (navigator.userAgent.includes('Macintosh')) {
+      let lastWheelTime = 0
+      let wheelAccum = 0
+      const MAX_DELTA = 3
+      const WHEEL_THROTTLE_MS = 16
+      onWheel = (e: WheelEvent) => {
+        const now = performance.now()
+        const dt = now - lastWheelTime
+        if (dt < WHEEL_THROTTLE_MS) {
+          wheelAccum += Math.abs(e.deltaY)
+          if (wheelAccum > 200) {
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
+        } else {
+          wheelAccum = Math.abs(e.deltaY)
+        }
+        lastWheelTime = now
+        if (Math.abs(e.deltaY) > MAX_DELTA * 20) {
           e.preventDefault()
           e.stopPropagation()
-          return
+          const clamped = new WheelEvent('wheel', {
+            deltaY: Math.sign(e.deltaY) * MAX_DELTA * 20,
+            deltaX: e.deltaX,
+            deltaMode: e.deltaMode,
+            bubbles: false,
+          })
+          container.querySelector('.xterm-viewport')?.dispatchEvent(clamped)
         }
-      } else {
-        wheelAccum = Math.abs(e.deltaY)
       }
-      lastWheelTime = now
-      // Clamp large deltas (trackpad momentum sends deltaY of 50-200+)
-      if (Math.abs(e.deltaY) > MAX_DELTA * 20) {
-        e.preventDefault()
-        e.stopPropagation()
-        // Re-dispatch a clamped version
-        const clamped = new WheelEvent('wheel', {
-          deltaY: Math.sign(e.deltaY) * MAX_DELTA * 20,
-          deltaX: e.deltaX,
-          deltaMode: e.deltaMode,
-          bubbles: false, // don't re-trigger this handler
-        })
-        container.querySelector('.xterm-viewport')?.dispatchEvent(clamped)
-      }
+      container.addEventListener('wheel', onWheel, { capture: true, passive: false })
     }
-    container.addEventListener('wheel', onWheel, { capture: true, passive: false })
 
     // ── Layer 2: Batch xterm writes (one write per frame) ──
     let writeBuf = ''
@@ -344,7 +343,7 @@ export const TerminalPanel = memo(function TerminalPanel({ sessionId, active, fo
       cleanupExit()
       if (writeRaf) cancelAnimationFrame(writeRaf)
       if (resizeTimer) clearTimeout(resizeTimer)
-      container.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
+      if (onWheel) container.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
       container.removeEventListener('contextmenu', onContextMenu)
       container.removeEventListener('focusin', onFocusIn)
       container.removeEventListener('focusout', onFocusOut)

@@ -11,7 +11,10 @@ async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: strin
   if (process.platform !== 'win32') return null
 
   return new Promise((resolve) => {
-    const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='node.exe' and CommandLine like '%claude%hal%'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`
+    // Search for any Claude process (not just ones with 'hal' in cmdline)
+    // The external session may have been started with just 'claude --continue'
+    // Search for claude.exe (native binary) AND node.exe (when run via npm/npx)
+    const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"(Name='claude.exe' or Name='node.exe') and CommandLine like '%claude%'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`
     exec(psCmd, { encoding: 'utf-8', timeout: 8000, windowsHide: true }, (err, stdout) => {
       if (err) { resolve(null); return }
       const lines = stdout.trim().split('\n').slice(1) // skip header
@@ -20,11 +23,17 @@ async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: strin
         if (match) {
           const pid = parseInt(match[1])
           const cmdLine = match[2]
-          // Skip our own Electron process
+          // Skip our own Electron process and internal spawns
           if (cmdLine.includes('electron')) continue
-          // Must be a Claude session for hal-o
-          if (cmdLine.toLowerCase().includes('hal-o') || cmdLine.toLowerCase().includes('hal_o')) {
-            console.log(`[Session] Found external HAL-O session: PID ${pid}`)
+          if (cmdLine.includes('node_modules')) continue
+          // Skip processes we spawned internally (our headless sessions use --dangerously-skip-permissions -n HAL-O)
+          if (cmdLine.includes('--dangerously-skip-permissions') && cmdLine.includes('-n')) continue
+          // Match Claude sessions: either explicitly for hal-o, or any --continue session
+          // (if the app CWD is hal-o, any external Claude is likely ours)
+          const isHalO = cmdLine.toLowerCase().includes('hal-o') || cmdLine.toLowerCase().includes('hal_o')
+          const isContinue = cmdLine.includes('--continue')
+          if (isHalO || isContinue) {
+            console.log(`[Session] Found external Claude session: PID ${pid} (hal-o=${isHalO}, continue=${isContinue})`)
             resolve({ pid, cmdLine })
             return
           }
@@ -81,15 +90,15 @@ export async function detectOrStartHalSession(): Promise<void> {
   // 2. External session running?
   const external = await detectExternalHalSession()
   if (external) {
-    // Dev mode: detect + route, but NEVER absorb (protects dev session from app crashes)
-    // User mode: auto-absorb into app terminal
-    const devMode = process.env.HAL_DEV_MODE === '1' || process.cwd().toLowerCase().includes('hal-o')
+    // Dev mode (explicit opt-in only): detect + route, but NEVER absorb
+    // User mode (default): don't start a new session, let UI handle absorption
+    const devMode = process.env.HAL_DEV_MODE === '1'
     if (devMode) {
-      console.log(`[Session] External HAL-O session detected (PID ${external.pid}) — DEV MODE: routing only, not absorbing`)
+      console.log(`[Session] External session detected (PID ${external.pid}) — DEV MODE: routing only`)
     } else {
-      console.log(`[Session] External HAL-O session detected (PID ${external.pid}) — USER MODE: can absorb via UI`)
+      console.log(`[Session] External session detected (PID ${external.pid}) — skipping new session start`)
     }
-    // Either way, don't start a new one — the external session IS the session
+    // Don't start a new one — the external session IS the session
     return
   }
 
