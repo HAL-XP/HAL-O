@@ -382,12 +382,28 @@ app.on('before-quit', () => {
 // This lets the CLI agent restart the app without killing terminals.
 const restartSignalFile = join(process.cwd(), '.hal-o-restart')
 
-function checkRestartSignal() {
+async function checkRestartSignal() {
   if (existsSync(restartSignalFile)) {
-    console.log('[HAL-O] Restart signal detected — quitting gracefully')
+    console.log('[HAL-O] Restart signal detected — popping terminals external then quitting')
     try { require('fs').unlinkSync(restartSignalFile) } catch { /* */ }
-    // before-quit handler will save sessions and pop terminals
-    app.quit()
+
+    // Pop all terminals to external windows FIRST
+    const sessions = terminalManager.getActiveSessions()
+    for (const s of sessions) {
+      try {
+        const { openTerminalAt } = await import('./platform')
+        openTerminalAt(s.projectPath)
+        console.log(`[HAL-O] Popped external: ${s.projectName}`)
+      } catch (e) {
+        console.error(`[HAL-O] Failed to pop ${s.projectName}:`, e)
+      }
+    }
+
+    // Wait 3s for external terminals to fully open before killing the app
+    setTimeout(() => {
+      console.log('[HAL-O] External terminals should be ready — quitting now')
+      app.quit()
+    }, 3000)
   }
 }
 

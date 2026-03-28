@@ -1,4 +1,6 @@
 import type { BrowserWindow } from 'electron'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
 // node-pty is a native module — try prebuilt first, then regular
 let pty: typeof import('node-pty') | undefined
@@ -142,13 +144,26 @@ export class TerminalManager {
     const cmdLine = [options.cmd, ...options.args].join(' ')
     const shellArgs = isWin ? ['/k', cmdLine] : ['-c', cmdLine]
 
-    // Strip HAL-O's Telegram tokens from child terminals so other projects
-    // don't accidentally connect to the same bot
+    // Inject credentials from ~/.claude_credentials into child environment
+    // This ensures Claude's --channels plugin (Telegram) works when spawned by the app
     const childEnv = { ...process.env }
+    try {
+      const credPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude_credentials')
+      if (existsSync(credPath)) {
+        const content = readFileSync(credPath, 'utf-8')
+        for (const line of content.split('\n')) {
+          const m = line.match(/^export\s+([A-Z_]+)=["']?([^"'\r\n]+)["']?/)
+          if (m) childEnv[m[1]] = m[2]
+          const m2 = line.match(/^([A-Z_]+)=["']?([^"'\r\n]+)["']?/)
+          if (!m && m2) childEnv[m2[1]] = m2[2]
+        }
+      }
+    } catch { /* credentials file missing or unreadable — continue without */ }
+
+    // Strip HAL-O's Telegram tokens from non-HAL-O terminals
     const isHalO = options.cwd.toLowerCase().replace(/\\/g, '/').includes('hal-o')
     if (!isHalO) {
       delete childEnv.TELEGRAM_MAIN_BOT_TOKEN
-      // Keep TELEGRAM_BOT_TOKEN — other projects may have their own bot
     }
 
     const p = pty.spawn(shell, shellArgs, {
