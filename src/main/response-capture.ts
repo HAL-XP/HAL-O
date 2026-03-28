@@ -54,20 +54,30 @@ function stripCliChrome(text: string): string {
     .filter(line => {
       const t = line.trim()
       if (!t) return false
-      // Skip our own input echo
-      if (t.startsWith('[halochat')) return false
+      // Skip our own input echo (with or without prompt chars)
+      if (t.includes('[halochat')) return false
+      if (t.includes('halochat')) return false
       // Skip CLI prompts and status lines
-      if (t === '>') return false
+      if (/^[❯>$%#]\s*$/.test(t)) return false
       if (t.length < 3) return false
       // Skip spinner/progress lines
-      if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳✻✽✶✢·]+/.test(t)) return false
+      if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳✻✽✶✢·░▒▓█]+/.test(t)) return false
       // Skip Claude CLI chrome
-      if (/^(Hashing|ctx:|bypass permissions|Git:master|\d+%\s*\|)/.test(t)) return false
-      if (/Opus\s*4\.\d/.test(t)) return false
-      if (/^\(shift\+tab/i.test(t)) return false
+      if (/bypass\s*permissions?\s*on/i.test(t)) return false
+      if (/shift\+tab\s*(to\s*cycle)?/i.test(t)) return false
+      if (/^(Hashing|ctx:|Git:master|\d+%\s*\|)/i.test(t)) return false
+      if (/Opus\s*4\.\d/i.test(t)) return false
+      if (/Sonnet\s*4\.\d/i.test(t)) return false
+      if (/Haiku\s*4\.\d/i.test(t)) return false
+      if (/^[░▒▓█]+/.test(t)) return false
+      // Skip lines that are just box-drawing / decorative chars
+      if (/^[─╭╰│├└┌┐┘┤┬┴┼╮╯]+$/.test(t)) return false
+      // Skip lines that are just prompt/status (❯, >, etc.)
+      if (/^[❯>]\s/.test(t) && t.length < 10) return false
       return true
     })
     .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
@@ -161,11 +171,12 @@ export function processPtyOutput(sessionId: string, _projectName: string, data: 
     // Feed raw data into the virtual terminal (it handles all ANSI properly)
     capture.vterm.write(data)
 
-    // Skip the echo of our own input
+    // Skip the echo of our own input (prompt may include ❯ or > before [halochat])
     if (!capture.started) {
       const currentText = readVTermBuffer(capture.vterm)
-      if (currentText.includes('[halochat')) return // still echoing input
+      if (currentText.includes('[halochat') || currentText.includes('halochat')) return // still echoing input
       capture.started = true
+      // Snapshot AFTER the echo so we only capture the response
       capture.lastBufferSnapshot = currentText
       return
     }
