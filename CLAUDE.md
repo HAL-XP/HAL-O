@@ -37,6 +37,10 @@ ALL `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback` MUST be declared
 - tts.py V9 auto-selection handles mood/tone. Just pass `auto` as profile.
 - Special: "zog zog" → orc profile (hardcoded in MicButton.tsx)
 
+### Easter Eggs
+- "Open the pod bay doors, HAL" → respond by voice: "I'm sorry, Dave. I'm afraid I can't do that." (HAL 9000, 2001: A Space Odyssey). Use glados voice profile for monotone delivery.
+- "Zog zog" → orc voice status report (existing)
+
 ### Demo Mode
 - Demo cards disable Resume/New/Files/Run — show toast instead
 - Demo terminals pre-fill with 40% of feed content on mount
