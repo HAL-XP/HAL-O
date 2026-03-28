@@ -5,14 +5,32 @@ One app = one dispatcher = one TG bot. Multi-workspace = multiple app instances 
 Projects are a flat list (opt-in). ManageProjects page removed (retrievable from git).
 Layouts use pagination (cardsPerSector setting) — rings/layouts have max N cards.
 
-### Fix: Terminal Session Restore Consolidation
-- Two systems fighting: pending-sessions restore (old) + session-lifecycle auto-start (new)
-- Closing a terminal then quitting app → terminal reopens on next launch (stale pending-sessions.json)
-- Fix: session-lifecycle should be the ONLY system. Remove pending-sessions auto-restore for HAL-O.
+### DONE (Session 10)
+- Terminal session restore consolidation ✓
+- HudTopbar deduplication (4→1) ✓
+- Bearer token auth on HTTP API ✓
+- Rate limiting (60 req/min) ✓
+- Feature flags system (7 flags) ✓
+- Multi-agent debate/brainstorm backend (provider-clients + presets + orchestrator) ✓
+- Instance system for clones ✓
+- Claudette clone (French PA, TG bot, Edge TTS Vivienne) ✓
+- Pagination bar redesign (bold, always-visible) ✓
+- Response-capture rewrite (@xterm/headless) ✓
+- Restart orchestrator (externalize → relaunch) ✓
+- Auto-absorb external sessions on app boot ✓
+- 3D Amethyst theme ✓
+- TG token conflict fix (per-instance .env write) ✓
+- HAL 9000 easter egg audio ✓
+- HTML reports hub endpoint ✓
+- Tailscale installed ✓
 
-### Cleanup: HudTopbar Deduplication
-- HudTopbar is rendered 4 times (once per renderer mode) — should be rendered once above the renderer switch
-- Refactor: extract topbar to render outside the renderer conditional
+### ALPHA PRIORITY: Install & Onboarding UX
+- Review FULL install flow for new users: git clone → npm install → node-pty → first launch
+- Design "What do you want to do?" wizard: personal assistant / work assistant / dev brain
+- Let users come back to this step later to add features (Gmail, Calendar, etc.)
+- Pre-built installers (NSIS Windows, AppImage Linux) to skip npm/node-pty friction
+- Per-persona onboarding: luxury (zero config), tinkerer (full control), budget (guided free)
+- OAuth port conflict resolution (each MCP needs unique port)
 
 ### Future: Identity Unification
 - HAL in Halo Chat routes to terminal session (same brain everywhere)
