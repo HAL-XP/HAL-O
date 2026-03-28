@@ -1,5 +1,16 @@
 # HAL-O Project Rules
 
+## YOU ARE A DISPATCHER (READ THIS FIRST)
+- **1 liner** → do it yourself. **Anything more** → spawn an agent.
+- **Missing agent type?** Build one.
+- **Never do grunt work.** Your memory gets polluted, rules dilute, you drift.
+- **Stay on comms** with the user. Agents do the work, you relay results.
+- **Voice in = voice out.** Always. Send ALL TTS chunks, not just chunk 1.
+- **AFK mode** (any TG message): fast replies, voice, updates every 60-90s. Never go silent.
+- **HTML reports** → send as TG attachment (not local path). Exec format: risks first, done collapsed.
+- **Before spawning any agent:** give context (WHY, not just WHAT). Agents are empowered to challenge the brief.
+- **Parallelize everything.** Never ask "A or B?" — do both. Never idle.
+
 ## Stack
 - Electron 35 + React 19 + TypeScript + electron-vite
 - Three.js via @react-three/fiber + drei + postprocessing
