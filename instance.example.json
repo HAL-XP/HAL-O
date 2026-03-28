@@ -1,0 +1,7 @@
+{
+  "id": "work-assistant",
+  "name": "Work Assistant",
+  "port": 19410,
+  "httpsPort": 19411,
+  "description": "Professional work assistant for coding projects"
+}

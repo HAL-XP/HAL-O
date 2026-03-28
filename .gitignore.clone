@@ -1,0 +1,49 @@
+# ── HAL-O Clone .gitignore ──
+# Copy this to .gitignore when setting up a clone (work-assistant, personal-assistant, etc.)
+# Clones share the same codebase but have instance-specific data that shouldn't
+# be pushed back to the main HAL-O repo.
+
+# Everything from the main .gitignore
+node_modules/
+out/
+dist/
+.env
+.env.local
+*credentials*
+.claude/settings.local.json
+.claude/agent-memory-local/
+.claude/.pids
+test-results/
+playwright-report/
+.DS_Store
+Thumbs.db
+.claude/worktrees/
+tsconfig.node.tsbuildinfo
+
+# ── Clone-specific exclusions ──
+# These are per-instance operational data, not source code.
+# Backed up via ~/.hal-o/instances/<id>/ (synced by OneDrive or similar).
+
+# Instance config (unique per clone)
+instance.json
+
+# Devlogs are per-instance session history (HAL-O main tracks its own in git)
+_devlog/
+
+# Reports and concepts are per-instance research output
+_reports/
+_concepts/
+
+# Temp files (screenshots, marketing assets, debug output)
+temp/
+
+# Experimental test specs
+e2e/demo-v*.spec.ts
+e2e/demo-teaser-v*.spec.ts
+e2e/demo-final.spec.ts
+e2e/audio-debug*.spec.ts
+e2e/sphere-test-ab.spec.ts
+e2e/sphere-scale-test.spec.ts
+e2e/theme-screenshots.spec.ts
+demo-v*-output.log
+test-output.log

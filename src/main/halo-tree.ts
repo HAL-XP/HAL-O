@@ -4,6 +4,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { getDataDir, dataPath } from './instance'
 
 // ── Types ──
 
@@ -42,11 +43,11 @@ export interface HaloTree {
 
 // ── Storage ──
 
-const HAL_O_DIR = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o')
-const TREE_PATH = join(HAL_O_DIR, 'tree.json')
+// Data dir resolved via instance config (supports clones)
+const getTreePath = () => dataPath('tree.json')
 
 function ensureDir() {
-  if (!existsSync(HAL_O_DIR)) mkdirSync(HAL_O_DIR, { recursive: true })
+  getDataDir() // auto-creates if missing
 }
 
 // ── Default tree (created on first run) ──
@@ -90,8 +91,8 @@ export function loadTree(): HaloTree {
   if (_tree && Date.now() - _lastLoad < RELOAD_INTERVAL) return _tree
 
   try {
-    if (existsSync(TREE_PATH)) {
-      _tree = JSON.parse(readFileSync(TREE_PATH, 'utf-8'))
+    if (existsSync(getTreePath())) {
+      _tree = JSON.parse(readFileSync(getTreePath(), 'utf-8'))
       _lastLoad = Date.now()
       return _tree!
     }
@@ -108,7 +109,7 @@ export function saveTree(tree: HaloTree): void {
   ensureDir()
   _tree = tree
   _lastLoad = Date.now()
-  writeFileSync(TREE_PATH, JSON.stringify(tree, null, 2), 'utf-8')
+  writeFileSync(getTreePath(), JSON.stringify(tree, null, 2), 'utf-8')
 }
 
 // ── CRUD Operations ──
@@ -299,7 +300,7 @@ export function syncAliasesFromTree(): void {
     }
   }
 
-  const aliasPath = join(HAL_O_DIR, 'aliases.json')
+  const aliasPath = dataPath('aliases.json')
   writeFileSync(aliasPath, JSON.stringify(aliases, null, 2), 'utf-8')
 }
 
@@ -307,7 +308,7 @@ export function syncAliasesFromTree(): void {
 
 export function migrateFromAliases(): void {
   const tree = loadTree()
-  const aliasPath = join(HAL_O_DIR, 'aliases.json')
+  const aliasPath = dataPath('aliases.json')
 
   if (!existsSync(aliasPath)) return
   if (Object.keys(tree.nodes).length > 1) return // already has nodes beyond root

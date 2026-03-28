@@ -34,7 +34,6 @@ interface Props {
   settings: SettingsState
   onNewProject: () => void
   onConvertProject: (path: string) => void
-  onManageProjects?: () => void
   onOpenTerminal?: (projectPath: string, projectName: string, resume: boolean) => void
   voiceFocus?: 'hub' | string
   onVoiceFocusHub?: () => void
@@ -142,7 +141,7 @@ function timeAgo(ms: number): string {
   return `${days}d`
 }
 
-export function ProjectHub({ settings, onNewProject, onConvertProject, onManageProjects, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone, cardsPerSector = 16, onCardsPerSectorChange, bloomIntensityOverride = -1, onBloomIntensityOverrideChange, gridOpacityOverride = -1, onGridOpacityOverrideChange, particleBrightnessOverride = -1, onParticleBrightnessOverrideChange, vignetteOverride = -1, onVignetteOverrideChange }: Props) {
+export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTerminal, voiceFocus, onVoiceFocusHub, hubFontSize, termFontSize, wizardFontSize, onWizardFontSize, voiceOut, voiceProfile, dockPosition, screenOpacity, particleDensity, onParticleDensityChange, renderQuality, onRenderQualityChange, camera, onHubFontSize, onTermFontSize, onVoiceOut, onVoiceProfileChange, onDockPositionChange, onScreenOpacityChange, onCameraChange, onCameraReset, onCameraMove, rendererId, onRendererChange, layoutId, onLayoutChange, threeTheme, onThreeThemeChange, shipVfxEnabled = true, onShipVfxEnabledChange, activityFeedback = true, onActivityFeedbackChange, sphereStyle = 'wireframe', onSphereStyleChange, voiceReactionIntensity = 0.5, onVoiceReactionIntensityChange, personality, onPersonalityChange, onPersonalityPreset, halSessionId, terminalCount, demo, defaultIde = 'auto', onDefaultIdeChange, defaultTerminalModel = 'default', onDefaultTerminalModelChange, dockMode, onDockModeChange, introAnimation = true, onIntroAnimationChange, graphicsPreset = 'medium', onGraphicsPresetChange, bloomEnabled = true, onBloomEnabledChange, chromaticAberrationEnabled = false, onChromaticAberrationEnabledChange, floorLinesEnabled = false, onFloorLinesEnabledChange, groupTrailsEnabled = false, onGroupTrailsEnabledChange, autoRotateEnabled = true, onAutoRotateEnabledChange, autoRotateSpeed = 0.12, onAutoRotateSpeedChange, onRedetectGpu, onOpenBrowser, devlogSections = DEFAULT_DEVLOG_SECTIONS, onDevlogSectionChange, onSetAllDevlogSections, focusZone, cardsPerSector = 16, onCardsPerSectorChange, bloomIntensityOverride = -1, onBloomIntensityOverrideChange, gridOpacityOverride = -1, onGridOpacityOverrideChange, particleBrightnessOverride = -1, onParticleBrightnessOverrideChange, vignetteOverride = -1, onVignetteOverrideChange }: Props) {
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -859,7 +858,6 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onManageP
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
-          onManageProjects={onManageProjects}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
@@ -997,7 +995,6 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onManageP
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
-          onManageProjects={onManageProjects}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}
@@ -1088,7 +1085,6 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onManageP
           demo={demo}
           hiddenPaths={hiddenPaths} onUnhide={unhideProject}
           onVoiceBlocked={handleVoiceBlocked}
-          onManageProjects={onManageProjects}
           defaultIde={defaultIde as any} onDefaultIdeChange={onDefaultIdeChange as any}
           defaultTerminalModel={defaultTerminalModel as any} onDefaultTerminalModelChange={onDefaultTerminalModelChange as any}
           dockMode={dockMode} onDockModeChange={onDockModeChange}

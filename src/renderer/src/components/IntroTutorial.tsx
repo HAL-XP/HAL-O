@@ -44,9 +44,9 @@ const STEPS: TutorialStep[] = [
     position: 'bottom',
   },
   {
-    selector: '[data-tutorial="add-project"]',
-    title: 'ENLIST NEW OPERATIONS',
-    description: 'Import existing codebases or create new projects from scratch. HAL-O scans your workspace and sets up Claude Code integration automatically.',
+    selector: '[data-tutorial="new-project"]',
+    title: 'ADD YOUR PROJECTS',
+    description: 'Click NEW to create a project from scratch, or ADD PROJECT to import an existing codebase. These two buttons in the top bar are your starting point — projects appear as cards in your command center.',
     position: 'bottom',
   },
   {

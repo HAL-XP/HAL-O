@@ -6,9 +6,10 @@ import { writeFileSync, existsSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { run, findApiKey } from './ipc-shared'
 import { openTerminalAt, getGhInstallInfo, getPythonInstallInfo, getClaudeCliInstallInfo, getFfmpegInstallInfo, getGitInstallInfo, getCommonProjectDirs } from './platform'
+import { dataPath } from './instance'
 
 const HOME = process.env.HOME || process.env.USERPROFILE || ''
-const CONTINUATION_FILE = join(HOME, '.hal-o-setup-continue.json')
+const CONTINUATION_FILE = dataPath('setup-continue.json')
 
 export function registerSetupHandlers(): void {
   ipcMain.handle('check-prerequisites', async () => {

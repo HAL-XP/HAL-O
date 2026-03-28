@@ -42,6 +42,28 @@ ALL `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback` MUST be declared
 - Demo terminals pre-fill with 40% of feed content on mount
 - Demo stats bypass IPC (demoStats prop)
 
+## Multi-Instance (Clones)
+HAL-O supports running multiple instances from separate repo clones.
+Each clone gets isolated data, ports, and identity.
+
+- **Main instance** (this repo, no `instance.json`): data in `~/.hal-o/`
+- **Clone instances** (with `instance.json`): data in `~/.hal-o/instances/<id>/`
+
+### Clone Setup
+1. Clone the repo: `git clone https://github.com/HAL-XP/hal-o.git work-assistant`
+2. Copy `.gitignore.clone` to `.gitignore` (overwrites the main one)
+3. Copy `instance.example.json` to `instance.json`, edit `id`, `name`, `port`
+4. Each clone needs a unique `port` (19400=HAL, 19410=work, 19420=personal, etc.)
+5. Run `npm install` + rebuild node-pty patches
+6. Data (tree, aliases, favorites, model routing) is per-instance in `~/.hal-o/instances/<id>/`
+7. OneDrive syncs `~/.hal-o/` for backup across all instances
+
+### Instance Config (`instance.json`)
+```json
+{"id": "work-assistant", "name": "Work Assistant", "port": 19410}
+```
+Key: `src/main/instance.ts` — all modules import `dataPath()` and `getPort()` from here.
+
 ## Key Files
 - `src/renderer/src/components/three/PbrHoloScene.tsx` — Main PBR renderer (~3500 lines)
 - `src/renderer/src/hooks/useSettings.ts` — All settings state

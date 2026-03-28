@@ -111,19 +111,8 @@ body::after {
    SIDEBAR — Agent list with glow rings
    ══════════════════════════════════════════════════════════════ */
 .sidebar {
-  width: 76px;
-  background: linear-gradient(180deg, rgba(8, 12, 22, 0.95) 0%, rgba(6, 10, 18, 0.98) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-right: 1px solid var(--glass-border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px 0 20px;
-  gap: 6px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
+  /* Single-dispatcher mode: sidebar hidden */
+  display: none !important;
 }
 
 /* Subtle accent line on right edge */
@@ -1198,10 +1187,6 @@ body.light .msg.user { color: #fff; }
   <button class="settings-close" id="settingsClose">&times;</button>
   <h3>Settings</h3>
   <div class="settings-group">
-    <label>Agent Name</label>
-    <input type="text" id="setAgentName" placeholder="Agent name">
-  </div>
-  <div class="settings-group">
     <label>Voice</label>
     <select id="setVoice"><option value="butler">HAL (Male)</option><option value="soft">Hallie (Female)</option><option value="auto">Auto</option></select>
   </div>
@@ -1263,9 +1248,7 @@ function getWsUrl() { return API.replace(/^http/, 'ws') + '/ws'; }
 let WS_URL = getWsUrl();
 
 const AGENT_THEMES = {
-  hal:   { color: '#00e5ff', icon: '<canvas class="mini-sphere" width="32" height="32"></canvas>', letter: 'H' },
-  bob:   { color: '#22c55e', icon: '<span class="avatar-letter" style="color:#22c55e">B</span>', letter: 'B' },
-  karen: { color: '#f472b6', icon: '<span class="avatar-letter" style="color:#f472b6">K</span>', letter: 'K' },
+  hal: { color: '#00e5ff', icon: '<canvas class="mini-sphere" width="32" height="32"></canvas>', letter: 'H' },
 };
 
 let ws = null;
@@ -1387,14 +1370,21 @@ function connectWs() {
   ws.onerror = () => {};
 }
 
-// ── Agents ──
+// ── Agents (single-dispatcher: HAL only) ──
 async function loadAgents() {
   try {
-    // Load from tree API (primary) with aliases fallback
+    // Try to get instance name from /health endpoint
+    let instanceName = 'HAL';
+    try {
+      const h = await fetch(API + '/health');
+      const hd = await h.json();
+      if (hd.instance) instanceName = hd.instance;
+    } catch {}
+
+    // Load dispatchers from tree (primary) with fallback
     let r = await fetch(API + '/tree/nodes');
     let d = await r.json();
     const treeNodes = d.nodes || [];
-    // Filter to dispatchers and agents (not projects/groups — those aren't chat targets)
     agents = treeNodes
       .filter(n => n.type === 'dispatcher' || n.type === 'agent')
       .map(n => ({
@@ -1407,32 +1397,16 @@ async function loadAgents() {
         status: n.status,
       }));
     if (agents.length === 0) {
-      // Fallback to aliases
-      r = await fetch(API + '/chat/aliases');
-      d = await r.json();
-      agents = (d.aliases || []).map(a => ({ ...a, displayName: a.name.charAt(0).toUpperCase() + a.name.slice(1) }));
+      // Fallback: single HAL agent
+      agents = [{ name: 'hal', displayName: instanceName, voice: 'butler', color: '#00e5ff', type: 'dispatcher', status: 'online' }];
     }
-    renderSidebar();
-    if (!activeAgent && agents.length > 0) switchAgent(agents[0].name);
+    // Single-dispatcher: always switch to first agent (no sidebar)
+    switchAgent(agents[0].name);
   } catch {}
 }
 
 function renderSidebar() {
-  sidebar.innerHTML = '';
-  agents.forEach(a => {
-    const color = a.color || AGENT_THEMES[a.name]?.color || '#00e5ff';
-    const icon = a.icon || AGENT_THEMES[a.name]?.icon || '🤖';
-    const theme = { color, icon };
-    const div = document.createElement('div');
-    div.className = 'agent-avatar' + (activeAgent === a.name ? ' active' : '');
-    div.style.background = theme.color + '22';
-    div.style.color = theme.color;
-    div.innerHTML = theme.icon + '<div class="status-dot" style="background:' + (a.status === 'online' ? 'var(--green)' : 'var(--muted)') + '"></div>';
-    div.title = (a.displayName || a.name).toUpperCase();
-    div.onclick = () => switchAgent(a.name);
-    sidebar.appendChild(div);
-  });
-  setTimeout(animateMiniSpheres, 50);
+  // Single-dispatcher mode: sidebar hidden, no rendering needed
 }
 
 function switchAgent(name) {
@@ -1980,7 +1954,6 @@ settingsBtn.onclick = () => {
   if (opening && activeAgent) {
     const saved = JSON.parse(localStorage.getItem('halo_settings') || '{}');
     const agentSettings = saved[activeAgent] || {};
-    document.getElementById('setAgentName').value = agentSettings.name || activeAgent;
     document.getElementById('setVoice').value = agentSettings.voice || 'auto';
     document.getElementById('setAutoPlay').value = autoPlayVoice ? 'yes' : 'no';
   }
@@ -1988,11 +1961,10 @@ settingsBtn.onclick = () => {
 settingsClose.onclick = () => { settingsPanel.classList.remove('open'); settingsOverlay.classList.remove('open'); };
 
 // Save settings on change
-['setAgentName', 'setVoice', 'setColor', 'setAutoPlay'].forEach(id => {
+['setVoice', 'setColor', 'setAutoPlay'].forEach(id => {
   document.getElementById(id)?.addEventListener('change', () => {
     const saved = JSON.parse(localStorage.getItem('halo_settings') || '{}');
     if (!saved[activeAgent]) saved[activeAgent] = {};
-    saved[activeAgent].name = document.getElementById('setAgentName').value;
     saved[activeAgent].voice = document.getElementById('setVoice').value;
     autoPlayVoice = document.getElementById('setAutoPlay').value === 'yes';
     localStorage.setItem('halo_settings', JSON.stringify(saved));

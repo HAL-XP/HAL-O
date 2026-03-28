@@ -9,6 +9,7 @@ import { run, runAsync } from './ipc-shared'
 import { openTerminalAt, runLaunchScript, getCommonProjectDirs, getLaunchScriptNames, openInIde, resolveIde, detectProjectIde, IDE_CANDIDATES } from './platform'
 import { terminalManager } from './terminal-manager'
 import { RULES_VERSION } from './version'
+import { dataPath, getDataDir } from './instance'
 
 // ── Project stats cache (60s TTL) ──
 interface ProjectStats {
@@ -128,7 +129,7 @@ export function registerHubHandlers(): void {
     try {
       const { existsSync } = await import('fs')
       const { join } = await import('path')
-      const treePath = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'tree.json')
+      const treePath = dataPath('tree.json')
       if (existsSync(treePath)) {
         const { getAllNodes } = await import('./halo-tree')
         const treeProjects = getAllNodes().filter(n => n.type === 'project' && n.path)
@@ -676,14 +677,12 @@ export function registerHubHandlers(): void {
   })
 
   // ── B37: Dual-persist favorites (localStorage + JSON file backup) ──
-  // Use ~/.hal-o/ (user home) NOT %APPDATA%/hal-o/ (which is Electron's userData dir
-  // and gets cleared by cache nuke operations)
-  const favDir = join(process.env.HOME || process.env.USERPROFILE || '', '.hal-o')
-  const favPath = join(favDir, 'favorites.json')
+  // Use instance data dir (NOT %APPDATA% which gets cleared by cache nuke)
+  const favPath = dataPath('favorites.json')
 
   ipcMain.handle('save-favorites', async (_event, paths: string[]) => {
     try {
-      if (!existsSync(favDir)) mkdirSync(favDir, { recursive: true })
+      getDataDir() // ensures dir exists
       writeFileSync(favPath, JSON.stringify(paths, null, 2), 'utf-8')
       return { success: true }
     } catch (e: any) {

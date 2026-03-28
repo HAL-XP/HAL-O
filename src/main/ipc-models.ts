@@ -2,8 +2,7 @@
 // Exposes model/provider info to the renderer process.
 
 import { ipcMain } from 'electron'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import {
   getAvailableProviders,
   invalidateProviderCache,
@@ -14,15 +13,14 @@ import {
   type ModelRoutingConfig,
   MODEL_ROUTING_PRESETS,
 } from './model-providers'
+import { dataPath } from './instance'
 
 // Per-terminal model overrides stored in memory (not persisted across restarts)
 const terminalModelOverrides = new Map<string, string>()
 
-// Model routing config file path
+// Model routing config file path (per-instance)
 function routingConfigPath(): string {
-  const dir = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o')
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return join(dir, 'model-routing.json')
+  return dataPath('model-routing.json')
 }
 
 function loadRoutingConfig(): { preset: string; config: ModelRoutingConfig } {

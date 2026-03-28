@@ -4,14 +4,14 @@
 // No LLM needed — handles 80%+ of messages.
 
 import { readFileSync } from 'fs'
-import { join } from 'path'
+import { dataPath } from './instance'
 
 // ── Alias System ──
-// ~/.hal-o/aliases.json maps short names to project configs:
+// aliases.json maps short names to project configs:
 // {"bob": {"project": "work-assistant", "voice": "butler"}, ...}
 // Also supports legacy plain string: {"bob": "work-assistant"}
 interface AliasEntry { project: string; voice?: string }
-const ALIASES_PATH = join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json')
+const ALIASES_PATH = dataPath('aliases.json')
 let _aliases: Record<string, AliasEntry> = {}
 let _aliasesLoaded = 0
 

@@ -5,6 +5,7 @@ temp/
 .env
 .env.local
 *credentials*
+instance.json
 .claude/settings.local.json
 .claude/agent-memory-local/
 .claude/.pids

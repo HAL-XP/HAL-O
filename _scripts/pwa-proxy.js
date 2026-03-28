@@ -7,8 +7,18 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 
-const LISTEN_PORT = 19401;
-const TARGET = { host: '127.0.0.1', port: 19400 };
+// Read ports from instance.json if present, otherwise defaults
+let instancePort = 19400;
+try {
+  const instancePath = path.join(process.cwd(), 'instance.json');
+  if (fs.existsSync(instancePath)) {
+    const cfg = JSON.parse(fs.readFileSync(instancePath, 'utf-8'));
+    if (cfg.port) instancePort = cfg.port;
+  }
+} catch { /* use defaults */ }
+
+const LISTEN_PORT = instancePort + 1;
+const TARGET = { host: '127.0.0.1', port: instancePort };
 
 // Load self-signed cert
 const certsDir = path.join(__dirname, 'certs');

@@ -1,63 +1,27 @@
 # HAL-O Backlog
 
-## NEXT: Tree Architecture Redesign (Major)
-Architecture + research done. Reports at _reports/halo-tree-architecture.html + halo-competitive-analysis.html
-
-### Phase 1: Opt-In Project Management Page
-- Replace auto-scan with explicit import (opt-in)
-- Full-page "Manage Projects" with sidebar tree + detail pane
-- Import flow: folder picker → auto-detect → name → assign group
-- Hidden projects truly gone (not just filtered)
-
-### Phase 2: Tree Structure
-- Groups → hierarchical nodes (dispatchers or containers)
-- VS Code Explorer pattern (React Arborist, lazy-load, keyboard nav)
-- Master-detail responsive layout (iOS Settings pattern)
-- Cmd+K search palette
-- Breadcrumb navigation
-
-### Phase 3: Sub-Dispatchers
-- Each dispatcher = own Telegram bot + Halo Chat avatar
-- Dispatcher class refactored from monolithic to composable
-- Root HAL can always communicate with all children
-- Lazy loading: "Loading project..." then activate
-
-### Phase 4: Identity Unification
-- HAL in Halo Chat routes to terminal session (same brain everywhere)
-- Telegram + Halo Chat + Terminal = same session
-- Fallback to API-based HAL when app not running
-
-### Phase 5: Agent-to-Agent Communication
-- Dispatchers can message each other
-- Message bus via HTTP API
-- User can observe agent conversations
+## Simplification (Session 10)
+One app = one dispatcher = one TG bot. Multi-workspace = multiple app instances (clones).
+Projects are a flat list (opt-in). ManageProjects page removed (retrievable from git).
+Layouts use pagination (cardsPerSector setting) — rings/layouts have max N cards.
 
 ### Fix: Terminal Session Restore Consolidation
 - Two systems fighting: pending-sessions restore (old) + session-lifecycle auto-start (new)
 - Closing a terminal then quitting app → terminal reopens on next launch (stale pending-sessions.json)
 - Fix: session-lifecycle should be the ONLY system. Remove pending-sessions auto-restore for HAL-O.
-- Other project terminals can still use pending-sessions if needed.
-
-### Manage Projects E2E Tests
-- Update e2e/manage-projects.spec.ts selectors to match actual DOM
-- SVG selector: .mp-svg vs actual rendered class
-- Fix card overlap detection logic
-- Run tests after every ManageProjects change
-
-### Manage Projects Polish
-- Zoom towards mouse position (current zoom-to-origin feels wrong)
-- Consider React Flow library for proper node graph (drag, zoom, minimap built-in)
-- Manage Projects as a "mode" in main 3D view (2D plane in 3D scene, camera switch)
-- Mode switching UI for workspaces
 
 ### Cleanup: HudTopbar Deduplication
 - HudTopbar is rendered 4 times (once per renderer mode) — should be rendered once above the renderer switch
-- All 4 instances are identical, just duplicated in each layout's JSX block
 - Refactor: extract topbar to render outside the renderer conditional
 
-### Onboarding
-- Simple path: "Manage projects" or "Personal assistant" → 1-click done
-- Power path: full tree editor with dispatchers, bots, voices, models
+### Future: Identity Unification
+- HAL in Halo Chat routes to terminal session (same brain everywhere)
+- Telegram + Halo Chat + Terminal = same session
+- Fallback to API-based HAL when app not running
+
+### Future: Agent-to-Agent Communication
+- Message bus via HTTP API between separate HAL-O instances
+- User can observe agent conversations
 
 ## DONE (Session 9)
 - HTTP Control API (localhost:19400) — 10+ endpoints
@@ -85,10 +49,9 @@ Architecture + research done. Reports at _reports/halo-tree-architecture.html + 
 - Environment variable whitelisting for subprocesses
 - Audit logging
 
-## Priority: Agent Names
-- User wants to rename Bob + Karen to something classier
-- Suggestions given: Atlas/Sterling/Archer (work), Elara/Iris/Mila (personal)
-- Awaiting user's pick — then update aliases.json + CLAUDE.md + clear agent cache
+## Agent Names (Deferred)
+- Bob/Karen moved to separate HAL-O clones (work-assistant, personal-assistant)
+- Rename happens per-clone when they're set up
 
 ## Private Social Network UX
 - Each agent = a "friend" you can DM (separate threads)

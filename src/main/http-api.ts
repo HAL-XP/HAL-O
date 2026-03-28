@@ -12,12 +12,13 @@ import { spawn } from 'child_process'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { getPort, dataPath, getInstanceName } from './instance'
 
 // WebSocket — Electron bundles ws
 let WebSocketServer: any
 try { WebSocketServer = require('ws').WebSocketServer } catch { /* no ws */ }
 
-const PORT = 19400
+const PORT = getPort()
 
 /** Strip markdown formatting for clean mobile display */
 function stripMarkdown(text: string): string {
@@ -333,7 +334,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         // Load aliases for voice/lang lookup
         let sessAliases: Array<{name: string; voice?: string}> = []
         try {
-          const raw = JSON.parse(readFileSync(join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json'), 'utf-8'))
+          const raw = JSON.parse(readFileSync(dataPath('aliases.json'), 'utf-8'))
           for (const [alias, entry] of Object.entries(raw)) {
             const e = typeof entry === 'string' ? { project: entry } : entry as any
             sessAliases.push({ name: alias, voice: e.voice })
@@ -396,7 +397,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       // Load aliases config
       let aliasesConfig: Record<string, any> = {}
       try {
-        aliasesConfig = JSON.parse(readFileSync(join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json'), 'utf-8'))
+        aliasesConfig = JSON.parse(readFileSync(dataPath('aliases.json'), 'utf-8'))
       } catch { /* no aliases */ }
 
       // Normalize aliases
@@ -549,7 +550,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     if (url === '/chat/aliases' && method === 'GET') {
       let aliases: Array<{name: string; project: string; voice: string | null}> = []
       try {
-        const raw = JSON.parse(readFileSync(join(process.env.USERPROFILE || process.env.HOME || '', '.hal-o', 'aliases.json'), 'utf-8'))
+        const raw = JSON.parse(readFileSync(dataPath('aliases.json'), 'utf-8'))
         for (const [alias, entry] of Object.entries(raw)) {
           const e = typeof entry === 'string' ? { project: entry } : entry as { project: string; voice?: string }
           aliases.push({ name: alias, project: e.project, voice: e.voice || null })
@@ -726,6 +727,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     if (url === '/health' && method === 'GET') {
       return json(res, 200, {
         status: 'ok',
+        instance: getInstanceName(),
         terminals: terminalManager.getActiveSessions().length,
         uptime: process.uptime(),
         wsClients: WS_CLIENTS.size,
