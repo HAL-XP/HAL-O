@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# session-health-check.sh — Validates Telegram session state on every launch.
+# session-health-check.sh -- Validates Telegram session state on every launch.
 # Detects: wrong bot token in .env, missing --channels flag, conflicting sessions.
 # Outputs JSON report to /tmp/hal_session_health.json and warnings to stdout.
+# ALSO writes session.lock to prevent session-lifecycle.ts from killing TG sessions.
 # Designed for git bash on Windows. Must complete in <5 seconds.
 
 set -euo pipefail
 
-# ── Determine instance ──────────────────────────────────────────────────────
+# -- Determine instance -----------------------------------------------------------
 # Use CLAUDE_PROJECT_DIR if set (hook context), else CWD, else script dir
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
     REPO_DIR="$CLAUDE_PROJECT_DIR"
@@ -29,7 +30,7 @@ if [ -f "$INSTANCE_FILE" ]; then
     INSTANCE_ID=$(grep '"id"' "$INSTANCE_FILE" | sed 's/.*: *"\([^"]*\)".*/\1/' | head -1)
 fi
 
-# ── Load credentials ────────────────────────────────────────────────────────
+# -- Load credentials ────────────────────────────────────────────────────────
 CRED_FILE="$HOME/.claude_credentials"
 EXPECTED_TOKEN=""
 TOKEN_KEY=""
@@ -81,7 +82,7 @@ else
     EXPECTED_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 fi
 
-# ── Check .env file ─────────────────────────────────────────────────────────
+# -- Check .env file --------------------------------------------------------------
 ENV_FILE="$HOME/.claude/channels/telegram/.env"
 TOKEN_CORRECT="false"
 ENV_PRESENT="false"
@@ -111,7 +112,7 @@ mask_token() {
 EXPECTED_MASKED=$(mask_token "$EXPECTED_TOKEN")
 ENV_MASKED=$(mask_token "$ENV_TOKEN")
 
-# ── Check --channels flag and conflicting sessions ─────────────────────────
+# -- Check --channels flag and conflicting sessions --------------------------------
 # Use fast tasklist + wmic alternative. On Windows git bash, powershell CIM
 # queries are too slow (>10s). Instead, use a single fast wmic call.
 HAS_CHANNELS="false"
@@ -120,7 +121,7 @@ CONFLICTS="[]"
 # Use wmic which is fast on Windows (deprecated but still works, and fast)
 # Fallback: if wmic fails, skip process checks (token check is the main value)
 if command -v wmic.exe &>/dev/null 2>&1; then
-    # wmic is deprecated on Win11 — use tasklist as fast alternative
+    # wmic is deprecated on Win11 -- use tasklist as fast alternative
     # tasklist doesn't show command lines, so we need PowerShell but with timeout
     :
 fi
@@ -134,11 +135,17 @@ if [ -n "${CLAUDE_CHANNELS:-}" ]; then
     HAS_CHANNELS="true"
 fi
 
-# Alternative: check if the bat launcher set TG_ARG (won't be in env, but
-# the --channels flag presence is hard to check from a child process).
-# Best proxy: check if the telegram plugin .env exists AND has our token.
-# If it does, and we were launched from a bat with --channels, we're good.
-# The bat files all unconditionally add --channels when TELEGRAM_BOT_TOKEN is set.
+# Additional check: inspect the parent process command line for --channels.
+# This catches cases where CLAUDE_CHANNELS env var isn't set but the flag is.
+if [ "$HAS_CHANNELS" = "false" ]; then
+    PARENT_CMD=""
+    if [ -n "${PPID:-}" ] && command -v powershell.exe &>/dev/null 2>&1; then
+        PARENT_CMD=$(powershell.exe -NoProfile -Command "try { (Get-CimInstance Win32_Process -Filter \"ProcessId=$PPID\" -ErrorAction Stop).CommandLine } catch {}" 2>/dev/null | tr -d '\r' || true)
+    fi
+    if echo "$PARENT_CMD" | grep -q -- '--channels'; then
+        HAS_CHANNELS="true"
+    fi
+fi
 
 # For conflict detection, use a lightweight approach: check if multiple
 # telegram state directories have recent lock files
@@ -169,7 +176,7 @@ if [ -n "$CONFLICT_LIST" ]; then
     CONFLICTS="[$CONFLICT_LIST]"
 fi
 
-# ── Determine overall status ────────────────────────────────────────────────
+# -- Determine overall status ------------------------------------------------------
 STATUS="OK"
 WARNINGS=""
 
@@ -194,7 +201,7 @@ if [ "$CONFLICTS" != "[]" ] && [ "$CONFLICT_COUNT" -gt 1 ]; then
     WARNINGS="${WARNINGS}  Active: $CONFLICTS\n"
 fi
 
-# ── Write JSON report ───────────────────────────────────────────────────────
+# -- Write JSON report -------------------------------------------------------------
 cat > /tmp/hal_session_health.json <<ENDJSON
 {
   "pid": $$,
@@ -213,7 +220,49 @@ cat > /tmp/hal_session_health.json <<ENDJSON
 }
 ENDJSON
 
-# ── Print results ───────────────────────────────────────────────────────────
+# -- Write session lock file -------------------------------------------------------
+# The lock file is the CRITICAL safety mechanism that prevents session-lifecycle.ts
+# from absorbing (killing) a channels-connected session when the Electron app boots.
+# This has caused real incidents where the user lost their TG connection.
+#
+# Lock file location: ~/.hal-o/session.lock (main) or ~/.hal-o/instances/<id>/session.lock (clone)
+
+if [ "$IS_CLONE" = "true" ]; then
+    LOCK_DIR="$HOME/.hal-o/instances/$INSTANCE_ID"
+else
+    LOCK_DIR="$HOME/.hal-o"
+fi
+
+# Ensure the directory exists
+mkdir -p "$LOCK_DIR" 2>/dev/null
+
+LOCK_FILE="$LOCK_DIR/session.lock"
+
+# Determine the full command line for this session (best effort).
+# PPID is the claude CLI process that launched this hook script.
+SESSION_CMD=""
+if [ -n "${PARENT_CMD:-}" ]; then
+    SESSION_CMD="$PARENT_CMD"
+elif [ -n "${PPID:-}" ] && command -v powershell.exe &>/dev/null 2>&1; then
+    SESSION_CMD=$(powershell.exe -NoProfile -Command "try { (Get-CimInstance Win32_Process -Filter \"ProcessId=$PPID\" -ErrorAction Stop).CommandLine } catch {}" 2>/dev/null | tr -d '\r' || true)
+fi
+
+# Escape double quotes in SESSION_CMD for JSON
+SESSION_CMD_ESCAPED=$(echo "$SESSION_CMD" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+cat > "$LOCK_FILE" <<LOCKJSON
+{
+  "pid": $PPID,
+  "hasChannels": $HAS_CHANNELS,
+  "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "instanceName": "$INSTANCE_NAME",
+  "command": "$SESSION_CMD_ESCAPED"
+}
+LOCKJSON
+
+echo "Lock file written: $LOCK_FILE (PID=$PPID, channels=$HAS_CHANNELS)"
+
+# -- Print results -----------------------------------------------------------------
 echo "=== SESSION HEALTH CHECK ==="
 echo "Instance: $INSTANCE_NAME ($INSTANCE_ID)"
 echo "Clone: $IS_CLONE"
@@ -227,5 +276,6 @@ if [ -n "$WARNINGS" ]; then
     echo -e "$WARNINGS"
 fi
 
+echo "Lock file: $LOCK_FILE"
 echo "Report: /tmp/hal_session_health.json"
 echo "=== END HEALTH CHECK ==="
