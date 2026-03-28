@@ -23,11 +23,9 @@ async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: strin
         if (match) {
           const pid = parseInt(match[1])
           const cmdLine = match[2]
-          // Skip our own Electron process and internal spawns
+          // Skip our own Electron process and npm/node internals
           if (cmdLine.includes('electron')) continue
           if (cmdLine.includes('node_modules')) continue
-          // Skip processes we spawned internally (our headless sessions use --dangerously-skip-permissions -n HAL-O)
-          if (cmdLine.includes('--dangerously-skip-permissions') && cmdLine.includes('-n')) continue
           // Match Claude sessions: either explicitly for hal-o, or any --continue session
           // (if the app CWD is hal-o, any external Claude is likely ours)
           const isHalO = cmdLine.toLowerCase().includes('hal-o') || cmdLine.toLowerCase().includes('hal_o')
