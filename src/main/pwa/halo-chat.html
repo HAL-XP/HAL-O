@@ -1236,6 +1236,7 @@ body.light .msg.user { color: #fff; }
   <div class="settings-group">
     <label>Server Connection</label>
     <input type="text" id="setServerUrl" placeholder="Server URL (e.g. https://192.168.1.160:19401)">
+    <input type="text" id="setApiToken" placeholder="API Token (from ~/.hal-o/api-token.txt)" style="margin-top:8px">
     <div style="font-size:11px;color:var(--muted);margin-top:4px" id="serverStatus">Current: <span style="color:var(--accent)" id="serverUrlDisplay"></span></div>
     <button onclick="updateServerUrl()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--accent);cursor:pointer;font-family:var(--sans);font-size:14px;margin-top:8px">Update Server</button>
     <button onclick="testServerConnection()" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--green);cursor:pointer;font-family:var(--sans);font-size:14px;margin-top:8px">Test Connection</button>
@@ -1244,7 +1245,10 @@ body.light .msg.user { color: #fff; }
 
 <script>
 let API = localStorage.getItem('halo_server_url') || location.origin;
-function getWsUrl() { return API.replace(/^http/, 'ws') + '/ws'; }
+function getToken() { return localStorage.getItem('halo_api_token') || ''; }
+function authHeaders(extra) { const h = Object.assign({}, extra || {}); const t = getToken(); if (t) h['Authorization'] = 'Bearer ' + t; return h; }
+function authQuery(url) { const t = getToken(); return t ? url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(t) : url; }
+function getWsUrl() { return authQuery(API.replace(/^http/, 'ws') + '/ws'); }
 let WS_URL = getWsUrl();
 
 const AGENT_THEMES = {
@@ -1387,13 +1391,13 @@ async function loadAgents() {
     // Try to get instance name from /health endpoint
     let instanceName = 'HAL';
     try {
-      const h = await fetch(API + '/health');
+      const h = await fetch(API + '/health', { headers: authHeaders() });
       const hd = await h.json();
       if (hd.instance) instanceName = hd.instance;
     } catch {}
 
     // Load dispatchers from tree (primary) with fallback
-    let r = await fetch(API + '/tree/nodes');
+    let r = await fetch(API + '/tree/nodes', { headers: authHeaders() });
     let d = await r.json();
     const treeNodes = d.nodes || [];
     agents = treeNodes
@@ -1566,7 +1570,7 @@ async function sendMessage(text) {
     // Try session endpoint first (same brain), fall back to API
     let res = await fetch(API + '/chat/session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ message: messageText, agent: activeAgent }),
     });
     let data = await res.json();
@@ -1575,7 +1579,7 @@ async function sendMessage(text) {
     if (!data.sessionMode && !data.error) {
       res = await fetch(API + '/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ message: messageText, agent: activeAgent, model: document.getElementById('setModel')?.value }),
       });
       data = await res.json();
@@ -1618,7 +1622,7 @@ async function processQueue(msgId) {
 async function playAudioSequence(audioIds, speed) {
   for (const id of audioIds) {
     await new Promise(resolve => {
-      const audio = new Audio(API + '/voice/audio?id=' + id);
+      const audio = new Audio(authQuery(API + '/voice/audio?id=' + id));
       if (speed) audio.playbackRate = speed;
       audio.onended = resolve;
       audio.onerror = resolve;
@@ -1654,7 +1658,7 @@ async function toggleRecording() {
       if (blob.size < 500) return;
       typingIndicator.classList.add('visible');
       try {
-        const res = await fetch(API + '/voice/transcribe', { method: 'POST', body: blob });
+        const res = await fetch(API + '/voice/transcribe', { method: 'POST', headers: authHeaders(), body: blob });
         const data = await res.json();
         typingIndicator.classList.remove('visible');
         if (data.transcript?.trim()) sendMessage(data.transcript);
@@ -1748,7 +1752,7 @@ function showContextMenu(msgWrap, x, y) {
         try {
           await fetch(API + '/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ message: userText, agent: activeAgent }),
           });
         } catch {}
@@ -2068,7 +2072,7 @@ sendMessage = async function(text) {
   try {
     const res = await fetch(API + '/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ message: text || 'What do you see in this image?', agent: activeAgent, images }),
     });
     const data = await res.json();
@@ -2174,7 +2178,7 @@ function exportCurrentChat() {
 function clearCurrentChat() {
   if (!confirm('Clear all messages with ' + activeAgent + '?')) return;
   document.querySelectorAll('.msg-wrap[data-agent="' + activeAgent + '"]').forEach(w => w.remove());
-  fetch(API + '/chat/clear', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({agent: activeAgent}) }).catch(() => {});
+  fetch(API + '/chat/clear', { method: 'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify({agent: activeAgent}) }).catch(() => {});
   saveHistory();
   updateEmptyState();
   settingsPanel.classList.remove('open');
@@ -2203,32 +2207,40 @@ document.getElementById('setNotifVibrate').checked = notifPrefs.vibrate;
 // ── Server connection config ──
 let serverUrl = localStorage.getItem('halo_server_url') || location.origin;
 document.getElementById('setServerUrl').value = serverUrl !== location.origin ? serverUrl : '';
+document.getElementById('setApiToken').value = getToken();
 document.getElementById('serverUrlDisplay').textContent = serverUrl;
 
 function updateServerUrl() {
   const input = document.getElementById('setServerUrl').value.trim();
+  const tokenInput = document.getElementById('setApiToken').value.trim();
+  // Save token
+  if (tokenInput) {
+    localStorage.setItem('halo_api_token', tokenInput);
+  } else {
+    localStorage.removeItem('halo_api_token');
+  }
   if (input) {
     serverUrl = input.replace(/\/$/, '');
     API = serverUrl;
     localStorage.setItem('halo_server_url', serverUrl);
     document.getElementById('serverUrlDisplay').textContent = serverUrl;
-    // Reconnect WebSocket to new server
-    if (ws) ws.close();
-    connectWs();
-    loadAgents();
   } else {
     serverUrl = location.origin;
     API = serverUrl;
     localStorage.removeItem('halo_server_url');
     document.getElementById('serverUrlDisplay').textContent = serverUrl;
   }
+  // Reconnect WebSocket to new server with new token
+  if (ws) ws.close();
+  connectWs();
+  loadAgents();
 }
 
 function testServerConnection() {
   const statusEl = document.getElementById('serverStatus');
   statusEl.innerHTML = 'Testing...';
   const testUrl = (document.getElementById('setServerUrl').value.trim() || location.origin) + '/health';
-  fetch(testUrl).then(r => r.json()).then(d => {
+  fetch(testUrl, { headers: authHeaders() }).then(r => r.json()).then(d => {
     statusEl.innerHTML = '<span style="color:var(--green)">Connected! ' + d.terminals + ' agents, uptime ' + Math.round(d.uptime) + 's</span>';
   }).catch(e => {
     statusEl.innerHTML = '<span style="color:var(--red)">Failed: ' + e.message + '</span>';

@@ -3,6 +3,7 @@
 // Binds to 0.0.0.0:19400 (accessible via Tailscale or LAN).
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
+import { randomBytes } from 'crypto'
 import { terminalManager } from './terminal-manager'
 import { dispatchMessage, getActiveTerminals, setStickySession, getVoiceForProject, getAliasForProject } from './dispatcher'
 import { getOrCreateAgent, sendMessage as agentSendMessage, listAgents, getHistory, clearHistory } from './agent-api'
@@ -19,6 +20,58 @@ let WebSocketServer: any
 try { WebSocketServer = require('ws').WebSocketServer } catch { /* no ws */ }
 
 const PORT = getPort()
+
+// ── Bearer Token Auth ──
+let _apiToken: string | null = null
+
+function loadOrCreateToken(): string {
+  if (_apiToken) return _apiToken
+  const tokenPath = dataPath('api-token.txt')
+  try {
+    if (existsSync(tokenPath)) {
+      _apiToken = readFileSync(tokenPath, 'utf-8').trim()
+      if (_apiToken) {
+        console.log(`[HTTP-API] Loaded API token from ${tokenPath}`)
+        return _apiToken
+      }
+    }
+  } catch { /* regenerate */ }
+  _apiToken = randomBytes(16).toString('hex') // 32 hex chars
+  writeFileSync(tokenPath, _apiToken, 'utf-8')
+  console.log(`[HTTP-API] Generated new API token: ${_apiToken}`)
+  console.log(`[HTTP-API] Token saved to ${tokenPath}`)
+  return _apiToken
+}
+
+/** Check Bearer token from Authorization header or ?token= query param */
+function checkAuth(req: IncomingMessage): boolean {
+  const token = loadOrCreateToken()
+  // Check Authorization header
+  const authHeader = req.headers['authorization']
+  if (authHeader === `Bearer ${token}`) return true
+  // Check query param (for WebSocket and audio URLs where headers aren't possible)
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    if (url.searchParams.get('token') === token) return true
+  } catch { /* ignore parse errors */ }
+  return false
+}
+
+/** Routes that don't require auth (static assets + health check) */
+function isPublicRoute(url: string, method: string): boolean {
+  // Health check
+  if (url === '/health' && method === 'GET') return true
+  // PWA static assets (the page itself, manifest, icon, service worker)
+  if ((url === '/' || url === '/pwa') && method === 'GET') return true
+  if (url === '/manifest.json' && method === 'GET') return true
+  if (url === '/icon.png' && method === 'GET') return true
+  if (url === '/sw.js' && method === 'GET') return true
+  // Reports served as static HTML
+  if (url?.startsWith('/report/') && method === 'GET') return true
+  // CORS preflight
+  if (method === 'OPTIONS') return true
+  return false
+}
 
 /** Strip markdown formatting for clean mobile display */
 function stripMarkdown(text: string): string {
@@ -133,10 +186,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, DELETE',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     })
     res.end()
     return
+  }
+
+  // ── Auth check (skip public routes) ──
+  if (!isPublicRoute(url, method) && !checkAuth(req)) {
+    return json(res, 401, { error: 'Unauthorized' })
   }
 
   try {
@@ -845,7 +903,10 @@ html { height: 100%; overflow: hidden; }
 
 <script>
 const API = location.origin;
-const WS_URL = location.origin.replace(/^http/, 'ws') + '/ws';
+function getToken() { return localStorage.getItem('halo_api_token') || ''; }
+function authHeaders(extra) { const h = Object.assign({}, extra || {}); const t = getToken(); if (t) h['Authorization'] = 'Bearer ' + t; return h; }
+function authQuery(url) { const t = getToken(); return t ? url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(t) : url; }
+const WS_URL = authQuery(location.origin.replace(/^http/, 'ws') + '/ws');
 
 let ws = null;
 let activeAgent = null;
@@ -932,7 +993,7 @@ async function loadAgents() {
   try {
     let agents = [];
     try {
-      const r = await fetch(API + '/chat/aliases');
+      const r = await fetch(API + '/chat/aliases', { headers: authHeaders() });
       const d = await r.json();
       agents = d.aliases || [];
     } catch {}
@@ -1016,7 +1077,7 @@ async function sendMessage(text) {
     const activeAgentName = (activeTab !== 'all') ? activeTab : activeAgent;
     const res = await fetch(API + '/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ message: text, agent: activeAgentName }),
     });
     const data = await res.json();
@@ -1034,7 +1095,7 @@ async function sendMessage(text) {
 // ── Audio playback ──
 async function playAudioSequence(audioIds) {
   for (const id of audioIds) {
-    const url = API + '/voice/audio?id=' + id;
+    const url = authQuery(API + '/voice/audio?id=' + id);
     await new Promise((resolve) => {
       const audio = new Audio(url);
       audio.onended = resolve;
@@ -1082,7 +1143,7 @@ async function toggleRecording() {
       if (blob.size < 500) { typingEl.textContent = ''; return; }
       typingEl.textContent = 'Transcribing...';
       try {
-        const res = await fetch(API + '/voice/transcribe', { method: 'POST', body: blob });
+        const res = await fetch(API + '/voice/transcribe', { method: 'POST', headers: authHeaders(), body: blob });
         const data = await res.json();
         if (data.transcript && data.transcript.trim()) {
           typingEl.textContent = '';
@@ -1298,8 +1359,15 @@ export function startHttpApi(): void {
   // WebSocket upgrade
   if (WebSocketServer) {
     const wss = new WebSocketServer({ noServer: true })
-    server.on('upgrade', (req, socket, head) => {
-      if (req.url === '/ws') {
+    server.on('upgrade', (req: IncomingMessage, socket: any, head: any) => {
+      const reqUrl = req.url || ''
+      if (reqUrl === '/ws' || reqUrl.startsWith('/ws?')) {
+        // Auth check for WebSocket (token in query param)
+        if (!checkAuth(req)) {
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+          socket.destroy()
+          return
+        }
         wss.handleUpgrade(req, socket, head, (ws: any) => {
           WS_CLIENTS.add(ws)
           console.log(`[HTTP-API] WebSocket client connected (${WS_CLIENTS.size} total)`)
@@ -1318,6 +1386,9 @@ export function startHttpApi(): void {
       }
     })
   }
+
+  // Ensure token exists on startup (log it for first-time setup)
+  loadOrCreateToken()
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`[HTTP-API] Listening on http://0.0.0.0:${PORT}`)
