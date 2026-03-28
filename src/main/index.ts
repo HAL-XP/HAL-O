@@ -336,8 +336,39 @@ app.whenReady().then(async () => {
   // Start own Telegram handler for dispatch-aware routing
   startTelegramHandler()
 
-  // Session lifecycle: detect or start HAL-O Claude session
-  // This ensures there's always ONE session running for HAL
+  // Write this instance's TG token to the plugin .env BEFORE session starts
+  // This ensures the TG plugin connects to the RIGHT bot for this instance
+  try {
+    const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('fs')
+    const { join } = require('path')
+    const credPath = join(process.env.USERPROFILE || process.env.HOME || '', '.claude_credentials')
+    if (existsSync(credPath)) {
+      const content = readFileSync(credPath, 'utf-8')
+      // Determine which token to use based on instance
+      const { isClone } = require('./instance')
+      let token = ''
+      if (isClone()) {
+        // Clone: use TELEGRAM_MAIN_BOT_TOKEN or TELEGRAM_CLAUDETTE_BOT_TOKEN
+        const m = content.match(/TELEGRAM_MAIN_BOT_TOKEN=["']?([^\s"'\r\n]+)/) ||
+                  content.match(/TELEGRAM_CLAUDETTE_BOT_TOKEN=["']?([^\s"'\r\n]+)/)
+        if (m) token = m[1]
+      } else {
+        // Main: use TELEGRAM_BOT_TOKEN
+        const m = content.match(/TELEGRAM_BOT_TOKEN=["']?([^\s"'\r\n]+)/)
+        if (m) token = m[1]
+      }
+      if (token) {
+        const tgDir = join(process.env.USERPROFILE || process.env.HOME || '', '.claude', 'channels', 'telegram')
+        if (existsSync(tgDir)) {
+          writeFileSync(join(tgDir, '.env'), `TELEGRAM_BOT_TOKEN=${token}\n`, 'utf-8')
+          console.log(`[HAL-O] TG token written to plugin .env (${token.slice(0, 10)}...)`)
+        }
+      }
+    }
+  } catch (e) { console.error('[HAL-O] Failed to write TG token:', e) }
+
+  // Session lifecycle: detect or start Claude session
+  // This ensures there's always ONE session running
   setTimeout(async () => {
     try {
       const { detectOrStartHalSession } = await import('./session-lifecycle')

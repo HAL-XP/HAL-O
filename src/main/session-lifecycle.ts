@@ -5,6 +5,7 @@
 
 import { exec, execSync } from 'child_process'
 import { terminalManager } from './terminal-manager'
+import { getInstanceName } from './instance'
 
 /** Check if a HAL-O Claude session is already running externally */
 async function detectExternalHalSession(): Promise<{ pid: number; cmdLine: string } | null> {
@@ -52,24 +53,25 @@ function hasEmbeddedHalSession(): boolean {
 
 /** Start a headless Claude session for HAL-O */
 function startHeadlessSession(): void {
-  const halPath = process.cwd() // HAL-O project is the CWD of the Electron app
-  const sessionId = `hal-session-${Date.now()}`
+  const instanceName = getInstanceName() // "HAL-O" for main, "Claudette" for clones, etc.
+  const projectPath = process.cwd()
+  const sessionId = `${instanceName.toLowerCase().replace(/\s+/g, '-')}-session-${Date.now()}`
 
-  console.log(`[Session] Starting headless HAL-O session in ${halPath}`)
+  console.log(`[Session] Starting headless ${instanceName} session in ${projectPath}`)
 
   const ok = terminalManager.spawn(sessionId, {
-    cwd: halPath,
+    cwd: projectPath,
     cmd: 'claude',
-    args: ['--dangerously-skip-permissions', '-n', 'HAL-O', '--continue'],
+    args: ['--dangerously-skip-permissions', '-n', instanceName, '--continue'],
     cols: 120,
     rows: 30,
-    projectName: 'HAL-O',
+    projectName: instanceName,
   })
 
   if (ok) {
-    console.log(`[Session] Headless HAL-O session started: ${sessionId}`)
+    console.log(`[Session] Headless ${instanceName} session started: ${sessionId}`)
   } else {
-    console.warn('[Session] Failed to start headless session — node-pty not available?')
+    console.warn(`[Session] Failed to start headless ${instanceName} session — node-pty not available?`)
   }
 }
 
