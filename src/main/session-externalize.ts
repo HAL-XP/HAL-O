@@ -164,35 +164,33 @@ export async function externalizeSession(): Promise<number | null> {
   return null
 }
 
-// ── wmic strategy ──
+// ── CIM strategy (replaces deprecated wmic, works on Windows 11) ──
 
 async function tryWmic(claudeCmd: string, _cwd: string): Promise<number | null> {
   try {
-    // wmic process call create spawns a process completely detached from the current process tree.
-    // We wrap in cmd.exe /c to get the full command with cd + claude.
-    const wmicTarget = `cmd.exe /c ${claudeCmd}`
-    const wmicCmd = `wmic process call create "${wmicTarget.replace(/"/g, '\\"')}"`
+    // Invoke-CimMethod creates a process outside the current job object (truly detached).
+    // This replaced wmic which was removed in Windows 11.
+    const cimTarget = `cmd.exe /c ${claudeCmd}`
+    const psCmd = `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='${cimTarget.replace(/'/g, "''")}'}; if ($r.ReturnValue -eq 0) { $r.ProcessId } else { throw 'CIM create failed' }`
 
-    console.log('[Externalize] Trying wmic...')
-    const output = execSync(wmicCmd, {
+    console.log('[Externalize] Trying CIM (Invoke-CimMethod)...')
+    const output = execSync(`powershell -NoProfile -Command "${psCmd.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       timeout: 10000,
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
-    // wmic output contains: ProcessId = 12345;
-    const pidMatch = output.match(/ProcessId\s*=\s*(\d+)/)
-    if (pidMatch) {
-      const pid = parseInt(pidMatch[1])
-      console.log(`[Externalize] wmic spawned PID: ${pid}`)
+    const pid = parseInt(output.trim())
+    if (pid && !isNaN(pid)) {
+      console.log(`[Externalize] CIM spawned PID: ${pid}`)
       return pid
     }
 
-    console.warn('[Externalize] wmic succeeded but could not parse PID from output:', output.trim())
+    console.warn('[Externalize] CIM succeeded but could not parse PID:', output.trim())
     return null
   } catch (err) {
-    console.warn('[Externalize] wmic failed:', (err as Error).message)
+    console.warn('[Externalize] CIM failed:', (err as Error).message)
     return null
   }
 }
