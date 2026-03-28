@@ -1,73 +1,74 @@
 // ── Response Capture ──
 // Captures Claude CLI responses from PTY output, correlates to message IDs.
 // Used by Halo Chat to bridge PWA messages through the terminal session.
+//
+// Uses @xterm/headless as a virtual terminal emulator to properly process
+// all ANSI escape sequences (cursor movements, colors, overwrites) and
+// extract clean text from the screen buffer. No regex guessing.
 
 import { terminalManager } from './terminal-manager'
+
+// Lazy-load xterm headless (it's a heavy module)
+let XTerminal: any = null
+function getTerminalClass() {
+  if (!XTerminal) {
+    XTerminal = require('@xterm/headless').Terminal
+  }
+  return XTerminal
+}
 
 interface PendingCapture {
   msgId: string
   agent: string
-  buffer: string
-  cleanBuffer: string
+  vterm: any  // xterm headless Terminal instance
   lastDataTime: number
   onChunk: (text: string) => void
   onDone: (fullText: string) => void
   silenceTimer: ReturnType<typeof setTimeout> | null
   started: boolean  // true once we see actual response text (not just echo)
+  lastBufferSnapshot: string  // last known buffer content for diffing
 }
 
 const SILENCE_TIMEOUT = 4000 // 4s of no output = response complete
 const pendingCaptures = new Map<string, PendingCapture>()
 
-// ── ANSI + CLI chrome cleaning ──
-// Comprehensive ANSI regex (based on ansi-regex npm package pattern)
-// Matches: CSI sequences, OSC sequences, SGR, cursor movement, DCS, etc.
-const ANSI_RE = /[\u001B\u009B][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]/g
-const OSC_RE = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g
-const CHARSET_RE = /\x1b[()][AB012]/g
-const MODE_RE = /\x1b[>=<N7-9]/g
-const CTRL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g
-// Catch-all for any remaining ESC sequences
-const ESC_LEFTOVER_RE = /\x1b[^[\]()>=<]?/g
+// ── Read clean text from the virtual terminal buffer ──
+function readVTermBuffer(vterm: any): string {
+  const buf = vterm.buffer.active
+  const lines: string[] = []
+  // Read all lines from the buffer (including scrollback)
+  const totalLines = buf.baseY + buf.cursorY + 1
+  for (let i = 0; i < totalLines; i++) {
+    const line = buf.getLine(i)
+    if (line) {
+      lines.push(line.translateToString(true))
+    }
+  }
+  return lines.map(l => l.trimEnd()).join('\n').trim()
+}
 
-function cleanPtyOutput(raw: string): string {
-  let clean = raw
-  // Handle carriage returns FIRST (keep last content per line — terminal overwrite behavior)
-  clean = clean.split('\n').map(line => {
-    const parts = line.split('\r')
-    return parts[parts.length - 1]
-  }).join('\n')
-  // Convert cursor-right to spaces (Claude CLI uses ESC[nC between words)
-  clean = clean.replace(/\x1b\[(\d*)C/g, (_m, n) => ' '.repeat(parseInt(n) || 1))
-  // Strip ALL ANSI/escape sequences (layered for completeness)
-  clean = clean.replace(OSC_RE, '')       // OSC (window title, etc.)
-  clean = clean.replace(CHARSET_RE, '')   // character set selection
-  clean = clean.replace(MODE_RE, '')      // mode switches
-  clean = clean.replace(ANSI_RE, '')      // CSI sequences (colors, cursor, etc.)
-  clean = clean.replace(ESC_LEFTOVER_RE, '') // any remaining ESC fragments
-  clean = clean.replace(CTRL_RE, '')      // control chars
-  // Remove CLI chrome (spinners, progress bars, status text)
-  clean = clean
-    .replace(/[✻✽✶✢·░▓█▒⏵●❯❮▶◐◑◒◓⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳─╭╰│├└┌┐┘┤┬┴┼]/g, '')
-    .replace(/Hashing/g, '')
-    .replace(/Burrowing/gi, '')  // Known garbage from partial ANSI decode
-    .replace(/Opus\s*4\.\d.*$/gm, '')
-    .replace(/ctx:.*$/gm, '')
-    .replace(/bypass\s*permissions?\s*on/gi, '')
-    .replace(/\(shift\+tab.*?\)/gi, '')
-    .replace(/Git:master/g, '')
-    .replace(/░+.*$/gm, '')
-    .replace(/\d+%\s*\|/g, '')
-    .replace(/[●❯❮▶◐◑◒◓]/g, '')
-    // Filter out lines that are mostly non-alphanumeric garbage
-    .split('\n').filter(line => {
-      const stripped = line.replace(/[^a-zA-Z0-9]/g, '')
-      // If less than 30% of the line is alphanumeric, it's probably garbage
-      return stripped.length === 0 || stripped.length / Math.max(line.trim().length, 1) > 0.3
-    }).join('\n')
-  // Collapse whitespace
-  clean = clean.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-  return clean
+// ── Strip CLI chrome from clean text ──
+function stripCliChrome(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => {
+      const t = line.trim()
+      if (!t) return false
+      // Skip our own input echo
+      if (t.startsWith('[halochat')) return false
+      // Skip CLI prompts and status lines
+      if (t === '>') return false
+      if (t.length < 3) return false
+      // Skip spinner/progress lines
+      if (/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✳✻✽✶✢·]+/.test(t)) return false
+      // Skip Claude CLI chrome
+      if (/^(Hashing|ctx:|bypass permissions|Git:master|\d+%\s*\|)/.test(t)) return false
+      if (/Opus\s*4\.\d/.test(t)) return false
+      if (/^\(shift\+tab/i.test(t)) return false
+      return true
+    })
+    .join('\n')
+    .trim()
 }
 
 // ── Strip markdown for chat display ──
@@ -95,16 +96,20 @@ export function injectAndCapture(
 ): boolean {
   if (pendingCaptures.has(msgId)) return false
 
+  // Create a headless virtual terminal to process the PTY output
+  const Terminal = getTerminalClass()
+  const vterm = new Terminal({ cols: 200, rows: 100, allowProposedApi: true })
+
   const capture: PendingCapture = {
     msgId,
     agent,
-    buffer: '',
-    cleanBuffer: '',
+    vterm,
     lastDataTime: Date.now(),
     onChunk,
     onDone,
     silenceTimer: null,
     started: false,
+    lastBufferSnapshot: '',
   }
   pendingCaptures.set(msgId, capture)
 
@@ -130,7 +135,14 @@ function finishCapture(capture: PendingCapture) {
   if (capture.silenceTimer) clearTimeout(capture.silenceTimer)
   pendingCaptures.delete(capture.msgId)
 
-  const fullText = stripMarkdown(capture.cleanBuffer)
+  // Read final clean text from the virtual terminal
+  const rawText = readVTermBuffer(capture.vterm)
+  const cleaned = stripCliChrome(rawText)
+  const fullText = stripMarkdown(cleaned)
+
+  // Dispose the virtual terminal
+  capture.vterm.dispose()
+
   if (fullText.length > 2) {
     capture.onDone(fullText)
   } else {
@@ -143,35 +155,31 @@ function finishCapture(capture: PendingCapture) {
 export function processPtyOutput(sessionId: string, _projectName: string, data: string) {
   if (pendingCaptures.size === 0) return
 
-  const cleaned = cleanPtyOutput(data)
-  if (!cleaned || cleaned.length < 2) return
-
-  // Feed to all pending captures for this session
-  // (Usually just one at a time, but handle multiple)
   for (const capture of pendingCaptures.values()) {
-    capture.buffer += data
     capture.lastDataTime = Date.now()
+
+    // Feed raw data into the virtual terminal (it handles all ANSI properly)
+    capture.vterm.write(data)
 
     // Skip the echo of our own input
     if (!capture.started) {
-      if (cleaned.includes('[halochat')) return // still echoing input
+      const currentText = readVTermBuffer(capture.vterm)
+      if (currentText.includes('[halochat')) return // still echoing input
       capture.started = true
+      capture.lastBufferSnapshot = currentText
+      return
     }
 
-    // Filter out lines that are just our input echo or CLI prompts
-    const lines = cleaned.split('\n').filter(l => {
-      const t = l.trim()
-      if (!t) return false
-      if (t.startsWith('[halochat')) return false
-      if (t === '>') return false
-      if (t.length < 3) return false
-      return true
-    })
+    // Read current buffer and diff against last snapshot to find new text
+    const currentText = readVTermBuffer(capture.vterm)
+    const newContent = currentText.slice(capture.lastBufferSnapshot.length).trim()
+    capture.lastBufferSnapshot = currentText
 
-    const newText = lines.join('\n').trim()
-    if (newText) {
-      capture.cleanBuffer += (capture.cleanBuffer ? '\n' : '') + newText
-      capture.onChunk(newText)
+    if (newContent) {
+      const cleaned = stripCliChrome(newContent)
+      if (cleaned) {
+        capture.onChunk(cleaned)
+      }
     }
 
     resetSilenceTimer(capture)
