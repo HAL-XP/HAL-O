@@ -1317,7 +1317,10 @@ function connectWs() {
         }
         window._streamText += msg.chunk;
         window._streamEl.querySelector('.bubble').innerHTML = window._streamText.replace(/\n/g, '<br>');
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        // Only auto-scroll if user is near the bottom (don't hijack scroll during spam)
+        if (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 150) {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
       }
       if (msg.done) {
         typingIndicator.classList.remove('visible');
@@ -1527,7 +1530,10 @@ function addMessage(role, text, agent, time, silent) {
   msg.innerHTML = '<div class="bubble">' + text + '</div><span class="time">' + timeStr + statusIcon + '</span>';
   wrap.appendChild(msg);
   messagesEl.appendChild(wrap);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  // Only auto-scroll if user is near bottom (preserves manual scroll position)
+  if (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 150) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
   if (!silent) saveHistory();
   return wrap;
 }

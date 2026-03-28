@@ -350,23 +350,31 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
           msgId,
           agent,
           message,
-          // onChunk — stream to PWA
-          (text) => {
-            wsBroadcast('session_chunk', { agent, chunk: text, done: false, msgId })
+          // onChunk — suppress streaming for session bridge (too noisy with tool calls)
+          // Only the final onDone response is sent to the PWA
+          (_text) => {
+            // Intentionally no-op: sending every chunk causes massive spam
+            // because tool calls (searching, reading files) generate constant
+            // terminal updates that all become chat messages
           },
           // onDone — response complete
           (fullText) => {
+            console.log(`[Chat] onDone msgId=${msgId} textLen=${fullText.length} text="${fullText.slice(0, 80)}..."`)
             wsBroadcast('session_chunk', { agent, chunk: '', done: true, fullText, msgId })
             // Generate TTS
             if (fullText.length > 5) {
+              console.log(`[Chat] Generating TTS for ${fullText.length} chars, voice=${voice}, lang=${lang}`)
               generateTTS(fullText, voice, lang).then((files) => {
+                console.log(`[Chat] TTS ready: ${files.length} files`)
                 const audioIds = files.map((f, i) => {
                   const id = `tts_${Date.now()}_${i}`
                   _audioCache.set(id, f)
                   return id
                 })
                 wsBroadcast('tts_ready', { agent, audioIds, msgId })
-              }).catch(() => {})
+              }).catch((e) => { console.error(`[Chat] TTS failed:`, e.message) })
+            } else {
+              console.log(`[Chat] Skipping TTS — text too short (${fullText.length} chars)`)
             }
           }
         )
