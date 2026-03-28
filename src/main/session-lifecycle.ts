@@ -87,22 +87,8 @@ export async function detectOrStartHalSession(): Promise<void> {
     return
   }
 
-  // 2. External session running?
-  const external = await detectExternalHalSession()
-  if (external) {
-    // Dev mode (explicit opt-in only): detect + route, but NEVER absorb
-    // User mode (default): don't start a new session, let UI handle absorption
-    const devMode = process.env.HAL_DEV_MODE === '1'
-    if (devMode) {
-      console.log(`[Session] External session detected (PID ${external.pid}) — DEV MODE: routing only`)
-    } else {
-      console.log(`[Session] External session detected (PID ${external.pid}) — skipping new session start`)
-    }
-    // Don't start a new one — the external session IS the session
-    return
-  }
-
-  // 3. No session anywhere — start headless
-  console.log('[Session] No HAL-O session found — starting headless')
+  // 2. Always start a headless session so Halo Chat has a terminal to route to.
+  // External sessions are detected by the UI for display purposes only.
+  console.log('[Session] Starting headless HAL-O session')
   startHeadlessSession()
 }
