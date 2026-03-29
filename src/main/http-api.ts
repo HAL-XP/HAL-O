@@ -18,6 +18,7 @@ import { createDebate, createDebateFromPanel, getDebate, listDebates, deleteDeba
 import { listPresets, listPanelConfigs } from './debate-presets'
 import { getProviderStatus } from './provider-clients'
 import { getAllFlags, setFlag } from './feature-flags'
+import { getSessionStatus, sendToExternalSession, detectExternalSession } from './halochat-external'
 
 // WebSocket — Electron bundles ws
 let WebSocketServer: any
@@ -124,6 +125,8 @@ function isPublicRoute(url: string, method: string): boolean {
   if (url === '/sw.js' && method === 'GET') return true
   // Reports served as static HTML
   if (url?.startsWith('/report/') && method === 'GET') return true
+  // Session status — no sensitive data, needed by PWA before auth token is available
+  if (url === '/session/status' && method === 'GET') return true
   // CORS preflight
   if (method === 'OPTIONS') return true
   return false
@@ -487,8 +490,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return json(res, 200, { moved: ok })
     }
 
+    // ── GET /session/status — routing status (internal terminal, external session, or none) ──
+    if (url === '/session/status' && method === 'GET') {
+      const halSession = findHalSession()
+      const status = getSessionStatus(!!halSession)
+      return json(res, 200, status)
+    }
+
     // ── POST /chat/session — route through HAL terminal (same session everywhere) ──
-    // Falls back to API if terminal not running
+    // Falls back to external session if no internal terminal, then to API
     if (url === '/chat/session' && method === 'POST') {
       const body = JSON.parse(await readBody(req))
       const { message, agent = 'hal' } = body
@@ -497,9 +507,60 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       const halSession = findHalSession()
 
       if (!halSession) {
-        console.log('[HTTP-API] No HAL terminal running — returning fallback')
-        wsBroadcast('session_fallback', { agent, reason: 'HAL terminal not running. Using standalone AI (no shared memory).' })
-        return json(res, 200, { sessionMode: false, fallback: true, reason: 'No HAL terminal' })
+        // ── Try external session routing ──
+        const externalSession = detectExternalSession()
+        if (externalSession) {
+          console.log(`[HTTP-API] No internal terminal — routing via external session (PID ${externalSession.pid})`)
+          const msgId = `ext_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+
+          // Load aliases for voice/lang lookup
+          let extAliases: Array<{name: string; voice?: string}> = []
+          try {
+            const raw = JSON.parse(readFileSync(dataPath('aliases.json'), 'utf-8'))
+            for (const [alias, entry] of Object.entries(raw)) {
+              const e = typeof entry === 'string' ? { project: entry } : entry as any
+              extAliases.push({ name: alias, voice: e.voice })
+            }
+          } catch {}
+          const extAliasEntry = extAliases.find(a => a.name === agent)
+          const extVoice = extAliasEntry?.voice || 'butler'
+          const extLang = agent === 'karen' ? 'fr' : 'en'
+
+          const result = sendToExternalSession(
+            msgId,
+            agent,
+            message,
+            // onChunk
+            (text) => {
+              wsBroadcast('session_chunk', { agent, chunk: text, done: false, msgId })
+            },
+            // onDone
+            (fullText) => {
+              console.log(`[Chat-External] onDone msgId=${msgId} textLen=${fullText.length}`)
+              wsBroadcast('session_chunk', { agent, chunk: '', done: true, fullText, msgId })
+              // Generate TTS for the response
+              if (fullText.length > 5) {
+                generateTTS(fullText, extVoice, extLang).then((files) => {
+                  const audioIds = files.map((f, i) => {
+                    const id = `tts_${Date.now()}_${i}`
+                    _audioCache.set(id, f)
+                    return id
+                  })
+                  wsBroadcast('tts_ready', { agent, audioIds, msgId })
+                }).catch((e) => { console.error(`[Chat-External] TTS failed:`, e.message) })
+              }
+            },
+          )
+
+          if (result.success) {
+            return json(res, 200, { status: 'external', msgId, agent, sessionMode: true, externalPid: externalSession.pid })
+          }
+        }
+
+        // No internal terminal AND no external session — fallback to API
+        console.log('[HTTP-API] No HAL terminal and no external session — returning fallback')
+        wsBroadcast('session_fallback', { agent, reason: 'No active session (internal or external). Using standalone AI.' })
+        return json(res, 200, { sessionMode: false, fallback: true, reason: 'No active session' })
       }
 
       if (halSession) {
@@ -1298,8 +1359,8 @@ function connectWs() {
   };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    if (msg.type === 'chat_chunk') {
-      // Streaming response from agent API
+    if (msg.type === 'chat_chunk' || msg.type === 'session_chunk') {
+      // Streaming response from agent API or session bridge
       if (!msg.done && msg.chunk) {
         // Append to current streaming message
         if (!window._streamingDiv || window._streamingAgent !== msg.agent) {

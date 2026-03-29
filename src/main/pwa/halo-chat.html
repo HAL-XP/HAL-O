@@ -1291,7 +1291,7 @@ settingsOverlay.addEventListener('click', () => {
 function connectWs() {
   WS_URL = getWsUrl();
   ws = new WebSocket(WS_URL);
-  ws.onopen = () => { headerStatus.textContent = 'online'; headerStatus.style.color = 'var(--green)'; loadAgents(); };
+  ws.onopen = () => { headerStatus.textContent = 'online'; headerStatus.style.color = 'var(--green)'; loadAgents(); checkSessionStatus(); };
   ws.onclose = () => { headerStatus.textContent = 'offline'; headerStatus.style.color = 'var(--red)'; setTimeout(connectWs, 3000); };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
@@ -1419,6 +1419,43 @@ async function loadAgents() {
     switchAgent(agents[0].name);
   } catch {}
 }
+
+// ── Session status check ──
+let currentSessionMode = 'unknown';
+async function checkSessionStatus() {
+  try {
+    const r = await fetch(API + '/session/status', { headers: authHeaders() });
+    const d = await r.json();
+    currentSessionMode = d.mode || 'none';
+    // Update status indicator
+    const modeLabels = { internal: 'terminal', external: 'external', none: 'API only' };
+    const modeColors = { internal: 'var(--green)', external: 'var(--accent)', none: 'var(--muted)' };
+    headerStatus.textContent = modeLabels[currentSessionMode] || 'online';
+    headerStatus.style.color = modeColors[currentSessionMode] || 'var(--green)';
+    // Show/hide external session notice
+    const notice = document.getElementById('sessionNotice');
+    if (currentSessionMode === 'external') {
+      if (!notice) {
+        const el = document.createElement('div');
+        el.id = 'sessionNotice';
+        el.style.cssText = 'padding:4px 12px;background:rgba(0,229,255,0.08);border-bottom:1px solid rgba(0,229,255,0.15);color:var(--accent);font-size:11px;text-align:center;flex-shrink:0;letter-spacing:0.5px';
+        el.textContent = 'Routed via external session (PID ' + d.pid + ')';
+        const chatArea = document.querySelector('.chat-area');
+        if (chatArea) chatArea.insertBefore(el, chatArea.firstChild);
+      } else {
+        notice.textContent = 'Routed via external session (PID ' + d.pid + ')';
+        notice.style.display = 'block';
+        notice.style.background = 'rgba(0,229,255,0.08)';
+        notice.style.color = 'var(--accent)';
+        notice.style.borderColor = 'rgba(0,229,255,0.15)';
+      }
+    } else if (notice && currentSessionMode !== 'none') {
+      notice.style.display = 'none';
+    }
+  } catch {}
+}
+// Poll session status every 15s to detect mode changes
+setInterval(checkSessionStatus, 15000);
 
 function renderSidebar() {
   // Single-dispatcher mode: sidebar hidden, no rendering needed
