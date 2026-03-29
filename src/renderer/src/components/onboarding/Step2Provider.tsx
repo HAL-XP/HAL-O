@@ -42,6 +42,7 @@ export function Step2Provider({ selected, apiKey, onSelect, onApiKeyChange }: Pr
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [showKey, setShowKey] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   const selectedProvider = PROVIDERS.find(p => p.id === selected)
   const needsKey = selectedProvider?.needsKey ?? false
@@ -154,6 +155,30 @@ export function Step2Provider({ selected, apiKey, onSelect, onApiKeyChange }: Pr
               {testResult.ok ? '  ' : '  '}{testResult.message}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Help me decide */}
+      {!selected && (
+        <button
+          onClick={() => setShowHelp(h => !h)}
+          style={styles.helpBtn}
+        >
+          {showHelp ? 'Got it, thanks' : 'Not sure which to pick?'}
+        </button>
+      )}
+
+      {showHelp && !selected && (
+        <div style={styles.helpBox}>
+          <p style={styles.helpText}>
+            <strong>Anthropic</strong> is recommended for the best experience -- Claude models power HAL-O's AI features. Requires an API key (pay-as-you-go).
+          </p>
+          <p style={styles.helpText}>
+            <strong>Ollama</strong> is free and runs entirely on your machine. Great for privacy, but requires a decent GPU (8GB+ VRAM).
+          </p>
+          <p style={styles.helpTextDim}>
+            You can always change providers later in Settings, or skip entirely and use demo mode.
+          </p>
         </div>
       )}
 
@@ -308,5 +333,40 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: 'var(--text-secondary)',
     lineHeight: 1.5,
+  },
+  helpBtn: {
+    marginTop: 16,
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--primary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    textUnderlineOffset: '3px',
+    opacity: 0.85,
+    width: '100%',
+    textAlign: 'center' as const,
+  },
+  helpBox: {
+    width: '100%',
+    padding: '16px 20px',
+    borderRadius: 'var(--radius)',
+    background: 'color-mix(in srgb, var(--primary) 6%, var(--bg-surface))',
+    border: '1px solid color-mix(in srgb, var(--primary) 20%, var(--border))',
+    marginTop: 8,
+  },
+  helpText: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--text)',
+    margin: '0 0 8px',
+  },
+  helpTextDim: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: 'var(--text-dim)',
+    margin: 0,
   },
 }

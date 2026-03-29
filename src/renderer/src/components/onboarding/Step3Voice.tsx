@@ -1,10 +1,13 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import type { PersonalityConfig } from './FirstLaunchWizard'
 
 interface Props {
   enabled: boolean
   profile: string
+  personality: PersonalityConfig
   onToggle: (enabled: boolean) => void
   onProfileChange: (profile: string) => void
+  onPersonalityChange: (personality: PersonalityConfig) => void
 }
 
 const PROFILES = [
@@ -13,12 +16,52 @@ const PROFILES = [
   { id: 'hallie', label: 'Hallie (Soft)', description: 'Female, warm, conversational' },
 ]
 
-export function Step3Voice({ enabled, profile, onToggle, onProfileChange }: Props) {
+const PERSONALITY_SLIDERS = [
+  { key: 'humor' as const,     label: 'Humor',     leftLabel: 'Serious', rightLabel: 'Playful' },
+  { key: 'formality' as const, label: 'Formality',  leftLabel: 'Casual',  rightLabel: 'Formal' },
+  { key: 'verbosity' as const, label: 'Verbosity',  leftLabel: 'Concise', rightLabel: 'Detailed' },
+  { key: 'dramatic' as const,  label: 'Dramatic',   leftLabel: 'Calm',    rightLabel: 'Dramatic' },
+]
+
+function getPreviewText(p: PersonalityConfig): string {
+  // Generate a preview sentence that reflects the personality settings
+  if (p.formality >= 70 && p.humor <= 30) {
+    return '"Good day. How may I assist you with your current task?"'
+  }
+  if (p.formality <= 30 && p.humor >= 70) {
+    return '"Yo! What are we hacking on today? Let\'s break some stuff!"'
+  }
+  if (p.dramatic >= 70) {
+    return '"The code awaits... destiny calls. Let us forge something magnificent."'
+  }
+  if (p.verbosity >= 70 && p.formality >= 50) {
+    return '"I\'d be happy to provide a thorough analysis of your project\'s architecture and suggest improvements."'
+  }
+  if (p.verbosity <= 30) {
+    return '"Ready. What\'s next?"'
+  }
+  if (p.humor >= 60) {
+    return '"Hey boss, what\'s cooking? I\'ve got some ideas that might surprise you."'
+  }
+  if (p.formality >= 60) {
+    return '"Good morning. I\'m ready to assist with your development tasks."'
+  }
+  return '"Hey, ready when you are. What should we work on?"'
+}
+
+export function Step3Voice({ enabled, profile, personality, onToggle, onProfileChange, onPersonalityChange }: Props) {
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle')
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDone, setRecordingDone] = useState(false)
+  const [showVoiceHelp, setShowVoiceHelp] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+
+  const previewText = useMemo(() => getPreviewText(personality), [personality])
+
+  const handleSliderChange = useCallback((key: keyof PersonalityConfig, value: number) => {
+    onPersonalityChange({ ...personality, [key]: value })
+  }, [personality, onPersonalityChange])
 
   const requestMic = useCallback(async () => {
     setMicStatus('requesting')
@@ -100,6 +143,22 @@ export function Step3Voice({ enabled, profile, onToggle, onProfileChange }: Prop
         </div>
       )}
 
+      {/* Help me decide — voice */}
+      <button
+        onClick={() => setShowVoiceHelp(h => !h)}
+        style={styles.helpBtn}
+      >
+        {showVoiceHelp ? 'Got it, thanks' : 'Not sure about voice?'}
+      </button>
+
+      {showVoiceHelp && (
+        <div style={styles.helpBox}>
+          <p style={styles.helpText}>
+            You can skip voice and enable it later in Settings. Voice features include push-to-talk input and spoken AI responses. Both are optional and keyboard works for everything.
+          </p>
+        </div>
+      )}
+
       {enabled && (
         <>
           {/* Mic permission */}
@@ -169,6 +228,48 @@ export function Step3Voice({ enabled, profile, onToggle, onProfileChange }: Prop
           </div>
         </>
       )}
+
+      {/* ── Personality Sliders ── */}
+      <div style={styles.personalitySection}>
+        <h3 style={styles.personalitySectionTitle}>Personality</h3>
+        <p style={styles.personalitySubtext}>
+          How should HAL talk to you? Drag the sliders to shape the AI's tone.
+        </p>
+
+        {/* Preview bubble */}
+        <div style={styles.previewBubble}>
+          <span style={styles.previewLabel}>Preview</span>
+          <p style={styles.previewText}>{previewText}</p>
+        </div>
+
+        {/* Sliders */}
+        <div style={styles.slidersContainer}>
+          {PERSONALITY_SLIDERS.map((s) => (
+            <div key={s.key} style={styles.sliderRow}>
+              <div style={styles.sliderLabelRow}>
+                <span style={styles.sliderLabel}>{s.label}</span>
+                <span style={styles.sliderValue}>{personality[s.key]}</span>
+              </div>
+              <div style={styles.sliderTrackRow}>
+                <span style={styles.sliderEndLabel}>{s.leftLabel}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={personality[s.key]}
+                  onChange={(e) => handleSliderChange(s.key, parseInt(e.target.value, 10))}
+                  style={styles.slider}
+                />
+                <span style={styles.sliderEndLabel}>{s.rightLabel}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p style={styles.personalityChangeLater}>
+          You can fine-tune this later in Settings. Presets like TARS, Butler, and Chaos are available there too.
+        </p>
+      </div>
     </div>
   )
 }
@@ -329,5 +430,136 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontFamily: 'monospace',
     color: 'var(--text-secondary)',
+  },
+  helpBtn: {
+    marginTop: 16,
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--primary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    textUnderlineOffset: '3px',
+    opacity: 0.85,
+    alignSelf: 'center',
+  },
+  helpBox: {
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: 'var(--radius)',
+    background: 'color-mix(in srgb, var(--primary) 6%, var(--bg-surface))',
+    border: '1px solid color-mix(in srgb, var(--primary) 20%, var(--border))',
+    marginTop: 8,
+    textAlign: 'center' as const,
+  },
+  helpText: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--text-secondary)',
+    margin: 0,
+  },
+  personalitySection: {
+    width: '100%',
+    marginTop: 28,
+    padding: '20px 24px',
+    borderRadius: 'var(--radius)',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+  },
+  personalitySectionTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: 'var(--text)',
+    marginBottom: 4,
+    marginTop: 0,
+  },
+  personalitySubtext: {
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    marginBottom: 16,
+    marginTop: 0,
+  },
+  previewBubble: {
+    padding: '12px 16px',
+    borderRadius: 'var(--radius-sm)',
+    background: 'color-mix(in srgb, var(--primary) 8%, var(--bg-base))',
+    border: '1px solid color-mix(in srgb, var(--primary) 15%, var(--border))',
+    marginBottom: 20,
+    position: 'relative' as const,
+  },
+  previewLabel: {
+    position: 'absolute' as const,
+    top: -8,
+    left: 12,
+    fontSize: 10,
+    fontWeight: 600,
+    color: 'var(--primary)',
+    background: 'var(--bg-surface)',
+    padding: '0 6px',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+  },
+  previewText: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--text)',
+    margin: 0,
+    fontStyle: 'italic',
+  },
+  slidersContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 14,
+  },
+  sliderRow: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 4,
+  },
+  sliderLabelRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sliderLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--text)',
+  },
+  sliderValue: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--primary)',
+    minWidth: 28,
+    textAlign: 'right' as const,
+  },
+  sliderTrackRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sliderEndLabel: {
+    fontSize: 10,
+    color: 'var(--text-dim)',
+    minWidth: 48,
+    textAlign: 'center' as const,
+    whiteSpace: 'nowrap' as const,
+  },
+  slider: {
+    flex: 1,
+    height: 4,
+    appearance: 'auto' as const,
+    cursor: 'pointer',
+    accentColor: 'var(--primary)',
+  },
+  personalityChangeLater: {
+    fontSize: 11,
+    color: 'var(--text-dim)',
+    fontStyle: 'italic',
+    marginTop: 16,
+    marginBottom: 0,
+    textAlign: 'center' as const,
   },
 }

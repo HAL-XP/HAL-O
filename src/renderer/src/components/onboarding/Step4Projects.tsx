@@ -17,6 +17,7 @@ export function Step4Projects({ selected, onSelectionChange }: Props) {
   const [projects, setProjects] = useState<ScannedProject[]>([])
   const [scanned, setScanned] = useState(false)
   const [addingManual, setAddingManual] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   // Auto-scan on mount
   useEffect(() => {
@@ -167,6 +168,28 @@ export function Step4Projects({ selected, onSelectionChange }: Props) {
           Rescan
         </button>
       </div>
+
+      {/* Help me decide */}
+      <button
+        onClick={() => setShowHelp(h => !h)}
+        style={styles.helpBtn}
+      >
+        {showHelp ? 'Got it, thanks' : 'Not sure about this step?'}
+      </button>
+
+      {showHelp && (
+        <div style={styles.helpBox}>
+          <p style={styles.helpText}>
+            Skip this -- you can import projects anytime from the main hub. Just click "+ Add Project" once you're inside.
+          </p>
+          <button
+            onClick={() => { onSelectionChange([]); setShowHelp(false) }}
+            style={styles.helpSkipBtn}
+          >
+            Skip, I'll add projects later
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -357,5 +380,48 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     fontSize: 13,
     cursor: 'pointer',
+  },
+  helpBtn: {
+    marginTop: 16,
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--primary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    textUnderlineOffset: '3px',
+    opacity: 0.85,
+    alignSelf: 'center',
+    display: 'block',
+    width: '100%',
+    textAlign: 'center' as const,
+  },
+  helpBox: {
+    width: '100%',
+    padding: '16px 20px',
+    borderRadius: 'var(--radius)',
+    background: 'color-mix(in srgb, var(--primary) 6%, var(--bg-surface))',
+    border: '1px solid color-mix(in srgb, var(--primary) 20%, var(--border))',
+    marginTop: 8,
+    textAlign: 'center' as const,
+  },
+  helpText: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--text-secondary)',
+    margin: '0 0 12px',
+  },
+  helpSkipBtn: {
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--primary)',
+    background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+    color: 'var(--primary)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
 }

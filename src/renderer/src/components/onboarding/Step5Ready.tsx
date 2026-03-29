@@ -1,4 +1,5 @@
 import type { WizardConfig } from './FirstLaunchWizard'
+import { DEFAULT_WIZARD_PERSONALITY } from './FirstLaunchWizard'
 
 interface Props {
   config: WizardConfig
@@ -19,6 +20,24 @@ const PROVIDER_LABELS: Record<string, string> = {
   skip: 'None (Demo mode)',
 }
 
+function describePersonality(p: { humor: number; formality: number; verbosity: number; dramatic: number }): string {
+  const defaults = DEFAULT_WIZARD_PERSONALITY
+  const isDefault = p.humor === defaults.humor && p.formality === defaults.formality &&
+    p.verbosity === defaults.verbosity && p.dramatic === defaults.dramatic
+  if (isDefault) return 'Default'
+
+  const traits: string[] = []
+  if (p.humor >= 70) traits.push('Playful')
+  else if (p.humor <= 30) traits.push('Serious')
+  if (p.formality >= 70) traits.push('Formal')
+  else if (p.formality <= 30) traits.push('Casual')
+  if (p.dramatic >= 70) traits.push('Dramatic')
+  if (p.verbosity >= 70) traits.push('Detailed')
+  else if (p.verbosity <= 30) traits.push('Concise')
+
+  return traits.length > 0 ? traits.join(', ') : 'Custom'
+}
+
 export function Step5Ready({ config, onLaunch, onDemo }: Props) {
   const summaryItems = [
     {
@@ -37,6 +56,11 @@ export function Step5Ready({ config, onLaunch, onDemo }: Props) {
         ? `Enabled (${config.voiceProfile === 'auto' ? 'Auto' : config.voiceProfile.toUpperCase()})`
         : 'Disabled',
       ok: true, // Voice is optional, always OK
+    },
+    {
+      label: 'Personality',
+      value: describePersonality(config.personality),
+      ok: true, // Always OK — personality always has a value
     },
     {
       label: 'Projects',

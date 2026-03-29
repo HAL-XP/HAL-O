@@ -5,12 +5,27 @@ import { Step3Voice } from './Step3Voice'
 import { Step4Projects } from './Step4Projects'
 import { Step5Ready } from './Step5Ready'
 
+export interface PersonalityConfig {
+  humor: number
+  formality: number
+  verbosity: number
+  dramatic: number
+}
+
+export const DEFAULT_WIZARD_PERSONALITY: PersonalityConfig = {
+  humor: 60,
+  formality: 40,
+  verbosity: 50,
+  dramatic: 30,
+}
+
 export interface WizardConfig {
   persona: string | null
   provider: string | null
   apiKey: string
   voiceEnabled: boolean
   voiceProfile: string
+  personality: PersonalityConfig
   importedProjects: string[]
   useDemoMode: boolean
 }
@@ -37,6 +52,7 @@ export function FirstLaunchWizard({ onComplete }: Props) {
     apiKey: '',
     voiceEnabled: false,
     voiceProfile: 'auto',
+    personality: { ...DEFAULT_WIZARD_PERSONALITY },
     importedProjects: [],
     useDemoMode: false,
   })
@@ -73,6 +89,7 @@ export function FirstLaunchWizard({ onComplete }: Props) {
       apiKey: '',
       voiceEnabled: false,
       voiceProfile: 'auto',
+      personality: { ...DEFAULT_WIZARD_PERSONALITY },
       importedProjects: [],
       useDemoMode: false,
     })
@@ -175,8 +192,10 @@ export function FirstLaunchWizard({ onComplete }: Props) {
           <Step3Voice
             enabled={config.voiceEnabled}
             profile={config.voiceProfile}
+            personality={config.personality}
             onToggle={(v) => updateConfig({ voiceEnabled: v })}
             onProfileChange={(p) => updateConfig({ voiceProfile: p })}
+            onPersonalityChange={(p) => updateConfig({ personality: p })}
           />
         )}
         {step === 4 && (

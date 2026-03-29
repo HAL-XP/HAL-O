@@ -424,6 +424,7 @@ export function App() {
               provider: wizardConfig.provider,
               voiceEnabled: wizardConfig.voiceEnabled,
               voiceProfile: wizardConfig.voiceProfile,
+              personality: wizardConfig.personality,
               projectCount: wizardConfig.importedProjects.length,
               useDemoMode: wizardConfig.useDemoMode,
             }).catch(() => { /* best effort */ })
@@ -435,6 +436,13 @@ export function App() {
                 updateVoiceProfile(wizardConfig.voiceProfile)
               }
             }
+
+            // Apply personality settings from wizard
+            const p = wizardConfig.personality
+            updatePersonality('humor', p.humor)
+            updatePersonality('formality', p.formality)
+            updatePersonality('verbosity', p.verbosity)
+            updatePersonality('dramatic', p.dramatic)
 
             // If user chose demo mode, set the flag
             if (wizardConfig.useDemoMode) {

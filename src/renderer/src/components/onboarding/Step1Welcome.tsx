@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 interface Props {
   selected: string | null
@@ -46,6 +46,8 @@ const PERSONAS = [
 ]
 
 export function Step1Welcome({ selected, onSelect, onQuickSetup }: Props) {
+  const [showHelp, setShowHelp] = useState(false)
+
   const handleClick = useCallback((id: string) => {
     onSelect(id)
   }, [onSelect])
@@ -98,6 +100,31 @@ export function Step1Welcome({ selected, onSelect, onQuickSetup }: Props) {
           )
         })}
       </div>
+
+      {/* Help me decide */}
+      <button
+        onClick={() => { setShowHelp(h => !h) }}
+        style={styles.helpBtn}
+      >
+        {showHelp ? 'Got it, thanks' : 'Not sure what to pick?'}
+      </button>
+
+      {showHelp && (
+        <div style={styles.helpBox}>
+          <p style={styles.helpText}>
+            <strong>Start with Developer Brain</strong> -- it gives you the full experience with terminals, AI pair programming, and project management. You can always switch later.
+          </p>
+          <p style={styles.helpTextDim}>
+            Personal Assistant and Work Hub tailor the interface for non-coding workflows, but all features remain accessible regardless of your choice.
+          </p>
+          <button
+            onClick={() => { onSelect('developer'); setShowHelp(false) }}
+            style={styles.helpSelectBtn}
+          >
+            Go with Developer Brain
+          </button>
+        </div>
+      )}
 
       <p style={styles.changeLater}>
         You can change this later in Settings. This just tailors your initial experience.
@@ -200,6 +227,52 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     color: 'var(--text-dim)',
     fontSize: 13,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  helpBtn: {
+    marginTop: 16,
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--primary)',
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    textUnderlineOffset: '3px',
+    opacity: 0.85,
+    transition: 'opacity 0.2s ease',
+  },
+  helpBox: {
+    width: '100%',
+    padding: '16px 20px',
+    borderRadius: 'var(--radius)',
+    background: 'color-mix(in srgb, var(--primary) 6%, var(--bg-surface))',
+    border: '1px solid color-mix(in srgb, var(--primary) 20%, var(--border))',
+    marginTop: 8,
+    textAlign: 'center' as const,
+  },
+  helpText: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: 'var(--text)',
+    margin: '0 0 8px',
+  },
+  helpTextDim: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: 'var(--text-dim)',
+    margin: '0 0 12px',
+  },
+  helpSelectBtn: {
+    padding: '6px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--primary)',
+    background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+    color: 'var(--primary)',
+    fontSize: 13,
+    fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
