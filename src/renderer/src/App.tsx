@@ -22,6 +22,8 @@ import { BrowserPanel, makeBrowserTabId } from './components/BrowserPanel'
 import type { BrowserTab } from './components/BrowserPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GpuWizardModal, isGpuWizardDone } from './components/GpuWizardModal'
+import { FirstLaunchWizard } from './components/onboarding'
+import type { WizardConfig } from './components/onboarding'
 import { useFocusZone } from './hooks/useFocusZone'
 
 interface AppState {
@@ -136,7 +138,7 @@ function findPrevStepId(answers: Answers, beforeId: string): string | null {
 
 const FIRST_STEP_ID = 'wizard-mode'
 
-type ViewMode = 'loading' | 'setup' | 'hub' | 'wizard' | 'creating' | 'configure'
+type ViewMode = 'loading' | 'first-launch' | 'setup' | 'hub' | 'wizard' | 'creating' | 'configure'
 
 // Debug helper — sends to main process log file when --debug is active
 function dlog(tag: string, msg: string, data?: unknown) {
@@ -313,7 +315,29 @@ export function App() {
         return
       }
 
-      // Normal boot flow
+      // Check for first-launch wizard before normal boot
+      decideView()
+    }).catch(() => {
+      clearTimeout(safetyTimer)
+      decideView()
+    })
+
+    function decideView() {
+      // First-launch wizard: check if wizard-complete.json exists
+      window.api.wizardIsFirstLaunch().then((isFirst) => {
+        if (isFirst) {
+          setViewMode('first-launch')
+          return
+        }
+        // Wizard already completed — continue to normal flow
+        proceedToSetupOrHub()
+      }).catch(() => {
+        // IPC failed — fall through to existing flow
+        proceedToSetupOrHub()
+      })
+    }
+
+    function proceedToSetupOrHub() {
       const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
       if (!hasSeenSetup) {
         setViewMode('setup')
@@ -326,21 +350,7 @@ export function App() {
       }).catch(() => {
         setViewMode('setup')
       })
-    }).catch(() => {
-      clearTimeout(safetyTimer)
-      // If continuation check fails, proceed normally
-      const hasSeenSetup = localStorage.getItem('hal-o-setup-done') === '1'
-      if (!hasSeenSetup) {
-        setViewMode('setup')
-        return
-      }
-      window.api.checkPrerequisites().then((status) => {
-        const coreGood = status.gitInstalled && status.claudeCliInstalled && status.apiKeyFound
-        setViewMode(coreGood ? 'hub' : 'setup')
-      }).catch(() => {
-        setViewMode('setup')
-      })
-    })
+    }
 
     return () => clearTimeout(safetyTimer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -400,6 +410,42 @@ export function App() {
           </div>
         )}
       </div>
+    )
+  }
+
+  if (viewMode === 'first-launch') {
+    return (
+      <ErrorBoundary>
+        <FirstLaunchWizard
+          onComplete={(wizardConfig: WizardConfig) => {
+            // Write wizard-complete.json via IPC
+            window.api.wizardComplete({
+              persona: wizardConfig.persona,
+              provider: wizardConfig.provider,
+              voiceEnabled: wizardConfig.voiceEnabled,
+              voiceProfile: wizardConfig.voiceProfile,
+              projectCount: wizardConfig.importedProjects.length,
+              useDemoMode: wizardConfig.useDemoMode,
+            }).catch(() => { /* best effort */ })
+
+            // Apply voice settings from wizard
+            if (wizardConfig.voiceEnabled) {
+              updateVoiceOut(true)
+              if (wizardConfig.voiceProfile !== 'auto') {
+                updateVoiceProfile(wizardConfig.voiceProfile)
+              }
+            }
+
+            // If user chose demo mode, set the flag
+            if (wizardConfig.useDemoMode) {
+              localStorage.setItem('hal-o-demo-mode', 'true')
+            }
+
+            // Proceed to setup screen (prerequisites check) or hub
+            setViewMode('setup')
+          }}
+        />
+      </ErrorBoundary>
     )
   }
 

@@ -424,6 +424,10 @@ export interface ElectronAPI {
   getCommitGraph: (projectPath: string, depth?: number) => Promise<_CommitNode[]>
   batchCheckMergeState: (projectPaths: string[]) => Promise<Record<string, boolean>>
 
+  // First-launch onboarding wizard
+  wizardIsFirstLaunch: () => Promise<boolean>
+  wizardComplete: (config: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>
+
   // Debug logging (writes to _debug.log when --debug flag is set)
   debugLog: (tag: string, message: string, data?: unknown) => void
 

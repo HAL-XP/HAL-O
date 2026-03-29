@@ -258,6 +258,11 @@ const api = {
   batchCheckMergeState: (projectPaths: string[]): Promise<Record<string, boolean>> =>
     ipcRenderer.invoke('batch-check-merge-state', projectPaths),
 
+  // First-launch onboarding wizard
+  wizardIsFirstLaunch: (): Promise<boolean> => ipcRenderer.invoke('wizard:is-first-launch'),
+  wizardComplete: (config: Record<string, unknown>): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('wizard:complete', config),
+
   // Debug logging (only writes if --debug flag is set in main process)
   debugLog: (tag: string, message: string, data?: unknown) =>
     ipcRenderer.send('debug-log', tag, message, data),

@@ -18,6 +18,7 @@ import { registerMergeHandlers } from './ipc-merge'
 import { registerDispatcherHandlers } from './ipc-dispatcher'
 import { registerTreeHandlers } from './ipc-tree'
 import { registerFeatureFlagHandlers } from './feature-flags'
+import { registerOnboardingHandlers } from './ipc-onboarding'
 import { startHttpApi } from './http-api'
 
 export function registerIpcHandlers(): void {
@@ -32,5 +33,6 @@ export function registerIpcHandlers(): void {
   registerDispatcherHandlers()
   registerTreeHandlers()
   registerFeatureFlagHandlers()
+  registerOnboardingHandlers()
   startHttpApi()
 }
