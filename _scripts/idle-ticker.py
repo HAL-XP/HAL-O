@@ -19,6 +19,9 @@ How it works:
           (the idle_prompt hook picks it up and sends via TG)
        c. Also sends a direct TG notification as backup
     4. Won't re-trigger until user input resets the timestamp (debounce).
+    5. OVERNIGHT MODE: If ~/.hal-o/overnight-enabled exists and idle >= 60min,
+       runs overnight-orchestrator.py in dry-run to queue tasks and notifies TG.
+       Does NOT auto-start execution — user must approve.
 
 Instance-aware: reads instance.json for clone detection (same as session-guardian.py).
 """
@@ -45,6 +48,10 @@ TG_MSG_FILE = Path("/tmp/claude_telegram_msg.txt")
 
 DEFAULT_IDLE_MINUTES = 60
 DEFAULT_CHECK_INTERVAL = 300  # 5 minutes
+
+# Overnight mode
+OVERNIGHT_ENABLED_FLAG = HOME / ".hal-o" / "overnight-enabled"
+OVERNIGHT_ORCHESTRATOR = Path("_scripts/overnight-orchestrator.py")
 
 
 # ── Credential Loading ──────────────────────────────────────────────────────
@@ -229,6 +236,68 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
+# ── Overnight Mode ──────────────────────────────────────────────────────────
+
+def is_overnight_enabled() -> bool:
+    """Check if overnight mode is enabled via flag file."""
+    return OVERNIGHT_ENABLED_FLAG.exists()
+
+
+def run_overnight_orchestrator(project_dir: Path) -> tuple[bool, str]:
+    """Run the overnight orchestrator in dry-run mode to preview tasks.
+
+    Returns (success, output_text).
+    """
+    orchestrator = project_dir / OVERNIGHT_ORCHESTRATOR
+    if not orchestrator.exists():
+        return False, f"Orchestrator not found: {orchestrator}"
+
+    try:
+        result = subprocess.run(
+            [sys.executable, str(orchestrator), "--dry-run",
+             "--project-dir", str(project_dir)],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(project_dir),
+        )
+        output = result.stdout + result.stderr
+        return result.returncode == 0, output
+    except subprocess.TimeoutExpired:
+        return False, "Orchestrator timed out (30s)"
+    except Exception as e:
+        return False, f"Orchestrator error: {e}"
+
+
+def extract_task_summary_from_output(output: str) -> str:
+    """Extract a concise task summary from orchestrator dry-run output."""
+    lines = output.splitlines()
+    summary_lines = []
+    in_selected = False
+    task_count = 0
+
+    for line in lines:
+        # Look for the SELECTED section
+        if "SELECTED FOR OVERNIGHT" in line:
+            in_selected = True
+            continue
+        # Stop at next section header
+        if in_selected and ("====" in line or "SPAWN COMMANDS" in line):
+            in_selected = False
+            continue
+        # Collect task lines
+        if in_selected and line.strip():
+            stripped = line.strip()
+            if stripped and stripped[0].isdigit():
+                summary_lines.append(stripped)
+                task_count += 1
+
+    if not summary_lines:
+        # Fallback: count "Safe:" lines
+        safe_count = sum(1 for l in lines if "SAFE" in l and "|" in l)
+        return f"{safe_count} safe tasks identified (details in orchestrator output)"
+
+    return "\n".join(summary_lines)
+
+
 # ── Main Loop ───────────────────────────────────────────────────────────────
 
 def main():
@@ -250,6 +319,7 @@ def main():
 
     # State: tracks whether we already triggered for the current idle period
     has_triggered = False
+    overnight_triggered = False  # separate flag for overnight mode
     last_known_input_time = read_last_input_time()
 
     log("=" * 60)
@@ -260,6 +330,7 @@ def main():
     log(f"  Check every : {args.check_interval}s")
     log(f"  Token key   : {instance['token_key']}")
     log(f"  Dry run     : {args.dry_run}")
+    log(f"  Overnight   : {'ENABLED' if is_overnight_enabled() else 'disabled'}")
     log(f"  Daemon PID  : {os.getpid()}")
     log("=" * 60)
 
@@ -277,9 +348,10 @@ def main():
 
             # Detect new user input (timestamp advanced) — reset trigger state
             if current_input_time is not None and current_input_time != last_known_input_time:
-                if has_triggered:
-                    log("User input detected — resetting idle trigger")
+                if has_triggered or overnight_triggered:
+                    log("User input detected — resetting idle + overnight triggers")
                     has_triggered = False
+                    overnight_triggered = False
                 last_known_input_time = current_input_time
 
             if idle_seconds is None:
@@ -314,6 +386,35 @@ def main():
 
                     has_triggered = True
                     log("Trigger sent. Will not re-trigger until user input resets timestamp.")
+
+                # Overnight mode: trigger orchestrator after same idle period
+                if idle_seconds >= idle_threshold and not overnight_triggered and is_overnight_enabled():
+                    log("OVERNIGHT MODE: Flag detected + idle threshold reached")
+
+                    success, output = run_overnight_orchestrator(project_dir)
+                    task_summary = extract_task_summary_from_output(output)
+
+                    if success:
+                        overnight_msg = (
+                            f"[Overnight] Autonomous mode ready. "
+                            f"Idle {args.idle_minutes}+ min.\n\n"
+                            f"Queued tasks:\n{task_summary}\n\n"
+                            f"Reply 'go' to approve overnight execution.\n"
+                            f"Reply 'skip' to cancel.\n"
+                            f"(Auto-start is disabled — user approval required)"
+                        )
+                    else:
+                        overnight_msg = (
+                            f"[Overnight] Orchestrator failed:\n{output[:500]}"
+                        )
+
+                    if args.dry_run:
+                        log(f"DRY RUN — overnight notification:\n{overnight_msg}")
+                    else:
+                        send_tg_notification(creds, instance, overnight_msg)
+
+                    overnight_triggered = True
+                    log("Overnight notification sent. Awaiting user approval.")
 
         except KeyboardInterrupt:
             log("Idle Ticker stopped by user.")
