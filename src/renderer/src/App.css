@@ -4943,3 +4943,76 @@ textarea.text-input {
   }
 }
 
+/* ── Adaptive Tips Engine — Tip Bar ── */
+
+.hal-tip-bar {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(15, 17, 23, 0.82);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  border-radius: 6px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: auto;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  transform: translateX(-50%) translateY(6px);
+  backdrop-filter: blur(8px);
+  max-width: calc(100vw - 80px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hal-tip-bar--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.hal-tip-bar__icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.hal-tip-bar__label {
+  color: #22d3ee;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
+}
+
+.hal-tip-bar__text {
+  color: rgba(255, 255, 255, 0.72);
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hal-tip-bar__dismiss {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.hal-tip-bar__dismiss:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+

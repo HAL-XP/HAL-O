@@ -28,6 +28,8 @@ import { LAYOUT_3D_FNS, GROUP_LAYOUT_3D_FNS } from '../layouts3d'
 import type { Screen3DPosition } from '../layouts3d'
 import { useSectors, getSectorHudText } from '../hooks/useSectors'
 import { SectorHud } from './SectorHud'
+import { useTips } from '../hooks/useTips'
+import { TipBar } from './TipBar'
 // ThreeThemeProvider is used inside PbrHoloScene (within the Canvas)
 
 interface Props {
@@ -579,6 +581,9 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
     }
   }, [activeFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Adaptive Tips Engine ──
+  const tips = useTips()
+
   // ── UX16 Phase 2: Compute 3D layout positions for keyboard navigation ──
   // Mirror the same layout computation that PbrHoloScene uses, so the keyboard
   // hook can sort cards by orbital angle and provide positions to CameraEaser.
@@ -987,6 +992,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           />
         )}
         {upgradeDialog}
+        <TipBar tip={tips.currentTip} onDismiss={tips.dismissTip} />
         {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
       </div>
     )
@@ -1041,6 +1047,7 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           />
         )}
         {upgradeDialog}
+        <TipBar tip={tips.currentTip} onDismiss={tips.dismissTip} />
         {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
       </div>
     )
@@ -1123,6 +1130,8 @@ export function ProjectHub({ settings, onNewProject, onConvertProject, onOpenTer
           onMergeComplete={handleMergeComplete}
         />
       )}
+
+      <TipBar tip={tips.currentTip} onDismiss={tips.dismissTip} />
 
       {/* UX2: Intro tutorial */}
       {tutorialActive && sceneDismissed && <IntroTutorial onComplete={handleTutorialComplete} />}
