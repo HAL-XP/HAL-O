@@ -1,89 +1,34 @@
 /**
- * DockContext — React context for passing app-level props into dockview panels.
+ * DockContext -- React context for passing app-level props into dockview panels.
  *
  * Dockview panels are instantiated by string key, so they can't receive React
  * props directly.  Instead we put everything they need into this context so
- * ScenePanel and TerminalTabPanel can useContext(DockCtx) to grab what they need.
+ * ScenePanel, TerminalTabPanel, and future panels can useContext(DockCtx).
+ *
+ * DESIGN: Instead of decomposing SettingsState into 50+ individual fields, we
+ * pass the whole SettingsState object.  Panels that need settings (ScenePanel
+ * for ProjectHub, future SettingsPanel) pull it directly.  This prevents the
+ * "missing prop" bug that occurred when new settings were added to useSettings
+ * but not forwarded through the context.
  */
 
 import { createContext } from 'react'
 import type { TerminalSession } from '../../types'
-import type {
-  VoiceProfileId,
-  DockPosition,
-  CameraSettings,
-  PersonalitySettings,
-  SphereStyleId,
-  DevlogSections,
-  DevlogSectionKey,
-  DevlogVerbosity,
-} from '../../hooks/useSettings'
+import type { SettingsState, VoiceProfileId } from '../../hooks/useSettings'
 import type { DemoSettings } from '../../hooks/useDemoSettings'
+import type { FocusZone } from '../../hooks/useFocusZone'
 
-// ── Scene (ProjectHub) props ──
-export interface DockSceneProps {
+// ── Scene (ProjectHub) props that are NOT part of SettingsState ──
+export interface DockSceneCallbacks {
   onNewProject: () => void
   onConvertProject: (path: string) => void
   onOpenTerminal?: (projectPath: string, projectName: string, resume: boolean) => void
-  voiceFocus?: 'hub' | string
   onVoiceFocusHub?: () => void
-  hubFontSize: number
-  termFontSize: number
+  onCameraMove?: (distance: number, angle: number) => void
+  onRedetectGpu?: () => void
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
   wizardFontSize: number
   onWizardFontSize: (size: number) => void
-  voiceOut: boolean
-  voiceProfile: VoiceProfileId
-  dockPosition: DockPosition
-  screenOpacity: number
-  onHubFontSize: (size: number) => void
-  onTermFontSize: (size: number) => void
-  onVoiceOut: (enabled: boolean) => void
-  onVoiceProfileChange: (id: VoiceProfileId) => void
-  onDockPositionChange: (pos: DockPosition) => void
-  onScreenOpacityChange: (opacity: number) => void
-  particleDensity: number
-  onParticleDensityChange: (v: number) => void
-  renderQuality: number
-  onRenderQualityChange: (v: number) => void
-  camera: CameraSettings
-  onCameraChange: (cam: CameraSettings) => void
-  onCameraReset: () => void
-  onCameraMove?: (distance: number, angle: number) => void
-  rendererId: string
-  onRendererChange: (id: string) => void
-  layoutId: string
-  onLayoutChange: (id: string) => void
-  threeTheme: string
-  onThreeThemeChange: (id: string) => void
-  shipVfxEnabled?: boolean
-  onShipVfxEnabledChange?: (enabled: boolean) => void
-  introAnimation?: boolean
-  onIntroAnimationChange?: (enabled: boolean) => void
-  activityFeedback?: boolean
-  onActivityFeedbackChange?: (enabled: boolean) => void
-  sphereStyle?: SphereStyleId
-  onSphereStyleChange?: (style: SphereStyleId) => void
-  voiceReactionIntensity?: number
-  onVoiceReactionIntensityChange?: (v: number) => void
-  personality: PersonalitySettings
-  onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
-  onPersonalityPreset: (presetName: string) => void
-  halSessionId?: string | null
-  terminalCount?: number
-  demo?: DemoSettings
-  defaultIde?: string
-  onDefaultIdeChange?: (id: string) => void
-  defaultTerminalModel?: string
-  onDefaultTerminalModelChange?: (id: string) => void
-  // Dock-mode toggle so Settings can show it
-  dockMode: boolean
-  onDockModeChange: (enabled: boolean) => void
-  // U11: Embedded browser
-  onOpenBrowser?: (projectPath: string, projectName: string) => void
-  // U23: Devlog section verbosity
-  devlogSections?: DevlogSections
-  onDevlogSectionChange?: (key: DevlogSectionKey, value: DevlogVerbosity) => void
-  onSetAllDevlogSections?: (value: DevlogVerbosity) => void
 }
 
 // ── Terminal props ──
@@ -98,9 +43,21 @@ export interface DockTerminalProps {
 }
 
 export interface DockContextValue {
-  scene: DockSceneProps
+  /** Full settings state -- panels pull what they need */
+  settings: SettingsState
+  /** Scene-specific callbacks not in SettingsState */
+  scene: DockSceneCallbacks
+  /** Terminal session management */
   terminal: DockTerminalProps
+  /** Shared across panels */
+  voiceFocus?: 'hub' | string
+  halSessionId?: string | null
+  terminalCount?: number
+  demo?: DemoSettings
+  focusZone?: FocusZone
+  dockMode: boolean
+  onDockModeChange: (enabled: boolean) => void
 }
 
-// The context is created with null — components must be wrapped in a provider.
+// The context is created with null -- components must be wrapped in a provider.
 export const DockCtx = createContext<DockContextValue | null>(null)

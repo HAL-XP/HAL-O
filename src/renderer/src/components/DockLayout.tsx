@@ -1,11 +1,15 @@
 /**
- * DockLayout — dockview-based root layout component for HAL-O.
+ * DockLayout -- dockview-based root layout component for HAL-O.
  *
  * Replaces the manual flex + draggable-divider layout with a full docking
  * system that supports drag-to-rearrange, tab groups, and persistent layout.
  *
- * Phase 2: Real panel components via DockContext, terminal session management.
- * The 3D Canvas uses dockview's "always" renderer so it is never unmounted.
+ * DESIGN:
+ *  - Uses paneRegistry for component discovery (extensible, no hardcoded map)
+ *  - Passes SettingsState directly through DockCtx (no decompose/recompose)
+ *  - 3D Canvas uses dockview's "always" renderer so WebGL context is never lost
+ *  - Terminal panels are synced with termSessions via useEffect
+ *  - Layout persists to localStorage with debounced save
  */
 
 import { useRef, useCallback, useEffect, useMemo } from 'react'
@@ -16,19 +20,20 @@ import {
   type DockviewApi,
 } from 'dockview'
 import 'dockview/dist/styles/dockview.css'
+import '../styles/dockview-theme.css'
 
 import type { TerminalSession } from '../types'
-import type {
-  VoiceProfileId,
-  DockPosition,
-  CameraSettings,
-  PersonalitySettings,
-  SphereStyleId,
-} from '../hooks/useSettings'
+import type { SettingsState } from '../hooks/useSettings'
 import type { DemoSettings } from '../hooks/useDemoSettings'
+import type { FocusZone } from '../hooks/useFocusZone'
 import { DockCtx, type DockContextValue } from './dock/DockContext'
 import { ScenePanel } from './dock/ScenePanel'
 import { TerminalTabPanel } from './dock/TerminalTabPanel'
+import {
+  registerPane,
+  buildComponentMap,
+  getPane,
+} from '../registry/paneRegistry'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,15 +48,37 @@ const SAVE_DEBOUNCE_MS = 300
 const TERM_PANEL_PREFIX = 'term:'
 
 // ---------------------------------------------------------------------------
-// Component registry — maps component IDs to React components.
-// dockview looks up by string key when creating / restoring panels.
+// Register built-in panes (runs once at module load)
 // ---------------------------------------------------------------------------
+registerPane({
+  id: 'scene',
+  title: 'Scene',
+  icon: '3d_rotation',
+  component: ScenePanel,
+  renderer: 'always',
+  defaultVisible: true,
+  singleton: true,
+})
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PANEL_COMPONENTS: Record<string, React.FunctionComponent<any>> = {
-  scene: ScenePanel,
-  terminal: TerminalTabPanel,
-}
+registerPane({
+  id: 'terminal',
+  title: 'Terminal',
+  icon: 'terminal',
+  component: TerminalTabPanel,
+  renderer: 'always',
+  defaultVisible: false, // terminals are created on-demand
+  singleton: false,
+  defaultPosition: {
+    referencePanel: 'scene',
+    direction: 'right',
+    initialWidth: typeof window !== 'undefined' ? Math.round(window.innerWidth * 0.3) : 600,
+  },
+})
+
+// ---------------------------------------------------------------------------
+// Component registry built from paneRegistry
+// ---------------------------------------------------------------------------
+const PANEL_COMPONENTS = buildComponentMap()
 
 // ---------------------------------------------------------------------------
 // Layout helpers
@@ -71,12 +98,12 @@ function saveLayout(api: DockviewApi) {
     const json = api.toJSON()
     localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(json))
   } catch {
-    // Silently swallow — layout save is best-effort
+    // Silently swallow -- layout save is best-effort
   }
 }
 
 function buildDefaultLayout(api: DockviewApi) {
-  // Scene panel takes ~70% of width
+  // Scene panel takes ~70% of width (default visible, singleton)
   api.addPanel({
     id: 'scene',
     component: 'scene',
@@ -86,64 +113,30 @@ function buildDefaultLayout(api: DockviewApi) {
 }
 
 // ---------------------------------------------------------------------------
-// Props — everything DockLayout needs from App.tsx
+// Props -- dramatically simplified by accepting SettingsState directly
 // ---------------------------------------------------------------------------
 
 export interface DockLayoutProps {
-  // Scene / ProjectHub props
+  /** Full settings state (values + updaters) -- forwarded to panels via context */
+  settings: SettingsState
+
+  // Scene-specific callbacks (not in SettingsState)
   onNewProject: () => void
   onConvertProject: (path: string) => void
   onOpenTerminal?: (projectPath: string, projectName: string, resume: boolean) => void
-  voiceFocus?: 'hub' | string
   onVoiceFocusHub?: () => void
-  hubFontSize: number
-  termFontSize: number
+  onCameraMove?: (distance: number, angle: number) => void
+  onRedetectGpu?: () => void
+  onOpenBrowser?: (projectPath: string, projectName: string) => void
   wizardFontSize: number
   onWizardFontSize: (size: number) => void
-  voiceOut: boolean
-  voiceProfile: VoiceProfileId
-  dockPosition: DockPosition
-  screenOpacity: number
-  onHubFontSize: (size: number) => void
-  onTermFontSize: (size: number) => void
-  onVoiceOut: (enabled: boolean) => void
-  onVoiceProfileChange: (id: VoiceProfileId) => void
-  onDockPositionChange: (pos: DockPosition) => void
-  onScreenOpacityChange: (opacity: number) => void
-  particleDensity: number
-  onParticleDensityChange: (v: number) => void
-  renderQuality: number
-  onRenderQualityChange: (v: number) => void
-  camera: CameraSettings
-  onCameraChange: (cam: CameraSettings) => void
-  onCameraReset: () => void
-  onCameraMove?: (distance: number, angle: number) => void
-  rendererId: string
-  onRendererChange: (id: string) => void
-  layoutId: string
-  onLayoutChange: (id: string) => void
-  threeTheme: string
-  onThreeThemeChange: (id: string) => void
-  shipVfxEnabled?: boolean
-  onShipVfxEnabledChange?: (enabled: boolean) => void
-  introAnimation?: boolean
-  onIntroAnimationChange?: (enabled: boolean) => void
-  activityFeedback?: boolean
-  onActivityFeedbackChange?: (enabled: boolean) => void
-  sphereStyle?: SphereStyleId
-  onSphereStyleChange?: (style: SphereStyleId) => void
-  voiceReactionIntensity?: number
-  onVoiceReactionIntensityChange?: (v: number) => void
-  personality: PersonalitySettings
-  onPersonalityChange: (key: keyof PersonalitySettings, value: number) => void
-  onPersonalityPreset: (presetName: string) => void
+
+  // Shared state
+  voiceFocus?: 'hub' | string
   halSessionId?: string | null
   terminalCount?: number
   demo?: DemoSettings
-  defaultIde?: string
-  onDefaultIdeChange?: (id: string) => void
-  defaultTerminalModel?: string
-  onDefaultTerminalModelChange?: (id: string) => void
+  focusZone?: FocusZone
 
   // Terminal session management
   termSessions: TerminalSession[]
@@ -153,9 +146,6 @@ export interface DockLayoutProps {
   // Dock mode toggle
   dockMode: boolean
   onDockModeChange: (enabled: boolean) => void
-
-  // U11: Embedded browser
-  onOpenBrowser?: (projectPath: string, projectName: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -174,98 +164,44 @@ export function DockLayout(props: DockLayoutProps) {
     gap: 1, // minimal gap for the sci-fi look
   }), [])
 
-  // Build context value for panels
+  // Build context value for panels -- one clean object
   const ctxValue = useMemo<DockContextValue>(() => ({
+    settings: props.settings,
     scene: {
       onNewProject: props.onNewProject,
       onConvertProject: props.onConvertProject,
       onOpenTerminal: props.onOpenTerminal,
-      voiceFocus: props.voiceFocus,
       onVoiceFocusHub: props.onVoiceFocusHub,
-      hubFontSize: props.hubFontSize,
-      termFontSize: props.termFontSize,
+      onCameraMove: props.onCameraMove,
+      onRedetectGpu: props.onRedetectGpu,
+      onOpenBrowser: props.onOpenBrowser,
       wizardFontSize: props.wizardFontSize,
       onWizardFontSize: props.onWizardFontSize,
-      voiceOut: props.voiceOut,
-      voiceProfile: props.voiceProfile,
-      dockPosition: props.dockPosition,
-      screenOpacity: props.screenOpacity,
-      onHubFontSize: props.onHubFontSize,
-      onTermFontSize: props.onTermFontSize,
-      onVoiceOut: props.onVoiceOut,
-      onVoiceProfileChange: props.onVoiceProfileChange,
-      onDockPositionChange: props.onDockPositionChange,
-      onScreenOpacityChange: props.onScreenOpacityChange,
-      particleDensity: props.particleDensity,
-      onParticleDensityChange: props.onParticleDensityChange,
-      renderQuality: props.renderQuality,
-      onRenderQualityChange: props.onRenderQualityChange,
-      camera: props.camera,
-      onCameraChange: props.onCameraChange,
-      onCameraReset: props.onCameraReset,
-      onCameraMove: props.onCameraMove,
-      rendererId: props.rendererId,
-      onRendererChange: props.onRendererChange,
-      layoutId: props.layoutId,
-      onLayoutChange: props.onLayoutChange,
-      threeTheme: props.threeTheme,
-      onThreeThemeChange: props.onThreeThemeChange,
-      shipVfxEnabled: props.shipVfxEnabled,
-      onShipVfxEnabledChange: props.onShipVfxEnabledChange,
-      introAnimation: props.introAnimation,
-      onIntroAnimationChange: props.onIntroAnimationChange,
-      activityFeedback: props.activityFeedback,
-      onActivityFeedbackChange: props.onActivityFeedbackChange,
-      sphereStyle: props.sphereStyle,
-      onSphereStyleChange: props.onSphereStyleChange,
-      voiceReactionIntensity: props.voiceReactionIntensity,
-      onVoiceReactionIntensityChange: props.onVoiceReactionIntensityChange,
-      personality: props.personality,
-      onPersonalityChange: props.onPersonalityChange,
-      onPersonalityPreset: props.onPersonalityPreset,
-      halSessionId: props.halSessionId,
-      terminalCount: props.terminalCount,
-      demo: props.demo,
-      defaultIde: props.defaultIde,
-      onDefaultIdeChange: props.onDefaultIdeChange,
-      defaultTerminalModel: props.defaultTerminalModel,
-      onDefaultTerminalModelChange: props.onDefaultTerminalModelChange,
-      dockMode: props.dockMode,
-      onDockModeChange: props.onDockModeChange,
-      onOpenBrowser: props.onOpenBrowser,
     },
     terminal: {
       sessions: props.termSessions,
       onClose: props.onCloseTerminal,
       voiceFocus: props.voiceFocus,
       onVoiceFocus: props.onVoiceFocus,
-      fontSize: props.termFontSize,
-      voiceOut: props.voiceOut,
-      voiceProfile: props.voiceProfile,
+      fontSize: props.settings.termFontSize,
+      voiceOut: props.settings.voiceOut,
+      voiceProfile: props.settings.voiceProfile,
     },
+    voiceFocus: props.voiceFocus,
+    halSessionId: props.halSessionId,
+    terminalCount: props.terminalCount,
+    demo: props.demo,
+    focusZone: props.focusZone,
+    dockMode: props.dockMode,
+    onDockModeChange: props.onDockModeChange,
   }), [
+    props.settings,
     props.onNewProject, props.onConvertProject, props.onOpenTerminal,
-    props.voiceFocus, props.onVoiceFocusHub,
-    props.hubFontSize, props.termFontSize, props.wizardFontSize, props.onWizardFontSize,
-    props.voiceOut, props.voiceProfile, props.dockPosition, props.screenOpacity,
-    props.onHubFontSize, props.onTermFontSize, props.onVoiceOut, props.onVoiceProfileChange,
-    props.onDockPositionChange, props.onScreenOpacityChange,
-    props.particleDensity, props.onParticleDensityChange,
-    props.renderQuality, props.onRenderQualityChange,
-    props.camera, props.onCameraChange, props.onCameraReset, props.onCameraMove,
-    props.rendererId, props.onRendererChange, props.layoutId, props.onLayoutChange,
-    props.threeTheme, props.onThreeThemeChange,
-    props.shipVfxEnabled, props.onShipVfxEnabledChange,
-    props.introAnimation, props.onIntroAnimationChange,
-    props.activityFeedback, props.onActivityFeedbackChange,
-    props.sphereStyle, props.onSphereStyleChange,
-    props.voiceReactionIntensity, props.onVoiceReactionIntensityChange,
-    props.personality, props.onPersonalityChange, props.onPersonalityPreset,
-    props.halSessionId, props.terminalCount, props.demo,
-    props.defaultIde, props.onDefaultIdeChange,
-    props.defaultTerminalModel, props.onDefaultTerminalModelChange,
-    props.dockMode, props.onDockModeChange, props.onOpenBrowser,
+    props.onVoiceFocusHub, props.onCameraMove, props.onRedetectGpu,
+    props.onOpenBrowser, props.wizardFontSize, props.onWizardFontSize,
     props.termSessions, props.onCloseTerminal, props.onVoiceFocus,
+    props.voiceFocus, props.halSessionId, props.terminalCount,
+    props.demo, props.focusZone, props.dockMode, props.onDockModeChange,
   ])
 
   // Debounced save: coalesce rapid layout changes into a single write
@@ -289,8 +225,8 @@ export function DockLayout(props: DockLayoutProps) {
     }
   }, [])
 
-  // ── Sync terminal sessions into dockview panels ──
-  // When a terminal session is added, add a panel; when removed, remove the panel.
+  // ---- Sync terminal sessions into dockview panels ----
+  // When a terminal session is added, add a panel; when removed, remove it.
   useEffect(() => {
     const api = apiRef.current
     if (!api) return
@@ -309,6 +245,10 @@ export function DockLayout(props: DockLayoutProps) {
           )
           const scenePanel = api.panels.find((p) => p.id === 'scene')
 
+          // Get default position from registry
+          const termDef = getPane('terminal')
+          const defaultWidth = termDef?.defaultPosition?.initialWidth ?? Math.round(window.innerWidth * 0.3)
+
           api.addPanel({
             id: panelId,
             component: 'terminal',
@@ -320,11 +260,11 @@ export function DockLayout(props: DockLayoutProps) {
               : scenePanel
                 ? { referencePanel: scenePanel, direction: 'right' }
                 : undefined,
-            ...(existingTermPanel ? {} : { initialWidth: Math.round(window.innerWidth * 0.3) }),
+            ...(existingTermPanel ? {} : { initialWidth: defaultWidth }),
           })
           tracked.add(session.id)
         } catch {
-          // Panel may already exist from layout restore — that's fine
+          // Panel may already exist from layout restore -- that's fine
           tracked.add(session.id)
         }
       }
@@ -347,7 +287,7 @@ export function DockLayout(props: DockLayoutProps) {
     }
   }, [props.termSessions])
 
-  // Handle panel close events — when user closes a terminal tab via dockview UI
+  // Handle panel close events -- when user closes a terminal tab via dockview UI
   const handleReady = useCallback((event: DockviewReadyEvent) => {
     const api = event.api
     apiRef.current = api
@@ -382,18 +322,18 @@ export function DockLayout(props: DockLayoutProps) {
         }
         return
       } catch {
-        // Corrupted layout — fall through to default
+        // Corrupted layout -- fall through to default
         localStorage.removeItem(LAYOUT_STORAGE_KEY)
       }
     }
 
-    // No saved layout or restore failed — build the default (scene only)
+    // No saved layout or restore failed -- build the default (scene only)
     buildDefaultLayout(api)
   }, [debouncedSave, props.onCloseTerminal])
 
   return (
     <DockCtx.Provider value={ctxValue}>
-      <div style={{ width: '100%', height: '100vh' }}>
+      <div className="hal-dock-root" style={{ width: '100%', height: '100vh' }}>
         <DockviewReact
           components={PANEL_COMPONENTS}
           onReady={handleReady}

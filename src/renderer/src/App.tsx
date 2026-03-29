@@ -518,82 +518,26 @@ export function App() {
       return (
         <ErrorBoundary>
           <DockLayout
+            settings={settingsState}
             onNewProject={hubOnNewProject}
             onConvertProject={hubOnConvertProject}
             onOpenTerminal={openTerminal}
-            voiceFocus={voiceFocus}
             onVoiceFocusHub={() => setVoiceFocus('hub')}
-            hubFontSize={hubFontSize}
-            termFontSize={termFontSize}
+            onCameraMove={handleCameraMove}
+            onRedetectGpu={handleRedetectGpu}
+            onOpenBrowser={openBrowserTab}
             wizardFontSize={wizardFontSize}
             onWizardFontSize={updateWizardFont}
-            voiceOut={voiceOut}
-            voiceProfile={voiceProfile}
-            dockPosition={dockPosition}
-            screenOpacity={screenOpacity}
-            onHubFontSize={updateHubFont}
-            onTermFontSize={updateTermFont}
-            onVoiceOut={updateVoiceOut}
-            onVoiceProfileChange={updateVoiceProfile}
-            onDockPositionChange={updateDockPosition}
-            onScreenOpacityChange={updateScreenOpacity}
-            particleDensity={particleDensity}
-            onParticleDensityChange={updateParticleDensity}
-            renderQuality={renderQuality}
-            onRenderQualityChange={updateRenderQuality}
-            camera={camera}
-            onCameraChange={updateCamera}
-            onCameraReset={resetCamera}
-            onCameraMove={handleCameraMove}
-            rendererId={rendererId}
-            onRendererChange={updateRenderer}
-            layoutId={layoutId}
-            onLayoutChange={updateLayout}
-            threeTheme={threeTheme}
-            onThreeThemeChange={updateThreeTheme}
-            shipVfxEnabled={shipVfxEnabled}
-            onShipVfxEnabledChange={updateShipVfxEnabled}
-            activityFeedback={activityFeedback}
-            onActivityFeedbackChange={updateActivityFeedback}
-            sphereStyle={sphereStyle}
-            onSphereStyleChange={updateSphereStyle}
-            voiceReactionIntensity={voiceReactionIntensity}
-            onVoiceReactionIntensityChange={updateVoiceReactionIntensity}
-            personality={personality}
-            onPersonalityChange={updatePersonality}
-            onPersonalityPreset={applyPersonalityPreset}
+            voiceFocus={voiceFocus}
             halSessionId={getHalSessionId()}
             terminalCount={termSessions.length}
             demo={demo}
-            defaultIde={defaultIde}
-            onDefaultIdeChange={updateDefaultIde}
-            defaultTerminalModel={defaultTerminalModel}
-            onDefaultTerminalModelChange={updateDefaultTerminalModel}
+            focusZone={focusZone}
             termSessions={termSessions}
             onCloseTerminal={closeTerminal}
             onVoiceFocus={(id) => setVoiceFocus(id)}
             dockMode={dockMode}
             onDockModeChange={handleDockModeChange}
-            introAnimation={introAnimation}
-            onIntroAnimationChange={updateIntroAnimation}
-            graphicsPreset={graphicsPreset}
-            onGraphicsPresetChange={updateGraphicsPreset}
-            bloomEnabled={bloomEnabled}
-            onBloomEnabledChange={updateBloomEnabled}
-            chromaticAberrationEnabled={chromaticAberrationEnabled}
-            onChromaticAberrationEnabledChange={updateChromaticAberrationEnabled}
-            floorLinesEnabled={floorLinesEnabled}
-            onFloorLinesEnabledChange={updateFloorLinesEnabled}
-            groupTrailsEnabled={groupTrailsEnabled}
-            onGroupTrailsEnabledChange={updateGroupTrailsEnabled}
-            autoRotateEnabled={autoRotateEnabled}
-            onAutoRotateEnabledChange={updateAutoRotateEnabled}
-            autoRotateSpeed={autoRotateSpeed}
-            onAutoRotateSpeedChange={updateAutoRotateSpeed}
-            cardsPerSector={cardsPerSector}
-            onCardsPerSectorChange={updateCardsPerSector}
-            onRedetectGpu={handleRedetectGpu}
-            onOpenBrowser={openBrowserTab}
           />
           {showGpuWizard && <GpuWizardModal onAccept={handleGpuWizardAccept} onCustomize={handleGpuWizardCustomize} />}
         </ErrorBoundary>
