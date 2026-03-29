@@ -14,6 +14,7 @@ import type { SpaceshipFlybyHandle } from './SpaceshipFlyby'
 import { CinematicSequence } from './CinematicSequence'
 import { IntroSequence } from './IntroSequence'
 import { MergeGraph } from './MergeGraph'
+import { DebateArenaWithMock } from './DebateArena'
 import type { ProjectInfo } from '../../types'
 import type { ProjectGroup } from '../../hooks/useProjectGroups'
 import { showToast } from '../ErrorToast'
@@ -3304,6 +3305,19 @@ function PbrSceneInner({
   const [sceneReady, setSceneReady] = useState(false)
   const fadeRef = useRef({ particles: 0, hud: 0, screens: 0 })
 
+  // ── Debate Arena (mock demo) — toggled via window.__haloPhotoMode.showDebate() ──
+  const [debateDemo, setDebateDemo] = useState(false)
+  useEffect(() => {
+    const pm = (window as any).__haloPhotoMode
+    if (pm) {
+      pm.showDebate = (on = true) => setDebateDemo(on)
+      pm.hideDebate = () => setDebateDemo(false)
+    }
+    return () => {
+      if (pm) { delete pm.showDebate; delete pm.hideDebate }
+    }
+  }, [])
+
   // UX7: Track which project cards have mounted their Html (front-facing cards loaded)
   const mountedCardsRef = useRef<Set<string>>(new Set())
   const cardMountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -3647,6 +3661,9 @@ function PbrSceneInner({
 
           {/* Sonar pulse — HAL heartbeat */}
           {halOnline && <SonarPulse />}
+
+          {/* Debate Arena — mock demo or real debate state */}
+          {debateDemo && <DebateArenaWithMock />}
         </>
       )}
 
