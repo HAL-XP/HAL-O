@@ -200,26 +200,23 @@ def send_tg_notification(creds: dict, instance: dict, message: str):
 
 
 def relaunch_session(project_dir: Path, instance: dict, creds: dict) -> int | None:
-    """Relaunch Claude session with correct flags."""
+    """Relaunch Claude session using the BAT file (handles all setup correctly)."""
     instance_name = instance["name"]
 
-    # Write correct token to .env BEFORE launching
-    expected_token = creds.get(instance["token_key"], creds.get("TELEGRAM_BOT_TOKEN", ""))
-    if expected_token:
-        ENV_FILE.write_text(f"TELEGRAM_BOT_TOKEN={expected_token}\n")
+    # Use the bat file — it handles token, .env, channels, everything
+    bat_file = project_dir / "_scripts" / "_claude_cli_resume_NOPROMPT.bat"
+    if not bat_file.exists():
+        bat_file = project_dir / "_scripts" / "_claude_cli_resume.bat"
+    if not bat_file.exists():
+        log(f"ERROR: No bat file found at {project_dir / '_scripts'}")
+        return None
 
-    cmd = (
-        f'cd /d "{project_dir}" && '
-        f'claude -n "{instance_name}" --dangerously-skip-permissions '
-        f'--resume --channels plugin:telegram@claude-plugins-official'
-    )
-
-    log(f"Relaunching: {cmd}")
+    log(f"Relaunching via bat: {bat_file}")
     try:
-        # Use Start-Process for true detachment
+        # Use Start-Process to launch the bat in its own window (detached)
         ps_cmd = (
             f'Start-Process -FilePath cmd.exe '
-            f'-ArgumentList "/c {cmd}" '
+            f'-ArgumentList "/c `"{bat_file}`"" '
             f'-PassThru -WindowStyle Normal'
         )
         result = subprocess.run(
@@ -227,8 +224,8 @@ def relaunch_session(project_dir: Path, instance: dict, creds: dict) -> int | No
             capture_output=True, text=True, timeout=15
         )
 
-        # Wait for Claude to appear
-        time.sleep(8)
+        # Wait for Claude to appear — bat file needs time to load creds + launch
+        time.sleep(20)
         proc = find_claude_process(instance_name)
         if proc:
             log(f"Relaunch SUCCESS: PID {proc['pid']}, channels={proc['has_channels']}")
