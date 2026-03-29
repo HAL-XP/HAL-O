@@ -24,13 +24,28 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - HTML reports hub endpoint ✓
 - Tailscale installed ✓
 
-### ALPHA PRIORITY: Install & Onboarding UX
-- Review FULL install flow for new users: git clone → npm install → node-pty → first launch
-- Design "What do you want to do?" wizard: personal assistant / work assistant / dev brain
-- Let users come back to this step later to add features (Gmail, Calendar, etc.)
-- Pre-built installers (NSIS Windows, AppImage Linux) to skip npm/node-pty friction
-- Per-persona onboarding: luxury (zero config), tinkerer (full control), budget (guided free)
+### DONE: Install Wizard Phase 1 (Session 10b)
+- 5-step wizard: intro → persona → AI provider → voice → projects → ready ✓
+- Quick Setup bypass for experts ✓
+- "Change later in Settings" on every step ✓
+- No Telegram in wizard, no unexplained agents ✓
+- QA reviewed + approved ✓
+
+### Wizard Phase 2 (Next)
+- "I'm not sure" / "Help me decide" button on every step
+- Help/documentation links per option
+- Pre-recorded welcome voice lines (small ogg, bundled in app)
+- Personality sliders in wizard (humor/formality/verbosity/dramatic)
+- Don't auto-pick tech stack — offer 2-3 options with pros/cons
+- Ask clarifying questions before suggesting frameworks
+- NSIS installer for Windows (bundles Node.js + pre-built node-pty)
 - OAuth port conflict resolution (each MCP needs unique port)
+
+### Systemic Reliability (Next)
+- Idle ticker daemon (Python, external, survives session switches)
+- Scheduled Anthropic watcher (daily, HTML diff report to TG)
+- Fix tts-stream-tg.sh TG API call (0 chunks sent issue)
+- PostToolUse hook to enforce voice replies in AFK mode
 
 ### Future: Identity Unification
 - HAL in Halo Chat routes to terminal session (same brain everywhere)
