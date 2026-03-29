@@ -10,6 +10,16 @@ import { initDebugLog, debugLog, isDebugEnabled } from './debug-log'
 import { startTelegramHandler, stopTelegramHandler } from './telegram-handler'
 import { isClone, getInstanceId } from './instance'
 
+// ── GPU fallback: disable HW acceleration if previous launch crashed on GPU ──
+const GPU_CRASH_FILE = join(
+  process.env.USERPROFILE || process.env.HOME || '',
+  '.hal-o-gpu-crash'
+)
+if (existsSync(GPU_CRASH_FILE) || process.argv.includes('--disable-gpu')) {
+  app.disableHardwareAcceleration()
+  console.log('[HAL-O] Hardware acceleration DISABLED (GPU crash recovery or --disable-gpu flag)')
+}
+
 // ── Per-instance Electron userData ──
 // Clones get their own cache/state dir to prevent collisions
 if (isClone()) {
@@ -175,6 +185,12 @@ function createWindow(): void {
     show: false
   })
 
+  // ── Loading state tracking ──
+  let pageDidLoad = false
+  let loadRetryCount = 0
+  const MAX_LOAD_RETRIES = 3
+  const LOAD_TIMEOUT_MS = 15_000 // 15s — generous for Vite cold start + Three.js init
+
   mainWindow.on('ready-to-show', () => {
     if (saved.maximized) mainWindow?.maximize()
     mainWindow?.show()
@@ -186,6 +202,67 @@ function createWindow(): void {
         mainWindow?.webContents.send('toggle-cinematic', true)
       }, 2000)
     }
+  })
+
+  // ── did-fail-load: retry on network/file errors ──
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    // errorCode -3 = ABORTED (navigation cancelled, harmless — e.g. rapid reload)
+    if (errorCode === -3) return
+
+    console.error(`[HAL-O] Page failed to load: ${errorDescription} (code ${errorCode}, url: ${validatedURL})`)
+
+    if (loadRetryCount < MAX_LOAD_RETRIES) {
+      loadRetryCount++
+      const delay = loadRetryCount * 2000 // 2s, 4s, 6s — back off for Vite cold start
+      console.log(`[HAL-O] Retrying load in ${delay}ms (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES})...`)
+      setTimeout(() => {
+        if (!mainWindow?.isDestroyed()) {
+          if (process.env.ELECTRON_RENDERER_URL) {
+            mainWindow!.loadURL(process.env.ELECTRON_RENDERER_URL)
+          } else {
+            mainWindow!.loadFile(join(__dirname, '../renderer/index.html'))
+          }
+        }
+      }, delay)
+    } else {
+      console.error(`[HAL-O] All ${MAX_LOAD_RETRIES} load retries exhausted. Showing error page.`)
+      mainWindow?.webContents.loadURL(`data:text/html,
+        <html><body style="background:#0f1117;color:#e0e0e0;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0">
+        <h1 style="color:#ff4444">HAL-O Failed to Load</h1>
+        <p>Error: ${errorDescription} (code ${errorCode})</p>
+        <p>Try: <b>Ctrl+Shift+R</b> to force reload, or restart the app.</p>
+        <button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;background:#2a2f3a;color:#e0e0e0;border:1px solid #555;cursor:pointer;font-size:14px;border-radius:4px">Retry</button>
+        </body></html>`)
+    }
+  })
+
+  // ── did-finish-load: mark success, clear GPU crash flag ──
+  mainWindow.webContents.on('did-finish-load', () => {
+    pageDidLoad = true
+    loadRetryCount = 0
+    console.log('[HAL-O] Page loaded successfully')
+    // If we got here, GPU didn't crash — remove the crash marker
+    try {
+      if (existsSync(GPU_CRASH_FILE)) {
+        unlinkSync(GPU_CRASH_FILE)
+        console.log('[HAL-O] GPU crash flag cleared (successful load)')
+      }
+    } catch { /* best effort */ }
+  })
+
+  // ── Loading timeout watchdog ──
+  // If the page hasn't loaded after LOAD_TIMEOUT_MS, force a reload.
+  // Covers the case where Vite dev server is slow or the renderer JS hangs.
+  const loadWatchdog = setTimeout(() => {
+    if (!pageDidLoad && mainWindow && !mainWindow.isDestroyed()) {
+      console.error(`[HAL-O] Loading timeout (${LOAD_TIMEOUT_MS}ms) — forcing reload`)
+      mainWindow.webContents.reload()
+    }
+  }, LOAD_TIMEOUT_MS)
+
+  // Clear watchdog once page loads
+  mainWindow.webContents.once('did-finish-load', () => {
+    clearTimeout(loadWatchdog)
   })
 
   // ── B32: Save window bounds on move/resize ──
@@ -201,18 +278,34 @@ function createWindow(): void {
     mainWindow?.webContents.send('window-focus-change', true)
   })
 
-  // Auto-reload on renderer crash — ptys survive in main process
+  // ── Auto-reload on renderer crash — ptys survive in main process ──
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error(`[HAL-O] Renderer crashed (${details.reason}). Auto-reloading in 1s...`)
+
+    // If GPU killed the process, set crash flag so next launch disables HW acceleration
+    if (details.reason === 'gpu-dead' || details.reason === 'crashed') {
+      try {
+        writeFileSync(GPU_CRASH_FILE, JSON.stringify({
+          reason: details.reason,
+          timestamp: new Date().toISOString(),
+        }))
+        console.log('[HAL-O] GPU crash flag written — next launch will disable HW acceleration')
+      } catch { /* best effort */ }
+    }
+
     setTimeout(() => {
-      mainWindow?.webContents.reload()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.reload()
+      }
     }, 1000)
   })
 
   mainWindow.webContents.on('unresponsive', () => {
     console.error('[HAL-O] Renderer unresponsive. Auto-reloading in 2s...')
     setTimeout(() => {
-      mainWindow?.webContents.reload()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.reload()
+      }
     }, 2000)
   })
 
@@ -231,6 +324,17 @@ function createWindow(): void {
 }
 
 // ── Dev tools ──
+
+// GPU status — lets renderer know if HW acceleration is disabled
+ipcMain.handle('get-gpu-status', async () => {
+  const disabled = existsSync(GPU_CRASH_FILE) || process.argv.includes('--disable-gpu')
+  return { hardwareAccelerationDisabled: disabled }
+})
+
+// Renderer app-ready signal — confirms React mounted successfully
+ipcMain.on('renderer-app-ready', () => {
+  console.log('[HAL-O] Renderer app confirmed ready (React mounted)')
+})
 
 // Clipboard — reliable in all Electron security contexts
 ipcMain.handle('copy-to-clipboard', async (_event, text: string) => {

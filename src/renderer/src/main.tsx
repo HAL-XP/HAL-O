@@ -188,6 +188,11 @@ function Root() {
   const [fontTheme, setFontTheme] = useState(() =>
     localStorage.getItem('hal-o-font') || 'terminal')
 
+  // Signal to main process that React mounted successfully (black screen prevention)
+  useEffect(() => {
+    try { window.api?.signalAppReady() } catch { /* best effort */ }
+  }, [])
+
   useEffect(() => { localStorage.setItem('hal-o-lang', lang) }, [lang])
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
@@ -228,3 +233,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <Root />
   </React.StrictMode>
 )
+
+// signalAppReady is called from Root's useEffect (after mount), not here.
+// React 19 render() is async — calling here would signal before DOM is ready.

@@ -261,6 +261,13 @@ const api = {
   // Debug logging (only writes if --debug flag is set in main process)
   debugLog: (tag: string, message: string, data?: unknown) =>
     ipcRenderer.send('debug-log', tag, message, data),
+
+  // App readiness signal — renderer calls this once React is mounted
+  signalAppReady: () => ipcRenderer.send('renderer-app-ready'),
+
+  // GPU status — check if HW acceleration was disabled due to prior crash
+  getGpuStatus: (): Promise<{ hardwareAccelerationDisabled: boolean }> =>
+    ipcRenderer.invoke('get-gpu-status'),
 }
 
 contextBridge.exposeInMainWorld('api', api)

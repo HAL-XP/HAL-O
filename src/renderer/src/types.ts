@@ -426,6 +426,12 @@ export interface ElectronAPI {
 
   // Debug logging (writes to _debug.log when --debug flag is set)
   debugLog: (tag: string, message: string, data?: unknown) => void
+
+  // App readiness signal — renderer calls once React is mounted
+  signalAppReady: () => void
+
+  // GPU status — check if HW acceleration was disabled due to prior crash
+  getGpuStatus: () => Promise<{ hardwareAccelerationDisabled: boolean }>
 }
 
 declare global {
