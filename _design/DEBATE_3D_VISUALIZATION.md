@@ -747,3 +747,26 @@ DebateArena.tsx (new)
 ```
 
 No circular dependencies. DebateArena is a leaf component — it reads state, renders 3D, dispatches no actions upstream.
+
+---
+
+## 12. UX Refinements (Post-Design Review)
+
+### No Labels — Color-Coded Text Is The Identity
+- No floating name labels above orbs (clean look)
+- Agent name appears as header in speech bubble text, IN the orb's color
+- No legend needed — color in text = color of orb = identity
+
+### Chat Display — Hybrid (Option 3)
+- Active speaker: text floats above orb in 3D (wow factor)
+- Collapsible chat log panel at bottom (full context on demand)
+- Previous messages fade to 40% opacity in 3D
+
+### Sphere Styles = User Customization
+- **Two birds, one stone:** the visual styles designed for debate agents
+  (particles, colors, glow patterns) become selectable options for the
+  main HAL sphere in Settings
+- Users pick their sphere personality: engineer green (geometric particles),
+  creative purple (swirling), analyst red (sharp pulses), etc.
+- During debates, each agent auto-uses its preset style
+- This unifies the sphere visual system across personal use + debate
