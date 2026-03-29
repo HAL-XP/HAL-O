@@ -202,6 +202,7 @@ export function FirstLaunchWizard({ onComplete }: Props) {
           <Step4Projects
             selected={config.importedProjects}
             onSelectionChange={(p) => updateConfig({ importedProjects: p })}
+            persona={config.persona}
           />
         )}
         {step === 5 && (

@@ -12,6 +12,7 @@ const PROVIDERS = [
     id: 'anthropic',
     title: 'Anthropic',
     description: 'Claude models via API key. Recommended for the best HAL-O experience.',
+    pricing: '~$20/mo API usage (pay-as-you-go)',
     badge: 'Recommended',
     needsKey: true,
   },
@@ -19,6 +20,7 @@ const PROVIDERS = [
     id: 'ollama',
     title: 'Ollama (Local)',
     description: 'Run models locally on your machine. Free, private, no API key needed.',
+    pricing: 'Free -- runs on your GPU, no internet needed',
     badge: 'Free',
     needsKey: false,
   },
@@ -26,6 +28,7 @@ const PROVIDERS = [
     id: 'openai',
     title: 'OpenAI',
     description: 'GPT models via API key. Good alternative if you already have an account.',
+    pricing: '~$20/mo API usage',
     badge: null,
     needsKey: true,
   },
@@ -33,6 +36,7 @@ const PROVIDERS = [
     id: 'skip',
     title: 'Skip for now',
     description: 'Use demo mode without any AI provider. You can set this up later.',
+    pricing: 'Use HAL-O features without AI for now',
     badge: null,
     needsKey: false,
   },
@@ -43,6 +47,7 @@ export function Step2Provider({ selected, apiKey, onSelect, onApiKeyChange }: Pr
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [showKey, setShowKey] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showApiKeyTooltip, setShowApiKeyTooltip] = useState(false)
 
   const selectedProvider = PROVIDERS.find(p => p.id === selected)
   const needsKey = selectedProvider?.needsKey ?? false
@@ -108,6 +113,7 @@ export function Step2Provider({ selected, apiKey, onSelect, onApiKeyChange }: Pr
                 )}
               </div>
               <p style={styles.cardDesc}>{p.description}</p>
+              <p style={styles.cardPricing}>{p.pricing}</p>
             </button>
           )
         })}
@@ -118,6 +124,18 @@ export function Step2Provider({ selected, apiKey, onSelect, onApiKeyChange }: Pr
         <div style={styles.keySection}>
           <label style={styles.keyLabel}>
             API Key
+            <span
+              style={styles.tooltipAnchor}
+              onMouseEnter={() => setShowApiKeyTooltip(true)}
+              onMouseLeave={() => setShowApiKeyTooltip(false)}
+            >
+              <span style={styles.tooltipIcon}>?</span>
+              {showApiKeyTooltip && (
+                <span style={styles.tooltipPopup}>
+                  An API key is like a password that lets HAL-O talk to the AI. Get one from the provider's website.
+                </span>
+              )}
+            </span>
           </label>
           <div style={styles.keyRow}>
             <input
@@ -268,6 +286,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     margin: 0,
   },
+  cardPricing: {
+    fontSize: 11,
+    lineHeight: 1.4,
+    color: 'var(--text-dim)',
+    margin: '6px 0 0',
+    fontStyle: 'italic',
+  },
   keySection: {
     width: '100%',
     marginTop: 20,
@@ -280,8 +305,47 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 600,
     color: 'var(--text-secondary)',
-    display: 'block',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 8,
+  },
+  tooltipAnchor: {
+    position: 'relative' as const,
+    display: 'inline-flex',
+  },
+  tooltipIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    border: '1px solid var(--text-dim)',
+    fontSize: 10,
+    fontWeight: 700,
+    color: 'var(--text-dim)',
+    cursor: 'help',
+    lineHeight: 1,
+  },
+  tooltipPopup: {
+    position: 'absolute' as const,
+    bottom: 'calc(100% + 8px)',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 240,
+    padding: '8px 12px',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+    fontSize: 12,
+    fontWeight: 400,
+    lineHeight: 1.5,
+    color: 'var(--text-secondary)',
+    zIndex: 10,
+    pointerEvents: 'none' as const,
+    whiteSpace: 'normal' as const,
   },
   keyRow: {
     display: 'flex',

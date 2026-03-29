@@ -43,6 +43,29 @@ const PERSONAS = [
       </svg>
     ),
   },
+  {
+    id: 'creator',
+    title: 'Creator',
+    description: 'Build games, art, music, videos with AI tools and creative workflows.',
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <path d="M12 4L14 10L20 12L14 14L12 20L10 14L4 12L10 10L12 4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M22 16L23.5 20L27.5 21.5L23.5 23L22 27L20.5 23L16.5 21.5L20.5 20L22 16Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    id: 'researcher',
+    title: 'AI Research',
+    description: 'Multi-agent debate, model comparison, papers, and experimentation.',
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="14" cy="13" r="7" stroke="currentColor" strokeWidth="2" />
+        <line x1="19" y1="18" x2="26" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="14" cy="13" r="3" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" />
+      </svg>
+    ),
+  },
 ]
 
 export function Step1Welcome({ selected, onSelect, onQuickSetup }: Props) {
@@ -115,7 +138,7 @@ export function Step1Welcome({ selected, onSelect, onQuickSetup }: Props) {
             <strong>Start with Developer Brain</strong> -- it gives you the full experience with terminals, AI pair programming, and project management. You can always switch later.
           </p>
           <p style={styles.helpTextDim}>
-            Personal Assistant and Work Hub tailor the interface for non-coding workflows, but all features remain accessible regardless of your choice.
+            Other personas tailor the interface for non-coding workflows, but all features remain accessible regardless of your choice.
           </p>
           <button
             onClick={() => { onSelect('developer'); setShowHelp(false) }}
@@ -174,8 +197,9 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    justifyContent: 'center',
     gap: 16,
     width: '100%',
   },
@@ -191,6 +215,9 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.2s ease',
     textAlign: 'center' as const,
     outline: 'none',
+    width: 'calc((100% - 32px) / 3)',
+    minWidth: 160,
+    boxSizing: 'border-box' as const,
   },
   cardSelected: {
     borderColor: 'var(--primary)',

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 interface Props {
   selected: string[]
   onSelectionChange: (paths: string[]) => void
+  persona?: string | null
 }
 
 interface ScannedProject {
@@ -12,12 +13,16 @@ interface ScannedProject {
   hasClaude: boolean
 }
 
-export function Step4Projects({ selected, onSelectionChange }: Props) {
+const NON_CODER_PERSONAS = ['assistant', 'creator']
+
+export function Step4Projects({ selected, onSelectionChange, persona }: Props) {
   const [scanning, setScanning] = useState(false)
   const [projects, setProjects] = useState<ScannedProject[]>([])
   const [scanned, setScanned] = useState(false)
   const [addingManual, setAddingManual] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+
+  const isNonCoder = NON_CODER_PERSONAS.includes(persona ?? '')
 
   // Auto-scan on mount
   useEffect(() => {
@@ -83,91 +88,149 @@ export function Step4Projects({ selected, onSelectionChange }: Props) {
 
   return (
     <div style={styles.wrapper}>
-      <h2 style={styles.heading}>Import Projects</h2>
+      <h2 style={styles.heading}>
+        {isNonCoder ? 'Set up your workspace' : 'Import Projects'}
+      </h2>
       <p style={styles.subheading}>
-        We scanned common locations for existing projects.
+        {isNonCoder
+          ? 'How do you want to get started?'
+          : 'We scanned common locations for existing projects.'}
       </p>
-      <p style={styles.changeLater}>You can add or remove projects at any time from the main hub.</p>
+      <p style={styles.changeLater}>
+        {isNonCoder
+          ? 'You can change your workspace anytime from the main hub.'
+          : 'You can add or remove projects at any time from the main hub.'}
+      </p>
 
-      {scanning && (
-        <div style={styles.scanningRow}>
-          <div style={styles.spinner} />
-          <span>Scanning for projects...</span>
-        </div>
-      )}
-
-      {scanned && projects.length === 0 && !scanning && (
-        <div style={styles.emptyState}>
-          <p style={styles.emptyText}>No projects found in common locations.</p>
-          <p style={styles.emptyHint}>
-            You can add folders manually, or use demo projects to explore HAL-O.
-          </p>
-        </div>
-      )}
-
-      {projects.length > 0 && (
-        <>
-          <div style={styles.actionBar}>
-            <span style={styles.countLabel}>
-              {selected.length} of {projects.length} selected
+      {/* Non-coder quick options */}
+      {isNonCoder && (
+        <div style={styles.nonCoderOptions}>
+          <button
+            onClick={handleAddFolder}
+            disabled={addingManual}
+            style={styles.nonCoderCard}
+          >
+            <span style={styles.nonCoderIcon}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M3 7V17C3 18.1 3.9 19 5 19H19C20.1 19 21 18.1 21 17V9C21 7.9 20.1 7 19 7H11L9 5H5C3.9 5 3 5.9 3 7Z" stroke="currentColor" strokeWidth="2" />
+              </svg>
             </span>
-            <button onClick={selectAll} style={styles.linkBtn}>Select All</button>
-            <button onClick={selectNone} style={styles.linkBtn}>Select None</button>
-          </div>
+            <span style={styles.nonCoderLabel}>Import notes & files</span>
+            <span style={styles.nonCoderDesc}>Add an existing folder from your computer</span>
+          </button>
+          <button
+            onClick={() => { onSelectionChange([]); }}
+            style={styles.nonCoderCard}
+          >
+            <span style={styles.nonCoderIcon}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                <path d="M12 8V16M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            <span style={styles.nonCoderLabel}>Start fresh</span>
+            <span style={styles.nonCoderDesc}>Begin with an empty workspace</span>
+          </button>
+          <button
+            onClick={() => { onSelectionChange([]); }}
+            style={styles.nonCoderCard}
+          >
+            <span style={styles.nonCoderIcon}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+                <path d="M8 12L11 15L16 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span style={styles.nonCoderLabel}>Try demo</span>
+            <span style={styles.nonCoderDesc}>Explore HAL-O with sample content</span>
+          </button>
+        </div>
+      )}
 
-          <div style={styles.list}>
-            {projects.map((p) => {
-              const isSelected = selected.includes(p.path)
-              return (
-                <button
-                  key={p.path}
-                  onClick={() => toggleProject(p.path)}
-                  style={{
-                    ...styles.projectRow,
-                    ...(isSelected ? styles.projectRowSelected : {}),
-                  }}
-                >
-                  <div style={{
-                    ...styles.checkbox,
-                    ...(isSelected ? styles.checkboxChecked : {}),
-                  }}>
-                    {isSelected && (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </div>
-                  <div style={styles.projectInfo}>
-                    <span style={styles.projectName}>{p.name}</span>
-                    <span style={styles.projectPath}>{p.path}</span>
-                  </div>
-                  <span style={styles.projectStack}>{p.stack}</span>
-                  {p.hasClaude && (
-                    <span style={styles.claudeBadge}>Claude</span>
-                  )}
-                </button>
-              )
-            })}
+      {/* Standard developer flow */}
+      {!isNonCoder && (
+        <>
+          {scanning && (
+            <div style={styles.scanningRow}>
+              <div style={styles.spinner} />
+              <span>Scanning for projects...</span>
+            </div>
+          )}
+
+          {scanned && projects.length === 0 && !scanning && (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>No projects found in common locations.</p>
+              <p style={styles.emptyHint}>
+                You can add folders manually, or use demo projects to explore HAL-O.
+              </p>
+            </div>
+          )}
+
+          {projects.length > 0 && (
+            <>
+              <div style={styles.actionBar}>
+                <span style={styles.countLabel}>
+                  {selected.length} of {projects.length} selected
+                </span>
+                <button onClick={selectAll} style={styles.linkBtn}>Select All</button>
+                <button onClick={selectNone} style={styles.linkBtn}>Select None</button>
+              </div>
+
+              <div style={styles.list}>
+                {projects.map((p) => {
+                  const isSelected = selected.includes(p.path)
+                  return (
+                    <button
+                      key={p.path}
+                      onClick={() => toggleProject(p.path)}
+                      style={{
+                        ...styles.projectRow,
+                        ...(isSelected ? styles.projectRowSelected : {}),
+                      }}
+                    >
+                      <div style={{
+                        ...styles.checkbox,
+                        ...(isSelected ? styles.checkboxChecked : {}),
+                      }}>
+                        {isSelected && (
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <div style={styles.projectInfo}>
+                        <span style={styles.projectName}>{p.name}</span>
+                        <span style={styles.projectPath}>{p.path}</span>
+                      </div>
+                      <span style={styles.projectStack}>{p.stack}</span>
+                      {p.hasClaude && (
+                        <span style={styles.claudeBadge}>Claude</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          <div style={styles.bottomActions}>
+            <button
+              onClick={handleAddFolder}
+              disabled={addingManual}
+              style={styles.addBtn}
+            >
+              + Add Folder
+            </button>
+            <button
+              onClick={handleScan}
+              disabled={scanning}
+              style={styles.rescanBtn}
+            >
+              Rescan
+            </button>
           </div>
         </>
       )}
-
-      <div style={styles.bottomActions}>
-        <button
-          onClick={handleAddFolder}
-          disabled={addingManual}
-          style={styles.addBtn}
-        >
-          + Add Folder
-        </button>
-        <button
-          onClick={handleScan}
-          disabled={scanning}
-          style={styles.rescanBtn}
-        >
-          Rescan
-        </button>
-      </div>
 
       {/* Help me decide */}
       <button
@@ -180,13 +243,13 @@ export function Step4Projects({ selected, onSelectionChange }: Props) {
       {showHelp && (
         <div style={styles.helpBox}>
           <p style={styles.helpText}>
-            Skip this -- you can import projects anytime from the main hub. Just click "+ Add Project" once you're inside.
+            Skip this -- you can {isNonCoder ? 'set up your workspace' : 'import projects'} anytime from the main hub.
           </p>
           <button
             onClick={() => { onSelectionChange([]); setShowHelp(false) }}
             style={styles.helpSkipBtn}
           >
-            Skip, I'll add projects later
+            Skip, I'll add {isNonCoder ? 'files' : 'projects'} later
           </button>
         </div>
       )}
@@ -355,6 +418,41 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'uppercase' as const,
     letterSpacing: '0.04em',
     flexShrink: 0,
+  },
+  nonCoderOptions: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 12,
+    width: '100%',
+    marginBottom: 8,
+  },
+  nonCoderCard: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    padding: '24px 16px 20px',
+    borderRadius: 'var(--radius)',
+    border: '2px solid var(--border)',
+    background: 'var(--bg-surface)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    textAlign: 'center' as const,
+    outline: 'none',
+    gap: 8,
+  },
+  nonCoderIcon: {
+    color: 'var(--primary)',
+    marginBottom: 4,
+  },
+  nonCoderLabel: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: 'var(--text)',
+  },
+  nonCoderDesc: {
+    fontSize: 12,
+    lineHeight: 1.4,
+    color: 'var(--text-dim)',
   },
   bottomActions: {
     display: 'flex',

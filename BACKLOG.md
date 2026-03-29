@@ -41,6 +41,14 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - NSIS installer for Windows (bundles Node.js + pre-built node-pty)
 - OAuth port conflict resolution (each MCP needs unique port)
 
+### UX Persona Fixes (from playtest — P0)
+- Add pricing/cost transparency to wizard Step 2 (Maya blocked)
+- Add voice profile audio samples to Step 3 (users pick blind)
+- i18n infrastructure + French wizard (Pierre blocked entirely)
+- Expand Step 1 to 5 personas: Developer Brain, Personal Assistant, Work Hub, Creator, AI Research
+- Add glossary/tooltip for jargon (API key, Ollama, Anthropic)
+- Step 4: non-coder path (skip projects, show assistant features instead)
+
 ### Systemic Reliability (Next)
 - Idle ticker daemon (Python, external, survives session switches)
 - Scheduled Anthropic watcher (daily, HTML diff report to TG)
