@@ -49,6 +49,30 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - Add glossary/tooltip for jargon (API key, Ollama, Anthropic)
 - Step 4: non-coder path (skip projects, show assistant features instead)
 
+### DevGate Process (Named!)
+- Development methodology formalized as "DevGate"
+- Challenge → Brainstorm → Brief → Test → Playtest → Meta-check
+- Applied to every feature, enforced via hooks + agent constitution
+
+### Adaptive Tips Engine
+- Progressive disclosure: track used-features in JSON
+- Only show tips for undiscovered features
+- Skip basics after 40h of use
+- Personality-matched delivery (matches butler/casual/formal)
+- "Don't show tips" toggle
+- Pre-cooked status messages on timer (no LLM cost)
+
+### Dockview Pane System (Design Ready)
+- Everything = a pane (3D scene, terminals, debate chat, stats, settings)
+- VS Code-style docking, drag, split
+- Design doc: _design/DOCKVIEW_PANE_SYSTEM.md (5 sprints, ~34h)
+
+### 3D Debate Visualization (Design Ready)
+- Glowing orbs inside ring platform, color-coded agents
+- Text-first speech bubbles, optional pipelined TTS audio
+- Sphere styles = user customization (debate presets → Settings)
+- Design doc: _design/DEBATE_3D_VISUALIZATION.md (~15h)
+
 ### Systemic Reliability (Next)
 - Idle ticker daemon (Python, external, survives session switches)
 - Scheduled Anthropic watcher (daily, HTML diff report to TG)
