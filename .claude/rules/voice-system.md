@@ -1,0 +1,11 @@
+---
+description: Voice system configuration and rules
+---
+- 2 voices: Hal (butler, male) + Hallie (soft, female)
+- Generate: python C:/Users/dindo/.claude/scripts/tts.py "<text>" <output.ogg> butler <lang>
+- Transcribe: python C:/Users/dindo/.claude/scripts/transcribe.py "<path>"
+- English: Chatterbox (GPU) → Edge TTS → ElevenLabs (last resort)
+- French: Edge TTS Vivienne (Chatterbox/Voicebox skip for French)
+- "Zog zog" → orc profile. French → pass fr as lang.
+- Personality sliders in ~/.claude/hal-o-personality.json
+- Easter egg: "Open the pod bay doors, HAL" → glados voice "I'm sorry Dave..."
