@@ -18,6 +18,7 @@ import { createDebate, createDebateFromPanel, getDebate, listDebates, deleteDeba
 import { listPresets, listPanelConfigs } from './debate-presets'
 import { getProviderStatus } from './provider-clients'
 import { getAllFlags, setFlag } from './feature-flags'
+import { loadKBIndex, loadProviderKB, getRecommendedProviders } from './knowledge-base'
 import { getSessionStatus, sendToExternalSession, detectExternalSession } from './halochat-external'
 
 // WebSocket — Electron bundles ws
@@ -1207,6 +1208,39 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       } catch (err) {
         return json(res, 500, { error: String(err) })
       }
+    }
+
+    // ── GET /kb/providers — list all providers with enabled status ──
+    if (url === '/kb/providers' && method === 'GET') {
+      const index = loadKBIndex()
+      if (!index) return json(res, 200, { providers: {} })
+      return json(res, 200, { providers: index.providers })
+    }
+
+    // ── GET /kb/providers/:id — get a specific provider's knowledge card ──
+    if (url?.startsWith('/kb/providers/') && method === 'GET') {
+      const providerId = url.split('/')[3]
+      if (!providerId) return json(res, 400, { error: 'Provider ID required' })
+      const content = loadProviderKB(providerId)
+      if (!content) return json(res, 404, { error: `Provider not found: ${providerId}` })
+      const index = loadKBIndex()
+      const meta = index?.providers[providerId] ?? null
+      return json(res, 200, { id: providerId, meta, content })
+    }
+
+    // ── GET /kb/tasks — list task routing (which task → which providers) ──
+    if (url === '/kb/tasks' && method === 'GET') {
+      const index = loadKBIndex()
+      if (!index) return json(res, 200, { taskRouting: {} })
+      return json(res, 200, { taskRouting: index.taskRouting })
+    }
+
+    // ── GET /kb/recommend/:task — get recommended providers for a task ──
+    if (url?.startsWith('/kb/recommend/') && method === 'GET') {
+      const task = url.split('/')[3]
+      if (!task) return json(res, 400, { error: 'Task name required' })
+      const providers = getRecommendedProviders(task)
+      return json(res, 200, { task, providers })
     }
 
     // ── GET /health ──
