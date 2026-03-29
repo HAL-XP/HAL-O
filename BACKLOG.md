@@ -73,6 +73,17 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - Sphere styles = user customization (debate presets → Settings)
 - Design doc: _design/DEBATE_3D_VISUALIZATION.md (~15h)
 
+### Anthropic Gap Tracker
+- Document our workarounds as feature requests (session persistence, token isolation, voice enforcement, process safety)
+- Watcher checks every 6h: did Anthropic ship something that makes our hack unnecessary?
+- When they don't address a gap → write proposal with real use case
+- Track patents/white papers for competitive intelligence
+
+### Per-Project Config
+- project.config.json next to CLAUDE.md: mood, model preference, DevGate rules, context
+- Wizard sets initial config on project create/import
+- Chief of Staff reads config before task selection
+
 ### Systemic Reliability (Next)
 - Idle ticker daemon (Python, external, survives session switches)
 - Scheduled Anthropic watcher (daily, HTML diff report to TG)
