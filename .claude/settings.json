@@ -79,6 +79,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__plugin_telegram_telegram__reply",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'VMODE=$(cat /tmp/claude_voice_mode.txt 2>/dev/null || echo text); if [ \"$VMODE\" = \"voice\" ]; then INPUT=$(cat); if ! echo \"$INPUT\" | grep -q \"files\"; then echo \"{\\\"hookSpecificOutput\\\":{\\\"additionalContext\\\":\\\"VOICE MODE ACTIVE but you just sent a text-only TG reply WITHOUT audio. You MUST follow up with a voice message using tts-stream-tg.sh. The user is AFK and cannot read.\\\"}}\"; fi; fi'",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup",
