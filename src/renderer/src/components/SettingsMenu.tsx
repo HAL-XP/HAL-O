@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { connectAudioElement } from '../utils/audioAnalyser'
 import { VOICE_PROFILES, DOCK_POSITIONS, PARTICLE_DENSITY_LABELS, PERSONALITY_PRESETS, IDE_OPTIONS, SPHERE_STYLES, TERMINAL_MODEL_OPTIONS, TOKEN_BUDGET_OPTIONS, type VoiceProfileId, type DockPosition, type CameraSettings, type PersonalitySettings, type IdeOptionId, type SphereStyleId, type TerminalModelId, type TokenBudgetId, type SettingsState } from '../hooks/useSettings'
@@ -69,6 +69,19 @@ type PresetValues = { [K in PresetKey]: number | string }
 interface SavedPresets { [name: string]: PresetValues }
 function loadPresets(): SavedPresets { try { return JSON.parse(localStorage.getItem('hal-o-presets') || '{}') } catch { return {} } }
 function savePresetsStorage(p: SavedPresets) { localStorage.setItem('hal-o-presets', JSON.stringify(p)) }
+
+// ── Personality preview text (mirrors wizard's getPreviewText) ──
+
+function getPersonalityPreviewText(p: PersonalitySettings): string {
+  if (p.formality >= 70 && p.humor <= 30) return '"Good day. How may I assist you with your current task?"'
+  if (p.formality <= 30 && p.humor >= 70) return '"Yo! What are we hacking on today? Let\'s break some stuff!"'
+  if (p.dramatic >= 70) return '"The code awaits... destiny calls. Let us forge something magnificent."'
+  if (p.verbosity >= 70 && p.formality >= 50) return '"I\'d be happy to provide a thorough analysis of your project\'s architecture and suggest improvements."'
+  if (p.verbosity <= 30) return '"Ready. What\'s next?"'
+  if (p.humor >= 60) return '"Hey boss, what\'s cooking? I\'ve got some ideas that might surprise you."'
+  if (p.formality >= 60) return '"Good morning. I\'m ready to assist with your development tasks."'
+  return '"Hey, ready when you are. What should we work on?"'
+}
 
 // ── Tab definitions ──
 
@@ -250,6 +263,8 @@ export const SettingsMenu = React.memo(function SettingsMenu({
   const [cameraSaved, setCameraSaved] = useState(false)
   const btnRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  const personalityPreview = useMemo(() => getPersonalityPreviewText(personality), [personality])
 
   // ── Open/close listeners ──
   useEffect(() => {
@@ -538,6 +553,11 @@ export const SettingsMenu = React.memo(function SettingsMenu({
 
           <Divider />
           <div className="hal-so-subsection-label">PERSONALITY</div>
+
+          <div className="hal-so-personality-preview">
+            <span className="hal-so-personality-preview-tag">PREVIEW</span>
+            <p className="hal-so-personality-preview-text">{personalityPreview}</p>
+          </div>
 
           {m('HUMOR') && <Slider label="HUMOR" min={0} max={100} step={1} value={personality.humor} onChange={(v) => updatePersonality('humor', Math.round(v))} fmt={(v) => Math.round(v) + '%'} w={36} />}
           {m('FORMALITY') && <Slider label="FORMALITY" min={0} max={100} step={1} value={personality.formality} onChange={(v) => updatePersonality('formality', Math.round(v))} fmt={(v) => Math.round(v) + '%'} w={36} />}

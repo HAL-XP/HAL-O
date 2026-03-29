@@ -2791,6 +2791,36 @@ textarea.text-input {
   color: #f59e0b;
 }
 
+/* ── Personality preview bubble ── */
+.hal-so-personality-preview {
+  position: relative;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary, #84cc16) 6%, var(--bg-base, #0a0a0f));
+  border: 1px solid color-mix(in srgb, var(--primary, #84cc16) 14%, var(--border, #2a2a3a));
+}
+.hal-so-personality-preview-tag {
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--primary, #84cc16);
+  background: var(--bg-surface, #161620);
+  padding: 0 5px;
+  text-transform: uppercase;
+}
+.hal-so-personality-preview-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--text, #e4e4ef);
+  opacity: 0.85;
+}
+
 /* ── Range slider styling ── */
 .hal-so-panel input[type="range"] {
   -webkit-appearance: none;
