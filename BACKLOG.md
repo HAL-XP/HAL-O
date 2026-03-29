@@ -79,6 +79,14 @@ Layouts use pagination (cardsPerSector setting) — rings/layouts have max N car
 - When they don't address a gap → write proposal with real use case
 - Track patents/white papers for competitive intelligence
 
+### Project Mood Graph + Cross-Instance Intelligence
+- Calculate mood score from git history (feat/fix/chore ratio per day)
+- Plot curve over weeks (Chart.js in HTML report)
+- Meta-agent compares to known patterns (Gartner hype cycle, game dev timelines)
+- Cross-instance comms: ~/.hal-o/cross-instance/mood-data.json
+- Claudette reads metrics + overlays user's personal rhythm (ADHD, energy)
+- Suggests: creative break vs push vs celebrate
+
 ### Per-Project Config
 - project.config.json next to CLAUDE.md: mood, model preference, DevGate rules, context
 - Wizard sets initial config on project create/import
