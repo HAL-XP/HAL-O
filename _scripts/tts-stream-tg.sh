@@ -43,7 +43,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 BOT_TOKEN=""
 if [[ -f "$REPO_ROOT/instance.json" ]]; then
   # Clone instance — use main bot token (or instance-specific if defined)
-  INSTANCE_ID=$(python3 -c "import json; print(json.load(open('$REPO_ROOT/instance.json'))['id'])" 2>/dev/null || echo "")
+  INSTANCE_ID=$(python -c "import json; print(json.load(open('$REPO_ROOT/instance.json'))['id'])" 2>/dev/null || echo "")
   # Check for instance-specific token first (e.g. TELEGRAM_CLAUDETTE_BOT_TOKEN)
   INSTANCE_VAR="TELEGRAM_${INSTANCE_ID^^}_BOT_TOKEN"
   INSTANCE_VAR="${INSTANCE_VAR//-/_}"  # Replace hyphens with underscores
@@ -84,6 +84,8 @@ fi
 # Run tts.py: chunk paths appear on stdout, diagnostics on stderr
 # We read stdout line by line and send each chunk immediately
 while IFS= read -r line; do
+  # Strip Windows carriage return (\r) — Python on Windows outputs \r\n
+  line="${line%$'\r'}"
   # tts.py prints only file paths to stdout (all other output goes to stderr)
   # Validate it looks like a file path ending in .ogg
   if [[ "$line" == *.ogg ]]; then
@@ -106,7 +108,7 @@ while IFS= read -r line; do
         -F "voice=@${line}" \
         2>&1)
 
-      if echo "$RESPONSE" | python3 -c "import sys,json; r=json.load(sys.stdin); sys.exit(0 if r.get('ok') else 1)" 2>/dev/null; then
+      if echo "$RESPONSE" | python -c "import sys,json; r=json.load(sys.stdin); sys.exit(0 if r.get('ok') else 1)" 2>/dev/null; then
         SENT=$((SENT + 1))
         echo "[tts-stream-tg] Chunk $TOTAL sent OK" >&2
       else
@@ -115,7 +117,7 @@ while IFS= read -r line; do
       fi
     fi
   fi
-done < <(python3 "$TTS_SCRIPT" "$TEXT" "$OUTPUT" "$PROFILE" "$LANG")
+done < <(python "$TTS_SCRIPT" "$TEXT" "$OUTPUT" "$PROFILE" "$LANG")
 # tts.py stderr passes through to our stderr naturally
 
 # --- Summary ---
